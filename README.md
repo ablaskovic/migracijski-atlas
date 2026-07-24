@@ -2,9 +2,18 @@
 
 Interactive atlas of Croatian county migration 1998–2025. React + Vite port of the
 verified single-file D3 atlas (kept in `reference/`, together with the full project
-handoff). Data: DZS series 7.4.1–7.4.3, DZS STAN-2026-2-1 (citizenship), measured
-2018 OD matrix and JLS corridors (Pitoski et al. 2021, CC BY), IPF estimates for
-other years — all honesty-labeled in the UI.
+handoff). Data: DZS series 7.4.1–7.4.3, DZS STAN-2026-2-1 (citizenship + dob/spol +
+zemlje), measured 2018 OD matrix, JLS corridors and a 556-municipality 2018 map
+(Pitoski et al. 2021, CC BY; boundaries OSM/ODbL), IPF estimates for other years —
+all honesty-labeled in the UI.
+
+## Views & features
+
+Six views — **Saldo**, **Klasifikacija** (absolute or % threshold), **Regije**,
+**Tokovi** (arcs + corridor pair card), **Matrica** (21×21 OD heatmap), **JLS 2018.**
+(measured municipal map) — plus a **Nalazi** guided-findings menu, dob/spol and
+citizenship/zemlje panels, county labels, shareable permalinks (`location.hash`),
+and PNG **and** SVG export.
 
 ## Quickstart
 
@@ -13,7 +22,7 @@ npm install
 npm run dev          # develop
 npm run build        # production build -> dist/
 npm i -D puppeteer   # once, for verification
-npm run verify       # build + 32-check suite (must pass)
+npm run verify       # build + 67-check suite (must pass)
 ```
 
 Before touching code, read `CLAUDE.md` — it carries the project's hard rules

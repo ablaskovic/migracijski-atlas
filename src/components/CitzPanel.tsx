@@ -1,11 +1,14 @@
 import { scaleBand, scaleLinear } from 'd3-scale';
 import { max } from 'd3-array';
-import { CIT, CGROUPS, YEARS, fmtI, sgn } from '../lib/metrics.ts';
+import { CIT, CGROUPS, DEMO, YEARS, fmtI, sgn } from '../lib/metrics.ts';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react';
-import type { State } from '../lib/types.ts';
+import type { Patch, State } from '../lib/types.ts';
 
-export default function CitzPanel({ S, toggleCitz }: { S: State; toggleCitz: () => void }) {
+export default function CitzPanel({ S, setS, toggleCitz }: {
+  S: State; setS: (p: Patch) => void; toggleCitz: () => void;
+}) {
   const open = S.citz;
+  const zem = S.citzTab === 'zem';
   const yy = CIT.years;
   const y = yy.includes(YEARS[S.yi]) ? YEARS[S.yi] : yy[yy.length - 1];
   const ci = yy.indexOf(y);
@@ -43,26 +46,57 @@ export default function CitzPanel({ S, toggleCitz }: { S: State; toggleCitz: () 
       </div>
       {open && (
         <div className="chip-body">
-          <div className="jcard-cap">vanjska migracija prema zemlji državljanstva · doseljeni (gore) / odseljeni (dolje)</div>
-          <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Doseljeni i odseljeni prema državljanstvu">
-            {bars}
-            {yy.map(yr => (
-              <text key={yr} x={x(yr)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize={9}
-                fontFamily="var(--mono)" fontWeight={yr === y ? 600 : 400}
-                fill={yr === y ? 'var(--acc)' : 'var(--mut)'}>{yr}.</text>
-            ))}
-            <line x1={mL} x2={w - mR} y1={y0} y2={y0} stroke="var(--ink)" strokeWidth={0.8} />
-          </svg>
-          <div className="citz-rows" id="citzRows">
-            {CGROUPS.map(([k, lab, col]) => (
-              <FragmentRow key={k} col={col} lab={lab} d={CIT.g[k].d[ci]} o={CIT.g[k].o[ci]} />
-            ))}
-            <span />
-            <span className="ct">Ukupno {y}. · saldo {sgn(ts, fmtI)}</span>
-            <span className="cv ct">{'+' + fmtI.format(td)}</span>
-            <span className="cv ct">{'−' + fmtI.format(to)}</span>
+          <div className="jcard-cap">
+            {zem ? `zemlja podrijetla/odredišta · samo ${DEMO.year}. · najvećih 12 po doseljenima`
+              : 'vanjska migracija prema zemlji državljanstva · doseljeni (gore) / odseljeni (dolje)'}
           </div>
-          <div className="citz-note" id="citzNote">{`Prema zemlji državljanstva · DZS STAN-2026-2-1 (t. 2) · odabir godine prati vremensku vrpcu unutar ${yy[0]}.–${yy[yy.length - 1]}.`}</div>
+          <div className="jtabs" id="citzTabs">
+            <button data-v="grp" aria-pressed={!zem} onClick={() => setS({ citzTab: 'grp' })}>Skupine</button>
+            <button data-v="zem" aria-pressed={zem} onClick={() => setS({ citzTab: 'zem' })}>{`Zemlje ${DEMO.year}.`}</button>
+          </div>
+          {zem ? (
+            <>
+              <div id="zemList">
+                {DEMO.countries.map(([nm, d, o]) => (
+                  <div className="jrow" key={nm}>
+                    <span className="jn">{nm}</span>
+                    <span className="zbar"><span style={{ width: Math.max(1, d / DEMO.countries[0][1] * 100) + '%' }} /></span>
+                    <span className="jv">{'+' + fmtI.format(d)}</span>
+                    <span className="jv">{'−' + fmtI.format(o)}</span>
+                  </div>
+                ))}
+                <div className="jrow zt">
+                  <span className="jn">Ukupno {DEMO.year}.</span>
+                  <span className="zbar" />
+                  <span className="jv">{'+' + fmtI.format(DEMO.cTot[0])}</span>
+                  <span className="jv">{'−' + fmtI.format(DEMO.cTot[1])}</span>
+                </div>
+              </div>
+              <div className="citz-note">{`Prema zemlji podrijetla/odredišta (ne državljanstvu) · DZS STAN-2026-2-1 (t. I 4) · objavljeno samo za ${DEMO.year}.`}</div>
+            </>
+          ) : (
+            <>
+              <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Doseljeni i odseljeni prema državljanstvu">
+                {bars}
+                {yy.map(yr => (
+                  <text key={yr} x={x(yr)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize={9}
+                    fontFamily="var(--mono)" fontWeight={yr === y ? 600 : 400}
+                    fill={yr === y ? 'var(--acc)' : 'var(--mut)'}>{yr}.</text>
+                ))}
+                <line x1={mL} x2={w - mR} y1={y0} y2={y0} stroke="var(--ink)" strokeWidth={0.8} />
+              </svg>
+              <div className="citz-rows" id="citzRows">
+                {CGROUPS.map(([k, lab, col]) => (
+                  <FragmentRow key={k} col={col} lab={lab} d={CIT.g[k].d[ci]} o={CIT.g[k].o[ci]} />
+                ))}
+                <span />
+                <span className="ct">Ukupno {y}. · saldo {sgn(ts, fmtI)}</span>
+                <span className="cv ct">{'+' + fmtI.format(td)}</span>
+                <span className="cv ct">{'−' + fmtI.format(to)}</span>
+              </div>
+              <div className="citz-note" id="citzNote">{`Prema zemlji državljanstva · DZS STAN-2026-2-1 (t. 2) · odabir godine prati vremensku vrpcu unutar ${yy[0]}.–${yy[yy.length - 1]}.`}</div>
+            </>
+          )}
         </div>
       )}
     </div>

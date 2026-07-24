@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import {
-  D, YEARS, IX2011, REG, REGOF,
+  D, ISOS, JGEO, SHORTN, YEARS, IX2011, REG, REGOF,
   natAt, fsum, klasOf, KCOL, KLAB, flowBadge, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 
@@ -8,6 +8,28 @@ import { setTipNode } from '../lib/tip.ts';
 import type { State } from '../lib/types.ts';
 
 function tipHTML(S: State): string {
+  if (S.view === 'jmap' && S.jlsHl != null) {
+    const f = JGEO.features.find(f => f.properties.j === S.jlsHl);
+    if (!f) return '';
+    const p = f.properties;
+    const net = p.i - p.o;
+    return '<div class="tip-name">' + p.n + ' · ' + SHORTN[ISOS[p.c]] + '</div><table>' +
+      '<tr><td>doselilo iz drugih JLS</td><td>+' + fmtI.format(p.i) + '</td></tr>' +
+      '<tr><td>odselilo u druge JLS</td><td>−' + fmtI.format(p.o) + '</td></tr>' +
+      '<tr class="tip-net"><td>neto · 2018.</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
+      '<span class="cls-tag" style="color:#20262B;background:#E4E7E0">izmjereno</span>';
+  }
+  if (S.view === 'mx' && S.pairHl) {
+    const [a, b] = S.pairHl, y = YEARS[S.yi];
+    const ab = fsum(a, b, S.yi, S.cum), ba = fsum(b, a, S.yi, S.cum);
+    const net = ba - ab;
+    const per = S.cum ? '2011.–' + y + '.' : y + '.';
+    return '<div class="tip-name">' + D[a].n + ' ↔ ' + D[b].n + '</div><table>' +
+      '<tr><td>' + D[a].n + ' → ' + D[b].n + '</td><td>' + fmtI.format(ab) + '</td></tr>' +
+      '<tr><td>' + D[b].n + ' → ' + D[a].n + '</td><td>' + fmtI.format(ba) + '</td></tr>' +
+      '<tr class="tip-net"><td>neto (' + D[a].n + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
+      '<span class="cls-tag" style="color:#20262B;background:#E4E7E0">' + flowBadge(S.yi, S.cum) + '</span>';
+  }
   const iso = S.hl!, c = D[iso], y = YEARS[S.yi];
   if (S.view === 'flow') {
     if (iso === S.sel) return '<div class="tip-name">' + c.n + '</div>odabrana županija — klik na drugu za promjenu';
@@ -37,7 +59,7 @@ function tipHTML(S: State): string {
     '<tr class="tip-net" style="font-weight:400"><td>prirodni prirast</td><td class="' + (nt < 0 ? 'neg' : 'pos') + '">' + sgn(nt, fmtI) + '</td></tr>' +
     '<tr class="tip-net"><td>ukupna promjena</td><td class="' + ((vt + nt) < 0 ? 'neg' : 'pos') + '">' + sgn(vt + nt, fmtI) + '</td></tr></table>';
   if (S.view === 'klas') {
-    const k = klasOf(iso, S.yi, S.thr);
+    const k = klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct);
     h += '<span class="cls-tag" style="color:' + (k === 'neu' ? '#20262B' : '#fff') + ';background:' + KCOL[k] + '">' + KLAB[k] + '</span>';
   }
   return h;
@@ -46,7 +68,7 @@ function tipHTML(S: State): string {
 export default function Tooltip({ S }: { S: State }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { setTipNode(ref.current); return () => setTipNode(null); }, []);
-  const show = !!S.hl;
+  const show = !!S.hl || (S.view === 'mx' && !!S.pairHl) || (S.view === 'jmap' && S.jlsHl != null);
   return (
     <div className={'tip' + (show ? ' show' : '')} id="tip" ref={ref}
       dangerouslySetInnerHTML={show ? { __html: tipHTML(S) } : undefined} />

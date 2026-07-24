@@ -1,0 +1,59 @@
+import { useId } from 'react';
+import { scaleLinear } from 'd3-scale';
+import { area, line, curveMonotoneX } from 'd3-shape';
+import { YEARS, Y0, YEND, IX2018, SHORTN, getOD, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
+import type { Patch, State } from '../lib/types.ts';
+
+/* Corridor card: the annual series of one directed pair (sel ⇄ pair) from ODM.
+   Opened by clicking a partner row in the rail (map click keeps re-hubbing).
+   2018 is the only measured point — ringed like the scrubber's realMark. */
+export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => void }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const sel = S.sel, pair = S.pair;
+  if (S.view !== 'flow' || !sel || !pair || pair === sel) return null;
+
+  const outs = YEARS.map((_, i) => getOD(sel, pair, i));
+  const ins = YEARS.map((_, i) => getOD(pair, sel, i));
+  const nets = YEARS.map((_, i) => ins[i] - outs[i]);
+  const w = 284, h = 110, mL = 4, mR = 4, mT = 8, mB = 14;
+  const m = Math.max(...outs, ...ins, ...nets.map(Math.abs)) || 1;
+  const x = scaleLinear().domain([Y0, YEND]).range([mL, w - mR]);
+  const y = scaleLinear().domain([-m, m]).range([h - mB, mT]);
+  const areaG = area<number>().x((_, i) => x(YEARS[i])).y0(y(0)).y1(v => y(v)).curve(curveMonotoneX);
+  const lineG = line<number>().x((_, i) => x(YEARS[i])).y(v => y(v)).curve(curveMonotoneX);
+  const cx = x(YEARS[S.yi]);
+
+  return (
+    <div className="paircard" id="pair">
+      <div className="card-hd">
+        <span className="card-name" id="pairName">{SHORTN[sel]} ⇄ {SHORTN[pair]}</span>
+        <button className="card-x" id="pairX" aria-label="Zatvori" onClick={() => setS({ pair: null })}>×</button>
+      </div>
+      <div className="card-sub">{`godišnji tok ${Y0}.–${YEND}. · neto za ${SHORTN[sel]} (površina) · odlasci (crvena) · dolasci (plava)`}</div>
+      <svg id="pairSvg" viewBox={`0 0 ${w} ${h}`}>
+        <defs>
+          <clipPath id={uid + 'p'}><rect width={w} height={y(0)} /></clipPath>
+          <clipPath id={uid + 'n'}><rect y={y(0)} width={w} height={h - y(0)} /></clipPath>
+        </defs>
+        <path d={areaG(nets)!} fill="#1D4E89" opacity={0.28} clipPath={`url(#${uid}p)`} />
+        <path d={areaG(nets)!} fill="#B5341F" opacity={0.28} clipPath={`url(#${uid}n)`} />
+        <line x1={mL} x2={w - mR} y1={y(0)} y2={y(0)} stroke="var(--line)" />
+        <path d={lineG(outs)!} fill="none" stroke="#B5341F" strokeWidth={1.3} />
+        <path d={lineG(ins)!} fill="none" stroke="#1D4E89" strokeWidth={1.3} />
+        <circle cx={x(2018)} cy={h - mB} r={3} fill="none" stroke="var(--acc)" strokeWidth={1.5} />
+        {[2000, 2010, 2020].map(t => (
+          <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize={8.5}
+            fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
+        ))}
+        <text x={w - mR} y={mT + 2} textAnchor="end" fontSize={8.5}
+          fontFamily="var(--mono)" fill="var(--mut)">{'±' + fmtI.format(m)}</text>
+        <line y1={mT} y2={h - mB} stroke="var(--acc)" strokeWidth={1.4} x1={cx} x2={cx} />
+      </svg>
+      <div className="pair-row" id="pairRow">
+        <span>{YEARS[S.yi]}. · → {fmtI.format(outs[S.yi])} · ← {fmtI.format(ins[S.yi])} · neto {sgn(nets[S.yi], fmtI)}</span>
+        <span className="cls-tag" style={{ color: '#20262B', background: '#E4E7E0' }}>{flowBadge(S.yi, false)}</span>
+      </div>
+      <div className="pair-note">{S.yi === IX2018 ? 'Jedina godina s izmjerenom matricom tokova.' : 'Točka 2018. je izmjerena; ostale su godine IPF procjena na DZS marginama.'}</div>
+    </div>
+  );
+}

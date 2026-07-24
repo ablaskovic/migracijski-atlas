@@ -45,12 +45,13 @@ export default function Scrubber({ S, setYi, togglePlay }: {
   const onUp = () => { drag.current = false; };
 
   const yr = YEARS[S.yi];
-  const sub = S.view === 'flow'
+  const sub = S.view === 'jmap' ? 'JLS · samo 2018. · izmjereno'
+    : S.view === 'flow' || S.view === 'mx'
     ? 'tokovi · ' + (S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum))
     : (S.view === 'klas' || S.cum ? '2011.–' + yr + '.' : 'godišnje');
 
   return (
-    <div className="scrub" id="scrubBox">
+    <div className={'scrub' + (S.view === 'jmap' ? ' inert' : '')} id="scrubBox">
       <button className="play" id="play" aria-label="Reprodukcija kroz godine" onClick={togglePlay}>
         <svg viewBox="0 0 24 24" id="playIco">
           <path d={S.playing ? 'M6 5h4v14H6zm8 0h4v14h-4z' : 'M8 5v14l11-7z'} />
@@ -77,7 +78,8 @@ export default function Scrubber({ S, setYi, togglePlay }: {
                 RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)
               </text>
               {[2000, 2005, 2010, 2013, 2015, 2020, YEND].map(t => (
-                <text key={t} x={x(t)} y={sh - 4} textAnchor="middle" fontSize={9} fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
+                <text key={t} x={x(t)} y={sh - 4} textAnchor={t === YEND ? 'end' : 'middle'}
+                  fontSize={9} fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
               ))}
               <line x1={x(2013)} x2={x(2013)} y1={mT} y2={sh - mB} stroke="#8d968f" strokeWidth={0.7} strokeDasharray="1 3" />
               <text x={x(2013) + 3} y={mT + 7} fontSize={8} fontFamily="var(--mono)" fill="var(--mut)">EU</text>

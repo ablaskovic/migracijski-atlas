@@ -1,12 +1,14 @@
 /* Shared types. The State literal unions mirror the v4 single-file control
    values; scripts/verify.cjs exercises the transitions over them. */
 
-export type View = 'saldo' | 'klas' | 'reg' | 'flow';
+export type View = 'saldo' | 'klas' | 'reg' | 'flow' | 'mx' | 'jmap';
 export type Flow = 'tot' | 'int' | 'ext' | 'nat' | 'all';
 export type Den = 'abs' | 'rel11' | 'relest';
 export type Dir = 'out' | 'in' | 'net';
 export type Klas = 'gain' | 'neu' | 'loss';
 export type JlsTab = 'inter' | 'loc';
+export type CitzTab = 'grp' | 'zem';
+export type AgeTab = 'ext' | 'int';
 
 export interface State {
   view: View;
@@ -15,14 +17,24 @@ export interface State {
   cum: boolean;
   yi: number;
   thr: number;
+  thrRel: boolean;      /* klas threshold as % popisa 2011 instead of persons */
+  thrPct: number;       /* relative threshold value, percent of 2011 census */
   playing: boolean;
   hl: string | null;
   sel: string | null;   /* non-null whenever view === 'flow' (autoselect invariant) */
+  pair: string | null;  /* corridor card partner in flow view */
+  pairHl: [string, string] | null;  /* hovered matrix cell (origin, destination) */
+  jlsHl: number | null; /* hovered JLS feature index (j) in jmap view */
   dir: Dir;
   flowSeen: boolean;
+  labels: boolean;      /* county name labels on the map */
   citz: boolean;
   jls: boolean;
+  age: boolean;         /* dob i spol chip panel */
   jlsTab: JlsTab;
+  citzTab: CitzTab;
+  ageTab: AgeTab;
+  story: number | null; /* active Nalazi preset (banner caption index) */
 }
 export type Patch = Partial<State>;
 
@@ -48,5 +60,20 @@ export interface JlsData {
 
 export type OdMatrix = Record<string, Record<string, number[]>>;
 
+/* demo.json — national age/sex + country-of-origin panel (DZS STAN I T3 / II T2 / I T4) */
+export interface DemoData {
+  year: number;
+  ages: string[];
+  ext: { d: number[]; o: number[] };   /* vanjska by age group */
+  extM: { d: number; o: number };      /* muškarci totals (vanjska) */
+  intm: number[];                      /* unutarnja preseljeni by age group */
+  intTot: number;                      /* unutarnja ukupno */
+  intM: number;                        /* unutarnja muškarci */
+  countries: [name: string, d: number, o: number][];
+  cTot: [d: number, o: number];        /* vanjska ukupno */
+}
+
 export interface CountyProps { shapeISO: string; shapeName: string }
 export interface RegionProps { reg: string }
+/* geo_jls.json — measured 2018 per-JLS internal-migration totals baked into geometry */
+export interface JlsProps { j: number; n: string; c: number; i: number; o: number }

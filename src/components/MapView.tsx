@@ -2,19 +2,24 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { scaleSqrt } from 'd3-scale';
 import {
-  GEO, REGGEO, ISOS, D, DOM, RDOM, REGOF,
-  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax,
+  GEO, REGGEO, JGEO, ISOS, D, DOM, RDOM, REGOF, SHORTN,
+  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowBadge, jlsVal, jmapScale,
 } from '../lib/metrics.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
+import PairCard from './PairCard.tsx';
 import JlsCard from './JlsCard.tsx';
 import CitzPanel from './CitzPanel.tsx';
+import AgePanel from './AgePanel.tsx';
+import MatrixView from './MatrixView.tsx';
+import StoryBar from './StoryBar.tsx';
 import { moveTip } from '../lib/tip.ts';
 import type { Patch, State } from '../lib/types.ts';
 
-export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, toggleJls }: {
+export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, toggleJls, toggleAge, applyStory }: {
   S: State; setS: (p: Patch) => void; selectCounty: (iso: string) => void;
   setHL: (iso: string | null) => void; toggleCitz: () => void; toggleJls: () => void;
+  toggleAge: () => void; applyStory: (i: number) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -27,22 +32,32 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
     return () => ro.disconnect();
   }, []);
 
-  const { drawn, cent, cds, rds } = useMemo(() => {
+  const { drawn, cent, cds, rds, box, jds } = useMemo(() => {
     if (!size.w || !size.h) {
-      return { drawn: false, cent: {} as Record<string, [number, number]>, cds: {} as Record<string, string>, rds: [] as string[] };
+      return {
+        drawn: false, cent: {} as Record<string, [number, number]>,
+        cds: {} as Record<string, string>, rds: [] as string[],
+        box: {} as Record<string, [number, number]>, jds: [] as string[],
+      };
     }
     const proj = geoConicEqualArea().parallels([43.2, 46.2]).rotate([-16.4, 0])
       .fitExtent([[16, 10], [size.w - 16, size.h - 10]], GEO);
     const p = geoPath(proj);
     const cent: Record<string, [number, number]> = {}, cds: Record<string, string> = {};
-    GEO.features.forEach(f => { const iso = f.properties.shapeISO; cds[iso] = p(f)!; cent[iso] = p.centroid(f); });
+    const box: Record<string, [number, number]> = {};
+    GEO.features.forEach(f => {
+      const iso = f.properties.shapeISO;
+      cds[iso] = p(f)!; cent[iso] = p.centroid(f);
+      const b = p.bounds(f); box[iso] = [b[1][0] - b[0][0], b[1][1] - b[0][1]];
+    });
     const rds = REGGEO.features.map(f => p(f)!);
-    return { drawn: true, cent, cds, rds };
+    const jds = JGEO.features.map(f => p(f) || '');  /* same projection as counties */
+    return { drawn: true, cent, cds, rds, box, jds };
   }, [size]);
 
   /* county fill per state — port of update() */
   const fill = (iso: string): string => {
-    if (S.view === 'klas') return KCOL[klasOf(iso, S.yi, S.thr)];
+    if (S.view === 'klas') return KCOL[klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct)];
     if (S.view === 'reg') return divScale(RDOM[S.flow + S.den + S.cum])(regVal(REGOF[iso], S.yi, S.flow, S.den, S.cum));
     if (S.view === 'flow') {
       if (iso === S.sel) return '#3B4650';
@@ -53,7 +68,9 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
     return divScale(DOM[S.flow + S.den + S.cum])(val(iso, S.yi, S.flow, S.den, S.cum));
   };
 
-  /* flow arcs — port of renderArcs() */
+  /* flow arcs — port of renderArcs(); estimated years render dashed (honesty
+     encoding: only godišnje 2018 is measured) */
+  const est = S.cum || flowBadge(S.yi, S.cum) !== 'izmjereno';
   const arcs = useMemo(() => {
     if (S.view !== 'flow' || !S.sel || !cent[S.sel]) return null;
     const sel = S.sel;
@@ -77,38 +94,88 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
     return { paths, sx, sy };
   }, [S.view, S.sel, S.dir, S.yi, S.cum, cent]);
 
+  /* county labels: skip counties whose projected bbox can't hold the name */
+  const labels = S.labels && drawn && S.view !== 'mx'
+    ? ISOS.filter(iso => box[iso][0] > 70 && box[iso][1] > 34)
+    : [];
+  const labelG = (
+    <g>
+      {labels.map(iso => (
+        <text key={iso} className="clab" x={cent[iso][0]} y={cent[iso][1] + 3}
+          textAnchor="middle" fontSize={9} fontFamily="IBM Plex Mono,ui-monospace,monospace"
+          fill="#20262B" stroke="#FFFFFF" strokeWidth={2.4} paintOrder="stroke"
+          pointerEvents="none">{SHORTN[iso]}</text>
+      ))}
+    </g>
+  );
+
   return (
     <div className="map-wrap" ref={wrapRef}>
-      <svg id="map" role="img" aria-label="Karta županija Hrvatske">
-        <g>
-          {drawn && GEO.features.map(f => {
-            const iso = f.properties.shapeISO;
-            return (
-              <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')}
-                data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={D[iso].n}
-                onPointerEnter={() => setHL(iso)} onPointerLeave={() => setHL(null)}
-                onPointerMove={moveTip} onClick={() => selectCounty(iso)}
-                onFocus={() => setHL(iso)} onBlur={() => setHL(null)}
-                onKeyDown={e => { if (e.key === 'Enter') selectCounty(iso); }} />
-            );
-          })}
-        </g>
-        <g>
-          {drawn && rds.map((d, i) => (
-            <path key={i} className="regline" d={d} style={{ display: S.view === 'reg' ? undefined : 'none' }} />
-          ))}
-        </g>
-        <g>
-          {arcs && arcs.paths.map(a => (
-            <path key={a.p} className="arc" d={a.d} stroke={a.stroke} strokeWidth={a.w} />
-          ))}
-          {arcs && <circle cx={arcs.sx} cy={arcs.sy} r={4.5} fill="var(--ink)" stroke="#fff" strokeWidth={1.5} />}
-        </g>
-      </svg>
+      {S.view === 'mx' ? (
+        <MatrixView S={S} setS={setS} size={size} />
+      ) : S.view === 'jmap' ? (
+        <svg id="map" role="img" aria-label="Karta gradova i općina — unutarnja migracija 2018.">
+          <g>
+            {drawn && (() => {
+              const { scale } = jmapScale(S.dir);
+              return JGEO.features.map((f, ix) => {
+                const p = f.properties;
+                const v = jlsVal(p, S.dir);
+                return (
+                  <path key={p.j} className={'jl' + (S.jlsHl === p.j ? ' hl' : '')} data-j={p.j}
+                    d={jds[ix]} fill={scale(S.dir === 'net' ? v : Math.abs(v))}
+                    onPointerEnter={() => setS({ jlsHl: p.j })} onPointerLeave={() => setS({ jlsHl: null })}
+                    onPointerMove={moveTip} />
+                );
+              });
+            })()}
+          </g>
+          <g>
+            {drawn && ISOS.map(iso => <path key={iso} className="jbord" d={cds[iso]} />)}
+          </g>
+          {labelG}
+        </svg>
+      ) : (
+        <svg id="map" role="img" aria-label="Karta županija Hrvatske">
+          <g>
+            {drawn && GEO.features.map(f => {
+              const iso = f.properties.shapeISO;
+              return (
+                <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')}
+                  data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={D[iso].n}
+                  onPointerEnter={() => setHL(iso)} onPointerLeave={() => setHL(null)}
+                  onPointerMove={moveTip} onClick={() => selectCounty(iso)}
+                  onFocus={() => setHL(iso)} onBlur={() => setHL(null)}
+                  onKeyDown={e => { if (e.key === 'Enter') selectCounty(iso); }} />
+              );
+            })}
+          </g>
+          <g>
+            {drawn && rds.map((d, i) => (
+              <path key={i} className="regline" d={d} style={{ display: S.view === 'reg' ? undefined : 'none' }} />
+            ))}
+          </g>
+          <g>
+            {arcs && arcs.paths.map(a => (
+              <path key={a.p} className="arc" d={a.d} stroke={a.stroke} strokeWidth={a.w}
+                strokeDasharray={est ? '7 4' : undefined} />
+            ))}
+            {arcs && <circle cx={arcs.sx} cy={arcs.sy} r={4.5} fill="var(--ink)" stroke="#fff" strokeWidth={1.5} />}
+          </g>
+          {labelG}
+        </svg>
+      )}
+      {S.view !== 'mx' && (
+        <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
+          onClick={() => setS({ labels: !S.labels })}>Aa oznake</button>
+      )}
       <Legend S={S} />
       <DetailCard S={S} setS={setS} />
+      <PairCard S={S} setS={setS} />
       <JlsCard S={S} setS={setS} toggleJls={toggleJls} />
-      <CitzPanel S={S} toggleCitz={toggleCitz} />
+      <CitzPanel S={S} setS={setS} toggleCitz={toggleCitz} />
+      <AgePanel S={S} setS={setS} toggleAge={toggleAge} />
+      <StoryBar S={S} setS={setS} applyStory={applyStory} />
     </div>
   );
 }

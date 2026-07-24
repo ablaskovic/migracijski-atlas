@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-/* Verification protocol for the atlas (32 checks, hard numbers derived independently
-   from the raw DZS/Pitoski sources — "looks fine" is not a result).
+/* Verification protocol for the atlas (hard numbers derived independently from
+   the raw DZS/Pitoski sources — "looks fine" is not a result). The final line
+   prints the executed check count; every feature addition extends this file.
    Usage:
      node scripts/verify.cjs dist          # serve ./dist and check the production build
      node scripts/verify.cjs http://...    # check an already-running server (e.g. vite dev)
@@ -202,6 +203,200 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('exportPNG dims = 2x map + bands', png.w === png.expW && png.h === png.expH,
     png.w + 'x' + png.h + ' vs ' + png.expW + 'x' + png.expH);
   ck('exportPNG produces a real blob (>50 KB)', png.bytes > 50000, String(png.bytes));
+
+  /* ── SVG export (vector twin) ── */
+  const svgDoc = await page.evaluate(() => window.__exportSVG(false));
+  ck('exportSVG returns a document with 21 baked county paths',
+    typeof svgDoc === 'string' && svgDoc.length > 20000 && (svgDoc.match(/class="cnt/g) || []).length === 21,
+    String(svgDoc && svgDoc.length));
+  ck('exportSVG carries title band + attribution', svgDoc.includes('MIGRACIJSKI ATLAS') && svgDoc.includes('geoBoundaries'));
+
+  /* ── header budget (v4: 138 px, default view) ── */
+  const hdH = await page.evaluate(() => Math.round(document.querySelector('.hd').getBoundingClientRect().height));
+  ck('header height <= 145 px at 1440 (v4 budget 138)', hdH <= 145, String(hdH));
+
+  /* ── rail a11y + legend hover mark + detail card readout ── */
+  const nFocus = await page.evaluate(() => document.querySelectorAll('#railList .rrow[tabindex="0"]').length);
+  ck('rail rows keyboard-focusable (21)', nFocus === 21, String(nFocus));
+  await page.hover('path[data-iso="HR-18"]');
+  await settle(80);
+  const mark = await page.evaluate(() => !!document.querySelector('#legend .legend-mark'));
+  ck('legend shows hover mark on gradient', mark);
+  await click('path[data-iso="HR-18"]');
+  const cardRow = await page.evaluate(() => document.querySelector('#cardRow')?.textContent || '');
+  ck('detail card year readout row (unut/vanj/prir/uk)',
+    cardRow.includes('unut.') && cardRow.includes('vanj.') && cardRow.includes('prir.') && cardRow.includes('uk.'), cardRow.slice(0, 60));
+  await click('#cardX');
+  await page.mouse.move(4, 4); await settle(60);
+
+  /* ── county labels toggle ── */
+  await click('#labBtn');
+  let labN = await page.evaluate(() => document.querySelectorAll('#map .clab').length);
+  ck('labels toggle draws >= 12 county labels', labN >= 12, String(labN));
+  await click('#labBtn');
+  labN = await page.evaluate(() => document.querySelectorAll('#map .clab').length);
+  ck('labels toggle off removes labels', labN === 0, String(labN));
+
+  /* ── scrubber last tick not clipped ── */
+  const tick = await page.evaluate(() => {
+    const svg = document.querySelector('#spark');
+    const ts = [...svg.querySelectorAll('text')];
+    const last = ts[ts.length - 1];
+    const b = last.getBBox();
+    const ctm = last.getScreenCTM();
+    const r = svg.getBoundingClientRect();
+    return { right: ctm.e + b.x + b.width, max: r.right };
+  });
+  ck('scrubber 2025 tick fully inside chart', tick.right <= tick.max + 0.5, tick.right + ' vs ' + tick.max);
+
+  /* fresh boot helper: hash state is read at module init, so force a real reload */
+  const fresh = async h => {
+    await page.goto('about:blank');
+    await page.goto(url + h, { waitUntil: 'networkidle0' });
+    await settle(400);
+  };
+
+  /* ── first Tokovi entry lands on measured 2018 (even from default cum) ── */
+  await fresh('');
+  await click('#segView button[data-v="flow"]');
+  const ent = await page.evaluate(() => ({
+    yr: document.querySelector('#bigYear').textContent,
+    mode: document.querySelector('#segMode button[aria-pressed="true"]').dataset.v,
+    leg: document.querySelector('#legend').textContent }));
+  ck('first flow entry = godišnje 2018 izmjereno', ent.yr === '2018.' && ent.mode === 'yr' && ent.leg.includes('Izmjereno'),
+    ent.yr + ' ' + ent.mode);
+
+  /* ── corridor pair card via rail click (GZ ⇄ Zagrebačka, measured) ── */
+  await click('#railList .rrow');
+  const pair = await page.evaluate(() => ({
+    name: document.querySelector('#pairName')?.textContent || '',
+    row: document.querySelector('#pairRow')?.textContent || '' }));
+  ck('pair card opens: Grad Zagreb ⇄ Zagrebačka', pair.name.includes('Grad Zagreb') && pair.name.includes('Zagrebačka'), pair.name);
+  ck('pair card 2018 readout 2.311 / 1.977 / −334 izmjereno',
+    pair.row.includes('2.311') && pair.row.includes('1.977') && pair.row.includes('−334') && pair.row.includes('izmjereno'), pair.row);
+
+  /* ── arcs: measured year solid, IPF years dashed ── */
+  let adash = await page.evaluate(() => [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
+  ck('2018 arcs solid (no dasharray)', adash.length > 0 && adash.every(d => d === null), String(adash.length));
+  await page.keyboard.press('ArrowLeft');
+  await settle(150);
+  adash = await page.evaluate(() => [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
+  ck('2017 (IPF) arcs dashed', adash.length > 0 && adash.every(d => d === '7 4'), String(adash.length));
+
+  /* ── Nalazi story preset 1: GZ ring, banner + state + permalink ── */
+  await page.select('#story', '0');
+  await settle(300);
+  const story = await page.evaluate(() => ({
+    cap: document.querySelector('#storyCap')?.textContent || '',
+    dir: document.querySelector('#segDir button[aria-pressed="true"]').dataset.v,
+    yr: document.querySelector('#bigYear').textContent,
+    pair: !!document.querySelector('#pair'),
+    hash: location.hash }));
+  ck('story 1 applies flow/net/2018 with pair card', story.dir === 'net' && story.yr === '2018.' && story.pair,
+    story.dir + ' ' + story.yr);
+  ck('story 1 caption cites −334', story.cap.includes('−334'), story.cap.slice(0, 50));
+  ck('story state lands in the permalink', story.hash.includes('st=1') && story.hash.includes('v=flow'), story.hash);
+
+  /* ── permalink boot: shared link reproduces the exact view ── */
+  await fresh('#v=flow&s=HR-17&c=0&y=2018&dir=in');
+  const perma = await page.evaluate(() => ({
+    lab: document.querySelector('#railLab').textContent,
+    yr: document.querySelector('#bigYear').textContent,
+    dir: document.querySelector('#segDir button[aria-pressed="true"]').dataset.v }));
+  ck('permalink boots flow HR-17 dolasci 2018',
+    perma.lab.includes('Splitsko-dalmatinska') && perma.yr === '2018.' && perma.dir === 'in',
+    JSON.stringify(perma));
+
+  /* ── Matrica view: full OD structure ── */
+  await fresh('#v=mx&c=0&y=2018');
+  const mxN = await page.evaluate(() => document.querySelectorAll('.mxc').length);
+  ck('matrix renders 420 directed cells', mxN === 420, String(mxN));
+  await page.hover('.mxc[data-a="HR-21"][data-b="HR-01"]');
+  await settle(120);
+  const mxTip = await page.evaluate(() => document.querySelector('#tip').textContent);
+  ck('matrix cell GZ↔Zagrebačka tip = 2.311 / 1.977 / −334 izmjereno',
+    mxTip.includes('2.311') && mxTip.includes('1.977') && mxTip.includes('−334') && mxTip.includes('izmjereno'),
+    mxTip.slice(0, 80));
+  const mxRail = await page.evaluate(() => {
+    const r = document.querySelector('#railList .rrow');
+    return { n: r.querySelector('.rname').textContent, v: r.querySelector('.rval').textContent };
+  });
+  ck('matrix rail top corridor = Grad Zagreb → Zagrebačka 2.311',
+    mxRail.n.includes('Grad Zagreb') && mxRail.n.includes('Zagrebačka') && mxRail.v === '2.311',
+    mxRail.n + ' ' + mxRail.v);
+  const mxLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
+  ck('matrix legend labels izmjereno + diagonal note', mxLeg.includes('Izmjereno') && mxLeg.includes('Dijagonala'));
+
+  /* ── Dob i spol panel (STAN I T3 / II T2, national 2025) ── */
+  await fresh('#ag=1');
+  const age = await page.evaluate(() => ({
+    open: document.querySelector('#agec').classList.contains('open'),
+    rects: document.querySelectorAll('#ageSvg rect').length,
+    rows: document.querySelector('#ageRows').textContent,
+    note: document.querySelector('#ageNote').textContent }));
+  ck('age panel opens with 16×2 pyramid bars', age.open && age.rects === 32, String(age.rects));
+  ck('age panel vanjska 2025: +56.665 / −37.485, 66 % muškarci, vrh 25–29',
+    age.rows.includes('+56.665') && age.rows.includes('−37.485') && age.rows.includes('66 %') && age.rows.includes('25–29'), age.rows);
+  ck('age panel cites STAN-2026-2-1 and 2025-only scope', age.note.includes('STAN-2026-2-1') && age.note.includes('2025.'));
+  await click('#ageTabs button[data-v="int"]');
+  const ageI = await page.evaluate(() => ({
+    rects: document.querySelectorAll('#ageSvg rect').length,
+    rows: document.querySelector('#ageRows').textContent }));
+  ck('age panel unutarnja 2025: 73.838 preseljenih, 54 % žene',
+    ageI.rects === 16 && ageI.rows.includes('73.838') && ageI.rows.includes('54 % žene'), ageI.rows);
+
+  /* ── citizenship panel zemlje tab (STAN I T4) ── */
+  await fresh('#cz=2');
+  const zem = await page.evaluate(() => {
+    const first = document.querySelector('#zemList .jrow');
+    return { first: first ? first.textContent : '', all: document.querySelector('#zemList').textContent };
+  });
+  ck('zemlje tab top = Njemačka +9.628 / −6.238',
+    zem.first.includes('Njemačka') && zem.first.includes('+9.628') && zem.first.includes('−6.238'), zem.first);
+  ck('zemlje tab lists Nepal +6.264 and totals +56.665',
+    zem.all.includes('Nepal') && zem.all.includes('+6.264') && zem.all.includes('+56.665'), '');
+
+  /* ── JLS 2018 map (556 measured polygons; the only municipal migration map) ── */
+  await fresh('#v=jmap&dir=net');
+  const jmap = await page.evaluate(() => ({
+    n: document.querySelectorAll('#map .jl').length,
+    inert: document.querySelector('#scrubBox').classList.contains('inert'),
+    yr: document.querySelector('#bigYear').textContent,
+    leg: document.querySelector('#legend').textContent }));
+  ck('jmap renders 556 JLS polygons, scrubber inert at 2018', jmap.n === 556 && jmap.inert && jmap.yr === '2018.',
+    jmap.n + ' ' + jmap.yr);
+  ck('jmap legend: izmjereno, √ skala, Pitoski/OSM provenance',
+    jmap.leg.includes('Izmjereno') && jmap.leg.includes('√') && jmap.leg.includes('Pitoski') && jmap.leg.includes('OSM'), jmap.leg);
+  const jgeo = await page.evaluate(() => {
+    const svg = document.querySelector('#map');
+    const W = svg.clientWidth, H = svg.clientHeight;
+    let maxFrac = 0;
+    for (const p of document.querySelectorAll('#map .jl')) {
+      const b = p.getBBox();
+      maxFrac = Math.max(maxFrac, (b.width * b.height) / (W * H));
+    }
+    return maxFrac;
+  });
+  ck('jmap max JLS bbox <= 5% of canvas (no winding blowup)', jgeo <= 0.05, jgeo.toFixed(4));
+  rows = await railTexts();
+  ck('jmap net rail: top Grad Zagreb +3.413, bottom Split −691',
+    rows[0].n.includes('Grad Zagreb') && rows[0].v === '+3.413' &&
+    rows[rows.length - 1].n.includes('Split') && rows[rows.length - 1].v === '−691',
+    rows[0].n + ' ' + rows[0].v + ' | ' + rows[rows.length - 1].n + ' ' + rows[rows.length - 1].v);
+  await page.hover('#map .jl[data-j="451"]');
+  await settle(120);
+  const jtip = await page.evaluate(() => document.querySelector('#tip').textContent);
+  ck('jmap Split tooltip: +1.693 / −2.384 / neto −691 izmjereno',
+    jtip.includes('Split') && jtip.includes('+1.693') && jtip.includes('−2.384') && jtip.includes('−691') && jtip.includes('izmjereno'),
+    jtip.slice(0, 80));
+
+  /* ── relative klas threshold: 1,5 % popisa 2011 → 7 / 3 / 11 ── */
+  await fresh('#v=klas');
+  await click('#thrMode button[data-v="rel"]');
+  const relLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
+  ck('klas rel threshold 1,5 % → 7 / 3 / 11',
+    relLeg.includes('pobjednice · 7') && relLeg.includes('neutralne · 3') && relLeg.includes('gubitnice · 11'), relLeg);
+  ck('klas rel legend states % prag', relLeg.includes('1,5 % popisa 2011.'), relLeg);
 
   /* ── errors ── */
   ck('zero page/console errors', errors.length === 0, errors.join(' ; ').slice(0, 300));

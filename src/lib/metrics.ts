@@ -6,7 +6,7 @@ import { scaleLinear, type ScaleLinear } from 'd3-scale';
 import { interpolateLab } from 'd3-interpolate';
 import type { FeatureCollection, Geometry } from 'geojson';
 import type {
-  AtlasRaw, CitData, CountyProps, Den, Dir, Flow, JlsData, Klas, OdMatrix, RegionProps, State,
+  AtlasRaw, CitData, CountyProps, DemoData, Den, Dir, Flow, JlsData, JlsProps, Klas, OdMatrix, RegionProps, State,
 } from './types.ts';
 
 /* JSON payloads are cast to the shapes in types.ts (via unknown: the inferred
@@ -17,6 +17,8 @@ import RAWjson from '../data/atlas_data2.json';
 import ODMjson from '../data/odm.json';
 import CITjson from '../data/citizen.json';
 import JLSjson from '../data/jls_drill.json';
+import DEMOjson from '../data/demo.json';
+import JGEOjson from '../data/geo_jls.json';
 
 export const GEO = GEOjson as unknown as FeatureCollection<Geometry, CountyProps>;
 export const REGGEO = REGGEOjson as unknown as FeatureCollection<Geometry, RegionProps>;
@@ -24,6 +26,8 @@ const RAW = RAWjson as unknown as AtlasRaw;
 const ODM = ODMjson as unknown as OdMatrix;
 export const CIT = CITjson as unknown as CitData;
 export const JLS = JLSjson as unknown as JlsData;
+export const DEMO = DEMOjson as unknown as DemoData;
+export const JGEO = JGEOjson as unknown as FeatureCollection<Geometry, JlsProps>;
 
 export const YEARS = RAW.years;
 export const D = RAW.c;
@@ -124,9 +128,12 @@ export function divScale(m: number): ColorScale {
 export function seqScale(m: number, dir: Dir): ColorScale {
   return scaleLinear<string>().domain([0, m]).range(['#F1EEE9', dir === 'in' ? '#1D4E89' : '#B5341F']).interpolate(interpolateLab);
 }
-export function klasOf(iso: string, yi: number, thr: number): Klas {
+/* thrRel: threshold as % of the 2011 census instead of absolute persons —
+   the paper's −4.500 is absolute while its own figures argue in relatives */
+export function klasOf(iso: string, yi: number, thr: number, thrRel = false, thrPct = 1.5): Klas {
   const v = val(iso, yi, 'tot', 'abs', true);
-  return v > 0 ? 'gain' : v >= -thr ? 'neu' : 'loss';
+  const lim = thrRel ? thrPct / 100 * D[iso].p : thr;
+  return v > 0 ? 'gain' : v >= -lim ? 'neu' : 'loss';
 }
 
 /* ── flows — ODM[a][b] = per-year array; 2018 measured, others IPF ── */
@@ -157,15 +164,62 @@ export function flowBadge(yi: number, cum: boolean): string {
   return yi === IX2018 && !cum ? 'izmjereno' : 'procjena (IPF)';
 }
 
+/* ── matrix view: region-block county order + fixed per-(dir×cum) cell domain ── */
+export const MXORD: string[] = Object.keys(REG).flatMap(k => REG[k].c);
+export function mxCell(r: string, c: string, dir: Dir, yi: number, cum: boolean): number {
+  /* rows keep the tokovi semantics: out = r→c, in = c→r, net = row's gain from c */
+  return dir === 'out' ? fsum(r, c, yi, cum) : dir === 'in' ? fsum(c, r, yi, cum)
+    : fsum(c, r, yi, cum) - fsum(r, c, yi, cum);
+}
+const MXC = new Map<string, number>();
+export function mxMax(dir: Dir, cum: boolean): number {
+  const key = dir + '|' + cum;
+  const hit = MXC.get(key);
+  if (hit != null) return hit;
+  let m = 0;
+  for (let yi = cum ? IX2011 : 0; yi < YEARS.length; yi++)
+    for (const a of ISOS) for (const b of ISOS)
+      if (a !== b) m = Math.max(m, Math.abs(mxCell(a, b, dir, yi, cum)));
+  m = m || 1; MXC.set(key, m); return m;
+}
+
+/* ── JLS map (measured 2018, internal moves only) ── */
+export function jlsVal(p: JlsProps, dir: Dir): number {
+  return dir === 'out' ? p.o : dir === 'in' ? p.i : p.i - p.o;
+}
+const JM = new Map<Dir, number>();
+export function jmapMax(dir: Dir): number {
+  const hit = JM.get(dir);
+  if (hit != null) return hit;
+  let m = 0;
+  for (const f of JGEO.features) m = Math.max(m, Math.abs(jlsVal(f.properties, dir)));
+  m = m || 1; JM.set(dir, m); return m;
+}
+/* signed-√ color ramp: 556 JLS with Grad Zagreb 10× above the rest renders
+   blank on a linear domain; the √ transform is stated in the legend */
+export function jmapScale(dir: Dir): { m: number; scale: (v: number) => string } {
+  const m = jmapMax(dir);
+  const base = dir === 'net' ? divScale(m) : seqScale(m, dir);
+  return { m, scale: v => base(Math.sign(v) * Math.sqrt(Math.abs(v) / m) * m) };
+}
+
 /* national series for the scrubber */
 export const natExt = YEARS.map((_, yi) => ISOS.reduce((a, iso) => a + D[iso].ie[yi] - D[iso].oe[yi], 0));
 export const natVol = YEARS.map((_, yi) => ISOS.reduce((a, iso) => a + D[iso].oi[yi], 0));
 
 /* export caption from state */
 export function exportDesc(S: State): [string, string] {
+  if (S.view === 'jmap') return ['Gradovi i općine: unutarnja migracija (izmjereno)', '2018.'];
   const per = (S.cum || S.view === 'klas') ? '2011.–' + YEARS[S.yi] + '.' : YEARS[S.yi] + '.';
   const den = S.den === 'rel11' ? ' · % popisa 2011.' : S.den === 'relest' ? ' · % tek. procjene' : '';
-  if (S.view === 'klas') return ['Klasifikacija: pobjednice · neutralne · gubitnice (prag −' + fmtI.format(S.thr) + ')', per];
+  if (S.view === 'klas') {
+    const prag = S.thrRel ? fmtR.format(S.thrPct) + ' % popisa 2011.' : fmtI.format(S.thr);
+    return ['Klasifikacija: pobjednice · neutralne · gubitnice (prag −' + prag + ')', per];
+  }
+  if (S.view === 'mx') {
+    const d = { out: 'odlasci (redak → stupac)', in: 'dolasci (stupac → redak)', net: 'neto (redak prema stupcu)' }[S.dir];
+    return ['Matrica tokova: ' + d + ' · ' + (S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum)), per];
+  }
   if (S.view === 'reg') return ['Regije (5) · ' + FLOWN[S.flow] + den, per];
   if (S.view === 'flow') {
     const nm = D[S.sel!]?.n || '';

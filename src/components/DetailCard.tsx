@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
-import { YEARS, Y0, YEND, D, netAt, natAt, fmtI } from '../lib/metrics.ts';
+import { YEARS, Y0, YEND, D, netAt, natAt, fmtI, sgn } from '../lib/metrics.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => void }) {
@@ -45,6 +45,13 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
           fontFamily="var(--mono)" fill="var(--mut)">{'±' + fmtI.format(m)}</text>
         <line id="cardCur" y1={mT} y2={h - mB} stroke="var(--acc)" strokeWidth={1.4} x1={cx} x2={cx} />
       </svg>
+      <div className="card-row" id="cardRow">
+        <span className="cy">{YEARS[S.yi]}.</span>
+        <span>unut. <b>{sgn(ints[S.yi], fmtI)}</b></span>
+        <span>vanj. <b>{sgn(exts[S.yi], fmtI)}</b></span>
+        <span>prir. <b>{sgn(nats[S.yi], fmtI)}</b></span>
+        <span>uk. <b>{sgn(ints[S.yi] + exts[S.yi] + nats[S.yi], fmtI)}</b></span>
+      </div>
     </div>
   );
 }
