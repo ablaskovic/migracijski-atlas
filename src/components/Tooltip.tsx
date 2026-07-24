@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
   D, ISOS, JGEO, SHORTN, YEARS, IX2011, REG, REGOF,
   natAt, fsum, klasOf, KCOL, KLAB, flowBadge, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 
-import { setTipNode } from '../lib/tip.ts';
+import { setTipNode, placeTip, COARSE } from '../lib/tip.ts';
 import type { State } from '../lib/types.ts';
 
 function tipHTML(S: State): string {
@@ -65,10 +65,18 @@ function tipHTML(S: State): string {
   return h;
 }
 
+/* Touch fires pointerenter on tap but never pointerleave ("sticky hover"), so a
+   cursor-following tip would sit on screen until something else cleared it. On
+   coarse pointers the county tip is therefore dropped entirely — the detail card
+   carries the same numbers and, on mobile, opens above the map. The matrix and
+   JLS tips stay: there they are the only value readout, and App's pointerdown
+   handler dismisses them on the next tap away. */
 export default function Tooltip({ S }: { S: State }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { setTipNode(ref.current); return () => setTipNode(null); }, []);
-  const show = !!S.hl || (S.view === 'mx' && !!S.pairHl) || (S.view === 'jmap' && S.jlsHl != null);
+  const show = (!!S.hl && !COARSE) || (S.view === 'mx' && !!S.pairHl) || (S.view === 'jmap' && S.jlsHl != null);
+  /* the .show class lands this render — position now, before the browser paints */
+  useLayoutEffect(() => { if (show) placeTip(); }, [show]);
   return (
     <div className={'tip' + (show ? ' show' : '')} id="tip" ref={ref}
       dangerouslySetInnerHTML={show ? { __html: tipHTML(S) } : undefined} />

@@ -13,13 +13,14 @@ import CitzPanel from './CitzPanel.tsx';
 import AgePanel from './AgePanel.tsx';
 import MatrixView from './MatrixView.tsx';
 import StoryBar from './StoryBar.tsx';
-import { moveTip } from '../lib/tip.ts';
+import { moveTip, COARSE } from '../lib/tip.ts';
+import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
 
-export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, toggleJls, toggleAge, applyStory }: {
+export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, toggleJls, toggleAge }: {
   S: State; setS: (p: Patch) => void; selectCounty: (iso: string) => void;
   setHL: (iso: string | null) => void; toggleCitz: () => void; toggleJls: () => void;
-  toggleAge: () => void; applyStory: (i: number) => void;
+  toggleAge: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -31,6 +32,30 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
     ro.observe(wrapRef.current!);
     return () => ro.disconnect();
   }, []);
+
+  /* wheel/pinch zoom + drag pan; identity by default so nothing else shifts */
+  const zoom = useZoom(size.w, size.h);
+  const zt = `translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`;
+  /* a view change re-fits the content, so a leftover transform would be wrong */
+  const resetZoom = zoom.reset;
+  useEffect(() => { resetZoom(); }, [S.view, resetZoom]);
+
+  /* The legend floats bottom-left of the map. Over a map that lands on sea, but
+     over the matrix it would cover live cells, so MatrixView lays the grid out
+     around it — which means it needs the legend's real box, not a guess (the
+     note wraps to a different height at every breakpoint). Legend size depends
+     only on view/dir, never on the grid, so there is no measurement loop. */
+  const [legend, setLegend] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = wrapRef.current?.querySelector('.legend');
+    if (!el) { setLegend({ w: 0, h: 0 }); return; }
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect();
+      setLegend(l => (l.w === r.width && l.h === r.height ? l : { w: r.width, h: r.height }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [S.view, S.dir, S.cum]);
 
   const { drawn, cent, cds, rds, box, jds } = useMemo(() => {
     if (!size.w || !size.h) {
@@ -109,12 +134,21 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
     </g>
   );
 
+  /* .map-box is what the ResizeObserver measures and what map-anchored overlays
+     (legend, story bar, pair/JLS cards) position against. The detail card and the
+     citizenship/age panels live outside it so that on mobile they can sit above
+     and below the map in normal flow instead of covering it; on desktop they go
+     back to absolute and anchor to .map-wrap, which is the same box. */
   return (
-    <div className="map-wrap" ref={wrapRef}>
+    <div className="map-wrap">
+      <DetailCard S={S} setS={setS} />
+      <div className="map-box" ref={wrapRef}>
       {S.view === 'mx' ? (
-        <MatrixView S={S} setS={setS} size={size} />
+        <MatrixView S={S} setS={setS} size={size} legend={legend} zoom={zoom} />
       ) : S.view === 'jmap' ? (
-        <svg id="map" role="img" aria-label="Karta gradova i općina — unutarnja migracija 2018.">
+        <svg id="map" role="img" aria-label="Karta gradova i općina — unutarnja migracija 2018."
+          {...zoom.bind} style={zoom.style}>
+          <g transform={zt}>
           <g>
             {drawn && (() => {
               const { scale } = jmapScale(S.dir);
@@ -124,7 +158,10 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
                 return (
                   <path key={p.j} className={'jl' + (S.jlsHl === p.j ? ' hl' : '')} data-j={p.j}
                     d={jds[ix]} fill={scale(S.dir === 'net' ? v : Math.abs(v))}
-                    onPointerEnter={() => setS({ jlsHl: p.j })} onPointerLeave={() => setS({ jlsHl: null })}
+                    onPointerEnter={() => setS({ jlsHl: p.j })}
+                    /* touch sends leave the moment the finger lifts, which would
+                       flash the readout away; keep it until the next tap instead */
+                    onPointerLeave={() => { if (!COARSE) setS({ jlsHl: null }); }}
                     onPointerMove={moveTip} />
                 );
               });
@@ -134,9 +171,12 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
             {drawn && ISOS.map(iso => <path key={iso} className="jbord" d={cds[iso]} />)}
           </g>
           {labelG}
+          </g>
         </svg>
       ) : (
-        <svg id="map" role="img" aria-label="Karta županija Hrvatske">
+        <svg id="map" role="img" aria-label="Karta županija Hrvatske"
+          {...zoom.bind} style={zoom.style}>
+          <g transform={zt}>
           <g>
             {drawn && GEO.features.map(f => {
               const iso = f.properties.shapeISO;
@@ -163,19 +203,26 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
             {arcs && <circle cx={arcs.sx} cy={arcs.sy} r={4.5} fill="var(--ink)" stroke="#fff" strokeWidth={1.5} />}
           </g>
           {labelG}
+          </g>
         </svg>
       )}
       {S.view !== 'mx' && (
         <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
           onClick={() => setS({ labels: !S.labels })}>Aa oznake</button>
       )}
+      {zoom.zoomed && (
+        <button className="zoomrst" id="zoomRst" onClick={zoom.reset}
+          title="Vrati prikaz" aria-label="Vrati zumiranje na početno">
+          ⤢ {Math.round(zoom.t.k * 10) / 10}×
+        </button>
+      )}
       <Legend S={S} />
-      <DetailCard S={S} setS={setS} />
       <PairCard S={S} setS={setS} />
       <JlsCard S={S} setS={setS} toggleJls={toggleJls} />
+      <StoryBar S={S} setS={setS} />
+      </div>
       <CitzPanel S={S} setS={setS} toggleCitz={toggleCitz} />
       <AgePanel S={S} setS={setS} toggleAge={toggleAge} />
-      <StoryBar S={S} setS={setS} applyStory={applyStory} />
     </div>
   );
 }

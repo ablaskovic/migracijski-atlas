@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { fmtI, fmtR, Y0, YEND } from '../lib/metrics.ts';
 import { exportPNG, exportSVG } from '../lib/exportPng.ts';
+import { StorySelect } from './StoryBar.tsx';
 import type { Patch, State, View } from '../lib/types.ts';
 
 function Seg<T extends string>({ id, opts, value, onPick, off, title }: {
@@ -17,9 +18,9 @@ function Seg<T extends string>({ id, opts, value, onPick, off, title }: {
 
 const OFF_TIP = 'Nije primjenjivo u ovom prikazu';
 
-export default function Header({ S, setS, setView, setMode }: {
+export default function Header({ S, setS, setView, setMode, applyStory }: {
   S: State; setS: (p: Patch) => void; setView: (v: View) => void;
-  setMode: (v: 'yr' | 'cum') => void;
+  setMode: (v: 'yr' | 'cum') => void; applyStory: (i: number) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
@@ -45,6 +46,7 @@ export default function Header({ S, setS, setView, setMode }: {
         <div className="hd-sub">Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz Maras &amp; Vinovrški (2026.)</div>
       </div>
       <div className="ctrls">
+        <StorySelect S={S} applyStory={applyStory} />
         <div className="ctrl"><span className="ctrl-lab">Prikaz</span>
           <Seg id="segView" value={S.view} onPick={setView}
             opts={[['saldo', 'Saldo'], ['klas', 'Klasifikacija'], ['reg', 'Regije'], ['flow', 'Tokovi'], ['mx', 'Matrica'], ['jmap', 'JLS 2018.']]} />

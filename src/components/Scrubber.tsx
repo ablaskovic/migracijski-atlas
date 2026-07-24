@@ -17,6 +17,16 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     return () => ro.disconnect();
   }, []);
 
+  /* Collapsing is presentation-only, so it stays local rather than entering S
+     (it must not land in the permalink). The body class lets the layout reserve
+     the right amount of space under the fixed bar — same escape hatch App uses
+     for panel-open/story-open. */
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    document.body.classList.toggle('scrub-collapsed', collapsed);
+    return () => document.body.classList.remove('scrub-collapsed');
+  }, [collapsed]);
+
   const sh = 96, mL = 6, mR = 6, mT = 14, mB = 16;
   const { x, sy, dExt, dVol } = useMemo<{
     x?: ScaleLinear<number, number>; sy?: ScaleLinear<number, number>; dExt?: string; dVol?: string;
@@ -44,6 +54,15 @@ export default function Scrubber({ S, setYi, togglePlay }: {
   const onMove = (ev: ReactPointerEvent<SVGSVGElement>) => { if (drag.current) scrubTo(ev); };
   const onUp = () => { drag.current = false; };
 
+  /* Tick labels are ~28 px wide (mono 9). The 2013/2015 pair sits 2 years apart,
+     so below ~470 px of chart they collide — thin the set instead of overlapping. */
+  const ticks = sw >= 470 ? [2000, 2005, 2010, 2013, 2015, 2020, YEND]
+    : sw >= 200 ? [2000, 2010, 2020, YEND]
+    : [2000, YEND];
+  const cap = sw >= 380
+    ? 'RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)'
+    : 'RH · vanjski saldo · preseljeni';
+
   const yr = YEARS[S.yi];
   const sub = S.view === 'jmap' ? 'JLS · samo 2018. · izmjereno'
     : S.view === 'flow' || S.view === 'mx'
@@ -51,7 +70,15 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     : (S.view === 'klas' || S.cum ? '2011.–' + yr + '.' : 'godišnje');
 
   return (
-    <div className={'scrub' + (S.view === 'jmap' ? ' inert' : '')} id="scrubBox">
+    <div className={'scrub' + (S.view === 'jmap' ? ' inert' : '') + (collapsed ? ' collapsed' : '')} id="scrubBox">
+      {/* mobile-only handle: the bar is pinned to the bottom there, so it needs a
+          way to give the map its space back. Play + year stay visible collapsed. */}
+      <button className="scrub-tog" id="scrubTog" aria-expanded={!collapsed}
+        aria-controls="spark" title={collapsed ? 'Prikaži vremensku traku' : 'Sakrij vremensku traku'}
+        aria-label={collapsed ? 'Prikaži vremensku traku' : 'Sakrij vremensku traku'}
+        onClick={() => setCollapsed(c => !c)}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d={collapsed ? 'M7 14l5-5 5 5z' : 'M7 10l5 5 5-5z'} /></svg>
+      </button>
       <button className="play" id="play" aria-label="Reprodukcija kroz godine" onClick={togglePlay}>
         <svg viewBox="0 0 24 24" id="playIco">
           <path d={S.playing ? 'M6 5h4v14H6zm8 0h4v14h-4z' : 'M8 5v14l11-7z'} />
@@ -75,9 +102,9 @@ export default function Scrubber({ S, setYi, togglePlay }: {
               <line x1={x(Y0)} x2={x(YEND)} y1={sy!(0)} y2={sy!(0)} stroke="var(--line)" />
               <path d={dVol} fill="none" stroke="#8d968f" strokeWidth={1} strokeDasharray="2 3" />
               <text x={x(1999)} y={mT - 3} fontSize={8.5} fontFamily="var(--mono)" fill="var(--mut)">
-                RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)
+                {cap}
               </text>
-              {[2000, 2005, 2010, 2013, 2015, 2020, YEND].map(t => (
+              {ticks.map(t => (
                 <text key={t} x={x(t)} y={sh - 4} textAnchor={t === YEND ? 'end' : 'middle'}
                   fontSize={9} fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
               ))}

@@ -25,7 +25,7 @@ declare global {
 const BASE: State = {
   view: 'saldo', flow: 'tot', den: 'abs', cum: true, yi: YEARS.indexOf(2024),
   thr: 4500, thrRel: false, thrPct: 1.5, playing: false, hl: null, sel: null,
-  pair: null, pairHl: null, jlsHl: null, dir: 'out', flowSeen: false,
+  pair: null, pairHl: null, jlsHl: null, dir: 'net', flowSeen: false,
   labels: false, citz: false, jls: false, age: false,
   jlsTab: 'inter', citzTab: 'grp', ageTab: 'ext', story: null,
 };
@@ -105,6 +105,20 @@ export default function App() {
     return () => { delete window.__exportPNG; delete window.__exportSVG; };
   }, []);
   useEffect(() => { document.body.classList.toggle('panel-open', S.citz || S.jls || S.age); }, [S.citz, S.jls, S.age]);
+  /* Touch fires pointerenter but never pointerleave, so a tapped feature would
+     leave its tooltip on screen forever. Clear the highlight on any pointerdown
+     that is not itself a map feature — the tip is the only value readout in the
+     matrix/JLS views, so it must stay tappable rather than be disabled outright. */
+  useEffect(() => {
+    const onDown = (ev: PointerEvent) => {
+      const t = ev.target as Element | null;
+      if (t && t.closest && t.closest('.cnt,.mxc,.jl,.mxhit')) return;
+      const s = ref.current;
+      if (s.hl || s.pairHl || s.jlsHl != null) up({ hl: null, pairHl: null, jlsHl: null });
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, []);
   useEffect(() => { document.body.classList.toggle('story-open', S.story != null); }, [S.story]);
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
@@ -124,10 +138,10 @@ export default function App() {
 
   return (
     <>
-      <Header S={S} setS={up} setView={setView} setMode={setMode} />
+      <Header S={S} setS={up} setView={setView} setMode={setMode} applyStory={applyStory} />
       <div className="main">
         <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL}
-          toggleCitz={toggleCitz} toggleJls={toggleJls} toggleAge={toggleAge} applyStory={applyStory} />
+          toggleCitz={toggleCitz} toggleJls={toggleJls} toggleAge={toggleAge} />
         <Rail S={S} selectCounty={selectCounty} setHL={setHL} openPair={openPair} jumpFlow={jumpFlow} setJlsHl={setJlsHl} />
       </div>
       <Scrubber S={S} setYi={setYi} togglePlay={togglePlay} />

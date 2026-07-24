@@ -21,7 +21,7 @@ export function encodeHash(S: State): string {
   if (S.thrRel) { p.set('tr', '1'); p.set('tp', String(S.thrPct)); }
   if (S.sel) p.set('s', S.sel);
   if (S.pair) p.set('pp', S.pair);
-  if (S.dir !== 'out') p.set('dir', S.dir);
+  if (S.dir !== 'net') p.set('dir', S.dir);
   if (S.labels) p.set('lb', '1');
   if (S.citz) p.set('cz', S.citzTab === 'zem' ? '2' : '1');
   if (S.jls) p.set('jl', S.jlsTab === 'loc' ? '2' : '1');

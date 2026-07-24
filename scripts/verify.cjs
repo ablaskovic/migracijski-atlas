@@ -162,6 +162,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* ── tokovi 2018 godišnje, HR-21 odlasci ── */
   await click('#segMode button[data-v="yr"]');
   await click('#segView button[data-v="flow"]');
+  await click('#segDir button[data-v="out"]');   /* Smjer: Odlasci — no longer the default */
   const yr = await page.evaluate(() => document.querySelector('#bigYear').textContent);
   ck('flow view auto-jumps to 2018 in godišnje', yr === '2018.', yr);
   rows = await railTexts();
@@ -266,6 +267,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('first flow entry = godišnje 2018 izmjereno', ent.yr === '2018.' && ent.mode === 'yr' && ent.leg.includes('Izmjereno'),
     ent.yr + ' ' + ent.mode);
 
+  /* rail order is dir-dependent — pin Odlasci so the first row is Zagrebačka
+     (the fresh('') reload above discards the earlier Smjer selection) */
+  await click('#segDir button[data-v="out"]');
+
   /* ── corridor pair card via rail click (GZ ⇄ Zagrebačka, measured) ── */
   await click('#railList .rrow');
   const pair = await page.evaluate(() => ({
@@ -308,7 +313,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     JSON.stringify(perma));
 
   /* ── Matrica view: full OD structure ── */
-  await fresh('#v=mx&c=0&y=2018');
+  await fresh('#v=mx&c=0&y=2018&dir=out');
   const mxN = await page.evaluate(() => document.querySelectorAll('.mxc').length);
   ck('matrix renders 420 directed cells', mxN === 420, String(mxN));
   await page.hover('.mxc[data-a="HR-21"][data-b="HR-01"]');
