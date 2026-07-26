@@ -20,10 +20,15 @@ and PNG **and** SVG export.
 ```
 npm install
 npm run dev          # develop
-npm run build        # production build -> dist/
+npm run build        # production build -> dist/ (serve it — the entry is an ES
+                     #   module, so file:// is CORS-blocked and renders blank)
 npm i -D puppeteer   # once, for verification
-npm run verify       # build + 67-check suite (must pass)
+npm run verify       # build + 166-check suite (must pass)
 ```
+
+The two large geometry payloads (`geo_jls.json` 475 KB, `geo_regions5.json` 68 KB)
+load as their own chunks when the JLS or Regije view needs them, so the entry chunk
+is ~492 KB / 164 KB gzip rather than ~995 KB / 288 KB.
 
 Before touching code, read `CLAUDE.md` — it carries the project's hard rules
 (verification protocol, DOM contract, honesty labeling, design tokens).

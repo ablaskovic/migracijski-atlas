@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
-  D, ISOS, JGEO, SHORTN, YEARS, IX2011, REG, REGOF,
+  D, ISOS, SHORTN, YEARS, IX2011, REG, REGOF,
   natAt, fsum, klasOf, KCOL, KLAB, flowBadge, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
+import { jlsGeo } from '../lib/geoAsync.ts';
 
 import { setTipNode, placeTip, COARSE } from '../lib/tip.ts';
 import type { State } from '../lib/types.ts';
@@ -16,7 +17,7 @@ function tag(badge: string): string {
 
 function tipHTML(S: State): string {
   if (S.view === 'jmap' && S.jlsHl != null) {
-    const f = JGEO.features.find(f => f.properties.j === S.jlsHl);
+    const f = jlsGeo()?.features.find(f => f.properties.j === S.jlsHl);
     if (!f) return '';
     const p = f.properties;
     const net = p.i - p.o;
@@ -89,7 +90,13 @@ function tipHTML(S: State): string {
 export default function Tooltip({ S }: { S: State }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { setTipNode(ref.current); return () => setTipNode(null); }, []);
-  const show = (!!S.hl && !COARSE) || (S.view === 'mx' && !!S.pairHl) || (S.view === 'jmap' && S.jlsHl != null);
+  /* `hl` is a county highlight and the county tip is the only thing that reads it,
+     so the test has to name the views that draw counties. Left view-agnostic, a
+     county focused in Saldo carried its saldo tooltip — doseljeni iz inoz. and all
+     — straight onto the 556-municipality JLS map when the view changed. (App also
+     clears the highlight on a view change now; both halves are cheap.) */
+  const county = !!S.hl && !COARSE && S.view !== 'mx' && S.view !== 'jmap';
+  const show = county || (S.view === 'mx' && !!S.pairHl) || (S.view === 'jmap' && S.jlsHl != null);
   /* the .show class lands this render — position now, before the browser paints.
      Content also changes with the pointer standing still (autoplay, arrow-key
      scrubbing, focus moves), and the edge clamp lives in moveTip — so re-place

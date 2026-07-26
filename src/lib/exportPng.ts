@@ -87,7 +87,11 @@ function legendSpec(S: State): Leg {
       : { kind: 'seq', m, badge: '· izmjereno · √ skala', scale };
   }
   const flowish = S.view === 'flow' || S.view === 'mx';
-  const badge = flowish ? '· ' + flowBadge(S.yi, S.cum) : '';
+  /* `flowBadge` never returns the cumulative wording, so a cumulative export
+     carried "· procjena (IPF)" in its legend under a title that said
+     "KUMULATIVNA PROCJENA" — one image, two different honesty labels. Same
+     expression exportDesc uses, so the two halves cannot disagree again. */
+  const badge = flowish ? '· ' + (S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum)) : '';
   if (flowish && S.dir !== 'net') {
     const m = S.view === 'mx' ? mxMax(S.dir, S.cum) : flowMax(S.sel!, S.dir, S.cum);
     return { kind: 'seq', m, badge };
@@ -96,6 +100,19 @@ function legendSpec(S: State): Leg {
     : S.view === 'mx' ? mxMax('net', S.cum)
     : S.view === 'flow' ? flowMax(S.sel!, 'net', S.cum) : DOM[S.flow + S.den + S.cum];
   return { kind: 'div', m, rel: !flowish && S.den !== 'abs', badge };
+}
+
+/* The caveat the on-screen legend carries has to travel with the image. The
+   export is the artifact that leaves the app — pasted into a paper, a slide, a
+   mail — and it is the one place a reader cannot click through to find the
+   footnote. "Neto parova je strukturna procjena" and the mig+prirodno caveat
+   were both on screen and in neither exported format (measured: the string
+   "strukturna" appeared nowhere in the exported document). */
+function legendNote(S: State): string {
+  if (S.view === 'jmap') return 'Samo preseljenja unutar RH (JLS↔JLS), bez inozemstva.';
+  if ((S.view === 'flow' || S.view === 'mx') && S.dir === 'net') return 'Neto parova je strukturna procjena.';
+  if (S.view !== 'klas' && S.flow === 'all') return 'Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.';
+  return '';
 }
 
 function gradBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number,
@@ -160,6 +177,8 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
     ctx.fillText(leg.badge, 222, ly + 9);
   }
   ctx.fillStyle = '#5F6A72'; ctx.font = '400 8.5px "IBM Plex Mono",ui-monospace,monospace';
+  const note = legendNote(S);
+  if (note && leg.kind !== 'klas') ctx.fillText(note, 222, ly + 22);
   ctx.fillText(SRC_LINE, 20, h + TOP + BOT - 14);
   if (!dl) {
     const b = await new Promise<Blob | null>(r => cv.toBlob(r, 'image/png'));
@@ -181,6 +200,27 @@ function svgGrad(id: string, scale: (v: number) => string, m: number, neg: boole
   return `<linearGradient id="${id}">${stops}</linearGradient>`;
 }
 const txt = (x: number, y: number, s: string, attrs: string) => `<text x="${x}" y="${y}" ${attrs}>${esc(s)}</text>`;
+
+/* exportPNG shrinks its title until it clears the right-aligned period; the SVG
+   twin emitted a fixed font-size="21" and had no equivalent, so at a 732 px map
+   (a 1024 px browser window, rail included) "NETO TOKOVI: PRIMORSKO-GORANSKA ↔
+   PARTNERI · KUMULATIVNA PROCJENA" ran 73 px straight through "2011.–2024.".
+   Same canvas metrics the PNG measures with, so both formats break the same way
+   or not at all. */
+const DISP_CSS = 'Oswald,"Arial Narrow",sans-serif';
+function fitTitle(dsc: string, per: string, w: number, start = 21, min = 12): number {
+  const ctx = document.createElement('canvas').getContext('2d');
+  if (!ctx) return start;
+  ctx.font = '600 ' + start + 'px ' + DISP_CSS;
+  const perW = ctx.measureText(per).width;
+  let fs = start;
+  while (fs > min) {
+    ctx.font = '600 ' + fs + 'px ' + DISP_CSS;
+    if (ctx.measureText(dsc).width <= w - perW - 58) break;
+    fs--;
+  }
+  return fs;
+}
 
 export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
   const w = node.clientWidth, h = node.clientHeight;
@@ -209,13 +249,16 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
       + txt(210, ly + 22, '+' + lab(leg.m), la + ' text-anchor="end"');
     else legSvg += txt(20, ly + 22, '0', la) + txt(210, ly + 22, fmtI.format(leg.m), la + ' text-anchor="end"');
     if (leg.badge) legSvg += txt(222, ly + 9, leg.badge, la);
+    const note = legendNote(S);
+    if (note) legSvg += txt(222, ly + 22, note, `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`);
   }
+  const tfs = fitTitle(dsc.toUpperCase(), per, w);
   const doc =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h + TOP + BOT}" viewBox="0 0 ${w} ${h + TOP + BOT}">`
     + `<defs>${defs}</defs>`
     + `<rect width="${w}" height="${h + TOP + BOT}" fill="#F4F5F2"/>`
     + txt(20, 26, `MIGRACIJSKI ATLAS ŽUPANIJA · DZS · ${Y0}.–${YEND}.`, `font-family="${MONO}" font-size="10" font-weight="500" fill="#5F6A72" letter-spacing="1"`)
-    + txt(20, 56, dsc.toUpperCase(), `font-family="${DISP}" font-size="21" font-weight="600" fill="#20262B"`)
+    + txt(20, 56, dsc.toUpperCase(), `font-family="${DISP}" font-size="${tfs}" font-weight="600" fill="#20262B"`)
     + txt(w - 20, 56, per, `font-family="${DISP}" font-size="21" font-weight="600" fill="#20262B" text-anchor="end"`)
     + `<line x1="20" y1="70" x2="${w - 20}" y2="70" stroke="#D9DDD6"/>`
     + new XMLSerializer().serializeToString(clone)

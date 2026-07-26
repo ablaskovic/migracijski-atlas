@@ -55,8 +55,12 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
 
       <div className="help-h">Upravljanje</div>
       <div className="help-p">
-        <b>← →</b> mijenjaju godinu, <b>razmaknica</b> pokreće reprodukciju kroz godine.
-        Kotačić miša zumira kartu i matricu, povlačenje pomiče prikaz.
+        <b>← →</b> mijenjaju godinu, <b>Home</b> / <b>End</b> skaču na prvu i zadnju,
+        <b> razmaknica</b> pokreće reprodukciju kroz godine.
+        {/* zoom was wheel/pinch/drag only — the feature, and the county labels that
+            only appear once a county is zoomed large enough, had no keyboard route */}
+        <b> +</b> i <b>−</b> zumiraju kartu i matricu, <b>0</b> vraća na početno;
+        isto radi kotačić miša, a povlačenje pomiče prikaz.
         Klik na županiju otvara njezinu karticu; u Tokovima klik na partnera u popisu
         otvara koridor kroz vrijeme.
       </div>

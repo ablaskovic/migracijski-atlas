@@ -76,7 +76,7 @@ for si, ti, w in edges:
     else: inter += w; M[(a,b)] += w
 assert sum(w for _,_,w in edges) == 57465, sum(w for _,_,w in edges)
 assert inter == 30384 and intra == 27081, (inter, intra)
-od = json.load(open('../../src/data/od2018.json'))
+od = json.load(open('ref/od2018.json'))
 for a in ISOS:
     for b in ISOS:
         if a != b:

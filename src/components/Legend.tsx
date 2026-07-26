@@ -1,7 +1,8 @@
 import {
-  ISOS, D, JGEO, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB,
+  ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB,
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, fmtI, fmtR,
 } from '../lib/metrics.ts';
+import { jlsGeo } from '../lib/geoAsync.ts';
 import type { CSSProperties } from 'react';
 import type { Klas, State } from '../lib/types.ts';
 
@@ -25,13 +26,27 @@ function GradBar({ scale, m, rel, mark }: {
   );
 }
 
+/* Sequential twin of GradBar. jmap, mx and flow each inlined this, and each
+   evaluated markPct twice — once for the null test, once for the value. In jmap
+   that is a linear scan over 556 features per call, per render, per hover. */
+function SeqBar({ scale, m, mark }: { scale: (v: number) => string; m: number; mark: number | null }) {
+  return (
+    <>
+      <div className="legend-bar" style={gradStyle(scale, m, false)}>
+        {mark != null && <div className="legend-mark" style={{ left: mark + '%' }} />}
+      </div>
+      <div className="legend-lbls"><span>0</span><span>{fmtI.format(m)}</span></div>
+    </>
+  );
+}
+
 /* hovered value → tick position on the current scale */
 function markPct(S: State, m: number): number | null {
   const iso = S.hl;
   const clamp = (p: number) => Math.max(0, Math.min(100, p));
   if (S.view === 'jmap') {
     if (S.jlsHl == null) return null;
-    const f = JGEO.features.find(f => f.properties.j === S.jlsHl);
+    const f = jlsGeo()?.features.find(f => f.properties.j === S.jlsHl);
     if (!f) return null;
     const v = jlsVal(f.properties, S.dir);
     return clamp(S.dir === 'net' ? (v + m) / (2 * m) * 100 : Math.abs(v) / m * 100);
@@ -90,24 +105,21 @@ export default function Legend({ S }: { S: State }) {
   }
   if (S.view === 'jmap') {
     const { m, scale } = jmapScale(S.dir);
+    const mark = markPct(S, m);
     const ttl = { out: 'odlasci iz JLS', in: 'dolasci u JLS', net: 'neto po JLS' }[S.dir];
     return (
       <div className="legend" id="legend">
         <div className="legend-title">Gradovi i općine · {ttl} · 2018.</div>
         {S.dir === 'net'
-          ? <GradBar scale={scale} m={m} rel={false} mark={markPct(S, m)} />
-          : <>
-              <div className="legend-bar" style={gradStyle(scale, m, false)}>
-                {markPct(S, m) != null && <div className="legend-mark" style={{ left: markPct(S, m) + '%' }} />}
-              </div>
-              <div className="legend-lbls"><span>0</span><span>{fmtI.format(m)}</span></div>
-            </>}
+          ? <GradBar scale={scale} m={m} rel={false} mark={mark} />
+          : <SeqBar scale={scale} m={m} mark={mark} />}
         <div className="legend-note">Boja po korijenskoj (√) skali. Samo preseljenja unutar RH (selidbe između JLS, bez inozemstva). Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY). Granice: OSM/ODbL.</div>
       </div>
     );
   }
   if (S.view === 'mx') {
     const m = mxMax(S.dir, S.cum);
+    const mark = markPct(S, m);
     const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
       ? 'Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).'
       : 'Procjena (IPF): struktura 2018. skalirana na DZS margine.' + (S.dir === 'net' ? ' Neto parova je strukturna procjena.' : '');
@@ -116,19 +128,15 @@ export default function Legend({ S }: { S: State }) {
       <div className="legend" id="legend">
         <div className="legend-title">Matrica tokova · {ttl} · {per}</div>
         {S.dir === 'net'
-          ? <GradBar scale={divScale(m)} m={m} rel={false} mark={markPct(S, m)} />
-          : <>
-              <div className="legend-bar" style={gradStyle(seqScale(m, S.dir), m, false)}>
-                {markPct(S, m) != null && <div className="legend-mark" style={{ left: markPct(S, m) + '%' }} />}
-              </div>
-              <div className="legend-lbls"><span>0</span><span>{fmtI.format(m)}</span></div>
-            </>}
+          ? <GradBar scale={divScale(m)} m={m} rel={false} mark={mark} />
+          : <SeqBar scale={seqScale(m, S.dir)} m={m} mark={mark} />}
         <div className="legend-note">Dijagonala (selidbe unutar županije) nije dio međužupanijske matrice. {src}</div>
       </div>
     );
   }
   if (S.view === 'flow') {
     const m = flowMax(S.sel!, S.dir, S.cum);
+    const mark = markPct(S, m);
     const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
       ? 'Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).'
       : 'Procjena (IPF): struktura 2018. skalirana na DZS margine razdoblja.' + (S.dir === 'net' ? ' Neto parova je strukturna procjena.' : '');
@@ -136,7 +144,7 @@ export default function Legend({ S }: { S: State }) {
       return (
         <div className="legend" id="legend">
           <div className="legend-title">Neto tokovi: {D[S.sel!]?.n || ''} ↔ partneri · {per}</div>
-          <GradBar scale={divScale(m)} m={m} rel={false} mark={markPct(S, m)} />
+          <GradBar scale={divScale(m)} m={m} rel={false} mark={mark} />
           <div className="legend-note">Plavo: odabrana županija dobiva od partnera. Strelica pokazuje smjer selidbe. {src}</div>
         </div>
       );
@@ -147,10 +155,7 @@ export default function Legend({ S }: { S: State }) {
         <div className="legend-title">
           {S.dir === 'out' ? (D[S.sel!]?.n || '') + ' → ostale županije' : 'ostale županije → ' + (D[S.sel!]?.n || '')} · {per}
         </div>
-        <div className="legend-bar" style={gradStyle(sq, m, false)}>
-          {markPct(S, m) != null && <div className="legend-mark" style={{ left: markPct(S, m) + '%' }} />}
-        </div>
-        <div className="legend-lbls"><span>0</span><span>{fmtI.format(m)}</span></div>
+        <SeqBar scale={sq} m={m} mark={mark} />
         <div className="legend-note">Debljina luka ∝ broju osoba, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. {src}</div>
       </div>
     );

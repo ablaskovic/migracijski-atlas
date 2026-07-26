@@ -5,11 +5,18 @@
    metrics.ts, so a data refresh that moves them must update these captions too
    (same rule as the CLAUDE.md ground-truth table). */
 import { YEARS, IX2018 } from './metrics.ts';
-import type { Patch } from './types.ts';
+import { BASE, STORY_KEYS } from './state.ts';
+import type { Patch, State } from './types.ts';
 
 const Y24 = YEARS.indexOf(2024), Y25 = YEARS.indexOf(2025);
 
-export interface Story { label: string; cap: string; patch: Patch }
+/* `patch` is what the preset *sets*; `asserts` is what its caption actually
+   *claims* beyond STORY_KEYS. The two were conflated — invalidation ran over the
+   patch's own keys — so a preset became panel-sensitive by accident of carrying a
+   defensive `age: false`. Measured: opening "Dob i spol" killed Nalaz 7's caption
+   (which never mentions a panel) while Nalaz 1's, 2's, 3's, 5's and 6's survived.
+   Now only a caption that speaks about a surface dies when that surface moves. */
+export interface Story { label: string; cap: string; patch: Patch; asserts?: (keyof State)[] }
 
 export const STORIES: Story[] = [
   {
@@ -31,6 +38,9 @@ export const STORIES: Story[] = [
     label: '2025.: hrvatski državljani u plusu',
     cap: 'U 2025. hrvatski državljani prvi su put neto pozitivni (+3.705, nakon −6.857 u 2024.), a azijski se val hladi — odseljavanje raste.',
     patch: { view: 'saldo', flow: 'ext', den: 'abs', cum: false, yi: Y25, sel: null, citz: true, citzTab: 'grp', jls: false, age: false },
+    /* the only caption whose claim lives in a panel — close it and the caption is
+       describing something that is no longer on screen */
+    asserts: ['citz', 'citzTab'],
   },
   {
     label: 'Prag odlučuje tko je gubitnica',
@@ -48,3 +58,18 @@ export const STORIES: Story[] = [
     patch: { view: 'jmap', dir: 'net', cum: false, yi: IX2018, sel: null, jls: false, citz: false, age: false },
   },
 ];
+
+/* The one definition of "this caption still describes what is on screen", read by
+   all three places that need it: App's invalidation, and both halves of the
+   permalink codec. Keeping them in sync by hand is what let a link render a banner
+   citing +27.521 over a view showing +41.986 (see hash.ts). Only keys the preset
+   itself sets are compared — STORY_KEYS names every field a caption can depend on,
+   but a preset that never sets `thr` makes no claim about it. */
+export function storyKeys(ix: number): (keyof State)[] {
+  return [...STORY_KEYS, ...(STORIES[ix].asserts ?? [])];
+}
+export function storyHolds(s: Partial<State>, ix: number): boolean {
+  const patch = STORIES[ix].patch as Record<string, unknown>;
+  const cur = { ...BASE, ...s } as Record<string, unknown>;
+  return storyKeys(ix).every(k => !(k in patch) || cur[k] === patch[k]);
+}

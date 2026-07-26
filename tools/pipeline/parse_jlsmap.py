@@ -74,7 +74,7 @@ assert tot == 57465 and inter == 30384 and intra == 27081, (tot, inter, intra)
 assert sum(IN.values()) == sum(OUT.values()) == tot
 
 # per-county out-to-other-counties must equal od2018 row sums (margin cross-check)
-od = json.load(open('../../src/data/od2018.json'))
+od = json.load(open('ref/od2018.json'))
 by_cty_out = defaultdict(int)
 for i, w in OUT.items(): by_cty_out[reg[i][0]] += w
 by_cty_intra = defaultdict(int)

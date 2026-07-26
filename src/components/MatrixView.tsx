@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI } from '../lib/metrics.ts';
+import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI, sgn } from '../lib/metrics.ts';
 import { moveTip, COARSE } from '../lib/tip.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
@@ -101,6 +101,17 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
     moveTip({ clientX: r.right, clientY: r.bottom });
   };
 
+  /* The label has to state the direction its own number describes. `mxCell` flips
+     with Smjer, so a fixed "a → b" told a screen-reader user the exact opposite of
+     the truth in Dolasci (the cell labelled "Grad Zagreb → Zagrebačka: 1.977"
+     holds Zagrebačka → Grad Zagreb) and read a net balance as a directed flow in
+     Neto. `#tip` is aria-hidden, so this string is all AT gets. Same separation of
+     "what it points at" from "how it is worded" the rail already makes. */
+  const cellAria = (a: string, b: string, v: number): string =>
+    S.dir === 'net' ? `${D[a].n} ↔ ${D[b].n}: neto ${sgn(Math.round(v), fmtI)} za ${D[a].n}`
+      : S.dir === 'in' ? `${D[b].n} → ${D[a].n}: ${fmtI.format(Math.round(v))}`
+        : `${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`;
+
   /* Touch hit-testing: a finger is ~40 px against a ~10 px cell, so relying on
      the cell paths themselves means most taps land in a gap and read nothing.
      One overlay across the grid instead resolves the tap to the cell it fell
@@ -128,10 +139,14 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
       const a = MXORD[r], b = MXORD[c];
       if (a === b) {
         /* hatched, but no longer silent: probing the one visually distinct band
-           in the grid used to return nothing at all */
+           in the grid used to return nothing at all — and that explanation was
+           pointer-only, since the roving tabindex deliberately steps over the
+           diagonal. As a named gridcell a screen reader reaches it in browse
+           mode without it ever becoming a tab stop. */
         cells.push(<rect key={a + b} className="mxd" data-a={a} data-b={b}
           x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
-          fill="url(#mxhatch)"
+          fill="url(#mxhatch)" role="gridcell" tabIndex={-1}
+          aria-label={`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`}
           onPointerEnter={() => setS({ pairHl: [a, b] })}
           onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
           onPointerMove={moveTip} />);
@@ -147,7 +162,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
             fill={col(S.dir === 'net' ? v : Math.abs(v))}
             stroke={isHl ? '#20262B' : '#fff'} strokeWidth={isHl ? 1.6 : 0.5}
             role="gridcell" tabIndex={isF ? 0 : -1}
-            aria-label={`${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`}
+            aria-label={cellAria(a, b, v)}
             onPointerEnter={() => setS({ pairHl: [a, b] })}
             onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
             onPointerMove={moveTip}

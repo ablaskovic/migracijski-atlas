@@ -25,10 +25,17 @@ export const STORY_KEYS = ['view', 'flow', 'den', 'cum', 'yi', 'dir', 'sel', 'pa
    and restarts Tab from the top of the page. Hand it instead to the control that
    owns whatever was just dismissed, on the frame after React flushes the state.
    Selector lists resolve in *document* order, so pass the map path before the
-   rail row and the nearer target wins. */
+   rail row and the nearer target wins.
+   Walk the matches rather than taking the first: `.focus()` on a display:none
+   element is a silent no-op that leaves focus on <body> — the exact bug this
+   helper exists to prevent. A stale `jl=1` in a permalink used to aim Escape at
+   a `#jcardHd` that measured 0×0, and focus went nowhere. */
 export function focusSoon(sel: string) {
   requestAnimationFrame(() => {
-    const el = document.querySelector(sel) as HTMLElement | SVGElement | null;
-    el?.focus();
+    for (const el of document.querySelectorAll<HTMLElement | SVGElement>(sel)) {
+      if (!el.getClientRects().length) continue;   /* not rendered — cannot take focus */
+      el.focus();
+      if (document.activeElement === el) return;
+    }
   });
 }

@@ -1,7 +1,8 @@
 import {
-  ISOS, D, REG, JGEO, YEARS, DOM, RDOM, SHORTN,
-  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, mxCell, jlsVal, jmapScale, fmtI, fmtR, sgn,
+  ISOS, D, REG, YEARS, DOM, RDOM, SHORTN,
+  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
+import { jlsGeo } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
 import type { Patch, State } from '../lib/types.ts';
 
@@ -64,13 +65,14 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
   openPair: (iso: string) => void; jumpFlow: (a: string, b: string) => void;
   setJlsHl: (j: number | null) => void;
 }) {
+  const JG = jlsGeo();
   let rows: Row[], m: number, fill: (d: Row) => string, big = false;
   if (S.view === 'jmap') {
     /* net: 10 biggest gainers + 10 biggest losers; gross: top 20 */
-    const all = JGEO.features.map(f => ({ iso: ISOS[f.properties.c], v: jlsVal(f.properties, S.dir), jls: f.properties.j }))
+    const all = (JG ? JG.features : []).map(f => ({ iso: ISOS[f.properties.c], v: jlsVal(f.properties, S.dir), jls: f.properties.j }))
       .sort((a, b) => b.v - a.v);
     rows = S.dir === 'net' ? all.slice(0, 10).concat(all.slice(-10)) : all.slice(0, 20);
-    m = Math.max(...rows.map(r => Math.abs(r.v))) || 1;
+    m = Math.max(...rows.map(r => Math.abs(r.v)), 1);
     const js = jmapScale(S.dir).scale;
     fill = d => js(S.dir === 'net' ? d.v : Math.abs(d.v));
   } else if (S.view === 'reg') {
@@ -80,8 +82,15 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
     fill = d => col(d.v); big = true;
   } else if (S.view === 'mx') {
     rows = mxRows(S);
+    /* The BAR length stays relative to the top corridor — the rail is a ranking.
+       The COLOUR has to come from the grid's own domain, because the grid is what
+       the legend beside it describes: normalised to the top-20 instead, the #1 row
+       painted itself #B5341F, the extreme of the ramp, while the cell it lights
+       sat at rgb(214,131,107), ~60 % of a 0–3.868 scale. One number, two colours,
+       one key. (For net this is the positive half of divScale, which is exactly
+       what the gaining cell is filled with.) */
     m = rows[0]?.v || 1;
-    const sq = seqScale(m, S.dir === 'net' ? 'in' : S.dir);
+    const sq = seqScale(mxMax(S.dir, S.cum), S.dir === 'net' ? 'in' : S.dir);
     fill = d => sq(d.v);
   } else if (S.view === 'flow') {
     rows = ISOS.filter(p => p !== S.sel).map(p => ({ iso: p, v: flowOf(S.sel!, S.dir, p, S.yi, S.cum) })).sort((a, b) => b.v - a.v);
@@ -102,7 +111,11 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
   };
   const gross = (S.view === 'flow' && S.dir !== 'net') || S.view === 'mx' || (S.view === 'jmap' && S.dir !== 'net');
 
-  const JNAME = new Map(JGEO.features.map(f => [f.properties.j, f.properties.n]));
+  /* only the JLS view names municipalities — building this 556-entry Map on every
+     render of every view cost 556 allocations per hover frame for nothing */
+  const JNAME = S.view === 'jmap' && JG
+    ? new Map(JG.features.map(f => [f.properties.j, f.properties.n]))
+    : null;
   /* Regije and JLS rows have nothing to open — there is no region selection and
      no JLS drill — so they must not claim role=button. They stayed focusable:
      that is what makes the map highlight reachable without a pointer. */
@@ -116,9 +129,13 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
   const name = (d: Row) => {
     if (d.reg) return REG[d.iso].name;
     if (d.nm) return SHORTN[d.nm[0]] + ' → ' + SHORTN[d.nm[1]];
-    if (d.jls != null) return JNAME.get(d.jls) || '';
+    if (d.jls != null) return JNAME?.get(d.jls) || '';
     return D[d.iso].n;
   };
+  /* the county tag is a visible part of a JLS row's identity (two municipalities
+     share a name across counties), so it belongs in the spoken label too */
+  const rowAria = (d: Row) =>
+    (d.jls != null && name(d) !== SHORTN[d.iso] ? name(d) + ', ' + SHORTN[d.iso] : name(d)) + ' ' + fmt(d);
   /* hover and focus drive the same highlight — see the row handlers below */
   const lightOn = (d: Row) => {
     if (d.jls != null) setJlsHl(d.jls);
@@ -143,13 +160,22 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
         <div className="ctrl-lab" id="railLab">{railLab}</div>
         <div className="rail-year" id="railYear">{railTitle(S)}</div>
       </div>
-      <div className="rail-list" id="railList">
+      {/* the two lines above name what this list is and what period it covers;
+          without the association they were decoration a screen reader met minutes
+          before reaching the rows they describe */}
+      <div className="rail-list" id="railList" role="group" aria-labelledby="railLab railYear">
         {rows.map((d, i) => (
           <div key={d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso}
             className={'rrow' + (big ? ' big' : '') + (d.pair ? ' pairrow' : '') + (!d.reg && !d.pair && d.jls == null && d.iso === S.hl ? ' hl' : '') + (d.jls != null && d.jls === S.jlsHl ? ' hl' : '') + (d.reg && d.iso === S.regHl ? ' hl' : '') + (d.pair && S.pairHl && S.pairHl[0] === d.pair[0] && S.pairHl[1] === d.pair[1] ? ' hl' : '')}
             data-iso={d.iso}
-            role={canActivate(d) ? 'button' : undefined} tabIndex={0}
-            aria-label={name(d) + ' ' + fmt(d)}
+            /* A row claims role=button only when activating it does something.
+               The inert ones used to carry no role at all, which left an
+               aria-label sitting on a generic element — a placement ARIA does not
+               guarantee AT will expose. `img` is both valid and apt: name + bar +
+               number is one small graphic, and it collapses to exactly the one
+               string we want announced. */
+            role={canActivate(d) ? 'button' : 'img'} tabIndex={0}
+            aria-label={rowAria(d)}
             /* the rail is the natural index into the map and the 420-cell grid,
                so hovering a row lights up whatever it names: a region's counties,
                a corridor's matrix cell, a JLS, or a county — and focus does the

@@ -62,9 +62,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .cnt{stroke:#fff;stroke-width:.8;cursor:pointer;transition:fill .25s}
 .cnt.hl{stroke:var(--ink);stroke-width:1.6}
 .cnt.sel{stroke:var(--acc);stroke-width:2.2}
-/* outline on an SVG path draws round its bbox, not its shape — a stray rectangle.
-   onFocus sets .hl, so focus stays visible as the county's own ink stroke. */
-.cnt:focus{outline:none}
+/* outline on an SVG path draws round its bbox, not its shape — a stray rectangle,
+   so focus has to be drawn as the county's own stroke. It used to lean on .hl,
+   which onFocus sets — but .hl is *shared with hover*, and a single value at that:
+   hovering any other county overwrote it, and the pointerleave that followed
+   cleared it, so the still-focused county was left at plain #fff 0.8 px with no
+   indicator at all (measured: activeElement unchanged, class back to "cnt").
+   A dash is orthogonal to colour, so focus survives on top of hover (ink) and
+   selection (teal) without hiding either. */
+.cnt:focus{outline:none;stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
+.cnt.sel:focus{stroke:var(--acc);stroke-width:2.4}
 .reduced .cnt{transition:none}
 .regline{fill:none;stroke:var(--ink);stroke-width:1.8;pointer-events:none;stroke-linejoin:round}
 .arc{fill:none;pointer-events:none;opacity:.82;stroke-linecap:round}
@@ -111,7 +118,12 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   font-size:8.5px;color:var(--mut);letter-spacing:.04em;line-height:1.4}
 
 .scrub{border-top:1px solid var(--line);background:var(--panel);display:flex;align-items:stretch;padding:8px 20px 10px}
-.scrub.inert .scrub-chart{opacity:.35;pointer-events:none}
+/* `opacity + pointer-events:none` is the dimmed-but-live pattern the house rules
+   ban — it escaped the letter of the invariant here only because #spark was
+   already tabIndex −1. Scrubber.tsx detaches the handlers and sets aria-disabled
+   instead, so this is now only the dim and an honest cursor. */
+.scrub.inert .scrub-chart{opacity:.35}
+.scrub.inert .scrub-chart svg{cursor:default}
 /* the play button carries `disabled` in the JLS view instead, so it leaves the
    tab order rather than sitting in it looking dead (see Scrubber.tsx) */
 .play:disabled{opacity:.35;cursor:default}
@@ -221,6 +233,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   margin-top:4px;flex-wrap:wrap}
 .card-row b{font-weight:600;color:var(--ink)}
 .card-row .cy{color:var(--acc);font-weight:600}
+/* the mig+prirodno caveat, in the one card that shows the sum without it */
+.card-note{font-size:9px;color:var(--mut);margin-top:4px;line-height:1.35}
 
 /* map corner toggle for county labels */
 .labbtn{position:absolute;top:14px;right:16px;z-index:4;font-family:var(--mono);font-size:9.5px;
@@ -352,7 +366,14 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
      the affordance the mobile user needs. */
   .rail-hint{font-size:9px;padding:7px 14px}
   .rrow.pairrow{grid-template-columns:132px 1fr 52px}
-  .helpcard{left:8px;right:8px;width:auto;top:44px;max-height:70vh}
+  /* The glossary is taller than the map box on a phone, and anchoring it inside
+     .map-box let it run past the viewport (measured at 390×844: bottom 1152) and
+     over the fixed scrubber, which sits 1 z-index below it — elementFromPoint on
+     the play button returned the glossary, 46.002 px² of overlap. Pin it to the
+     viewport instead and reserve the bar's own lane, so the two cannot meet. */
+  .helpcard{position:fixed;left:8px;right:8px;width:auto;top:56px;
+    max-height:none;bottom:144px;overflow-y:auto}
+  body.scrub-collapsed .helpcard{bottom:86px}
 
   /* time scrubber pinned to the bottom so the year is always reachable while
      scrolling the map/rail. Body padding keeps the footer clear of it. */

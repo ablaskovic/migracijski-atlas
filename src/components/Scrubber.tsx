@@ -72,6 +72,12 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     ? 'RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)'
     : 'RH · vanjski saldo · preseljeni';
 
+  /* The JLS view has one measured year, so the chart is inert there. It used to be
+     dimmed with opacity + pointer-events:none — the pattern the house rules ban,
+     escaping the letter of the invariant only because tabIndex was already −1.
+     The handlers come off instead, and the slider says so: a screen reader met an
+     operable-looking role=slider with aria-valuenow="2018" and no way to work it. */
+  const inert = S.view === 'jmap';
   const yr = YEARS[S.yi];
   const sub = S.view === 'jmap' ? 'JLS · samo 2018. · izmjereno'
     : S.view === 'flow' || S.view === 'mx'
@@ -79,7 +85,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     : (S.view === 'klas' || S.cum ? '2011.–' + yr + '.' : 'godišnje');
 
   return (
-    <div className={'scrub' + (S.view === 'jmap' ? ' inert' : '') + (collapsed ? ' collapsed' : '')} id="scrubBox">
+    <div className={'scrub' + (inert ? ' inert' : '') + (collapsed ? ' collapsed' : '')} id="scrubBox">
       {/* mobile-only handle: the bar is pinned to the bottom there, so it needs a
           way to give the map its space back. Play + year stay visible collapsed. */}
       <button className="scrub-tog" id="scrubTog" aria-expanded={!collapsed}
@@ -92,7 +98,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
           segment groups already learned (Header.tsx): dimmed-but-focusable left
           a keyboard user tabbing onto a dead control in the JLS view and
           pressing Enter on nothing. */}
-      <button className="play" id="play" aria-pressed={S.playing} disabled={S.view === 'jmap'} onClick={togglePlay}
+      <button className="play" id="play" aria-pressed={S.playing} disabled={inert} onClick={togglePlay}
         title={S.playing ? 'Zaustavi reprodukciju' : 'Pokreni reprodukciju kroz godine'}
         aria-label={S.playing ? 'Zaustavi reprodukciju' : 'Pokreni reprodukciju kroz godine'}>
         <svg viewBox="0 0 24 24" id="playIco" aria-hidden="true">
@@ -103,11 +109,12 @@ export default function Scrubber({ S, setYi, togglePlay }: {
         {/* a real slider: the year is the app's primary control, and it was
             reachable only by dragging with a mouse. Arrow keys are handled
             globally in App, so focus here just makes that discoverable. */}
-        <svg id="spark" role="slider" tabIndex={S.view === 'jmap' ? -1 : 0}
-          aria-label="Godina prikaza"
+        <svg id="spark" role="slider" tabIndex={inert ? -1 : 0}
+          aria-label="Godina prikaza" aria-disabled={inert || undefined}
           aria-valuemin={S.cum || S.view === 'klas' ? 2011 : Y0} aria-valuemax={YEND}
           aria-valuenow={yr} aria-valuetext={yr + '.'}
-          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+          onPointerDown={inert ? undefined : onDown} onPointerMove={inert ? undefined : onMove}
+          onPointerUp={inert ? undefined : onUp} onPointerCancel={inert ? undefined : onUp}>
           {x && (
             <g>
               <defs>

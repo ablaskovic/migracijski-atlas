@@ -4,15 +4,20 @@ import { exportPNG, exportSVG } from '../lib/exportPng.ts';
 import { StorySelect } from './StoryBar.tsx';
 import type { Patch, State, View } from '../lib/types.ts';
 
-function Seg<T extends string>({ id, opts, value, onPick, off, title }: {
-  id: string; opts: [T, string][]; value: T; onPick: (v: T) => void; off?: boolean; title?: string;
+function Seg<T extends string>({ id, opts, value, onPick, off, title, labId, aria }: {
+  id: string; opts: [T, string][]; value: T; onPick: (v: T) => void;
+  off?: boolean; title?: string; labId?: string; aria?: string;
 }) {
   /* `off` used to be opacity + pointer-events:none, which left the buttons in the
      tab order (focusable and Enter-activatable while looking dead) and killed
      hover on the very element carrying the explanation. `disabled` handles the
-     first; .seg.off::after re-captures hover for the title, see index.css. */
+     first; .seg.off::after re-captures hover for the title, see index.css.
+     role=group + a name: the visible .ctrl-lab beside each group ("Prikaz",
+     "Sastavnica", …) was pure decoration to a screen reader, which heard seven
+     indistinguishable runs of pressed/not-pressed buttons. */
   return (
-    <div className={'seg' + (off ? ' off' : '')} id={id} title={off ? title : undefined}>
+    <div className={'seg' + (off ? ' off' : '')} id={id} title={off ? title : undefined}
+      role="group" aria-labelledby={labId} aria-label={aria} aria-disabled={off || undefined}>
       {opts.map(([v, label]) => (
         <button key={v} data-v={v} aria-pressed={v === value} disabled={off}
           onClick={() => onPick(v)}>{label}</button>
@@ -52,26 +57,28 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
       </div>
       <div className="ctrls">
         <StorySelect S={S} applyStory={applyStory} resetAll={resetAll} />
-        <div className="ctrl"><span className="ctrl-lab">Prikaz</span>
-          <Seg id="segView" value={S.view} onPick={setView}
+        <div className="ctrl"><span className="ctrl-lab" id="segViewLab">Prikaz</span>
+          <Seg id="segView" labId="segViewLab" value={S.view} onPick={setView}
             opts={[['saldo', 'Saldo'], ['klas', 'Klasifikacija'], ['reg', 'Regije'], ['flow', 'Tokovi'], ['mx', 'Matrica'], ['jmap', 'JLS 2018.']]} />
         </div>
-        <div className="ctrl" id="cFlow"><span className="ctrl-lab">Sastavnica</span>
-          <Seg id="segFlow" value={S.flow} off={lockFD} title={OFF_TIP} onPick={v => setS({ flow: v })}
+        <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">Sastavnica</span>
+          <Seg id="segFlow" labId="segFlowLab" value={S.flow} off={lockFD} title={OFF_TIP} onPick={v => setS({ flow: v })}
             opts={[['tot', 'Migracije'], ['int', 'Unutarnje'], ['ext', 'Vanjske'], ['nat', 'Prirodno'], ['all', 'Mig. + prirodno']]} />
         </div>
-        <div className="ctrl" id="cDen"><span className="ctrl-lab">Vrijednosti</span>
-          <Seg id="segDen" value={S.den} off={lockFD} title={OFF_TIP} onPick={v => setS({ den: v })}
+        <div className="ctrl" id="cDen"><span className="ctrl-lab" id="segDenLab">Vrijednosti</span>
+          <Seg id="segDen" labId="segDenLab" value={S.den} off={lockFD} title={OFF_TIP} onPick={v => setS({ den: v })}
             opts={[['abs', 'Apsolutno'], ['rel11', '% popisa 2011.'], ['relest', '% tek. procjene']]} />
         </div>
-        <div className="ctrl" id="cMode"><span className="ctrl-lab">Vrijeme</span>
-          <Seg id="segMode" value={S.cum ? 'cum' : 'yr'} off={lockT} title={OFF_TIP} onPick={setMode}
+        <div className="ctrl" id="cMode"><span className="ctrl-lab" id="segModeLab">Vrijeme</span>
+          <Seg id="segMode" labId="segModeLab" value={S.cum ? 'cum' : 'yr'} off={lockT} title={OFF_TIP} onPick={setMode}
             opts={[['yr', 'Godišnje'], ['cum', 'Kumulativno']]} />
         </div>
         <div className={'ctrl only thr' + (S.view === 'klas' ? ' show' : '')} id="thrBox">
-          <span className="ctrl-lab">Prag „gubitnice”</span>
+          <span className="ctrl-lab" id="thrLab">Prag „gubitnice”</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Seg id="thrMode" value={S.thrRel ? 'rel' : 'abs'} onPick={v => setS({ thrRel: v === 'rel' })}
+            {/* the shared label already names the slider, so this group needs its
+                own name rather than a second claim on "Prag „gubitnice”" */}
+            <Seg id="thrMode" aria="Jedinica praga" value={S.thrRel ? 'rel' : 'abs'} onPick={v => setS({ thrRel: v === 'rel' })}
               opts={[['abs', 'osobe'], ['rel', '%']]} />
             {S.thrRel ? (
               <input type="range" id="thr" min="0.5" max="5" step="0.1" value={S.thrPct}
@@ -86,12 +93,12 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
           </div>
         </div>
         <div className={'ctrl only' + (S.view === 'flow' || S.view === 'mx' || S.view === 'jmap' ? ' show' : '')} id="dirBox">
-          <span className="ctrl-lab">Smjer</span>
-          <Seg id="segDir" value={S.dir} onPick={v => setS({ dir: v })}
+          <span className="ctrl-lab" id="segDirLab">Smjer</span>
+          <Seg id="segDir" labId="segDirLab" value={S.dir} onPick={v => setS({ dir: v })}
             opts={[['out', 'Odlasci'], ['in', 'Dolasci'], ['net', 'Neto']]} />
         </div>
-        <div className="ctrl"><span className="ctrl-lab">Izvoz</span>
-          <div className="seg">
+        <div className="ctrl"><span className="ctrl-lab" id="segExpLab">Izvoz</span>
+          <div className="seg" id="segExp" role="group" aria-labelledby="segExpLab">
             <button id="pngBtn" disabled={busy} onClick={onPng} title="Preuzmi kartu kao PNG"
               aria-label="Preuzmi trenutačnu kartu kao PNG">{err ? 'greška' : busy ? '…' : 'PNG'}</button>
             <button id="svgBtn" onClick={onSvg} title="Preuzmi kartu kao SVG (vektor)"

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { scaleSqrt } from 'd3-scale';
 import {
-  GEO, REGGEO, JGEO, ISOS, DOM, RDOM, REGOF, SHORTN,
+  GEO, ISOS, DOM, RDOM, REGOF, SHORTN,
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowBadge, jlsVal, jmapScale, countyAria, fmtI, sgn,
 } from '../lib/metrics.ts';
+import { jlsGeo, regGeo } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
 import PairCard from './PairCard.tsx';
@@ -88,6 +89,10 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
     return () => ro.disconnect();
   }, [S.citz, S.age, S.citzTab, S.ageTab, S.view, size.w]);
 
+  /* Region outlines and the 556 JLS polygons arrive on their own chunks, so the
+     projected path cache has to rebuild when they land — hence the identities in
+     the dep list. `p(f) || ''` keeps a missing payload from throwing. */
+  const JGEO = jlsGeo(), REGGEO = regGeo();
   const { drawn, cent, cds, rds, box, jds } = useMemo(() => {
     if (!size.w || !size.h) {
       return {
@@ -106,23 +111,31 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
       cds[iso] = p(f)!; cent[iso] = p.centroid(f);
       const b = p.bounds(f); box[iso] = [b[1][0] - b[0][0], b[1][1] - b[0][1]];
     });
-    const rds = REGGEO.features.map(f => p(f)!);
-    const jds = JGEO.features.map(f => p(f) || '');  /* same projection as counties */
+    const rds = REGGEO ? REGGEO.features.map(f => p(f) || '') : [];
+    const jds = JGEO ? JGEO.features.map(f => p(f) || '') : [];  /* same projection as counties */
     return { drawn: true, cent, cds, rds, box, jds };
-  }, [size]);
+  }, [size, JGEO, REGGEO]);
 
-  /* county fill per state — port of update() */
-  const fill = (iso: string): string => {
-    if (S.view === 'klas') return KCOL[klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct)];
-    if (S.view === 'reg') return divScale(RDOM[S.flow + S.den + S.cum])(regVal(REGOF[iso], S.yi, S.flow, S.den, S.cum));
-    if (S.view === 'flow') {
-      if (iso === S.sel) return '#3B4650';
-      const m = flowMax(S.sel!, S.dir, S.cum), v = flowOf(S.sel!, S.dir, iso, S.yi, S.cum);
-      if (S.dir === 'net') return divScale(m)(v);
-      return seqScale(m, S.dir)(Math.abs(v));
+  /* county fill per state — port of update().
+     The scale is built once per render, not once per county: `fill` runs 21 times
+     and used to construct 21 d3 scales each time, on every hover. */
+  const fill = useMemo(() => {
+    if (S.view === 'klas') return (iso: string) => KCOL[klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct)];
+    if (S.view === 'reg') {
+      const col = divScale(RDOM[S.flow + S.den + S.cum]);
+      return (iso: string) => col(regVal(REGOF[iso], S.yi, S.flow, S.den, S.cum));
     }
-    return divScale(DOM[S.flow + S.den + S.cum])(val(iso, S.yi, S.flow, S.den, S.cum));
-  };
+    if (S.view === 'flow') {
+      const m = flowMax(S.sel!, S.dir, S.cum), dv = divScale(m), sq = seqScale(m, S.dir);
+      return (iso: string) => {
+        if (iso === S.sel) return '#3B4650';
+        const v = flowOf(S.sel!, S.dir, iso, S.yi, S.cum);
+        return S.dir === 'net' ? dv(v) : sq(Math.abs(v));
+      };
+    }
+    const col = divScale(DOM[S.flow + S.den + S.cum]);
+    return (iso: string) => col(val(iso, S.yi, S.flow, S.den, S.cum));
+  }, [S.view, S.yi, S.thr, S.thrRel, S.thrPct, S.flow, S.den, S.cum, S.sel, S.dir]);
 
   /* flow arcs — port of renderArcs(); estimated years render dashed (honesty
      encoding: only godišnje 2018 is measured) */
@@ -208,7 +221,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
           <g ref={jgRef}>
-            {drawn && (() => {
+            {drawn && JGEO && (() => {
               const { scale } = jmapScale(S.dir);
               return JGEO.features.map((f, ix) => {
                 const p = f.properties;
@@ -246,6 +259,12 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           <g>
             {drawn && ISOS.map(iso => <path key={iso} className="jbord" d={cds[iso]} />)}
           </g>
+          {/* the 475 KB municipal geometry is its own chunk now — say so for the
+              frame or two it is in flight rather than showing an empty country */}
+          {drawn && !JGEO && (
+            <text id="jloading" x={size.w / 2} y={size.h / 2} textAnchor="middle"
+              fontSize={11} fontFamily="var(--mono)" fill="var(--mut)">Učitavanje geometrije JLS…</text>
+          )}
           {labelG}
           </g>
         </svg>

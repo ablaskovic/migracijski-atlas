@@ -224,9 +224,18 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const mark = await page.evaluate(() => !!document.querySelector('#legend .legend-mark'));
   ck('legend shows hover mark on gradient', mark);
   await click('path[data-iso="HR-18"]');
-  const cardRow = await page.evaluate(() => document.querySelector('#cardRow')?.textContent || '');
-  ck('detail card year readout row (unut/vanj/prir/uk)',
-    cardRow.includes('unut.') && cardRow.includes('vanj.') && cardRow.includes('prir.') && cardRow.includes('uk.'), cardRow.slice(0, 60));
+  const cardRow = await page.evaluate(() => ({
+    row: document.querySelector('#cardRow')?.textContent || '',
+    note: document.querySelector('#cardNote')?.textContent || '',
+  }));
+  ck('detail card year readout row (unut/vanj/prir/mig.+prir.)',
+    cardRow.row.includes('unut.') && cardRow.row.includes('vanj.') && cardRow.row.includes('prir.')
+    && cardRow.row.includes('mig.+prir.'), cardRow.row.slice(0, 60));
+  /* "uk." reads as ukupna promjena broja stanovnika — the reading the tooltip,
+     the legend and the glossary all deny. The card showed the sum without either
+     the honest name or the caveat. */
+  ck('detail card names the sum honestly and carries the mig+prirodno caveat',
+    !/\buk\.\s/.test(cardRow.row) && cardRow.note.includes('nije ukupna promjena'), cardRow.note.slice(0, 60));
   await click('#cardX');
   await page.mouse.move(4, 4); await settle(60);
 
@@ -777,13 +786,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     r.focus();
     await new Promise(x => setTimeout(x, 160));
     return { role: r.getAttribute('role'), tab: r.getAttribute('tabindex'),
-      lit: document.querySelectorAll('.cnt.rhl').length };
+      lab: r.getAttribute('aria-label') || '', lit: document.querySelectorAll('.cnt.rhl').length };
   });
-  ck('inert region rows drop role=button but keep focus + map highlight',
-    regRow.role === null && regRow.tab === '0' && regRow.lit === 2, JSON.stringify(regRow));
+  /* `img` rather than no role at all: an aria-label on a *generic* element is a
+     placement ARIA does not guarantee AT will expose, and these rows are tab
+     stops. `img` is valid, apt (name + bar + number is one small graphic) and
+     collapses the row to exactly the string we want announced. Still not
+     `button` — activating them does nothing. */
+  ck('inert region rows drop role=button but keep focus, a name and the map highlight',
+    regRow.role === 'img' && regRow.tab === '0' && regRow.lit === 2
+    && regRow.lab.includes('Zagrebačka regija'), JSON.stringify(regRow));
   await fresh('#v=jmap');
-  const jRow = await page.evaluate(() => document.querySelector('#railList .rrow').getAttribute('role'));
-  ck('inert JLS rows drop role=button too', jRow === null, String(jRow));
+  const jRow = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#railList .rrow')];
+    /* the visible row shows the county in a .jc tag whenever the municipality is
+       not the county itself (Grad Zagreb is both, so it carries none) — the label
+       has to make the same distinction, since two JLS can share a name */
+    const tagged = rows.find(r => r.querySelector('.jc'));
+    return { roles: [...new Set(rows.map(r => r.getAttribute('role')))],
+      name: tagged?.querySelector('.rname').textContent || '',
+      county: tagged?.querySelector('.jc').textContent.trim() || '',
+      lab: tagged?.getAttribute('aria-label') || '' };
+  });
+  ck('inert JLS rows drop role=button too, and name their county',
+    jRow.roles.length === 1 && jRow.roles[0] === 'img'
+    && !!jRow.county && jRow.lab.includes(jRow.county), JSON.stringify(jRow));
   await fresh('');
   const cRow = await page.evaluate(() => document.querySelector('#railList .rrow').getAttribute('role'));
   ck('rows that do open something keep role=button', cRow === 'button', String(cRow));
@@ -1004,6 +1031,338 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const ov390 = await overlaps();
   ck('390: map overlays do not overlap each other', ov390.bad.length === 0, ov390.bad.join(' | '));
 
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     v2.0.4 — review pass 2. Every block below pins a defect the 134 checks
+     above could not see; the comment says what each one measured.
+     ══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── P1: an invariant repair must test the state the link BOOTS ──
+     encodeHash omits any field still at BASE, so a link with a pre-2011 year and
+     no `c=` decoded `cum: undefined` — falsy — while BASE.cum is true. The clamp
+     never fired and the atlas booted cumulative at 2005, where val() returns 0:
+     all 21 counties, the rail and every aria-label read 0 while the tooltip
+     (which clamps to ≥2011) reported 2011's real numbers under "2011.–2005.".
+     encodeHash then rewrote the URL into a complete, shareable link to it. */
+  for (const [h, why] of [['#v=saldo&y=2005', 'saldo'], ['#v=saldo&f=nat&y=2003', 'nat'], ['#v=reg&y=2000', 'reg']]) {
+    await fresh(h);
+    const boot = await page.evaluate(() => ({
+      hash: location.hash,
+      vals: [...document.querySelectorAll('#railList .rrow .rval')].map(v => v.textContent.trim()),
+      sub: document.querySelector('#bigYearSub').textContent,
+    }));
+    const allZero = boot.vals.length > 0 && boot.vals.every(v => v === '0');
+    ck(`truncated pre-2011 link (${why}) is repaired, not booted into an all-zero atlas`,
+      !allZero && /y=2011/.test(boot.hash) && !/2011\.–20(0|10)/.test(boot.sub),
+      boot.hash + ' · ' + boot.sub + ' · ' + boot.vals.slice(0, 3).join(','));
+  }
+  /* and the map/tooltip divergence that made it invisible cannot recur */
+  await fresh('#v=saldo&y=2005');
+  await page.hover('.cnt[data-iso="HR-21"]');
+  await settle(220);
+  const agree = await page.evaluate(() => ({
+    rail: [...document.querySelectorAll('#railList .rrow')]
+      .find(r => r.dataset.iso === 'HR-21')?.querySelector('.rval').textContent.trim() || '',
+    tip: document.querySelector('#tip').textContent,
+  }));
+  ck('map, rail and tooltip cannot disagree about a repaired year',
+    agree.rail !== '0' && NBSP(agree.tip).includes(NBSP(agree.rail).replace(/^\+/, '')),
+    JSON.stringify(agree).slice(0, 160));
+
+  /* ── P2: a cell label must state the direction of its own number ──
+     mxCell flips with Smjer; a fixed "a → b" told AT the opposite of the truth in
+     Dolasci (that cell holds b → a) and read a net balance as a directed flow.
+     #tip is aria-hidden, so this string is all a screen reader gets. */
+  await fresh('#v=mx&c=0&y=2018&dir=out');
+  const aOut = await page.evaluate(() => document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').getAttribute('aria-label'));
+  await fresh('#v=mx&c=0&y=2018&dir=in');
+  const aIn = await page.evaluate(() => document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').getAttribute('aria-label'));
+  await fresh('#v=mx&c=0&y=2018&dir=net');
+  const aNet = await page.evaluate(() => document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').getAttribute('aria-label'));
+  ck('matrix cell label states Odlasci as Grad Zagreb → Zagrebačka 2.311',
+    NBSP(aOut) === 'Grad Zagreb → Zagrebačka: 2.311', aOut);
+  ck('matrix cell label flips direction for Dolasci (1.977 is Zagrebačka → Grad Zagreb)',
+    NBSP(aIn) === 'Zagrebačka → Grad Zagreb: 1.977', aIn);
+  ck('matrix cell label calls a net balance a net, not a directed flow',
+    aNet.includes('↔') && aNet.includes('neto') && NBSP(aNet).includes('−334'), aNet);
+  /* the hatched diagonal's explanation was pointer-only: the roving tabindex
+     steps over it by design, so it needs a name to be reachable in browse mode */
+  const diagLab = await page.evaluate(() => {
+    const d = document.querySelector('.mxd[data-a="HR-01"][data-b="HR-01"]');
+    return { role: d.getAttribute('role'), lab: d.getAttribute('aria-label') || '', tab: d.getAttribute('tabindex') };
+  });
+  ck('matrix diagonal is a named gridcell without becoming a tab stop',
+    diagLab.role === 'gridcell' && diagLab.tab === '-1' && diagLab.lab.includes('unutar iste županije'),
+    JSON.stringify(diagLab));
+  /* the rail's colour must come from the grid's domain — the legend beside it
+     describes the grid, and the #1 row used to paint itself the extreme of the
+     ramp while the cell it lit sat at ~60 % of the same scale */
+  await fresh('#v=mx&c=0&y=2018&dir=out');
+  const railVsGrid = await page.evaluate(() => {
+    const bar = getComputedStyle(document.querySelector('#railList .rrow .rbar')).backgroundColor;
+    const cell = document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').getAttribute('fill');
+    const norm = s => s.replace(/\s/g, '');
+    return { bar: norm(bar), cell: norm(cell), same: norm(bar) === norm(cell) };
+  });
+  ck('matrix rail paints a corridor the same colour the grid does',
+    railVsGrid.same, JSON.stringify(railVsGrid));
+
+  /* ── P2: honesty labels have to survive the export ──
+     the badge said "procjena (IPF)" under a title saying "KUMULATIVNA PROCJENA",
+     and "Neto parova je strukturna procjena" reached neither format. */
+  for (const h of ['#v=flow&s=HR-21&dir=net&c=1&y=2024', '#v=mx&dir=net&c=1&y=2024']) {
+    await fresh(h);
+    const ex = await page.evaluate(() => {
+      const doc = window.__exportSVG(false);
+      const p = new DOMParser().parseFromString(doc, 'image/svg+xml');
+      const ts = [...p.querySelectorAll('svg > text')].map(t => t.textContent);
+      return { badge: ts.find(t => /^·\s/.test(t)) || '', structural: /strukturna procjena/.test(doc) };
+    });
+    ck('export badge says "kumulativna procjena", matching its own title  ' + h,
+      ex.badge.includes('kumulativna procjena'), ex.badge);
+    ck('export carries the structural-estimate note the screen carries  ' + h,
+      ex.structural, String(ex.structural));
+  }
+  /* the PNG shrinks its title to clear the period; the SVG twin used a fixed 21 px
+     and at a 732 px map (a 1024 px window) ran 73 px through "2011.–2024." */
+  await page.setViewport({ width: 1024, height: 800 });
+  await fresh('#v=flow&s=HR-08&dir=net&c=1&y=2024');
+  const fit = await page.evaluate(() => {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:absolute;left:-9999px;top:0';
+    holder.innerHTML = window.__exportSVG(false);
+    document.body.appendChild(holder);
+    const ts = [...holder.querySelector('svg').querySelectorAll(':scope > text')]
+      .filter(t => +t.getAttribute('font-size') > 11);
+    const tb = ts.find(t => t.getAttribute('text-anchor') !== 'end').getBBox();
+    const pb = ts.find(t => t.getAttribute('text-anchor') === 'end').getBBox();
+    const r = { overrun: Math.round(tb.x + tb.width - pb.x), fs: ts[0].getAttribute('font-size') };
+    holder.remove();
+    return r;
+  });
+  ck('exported SVG title shrinks to clear the period, like the PNG already did',
+    fit.overrun < 0, 'overrun ' + fit.overrun + ' px at font-size ' + fit.fs);
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── P2: a focused county keeps its ring when the pointer wanders ──
+     .hl is shared with hover and is a single value, so hovering any other county
+     overwrote it and the following pointerleave cleared it — leaving the still
+     focused county at plain #fff 0.8 px with no indicator at all. */
+  await fresh('');
+  await page.evaluate(() => document.querySelector('.cnt[data-iso="HR-18"]').focus());
+  await settle(200);
+  await page.hover('.cnt[data-iso="HR-14"]');
+  await settle(160);
+  await page.mouse.move(3, 3);
+  await settle(260);
+  const ring = await page.evaluate(() => {
+    const a = document.querySelector('.cnt[data-iso="HR-18"]');
+    const cs = getComputedStyle(a);
+    return { focused: document.activeElement === a, w: parseFloat(cs.strokeWidth),
+      dash: cs.strokeDasharray, stroke: cs.stroke };
+  });
+  ck('a focused county keeps a focus ring after the pointer visits another county',
+    ring.focused && ring.w >= 2 && /\d/.test(ring.dash) && ring.dash !== 'none',
+    JSON.stringify(ring));
+
+  /* ── P2: highlights are scoped to the view that produced them ──
+     `hl` survived a view change and the tip's visibility test was view-agnostic,
+     so a county focused in Saldo carried its saldo tooltip onto the JLS map.
+     Reached by keyboard alone — a focused county never gets a pointerleave. */
+  await fresh('');
+  const leak = await page.evaluate(async () => {
+    document.querySelector('.cnt[data-iso="HR-18"]').focus();
+    await new Promise(r => setTimeout(r, 220));
+    const before = document.querySelector('#tip').classList.contains('show');
+    document.querySelector('#segView button[data-v="jmap"]').click();
+    await new Promise(r => setTimeout(r, 700));
+    const tip = document.querySelector('#tip');
+    return { before, after: tip.classList.contains('show'), text: tip.textContent.slice(0, 40) };
+  });
+  ck('a county tooltip does not survive the switch to the JLS map',
+    leak.before && !leak.after, JSON.stringify(leak));
+
+  /* ── P2: every segment group has a programmatic name ──
+     seven groups of pressed/not-pressed buttons, and the visible "Prikaz" /
+     "Sastavnica" labels beside them were decoration to a screen reader. */
+  await fresh('#v=klas&c=1&y=2024');
+  const named = await page.evaluate(() => {
+    const nameOf = s => {
+      if (s.getAttribute('aria-label')) return s.getAttribute('aria-label');
+      const id = s.getAttribute('aria-labelledby');
+      return id ? id.split(/\s+/).map(i => document.getElementById(i)?.textContent || '').join(' ').trim() : '';
+    };
+    return [...document.querySelectorAll('.seg')].map(s => ({
+      id: s.id || '(none)', role: s.getAttribute('role'), name: nameOf(s) }));
+  });
+  ck('every segment group is a named role=group',
+    named.length >= 7 && named.every(g => g.role === 'group' && g.name.length > 2),
+    JSON.stringify(named.filter(g => g.role !== 'group' || !g.name)).slice(0, 160));
+  const railNamed = await page.evaluate(() => {
+    const l = document.querySelector('#railList');
+    const id = l.getAttribute('aria-labelledby') || '';
+    return { role: l.getAttribute('role'),
+      name: id.split(/\s+/).map(i => document.getElementById(i)?.textContent || '').join(' ').trim() };
+  });
+  ck('the rail list is named by the two lines that describe it',
+    railNamed.role === 'group' && railNamed.name.includes('županija') && /\d{4}/.test(railNamed.name),
+    JSON.stringify(railNamed));
+
+  /* ── P3: nothing dimmed is left looking operable ──
+     opacity + pointer-events:none is the banned pattern; it escaped the letter of
+     the invariant here only because #spark was already tabIndex −1, while AT still
+     met a role=slider with aria-valuenow and no way to work it. */
+  await fresh('#v=jmap');
+  const sparkInert = await page.evaluate(() => {
+    const s = document.querySelector('#spark');
+    return { disabled: s.getAttribute('aria-disabled'), tab: s.getAttribute('tabindex'),
+      pe: getComputedStyle(s.parentElement).pointerEvents,
+      opacity: getComputedStyle(s.parentElement).opacity };
+  });
+  ck('the inert scrubber says aria-disabled instead of only looking dead',
+    sparkInert.disabled === 'true' && sparkInert.tab === '-1' && sparkInert.pe !== 'none',
+    JSON.stringify(sparkInert));
+
+  /* ── P3: no panel flag without a panel behind it ──
+     the JLS chip only exists in Tokovi. Carried elsewhere it still set
+     body.panel-open — which hides the legend outright below 900 px — and still
+     swallowed an Escape press, dropping focus to <body>. */
+  await fresh('#v=saldo&c=1&y=2024&jl=1');
+  const deadFlag = await page.evaluate(() => ({
+    hash: location.hash, panelOpen: document.body.classList.contains('panel-open') }));
+  ck('a JLS chip flag outside Tokovi is dropped, not carried as a dead panel',
+    !/jl=/.test(deadFlag.hash) && !deadFlag.panelOpen, JSON.stringify(deadFlag));
+  /* and the same, reached through the UI rather than a URL */
+  await fresh('#v=flow&s=HR-21&c=0&y=2018');
+  const uiFlag = await page.evaluate(async () => {
+    document.querySelector('#jcardHd').click();
+    await new Promise(r => setTimeout(r, 250));
+    const opened = document.body.classList.contains('panel-open');
+    document.querySelector('#segView button[data-v="saldo"]').click();
+    await new Promise(r => setTimeout(r, 350));
+    return { opened, after: document.body.classList.contains('panel-open'), hash: location.hash };
+  });
+  ck('leaving Tokovi closes the JLS chip instead of leaving the flag set',
+    uiFlag.opened && !uiFlag.after && !/jl=/.test(uiFlag.hash), JSON.stringify(uiFlag));
+  /* focusSoon must not aim at a hidden element and drop focus on the floor */
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18&cz=1');
+  const escFocus = await page.evaluate(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { active: document.activeElement.id || document.activeElement.tagName };
+  });
+  ck('Escape never parks focus on <body>', escFocus.active !== 'BODY', escFocus.active);
+
+  /* ── P3: Space on a rail row that cannot be activated does nothing ──
+     inert rows carry no button role, which sent Space through to the global
+     handler: tabbing onto "Zagrebačka regija" and pressing Space started the film. */
+  await fresh('#v=reg&c=1&y=2024');
+  await page.evaluate(() => document.querySelector('#railList .rrow').focus());
+  await settle(120);
+  await page.keyboard.press(' ');
+  await settle(400);
+  const spaceRow = await page.evaluate(() => document.querySelector('#play').getAttribute('aria-pressed'));
+  ck('Space on an inert rail row does not start playback', spaceRow === 'false', String(spaceRow));
+
+  /* ── P3: a Nalaz dies only when its own claim stops holding ──
+     invalidation ran over the preset's *patch* keys, so a defensive `age: false`
+     enrolled a caption that never mentions a panel. Measured: opening "Dob i
+     spol" killed Nalaz 7 alone, out of seven. */
+  const survive = [];
+  for (const i of [1, 2, 3, 5, 6, 7]) {
+    await fresh('');
+    survive.push(await page.evaluate(async (ix) => {
+      const sel = document.querySelector('#story');
+      sel.value = String(ix - 1);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 400));
+      const on = !!document.querySelector('#storyCap');
+      document.querySelector('#ageHd').click();
+      await new Promise(r => setTimeout(r, 400));
+      return { ix, on, still: !!document.querySelector('#storyCap') };
+    }, i));
+  }
+  ck('a Nalaz that never mentions a panel survives one being opened — all six of them',
+    survive.every(s => s.on && s.still), JSON.stringify(survive.filter(s => !s.still)));
+  /* while the one whose claim IS a panel still dies with it (covered above for
+     citz; this pins that the new `asserts` list is what does it) */
+  await fresh('');
+  const n4 = await page.evaluate(async () => {
+    const sel = document.querySelector('#story');
+    sel.value = '3';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 400));
+    const on = !!document.querySelector('#storyCap');
+    document.querySelector('#citzHd').click();
+    await new Promise(r => setTimeout(r, 400));
+    return { on, still: !!document.querySelector('#storyCap'), hash: location.hash };
+  });
+  ck('Nalaz 4 still dies when the panel it asserts is closed',
+    n4.on && !n4.still && !/st=/.test(n4.hash), JSON.stringify(n4));
+
+  /* ── P3: the map can be zoomed without a pointer ──
+     wheel/pinch/drag only, so the whole feature — and the county-label rule tied
+     to it, which only reveals a small county once zoomed — failed WCAG 2.1.1. */
+  await fresh('');
+  const kbZoom = await page.evaluate(async () => {
+    const tr = () => document.querySelector('#map g').getAttribute('transform');
+    const before = tr();
+    for (let i = 0; i < 2; i++) window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    const zoomed = tr();
+    const rst = !!document.querySelector('#zoomRst');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '0', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { before, zoomed, rst, after: tr() };
+  });
+  ck('+ zooms the map from the keyboard and 0 returns it to 1×',
+    kbZoom.zoomed !== kbZoom.before && kbZoom.rst && kbZoom.after === kbZoom.before,
+    JSON.stringify(kbZoom));
+  ck('the glossary documents the zoom keys it now has', await page.evaluate(async () => {
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 250));
+    const t = document.querySelector('#helpCard').textContent;
+    document.querySelector('#helpX').click();
+    return t.includes('zumiraju') && t.includes('0');
+  }));
+
+  /* ── the two big geometry payloads are no longer on the critical path ── */
+  const chunks = await page.evaluate(() => performance.getEntriesByType('resource')
+    .filter(r => /\.js$/.test(r.name)).map(r => r.name.split('/').pop()));
+  ck('geo_jls and geo_regions5 ship as their own chunks, not in the entry',
+    chunks.some(c => /^geo_jls/.test(c)) && chunks.some(c => /^geo_regions5/.test(c))
+    && chunks.filter(c => /^index-/.test(c)).length === 1, chunks.join(','));
+  const entryKB = fs.existsSync(path.resolve(arg, 'assets'))
+    ? Math.round(fs.readdirSync(path.resolve(arg, 'assets'))
+      .filter(f => /^index-.*\.js$/.test(f))
+      .reduce((a, f) => a + fs.statSync(path.join(path.resolve(arg, 'assets'), f)).size, 0) / 1024)
+    : 0;
+  ck('entry chunk stays under 600 KB (was 995 KB with both payloads inlined)',
+    entryKB > 0 && entryKB < 600, entryKB + ' KB');
+
+  /* ── P2: the glossary does not cover the play button on a phone ──
+     .helpcard was anchored inside .map-box with max-height:70vh, so at 390×844 it
+     ran to y 1152 and over the fixed scrubber (46.002 px², elementFromPoint on
+     #play returned the glossary). */
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  await fresh('');
+  await page.evaluate(() => document.querySelector('#helpBtn').click());
+  await settle(400);
+  const mobHelp = await page.evaluate(() => {
+    const box = s => { const e = document.querySelector(s); const b = e.getBoundingClientRect();
+      return { t: b.top, b: b.bottom, l: b.left, r: b.right }; };
+    const a = box('#helpCard'), s = box('#scrubBox');
+    const ov = Math.max(0, Math.min(a.b, s.b) - Math.max(a.t, s.t)) * Math.max(0, Math.min(a.r, s.r) - Math.max(a.l, s.l));
+    const p = document.querySelector('#play').getBoundingClientRect();
+    const hit = document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2);
+    return { ov: Math.round(ov), onPlay: !!(hit && hit.closest('#play')),
+      offscreen: Math.round(a.b - innerHeight), hitId: hit ? (hit.id || hit.className) : null };
+  });
+  ck('390: the open glossary does not overlap the fixed scrubber',
+    mobHelp.ov === 0 && mobHelp.offscreen <= 0, JSON.stringify(mobHelp));
+  ck('390: the play button is still clickable with the glossary open',
+    mobHelp.onPlay, String(mobHelp.hitId));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── errors ── */

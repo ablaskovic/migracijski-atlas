@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { YEARS, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { decodeHash, encodeHash } from './lib/hash.ts';
-import { BASE, STORY_KEYS, focusSoon } from './lib/state.ts';
-import { STORIES } from './lib/stories.ts';
+import { BASE, focusSoon } from './lib/state.ts';
+import { STORIES, storyKeys } from './lib/stories.ts';
+import { useGeo } from './lib/geoAsync.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
@@ -30,16 +31,17 @@ export default function App() {
   const ref = useRef(S); ref.current = S;
   /* Clearing the preset also keeps `st` out of the permalink, so a shared link
      can never carry a caption that contradicts its own state. The invalidation
-     set is STORY_KEYS *plus the active preset's own patch keys*: Nalaz 4 asserts
-     something about the Državljanstvo panel, so closing that panel must kill the
-     caption — while Nalaz 2, which says nothing about panels, survives one being
-     opened. Without this the app emitted `…&st=4` with `cz=1` already dropped. */
+     set is `storyKeys(i)` = STORY_KEYS plus whatever *that caption additionally
+     claims*: Nalaz 4 asserts something about the Državljanstvo panel, so closing
+     that panel must kill it, while a preset that says nothing about panels
+     survives one being opened. It used to run over the preset's own *patch* keys
+     instead, which enrolled every defensive `age: false` — measured, opening
+     "Dob i spol" killed Nalaz 7 alone, for no reason its caption could explain. */
   const up = (patch: Patch) => setS(s => {
     const n: State = { ...s, ...patch };
     if (s.story != null && patch.story === undefined) {
-      const keys = new Set<string>([...STORY_KEYS, ...Object.keys(STORIES[s.story].patch)]);
-      for (const k of keys) {
-        if (k in patch && patch[k as keyof State] !== s[k as keyof State]) { n.story = null; break; }
+      for (const k of storyKeys(s.story)) {
+        if (k in patch && patch[k] !== s[k]) { n.story = null; break; }
       }
     }
     return n;
@@ -55,14 +57,22 @@ export default function App() {
   const setView = (v: View) => {
     const s = ref.current;
     vmem.current[s.view] = { yi: s.yi, cum: s.cum };
-    const p: Patch = { view: v, playing: false };
+    /* Every highlight is scoped to the view that produced it. Carried across, a
+       county `hl` set in Saldo left its tooltip — county saldo, doseljeni iz
+       inoz., the lot — sitting on top of the 556-municipality JLS map, because
+       the tip's visibility test was view-agnostic. Reached by keyboard alone: a
+       focused county never gets the pointerleave that would have cleared it. */
+    const p: Patch = { view: v, playing: false, hl: null, pairHl: null, jlsHl: null, regHl: null };
     const mem = vmem.current[v];
     if (v === 'flow' || v === 'mx') {
       if (v === 'flow' && !s.sel) p.sel = 'HR-21';
       if (!s.flowSeen) { p.flowSeen = true; p.cum = false; p.yi = IX2018; }
       else if (mem) { p.yi = mem.yi; p.cum = mem.cum; }
     } else if (v !== 'jmap' && mem) { p.yi = mem.yi; p.cum = mem.cum; }
-    if (s.view === 'flow' && v !== 'flow') { p.sel = null; p.pair = null; }
+    /* the JLS corridor chip only exists in Tokovi; leaving it set outside is a
+       flag with no panel behind it that still sets body.panel-open (hiding the
+       legend outright below 900 px) and still eats an Escape press */
+    if (s.view === 'flow' && v !== 'flow') { p.sel = null; p.pair = null; p.jls = false; }
     if (v === 'jmap') { p.yi = IX2018; p.cum = false; }
     if ((v === 'klas' || (p.cum ?? s.cum)) && (p.yi ?? s.yi) < IX2011) p.yi = IX2011;
     up(p);
@@ -96,6 +106,11 @@ export default function App() {
      at 2.8×. Bumping a counter is the whole handshake MapView needs. */
   const [resetSeq, setResetSeq] = useState(0);
   const resetAll = () => { vmem.current = {}; setResetSeq(n => n + 1); setS({ ...BASE }); };
+
+  /* The two big geometry payloads load on demand (see geoAsync.ts). App is the
+     root, so re-rendering here is what hands the data to Rail, Legend and Tooltip
+     as well as MapView. */
+  useGeo(S.view);
 
   /* reduced motion is a live preference, not a boot-time constant */
   const [reduced, setReduced] = useState(
@@ -218,8 +233,13 @@ export default function App() {
          preventDefault here used to swallow it — tabbing to a segment and
          pressing Space toggled playback instead of picking the segment. */
       if (ev.key === ' ') {
+        /* …and a rail row is a control too, even the inert ones. Regije and JLS
+           rows carry no role because activating them does nothing — which sent
+           Space straight through to here, so tabbing onto "Zagrebačka regija"
+           and pressing Space started playback. Doing nothing is the right answer
+           for a row with nothing to activate; starting the film is not. */
         if (tag === 'BUTTON' || tag === 'A' || el.getAttribute('role') === 'button'
-          || el.getAttribute('role') === 'gridcell') return;
+          || el.getAttribute('role') === 'gridcell' || el.closest?.('.rrow')) return;
         ev.preventDefault();
         togglePlay();
       }

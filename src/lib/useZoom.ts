@@ -9,8 +9,13 @@
      touch    two fingers pinch/pan; one finger is left to the page so the
               document can still be scrolled with the map under the thumb
      pointer  wheel zooms about the cursor, drag pans
+     keyboard + / − zoom about the centre of the box, 0 returns to 1×
    A drag shorter than DEAD px is not a pan, so county clicks and matrix taps
-   survive the gesture. */
+   survive the gesture.
+
+   The keyboard set is not a nicety: without it the entire zoom feature was
+   pointer-only (WCAG 2.1.1), and so was the county-label rule, which only reveals
+   a small county's name once the *zoomed* bbox can hold it (MapView). */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type ZoomT = { k: number; x: number; y: number };
@@ -23,6 +28,12 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 function fit(t: ZoomT, w: number, h: number): ZoomT {
   const k = clamp(t.k, KMIN, KMAX);
   return { k, x: clamp(t.x, w - k * w, 0), y: clamp(t.y, h - k * h, 0) };
+}
+/* zoom about a point: that point must stay put under the cursor/fingers/centre.
+   One definition, shared by the wheel, the pinch, and the keyboard. */
+function zoomTo(base: ZoomT, k2: number, px: number, py: number, w: number, h: number): ZoomT {
+  const k = clamp(k2, KMIN, KMAX), r = k / base.k;
+  return fit({ k, x: px - (px - base.x) * r, y: py - (py - base.y) * r }, w, h);
 }
 
 export function useZoom(w: number, h: number) {
@@ -43,11 +54,33 @@ export function useZoom(w: number, h: number) {
   /* a resize changes the clamp bounds — re-fit so content cannot end up adrift */
   useEffect(() => { setT(p => (p.k === 1 ? p : fit(p, w, h))); }, [w, h]);
 
-  /* zoom about a point: that point must stay under the cursor/fingers */
-  const zoomAt = useCallback((k2: number, px: number, py: number, base: ZoomT) => {
-    const k = clamp(k2, KMIN, KMAX), r = k / base.k;
-    setT(fit({ k, x: px - (px - base.x) * r, y: py - (py - base.y) * r }, w, h));
+  /* zoom about a point, absolute scale — the pinch handler's shape */
+  const zoomAt = useCallback((k2: number, px: number, py: number) => {
+    setT(cur => zoomTo(cur, k2, px, py, w, h));
   }, [w, h]);
+  /* zoom about the centre of the box by a factor — the keyboard's shape */
+  const zoomBy = useCallback((f: number) => {
+    setT(cur => zoomTo(cur, cur.k * f, w / 2, h / 2, w, h));
+  }, [w, h]);
+
+  /* Keyboard equivalent of the wheel. Bound to the window rather than the svg:
+     the map is not itself a tab stop (its 21 counties are), so there is no single
+     element a user would have focused to "be on the map" — and the transform is
+     global to the view anyway. Text inputs and browser page zoom keep their keys. */
+  useEffect(() => {
+    if (!w || !h) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || t?.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1.6); }
+      else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomBy(1 / 1.6); }
+      else if (e.key === '0') { e.preventDefault(); setT(IDENT); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [w, h, zoomBy]);
 
   /* wheel must be non-passive to preventDefault, so it is bound imperatively */
   useEffect(() => {
@@ -56,11 +89,7 @@ export function useZoom(w: number, h: number) {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      setT(cur => {
-        const k = clamp(cur.k * Math.pow(2, -e.deltaY / 400), KMIN, KMAX);
-        const rr = k / cur.k, px = e.clientX - r.left, py = e.clientY - r.top;
-        return fit({ k, x: px - (px - cur.x) * rr, y: py - (py - cur.y) * rr }, w, h);
-      });
+      setT(cur => zoomTo(cur, cur.k * Math.pow(2, -e.deltaY / 400), e.clientX - r.left, e.clientY - r.top, w, h));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     /* capture phase: stop the click before it reaches any county/cell handler */
@@ -107,7 +136,8 @@ export function useZoom(w: number, h: number) {
       const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
       const k = clamp(g.t.k * (d / g.d), KMIN, KMAX), r = k / g.t.k;
       panned.current = true;
-      /* zoom about the pinch centre and follow it as the fingers travel */
+      /* zoom about the pinch centre and follow it as the fingers travel — not
+         zoomTo(), whose anchor is fixed: here cx/cy drift away from g.cx/g.cy */
       setT(fit({ k, x: cx - (g.cx - g.t.x) * r, y: cy - (g.cy - g.t.y) * r }, w, h));
       return;
     }
@@ -134,5 +164,5 @@ export function useZoom(w: number, h: number) {
   };
   /* pan-y keeps one-finger page scrolling alive; pinch still reaches us */
   const style = { touchAction: 'pan-y' as const, cursor: t.k > 1 ? 'grab' : undefined };
-  return { t, bind, style, reset, zoomAt, zoomed: t.k > 1 };
+  return { t, bind, style, reset, zoomAt, zoomBy, zoomed: t.k > 1 };
 }

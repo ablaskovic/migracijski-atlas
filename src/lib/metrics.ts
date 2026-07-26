@@ -6,28 +6,27 @@ import { scaleLinear, type ScaleLinear } from 'd3-scale';
 import { interpolateLab } from 'd3-interpolate';
 import type { FeatureCollection, Geometry } from 'geojson';
 import type {
-  AtlasRaw, CitData, CountyProps, DemoData, Den, Dir, Flow, JlsData, JlsProps, Klas, OdMatrix, RegionProps, State,
+  AtlasRaw, CitData, CountyProps, DemoData, Den, Dir, Flow, JlsData, JlsProps, Klas, OdMatrix, State,
 } from './types.ts';
 
 /* JSON payloads are cast to the shapes in types.ts (via unknown: the inferred
    literal types don't overlap with GeoJSON's/our discriminated interfaces). */
 import GEOjson from '../data/geo_counties.json';
-import REGGEOjson from '../data/geo_regions5.json';
 import RAWjson from '../data/atlas_data2.json';
 import ODMjson from '../data/odm.json';
 import CITjson from '../data/citizen.json';
 import JLSjson from '../data/jls_drill.json';
 import DEMOjson from '../data/demo.json';
-import JGEOjson from '../data/geo_jls.json';
+/* geo_jls.json (475 KB) and geo_regions5.json (68 KB) are NOT imported here —
+   together they were 53 % of the bundle for two of six views. See geoAsync.ts. */
+import { jlsGeo } from './geoAsync.ts';
 
 export const GEO = GEOjson as unknown as FeatureCollection<Geometry, CountyProps>;
-export const REGGEO = REGGEOjson as unknown as FeatureCollection<Geometry, RegionProps>;
 const RAW = RAWjson as unknown as AtlasRaw;
 const ODM = ODMjson as unknown as OdMatrix;
 export const CIT = CITjson as unknown as CitData;
 export const JLS = JLSjson as unknown as JlsData;
 export const DEMO = DEMOjson as unknown as DemoData;
-export const JGEO = JGEOjson as unknown as FeatureCollection<Geometry, JlsProps>;
 
 export const YEARS = RAW.years;
 export const D = RAW.c;
@@ -194,10 +193,14 @@ export function jlsVal(p: JlsProps, dir: Dir): number {
 }
 const JM = new Map<Dir, number>();
 export function jmapMax(dir: Dir): number {
+  /* the geometry is loaded on demand — return a harmless domain rather than
+     caching 1 for the rest of the session while the chunk is still in flight */
+  const g = jlsGeo();
+  if (!g) return 1;
   const hit = JM.get(dir);
   if (hit != null) return hit;
   let m = 0;
-  for (const f of JGEO.features) m = Math.max(m, Math.abs(jlsVal(f.properties, dir)));
+  for (const f of g.features) m = Math.max(m, Math.abs(jlsVal(f.properties, dir)));
   m = m || 1; JM.set(dir, m); return m;
 }
 /* signed-√ color ramp: 556 JLS with Grad Zagreb 10× above the rest renders

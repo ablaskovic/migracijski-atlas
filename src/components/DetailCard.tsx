@@ -54,7 +54,13 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
         <span>unut. <b>{sgn(ints[S.yi], fmtI)}</b></span>
         <span>vanj. <b>{sgn(exts[S.yi], fmtI)}</b></span>
         <span>prir. <b>{sgn(nats[S.yi], fmtI)}</b></span>
-        <span>uk. <b>{sgn(ints[S.yi] + exts[S.yi] + nats[S.yi], fmtI)}</b></span>
+        {/* "uk." reads as ukupna promjena broja stanovnika — the one reading the
+            tooltip, the legend and the glossary are all careful to deny. Name the
+            two components instead, and carry the same caveat they carry. */}
+        <span>mig.+prir. <b>{sgn(ints[S.yi] + exts[S.yi] + nats[S.yi], fmtI)}</b></span>
+      </div>
+      <div className="card-note" id="cardNote">
+        Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.
       </div>
     </div>
   );

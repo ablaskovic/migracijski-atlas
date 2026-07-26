@@ -7,7 +7,7 @@ Other years = IPF: 2018 structure rescaled to exact DZS margins from atlas_data2
 Integer rounding: largest remainder per row (rows exact; col drift <= ~5)."""
 import json, numpy as np
 ISOS=[f'HR-{i:02d}' for i in range(1,22)]
-od=json.load(open('../../src/data/od2018.json'))
+od=json.load(open('ref/od2018.json'))
 atlas=json.load(open('../../src/data/atlas_data2.json'))
 YRS=atlas['years']; C=atlas['c']; n=21
 seed=np.zeros((n,n))
