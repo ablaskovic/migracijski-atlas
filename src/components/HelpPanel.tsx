@@ -1,3 +1,4 @@
+import { focusSoon } from '../lib/state.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* "Kako čitati" — the one stable place the vocabulary lives. Every other
@@ -11,7 +12,9 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
     <div className="helpcard" id="helpCard" role="dialog" aria-modal="false" aria-label="Kako čitati atlas">
       <div className="card-hd">
         <span className="card-name">Kako čitati</span>
-        <button className="card-x" id="helpX" aria-label="Zatvori" onClick={() => setS({ help: false })}>×</button>
+        {/* back to the ? that opened it — same as the Escape path in App */}
+        <button className="card-x" id="helpX" aria-label="Zatvori"
+          onClick={() => { setS({ help: false }); focusSoon('#helpBtn'); }}>×</button>
       </div>
 
       <div className="help-h">Boje</div>

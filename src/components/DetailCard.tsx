@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
 import { YEARS, Y0, YEND, D, netAt, natAt, fmtI, sgn } from '../lib/metrics.ts';
+import { focusSoon } from '../lib/state.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => void }) {
@@ -24,7 +25,10 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
     <div className="card show" id="card">
       <div className="card-hd">
         <span className="card-name" id="cardName">{D[sel].n}</span>
-        <button className="card-x" id="cardX" aria-label="Zatvori" onClick={() => setS({ sel: null })}>×</button>
+        {/* hand focus to the county this card described, else its rail row —
+            closing used to drop focus to <body> and restart Tab from the top */}
+        <button className="card-x" id="cardX" aria-label="Zatvori"
+          onClick={() => { setS({ sel: null }); focusSoon(`.cnt[data-iso="${sel}"], #railList .rrow[data-iso="${sel}"]`); }}>×</button>
       </div>
       <div className="card-sub">{`godišnji saldo ${Y0}.–${YEND}. · vanjske (površina) · unutarnje (crta) · prirodni prirast (crtkano)`}</div>
       <svg id="cardSvg" viewBox={`0 0 ${w} ${h}`}>

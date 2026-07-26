@@ -14,16 +14,22 @@ klasifikacija threshold, a dob/spol panel + zemlje tab, map labels, and SVG expo
 keyboard parity for the matrix and JLS map, a slider-semantic scrubber, an aria-live
 year/view status, story presets that clear when state diverges from them, visually
 distinct measured/estimate badges, a "Kako čitati" glossary, per-view year memory,
-Back-as-undo, and a **390 px geometry pass** — the suite is now **106 checks**. New
-surfaces obey the same rules: honesty labels, generated-data-stays-generated, hr-HR
-formatting, and green verify before "done".
+Back-as-undo, and a **390 px geometry pass**. **v2.0.3** is a review pass over
+those surfaces: the permalink's story guard no longer passes vacuously on omitted
+keys, the Nalazi caption moved out of the map's overlay layer (it was making the
+Dob i spol chip unclickable at every desktop width), the two chip panels became one
+stacked dock, Escape and focus-return reach every dismissible surface, the scrubber
+implements the whole slider key set, county paths speak their own values, and the
+export bakes the presentation the stylesheet used to supply — the suite is now
+**133 checks**. New surfaces obey the same rules: honesty labels,
+generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
 ## Commands
 
 ```
 npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath)
-npm run verify     # build + run the 106-check puppeteer suite (1440 px + 390 px)
+npm run verify     # build + run the 133-check puppeteer suite (960–1600 px + 390 px)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
 ```
@@ -38,11 +44,14 @@ spare the ~170 MB Chrome download), or set `PUPPETEER_PATH` to an existing insta
    verification was "described a screenshot" — and the description was confabulated.
    If you cannot actually perceive an image, say so. `npm run verify` green is the
    minimum bar before calling anything done; UI-geometry changes additionally get
-   measured (element rects, overlap areas) at 1440 and 390 px.
+   measured (element rects, overlap areas) across 960–1600 px and at 390 px.
+   **Rect overlap is not the same as reachable**: the Nalazi banner overlapped the
+   Dob i spol chip by only a few hundred px² at 1440 yet made it unclickable at
+   every desktop width, so controls are also probed with `elementFromPoint`.
 2. **DOM contract = test API.** `scripts/verify.cjs` selects on ids/classes
    (`#map .cnt[data-iso]`, `#map .jl[data-j]`, `.mxc[data-a][data-b]`,
-   `.mxd[data-a][data-b]`, `.mxband`, `.arch`, `#railList .rrow .rname/.rval`,
-   `#legend`, `#citzHd`, `#jcardHd`, `#ageHd`, `#segView button[data-v]`,
+   `.mxd[data-a][data-b]`, `.mxband`, `.arch`, `#railList .rrow[data-iso] .rname/.rval`,
+   `#legend`, `#citzHd`, `#jcardHd`, `#ageHd`, `.chipdock`, `#segView button[data-v]`,
    `#bigYear`, `#story`, `#storyCap`, `#labBtn`, `#helpBtn`, `#helpCard`,
    `#resetBtn`, `#zoomRst`, `#srLive`, `#spark[role=slider]`, `#play[aria-pressed]`,
    `#cardRow`, `#pairName/#pairRow`, `.cls-tag.meas/.est`,
@@ -50,6 +59,8 @@ spare the ~170 MB Chrome download), or set `PUPPETEER_PATH` to an existing insta
    Renaming them breaks verification; change both sides deliberately or not at all.
    Roving tabindex is asserted by count: exactly one `.mxc[tabindex="0"]` of 420
    and one `.jl[tabindex="0"]` of 556 — a change to plain `tabIndex={0}` fails.
+   `role` is asserted *by absence* too: rail rows with nothing to open (Regije,
+   JLS) must not carry `role="button"`.
 3. **Honesty labels are load-bearing.** 2018 godišnje tokovi = "izmjereno"; every
    other tokovi year = "procjena (IPF)"; cumulative = "kumulativna procjena"; pair
    nets carry the extra structural-estimate note. Badges are also **visually**
@@ -78,9 +89,12 @@ src/lib/types.ts         State shape (literal unions) + generated-payload types
 src/lib/metrics.ts       pure computation layer: series, domains (DOM/RDOM),
                          scales, klas, flows (ODM), flowMax/mxMax/jmap caches,
                          VLAB, exportDesc. No DOM, no React. Most logic goes here.
+src/lib/state.ts         BASE (the boot state) + STORY_KEYS + focusSoon; shared by
+                         App and the codec so "omitted from the hash" and
+                         "still at its default" cannot drift apart
 src/lib/hash.ts          permalink codec (whitelisted State ⇄ location.hash);
-                         decodeHash repairs invariants and drops an `st` that
-                         contradicts the state it ships with
+                         decodeHash repairs invariants first, then drops an `st`
+                         that contradicts the state the link actually boots
 src/lib/stories.ts       Nalazi presets (State patch + Croatian caption per finding)
 src/lib/tip.ts           tooltip placement (imperative, cursor-following) + the
                          COARSE flag every hover/leave handler branches on
@@ -96,16 +110,20 @@ src/App.tsx              state machine (single S object; v4 semantics + mx/jmap
                          story-invalidation on divergence, body classes, panels)
 src/components/          Header (segments + PNG/SVG + reset), MapView (projection
                          fit + county/JLS paths + region outlines + arcs with
-                         arrowheads + labels; measures the legend and any open
-                         chip panel and feeds both to MatrixView, which lays the
+                         arrowheads + labels; measures the legend and the open
+                         chip dock and feeds both to MatrixView, which lays the
                          grid out around them; delegates to MatrixView for mx),
                          Legend, Rail, DetailCard, PairCard, JlsCard,
                          CitzPanel (+ zemlje tab), AgePanel, HelpPanel
                          ("Kako čitati" glossary), StoryBar, MatrixView, Scrubber,
                          Tooltip
-                         NB: DetailCard and PairCard render *outside* .map-box on
-                         purpose — that is what lets them drop into normal flow
-                         above the map below 900 px instead of covering it.
+                         NB: DetailCard, PairCard and StoryBar render *outside*
+                         .map-box on purpose — that is what lets the cards drop
+                         into normal flow above the map below 960 px instead of
+                         covering it, and what keeps the Nalazi caption off the
+                         map's bottom edge, which the legend and the chip dock
+                         already own. CitzPanel + AgePanel share one `.chipdock`
+                         so they stack instead of claiming 656 px side by side.
 src/index.css            design system from single-file v4 + v2 additions; class
                          names are part of the DOM contract
 src/data/                generated payloads (see tools/pipeline/)
@@ -129,9 +147,19 @@ depend on where a previous session had been) and the scrubber's collapsed flag
 the panel-exclusion group — the glossary can sit open over any view.
 
 `up()` is the only writer: it clears `S.story` whenever a patch changes any key in
-`STORY_KEYS`, which is what stops a Nalaz caption asserting numbers the view no
-longer produces. Anything that mutates state without going through it re-opens
+`STORY_KEYS` **or any key the active preset's own patch sets**, which is what stops
+a Nalaz caption asserting numbers the view no longer produces. The second half
+matters — Nalaz 4's claim is about the Državljanstvo panel, so closing that panel
+must kill the caption, while Nalaz 2 (which says nothing about panels) survives one
+being opened. Anything that mutates state without going through `up()` re-opens
 that bug.
+
+The same rule has a permalink half, and getting it wrong is subtle: `encodeHash`
+omits every field still at its `BASE` value, so `decodeHash` must validate a stored
+`st` against `{...BASE, ...decoded}` — the state the link actually boots. Seeding
+that comparison from the preset instead made every omitted key compare against its
+own value and pass, so `#v=saldo&c=1&y=2024&st=2` shipped a caption citing +27.521
+over a view rendering +41.986. Both sides now read `BASE` from `state.ts`.
 
 ## Design tokens (keep)
 
@@ -182,16 +210,31 @@ without a browser:
 | Invariant | Why |
 |---|---|
 | Space with a control focused activates it; Space on the body toggles play | the global handler used to `preventDefault` both, so tabbing to a segment and pressing Space started playback instead |
-| Changing any `STORY_KEYS` field clears the banner **and** drops `st=` from the hash | a caption citing −334 must not survive a change of Smjer, or ship in a link |
+| Changing any `STORY_KEYS` field **or a preset's own key** clears the banner **and** drops `st=` from the hash | a caption citing −334 must not survive a change of Smjer, or ship in a link — and Nalaz 4's caption must not survive closing the panel it describes |
+| A link carrying `st=` must render the numbers its caption cites | the guard compares against `{...BASE, ...decoded}`; comparing against the preset made omitted keys pass vacuously |
+| Nothing dimmed is also focusable | `disabled`, never `opacity` + `pointer-events:none` — that pattern was fixed once for the segment groups and came back on the play button in the JLS view |
+| A rail row claims `role="button"` only if activating it does something | Regije and JLS rows have nothing to open; 25 tab stops announced as buttons did nothing |
+| Escape reaches every dismissible surface, and closing one returns focus to whatever opened it | help and pair were handled, the three chip panels and the detail card were not; every `×` dropped focus to `<body>` |
+| The exported document is self-contained | nothing may take `fill`/`stroke` from the stylesheet: `.mxband` did, and exported as a solid black bar across the matrix |
+| Matrica: the rail row, the cell it lights, its tooltip and the legend mark carry one sign | a neto row read +517 while the cell it highlighted read −517 |
 | Exactly one `.mxc[tabindex="0"]` of 420, one `.jl[tabindex="0"]` of 556 | roving tabindex; plain `tabIndex={0}` would mean 420/556 tab stops |
 | Matrix arrow keys `stopPropagation` | otherwise they also step the year via App's window handler |
 | Returning to a view restores its own `{yi, cum}` | `vmem`; the flow-entry 2018 jump used to overwrite Saldo's window permanently |
-| Matrix grid never intersects an open chip panel, cell ≥ 12 px | clearing the panel *vertically* alone crushes cells to the 8 px floor — the placement search must be free to step left instead |
-| No map overlay rect intersects another, at 1440 **and** 390 | `.zoomrst` and `.paircard` once shared `top:44/right:16` |
-| `.paircard` is `position:static` below 900 px | floating, it is a 232 px panel over a 439 px map |
+| Matrix grid never intersects the open chip dock, cell ≥ 12 px | clearing the panel *vertically* alone crushes cells to the 8 px floor — the placement search must be free to step left instead |
+| No map overlay rect intersects another, at **960–1440** and 390 | `.zoomrst` and `.paircard` once shared `top:44/right:16`; the 901–1150 px band was unmeasured and had four separate collisions in it |
+| Every chip header and `×` passes an `elementFromPoint` probe, 960–1600 px | the only test that catches an overlay that covers a control without overlapping much of it |
+| `.paircard` is `position:static` below 960 px | floating, it lands under the 312 px JLS chip once the map box drops under ~652 px wide |
+| `.helpcard` and `.jcard` reserve 164 px for the legend | the tallest legend (klas + % threshold) rises 136 px off the map's bottom edge; a glossary that explains the colour scale must not cover it |
 | Page `scrollWidth ≤ clientWidth` at 390 | `.seg` is `overflow:hidden`, so anything too wide is clipped, not scrolled |
 | `.chip-hd` / segment / rail row ≥ 44 px on coarse pointers | these open and dismiss every panel on touch |
 
 The 390 px block runs last in `verify.cjs` and re-boots the app under
 `isMobile + hasTouch`, so `(pointer:coarse)` and the `COARSE` flag in `tip.ts`
 are genuinely exercised — reading them at 1440 tests nothing.
+
+Two more, on the keyboard and the screen reader:
+
+| Invariant | Why |
+|---|---|
+| `#spark` implements Home / End / PageUp / PageDown, not just the arrows | it declares `role="slider"`, and arrows alone meant 27 presses to cross 28 years |
+| A `.cnt` says its own value, like a `.jl` already did | the tooltip is `aria-hidden` decoration; without the label the primary view is 21 tab stops that read out a bare name |

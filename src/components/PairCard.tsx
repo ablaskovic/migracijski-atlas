@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
 import { YEARS, Y0, YEND, IX2018, SHORTN, getOD, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
+import { focusSoon } from '../lib/state.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Corridor card: the annual series of one directed pair (sel ⇄ pair) from ODM.
@@ -27,7 +28,9 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
     <div className="paircard" id="pair">
       <div className="card-hd">
         <span className="card-name" id="pairName">{SHORTN[sel]} ⇄ {SHORTN[pair]}</span>
-        <button className="card-x" id="pairX" aria-label="Zatvori" onClick={() => setS({ pair: null })}>×</button>
+        {/* back to the partner row that opened this corridor */}
+        <button className="card-x" id="pairX" aria-label="Zatvori"
+          onClick={() => { setS({ pair: null }); focusSoon(`#railList .rrow[data-iso="${pair}"]`); }}>×</button>
       </div>
       <div className="card-sub">{`godišnji tok ${Y0}.–${YEND}. · neto za ${SHORTN[sel]} (površina) · odlasci (crvena) · dolasci (plava)`}</div>
       <svg id="pairSvg" viewBox={`0 0 ${w} ${h}`}>

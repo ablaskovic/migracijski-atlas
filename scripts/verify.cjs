@@ -625,6 +625,310 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('help panel states the mig+prirodno caveat',
     help.includes('nije jednako ukupnoj promjeni'), '');
 
+  /* the glossary shares the top-left corner with the detail card — it must cover
+     it outright, not leave its header and close button peeking out above */
+  await fresh('#s=HR-18');
+  await click('#helpBtn');
+  const cover = await page.evaluate(() => {
+    const c = document.querySelector('#card').getBoundingClientRect();
+    const h = document.querySelector('#helpCard').getBoundingClientRect();
+    return { covers: h.top <= c.top + 0.5 && h.left <= c.left + 0.5 && h.right >= c.right - 0.5,
+      peek: Math.round(h.top - c.top) };
+  });
+  ck('help panel fully covers the detail card it overlays', cover.covers, 'peek ' + cover.peek + ' px');
+
+  /* the glossary's own first section explains the colour scale, so it must not
+     be sitting on the colour scale — 164 px of reserve is the tallest legend
+     (klas + relative threshold, 136 px off the map's bottom edge) plus a gap */
+  await fresh('#v=klas&c=1&y=2024&tr=1&tp=1.5');
+  await click('#helpBtn');
+  const helpLeg = await page.evaluate(() => {
+    const h = document.querySelector('#helpCard').getBoundingClientRect();
+    const l = document.querySelector('#legend').getBoundingClientRect();
+    return Math.round(Math.max(0, Math.min(h.right, l.right) - Math.max(h.left, l.left))
+      * Math.max(0, Math.min(h.bottom, l.bottom) - Math.max(h.top, l.top)));
+  });
+  ck('open glossary does not cover the legend', helpLeg === 0, helpLeg + ' px²');
+
+  /* ══════════ permalink honesty: a caption may never outlive its numbers ══════ */
+  /* The guard used to seed its comparison from the preset itself, so every key
+     the URL omitted compared against its own value and passed vacuously. This
+     link boots flow='tot' (BASE) while the caption cites the flow='all' figure. */
+  await fresh('#v=saldo&c=1&y=2024&st=2');
+  const stBad = await page.evaluate(() => ({
+    cap: document.querySelector('#storyCap')?.textContent || null,
+    flow: document.querySelector('#segFlow button[aria-pressed="true"]').dataset.v,
+    top: document.querySelector('#railList .rrow .rval').textContent }));
+  ck('truncated story link is rejected, not rendered with a false caption',
+    stBad.cap === null && stBad.flow === 'tot' && NBSP(stBad.top) === '+41.986', JSON.stringify(stBad));
+  await fresh('#v=saldo&f=all&c=1&y=2024&st=2');
+  const stGood = await page.evaluate(() => ({
+    cap: document.querySelector('#storyCap')?.textContent || '',
+    top: document.querySelector('#railList .rrow .rval').textContent }));
+  ck('the complete story-2 link still boots its banner over +27.521',
+    stGood.cap.includes('27.521') && NBSP(stGood.top) === '+27.521', JSON.stringify(stGood));
+
+  /* every preset must survive a round trip through its own permalink, or the
+     stricter guard would silently stop shipping captions at all */
+  const trip = [];
+  for (let i = 0; i < 7; i++) {
+    await fresh('');
+    await page.select('#story', String(i));
+    await settle(260);
+    const h = await page.evaluate(() => location.hash);
+    await fresh(h);
+    const kept = await page.evaluate(() => !!document.querySelector('#storyCap'));
+    if (!kept) trip.push((i + 1) + ':' + h);
+  }
+  ck('all 7 Nalazi round-trip through their own permalink', trip.length === 0, trip.join(' | '));
+
+  /* Nalaz 4's claim is about the Državljanstvo panel, so closing it must kill
+     the caption — the app used to emit `…&st=4` with `cz=1` already dropped */
+  await fresh('');
+  await page.select('#story', '3');
+  await settle(260);
+  const p4 = await page.evaluate(() => ({ cap: !!document.querySelector('#storyCap'),
+    open: !!document.querySelector('#citz.open'), hash: location.hash }));
+  await click('#citzHd');
+  const p4off = await page.evaluate(() => ({ cap: !!document.querySelector('#storyCap'), hash: location.hash }));
+  ck('closing the panel a Nalaz asserts clears its caption and its st=',
+    p4.cap && p4.open && p4.hash.includes('st=4') && !p4off.cap && !p4off.hash.includes('st='),
+    JSON.stringify(p4) + ' → ' + JSON.stringify(p4off));
+  /* …while a preset that says nothing about panels survives one being opened */
+  await fresh('');
+  await page.select('#story', '1');
+  await settle(260);
+  await click('#citzHd');
+  const p2keep = await page.evaluate(() => ({ cap: !!document.querySelector('#storyCap'),
+    open: !!document.querySelector('#citz.open') }));
+  ck('a Nalaz that never mentions a panel survives one being opened',
+    p2keep.cap && p2keep.open, JSON.stringify(p2keep));
+
+  /* ══════════ overlays: rect overlap is not the same as reachable ══════════ */
+  /* elementFromPoint, not bounding boxes: the banner covered the Dob i spol chip
+     at every width from 1200 to 1600 and a click on it did nothing. */
+  const reach = [];
+  for (const w of [1600, 1440, 1280, 1100, 1000, 960]) {
+    await page.setViewport({ width: w, height: 900 });
+    for (const h of ['#v=saldo&f=ext&c=0&y=2025&cz=1&st=4', '#v=reg&c=1&y=2024&st=6',
+      '#v=saldo&c=1&y=2024&s=HR-18&ag=1', '#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0&jl=1']) {
+      await fresh(h);
+      const bad = await page.evaluate(() => {
+        const out = [];
+        for (const sel of ['#ageHd', '#citzHd', '#jcardHd', '#cardX', '#helpBtn']) {
+          const e = document.querySelector(sel);
+          if (!e || !e.offsetParent) continue;
+          const r = e.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (hit && !e.contains(hit) && hit !== e) out.push(sel + '<' + (hit.id || hit.className));
+        }
+        return out;
+      });
+      if (bad.length) reach.push(w + ' ' + h.slice(0, 22) + ' ' + bad.join(','));
+    }
+  }
+  ck('every chip header and close button is actually clickable, 960–1600 px',
+    reach.length === 0, reach.slice(0, 4).join(' | '));
+
+  /* the same overlap sweep the zoom test runs, but over the full overlay set and
+     across the widths between the two viewports the suite otherwise pins */
+  const allOv = () => page.evaluate(() => {
+    const ids = ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#jcard', '#card', '#legend', '#chipdock', '#storyBar'];
+    const els = ids.map(s => [s, s === '#chipdock' ? document.querySelector('.chipdock') : document.querySelector(s)])
+      .filter(([, e]) => e && e.getBoundingClientRect().width > 0
+        && getComputedStyle(e).display !== 'none' && getComputedStyle(e).position === 'absolute');
+    const bad = [];
+    for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
+      const a = els[i][1].getBoundingClientRect(), b = els[j][1].getBoundingClientRect();
+      const ov = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+        * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+      if (ov > 1) bad.push(els[i][0] + '×' + els[j][0] + '=' + Math.round(ov));
+    }
+    return bad;
+  });
+  const midOv = [];
+  for (const w of [1440, 1200, 1100, 1000, 960]) {
+    await page.setViewport({ width: w, height: 900 });
+    for (const h of ['#v=saldo&c=1&y=2024&s=HR-18&ag=1', '#v=saldo&f=ext&c=0&y=2025&cz=1&st=4',
+      '#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0&jl=1']) {
+      await fresh(h);
+      const bad = await allOv();
+      if (bad.length) midOv.push(w + ':' + bad.join(','));
+    }
+  }
+  ck('no map overlay overlaps another at 960–1440 px either', midOv.length === 0, midOv.slice(0, 4).join(' | '));
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ══════════ keyboard: nothing dimmed-but-focusable, nothing dead ══════════ */
+  await fresh('#v=jmap');
+  const inertPlay = await page.evaluate(() => {
+    const p = document.querySelector('#play');
+    p.focus();
+    return { disabled: p.disabled, focused: document.activeElement === p };
+  });
+  ck('play is disabled (not just dimmed) in the single-year JLS view',
+    inertPlay.disabled && !inertPlay.focused, JSON.stringify(inertPlay));
+
+  /* rows with nothing to open must not claim role=button — but stay focusable,
+     since focus is the only pointer-free way to reach the map highlight */
+  await fresh('#v=reg');
+  const regRow = await page.evaluate(async () => {
+    const r = document.querySelector('#railList .rrow');
+    r.focus();
+    await new Promise(x => setTimeout(x, 160));
+    return { role: r.getAttribute('role'), tab: r.getAttribute('tabindex'),
+      lit: document.querySelectorAll('.cnt.rhl').length };
+  });
+  ck('inert region rows drop role=button but keep focus + map highlight',
+    regRow.role === null && regRow.tab === '0' && regRow.lit === 2, JSON.stringify(regRow));
+  await fresh('#v=jmap');
+  const jRow = await page.evaluate(() => document.querySelector('#railList .rrow').getAttribute('role'));
+  ck('inert JLS rows drop role=button too', jRow === null, String(jRow));
+  await fresh('');
+  const cRow = await page.evaluate(() => document.querySelector('#railList .rrow').getAttribute('role'));
+  ck('rows that do open something keep role=button', cRow === 'button', String(cRow));
+
+  /* role=slider owes the whole pattern, not just the arrows */
+  await fresh('#v=saldo&c=1&y=2024');
+  const slid = await page.evaluate(async () => {
+    const s = document.querySelector('#spark');
+    s.focus();
+    const step = async key => {
+      s.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      await new Promise(r => setTimeout(r, 130));
+      return document.querySelector('#bigYear').textContent;
+    };
+    return { home: await step('Home'), end: await step('End'), pgdn: await step('PageDown') };
+  });
+  ck('slider implements Home / End / PageDown, not only the arrows',
+    slid.home === '2011.' && slid.end === '2025.' && slid.pgdn === '2020.', JSON.stringify(slid));
+
+  /* Escape reaches every dismissible surface, not just two of six */
+  await fresh('');
+  await click('#citzHd');
+  await page.keyboard.press('Escape'); await settle(140);
+  const escCitz = await page.evaluate(() => ({ open: !!document.querySelector('#citz.open'),
+    focus: document.activeElement.id }));
+  ck('Escape closes the citizenship panel and returns focus to its chip',
+    !escCitz.open && escCitz.focus === 'citzHd', JSON.stringify(escCitz));
+  await fresh('#s=HR-18');
+  await page.keyboard.press('Escape'); await settle(140);
+  const escCard = await page.evaluate(() => ({ open: !!document.querySelector('#card.show'),
+    focus: document.activeElement.getAttribute('data-iso') }));
+  ck('Escape closes the detail card and returns focus to its county',
+    !escCard.open && escCard.focus === 'HR-18', JSON.stringify(escCard));
+
+  /* closing a card used to drop focus to <body>, restarting Tab from the top */
+  await fresh('');
+  await click('#helpBtn');
+  await click('#helpX');
+  const helpFocus = await page.evaluate(() => document.activeElement.id);
+  ck('closing the glossary hands focus back to the ? button', helpFocus === 'helpBtn', helpFocus);
+  await fresh('#s=HR-18');
+  await click('#cardX');
+  const cardFocus = await page.evaluate(() => document.activeElement.getAttribute('data-iso'));
+  ck('closing the detail card hands focus back to its county', cardFocus === 'HR-18', String(cardFocus));
+  await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+  await click('#pairX');
+  const pairFocus = await page.evaluate(() => ({ iso: document.activeElement.getAttribute('data-iso'),
+    cls: document.activeElement.className }));
+  ck('closing the corridor card hands focus back to its partner row',
+    pairFocus.iso === 'HR-01' && pairFocus.cls.includes('rrow'), JSON.stringify(pairFocus));
+
+  /* ══════════ the map speaks its own values ══════════ */
+  await fresh('');
+  const cLab = await page.evaluate(() => document.querySelector('.cnt[data-iso="HR-18"]').getAttribute('aria-label'));
+  ck('county label carries the value, like the JLS map already did',
+    cLab.includes('Istarska') && cLab.includes('migracijski saldo') && /[+−]\d/.test(NBSP(cLab)), cLab);
+  const tipHidden = await page.evaluate(() => document.querySelector('#tip').getAttribute('aria-hidden'));
+  ck('the cursor tooltip is hidden from AT (its numbers are on the features)', tipHidden === 'true', String(tipHidden));
+
+  /* ══════════ Matrica: rail, cell and tooltip agree on one sign ══════════ */
+  await fresh('#v=mx&y=2018&c=0&dir=net');
+  /* a real pointer move: React derives onPointerEnter from pointerover, so a
+     synthesised `pointerenter` never reaches the handler */
+  const rowPt = await page.$eval('#railList .rrow', r => {
+    const b = r.getBoundingClientRect();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  });
+  await page.mouse.move(rowPt.x - 60, rowPt.y);
+  await page.mouse.move(rowPt.x, rowPt.y);
+  await settle(240);
+  const netAgree = await page.evaluate(() => {
+    const row = document.querySelector('#railList .rrow');
+    return { val: row.querySelector('.rval').textContent, nm: row.querySelector('.rname').textContent,
+      tip: document.querySelector('#tip').textContent,
+      mark: document.querySelector('.legend-mark')?.style.left || '' };
+  });
+  const netNum = NBSP(netAgree.val).replace(/[+−]/, '');
+  ck('matrix neto row and the tooltip it drives report the same sign',
+    netAgree.val.startsWith('+') && netAgree.tip.includes('+' + netNum)
+      && !netAgree.tip.includes('−' + netNum), JSON.stringify(netAgree).slice(0, 150));
+  ck('matrix neto row lights the gaining half of the scale',
+    parseFloat(netAgree.mark) >= 50, netAgree.mark);
+  /* out/in produce the same 20 corridors by construction, so the title must not
+     promise a direction the list cannot show */
+  await fresh('#v=mx&y=2018&c=0&dir=out');
+  const tOut = await page.evaluate(() => document.querySelector('#railYear').textContent);
+  await fresh('#v=mx&y=2018&c=0&dir=in');
+  const tIn = await page.evaluate(() => document.querySelector('#railYear').textContent);
+  ck('matrix rail title is direction-neutral for odlasci/dolasci',
+    tOut === tIn && tOut.startsWith('koridori'), tOut + ' / ' + tIn);
+
+  /* ══════════ export bakes everything the stylesheet was providing ══════════ */
+  await fresh('#v=mx&y=2018&c=0&dir=net');
+  const baked = await page.evaluate(async () => {
+    document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').focus();
+    await new Promise(r => setTimeout(r, 260));
+    const s = window.__exportSVG(false);
+    const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
+    /* nothing that paints may rely on a stylesheet this document does not ship */
+    const naked = [...doc.querySelectorAll('rect,path,circle,line')]
+      .filter(e => !e.closest('defs') && !e.hasAttribute('fill') && !e.hasAttribute('stroke'))
+      .map(e => e.tagName + '.' + (e.parentElement?.getAttribute('class') || '?'));
+    /* and prove it by rasterising: the band used to render solid black */
+    const img = new Image();
+    await new Promise(r => { img.onload = r; img.onerror = r; img.src = URL.createObjectURL(new Blob([s], { type: 'image/svg+xml' })); });
+    const cv = document.createElement('canvas');
+    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const b = document.querySelector('.mxband rect');
+    const px = Math.round(+b.getAttribute('x') + +b.getAttribute('width') * 0.5);
+    const py = Math.round(+b.getAttribute('y') + +b.getAttribute('height') / 2) + 86;   /* TOP band */
+    const d = ctx.getImageData(px, py, 1, 1).data;
+    return { naked, band: [d[0], d[1], d[2]] };
+  });
+  ck('exported document is self-contained (no CSS-only fill/stroke left)',
+    baked.naked.length === 0, baked.naked.slice(0, 5).join(','));
+  ck('matrix trace band does not export as a solid black bar',
+    baked.band[0] > 60 || baked.band[1] > 60 || baked.band[2] > 60, 'rgb(' + baked.band.join(',') + ')');
+
+  /* ══════════ reset means reset, including the zoom ══════════ */
+  await fresh('');
+  await page.evaluate(() => {
+    const svg = document.querySelector('#map');
+    const r = svg.getBoundingClientRect();
+    svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -600, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true, cancelable: true }));
+  });
+  await settle(200);
+  const zBefore = await page.evaluate(() => !!document.querySelector('#zoomRst'));
+  await click('#resetBtn');
+  await settle(160);
+  const zAfter = await page.evaluate(() => ({ btn: !!document.querySelector('#zoomRst'),
+    tf: document.querySelector('#map g').getAttribute('transform') }));
+  ck('reset also returns the map to 1× (zoom lives outside S)',
+    zBefore && !zAfter.btn && /scale\(1\)/.test(zAfter.tf), JSON.stringify(zAfter));
+
+  /* Back is an undo for the view, not for the glossary sitting over it */
+  await fresh('');
+  await click('#helpBtn');
+  await click('#segView button[data-v="klas"]');
+  await page.goBack(); await settle(260);
+  const helpBack = await page.evaluate(() => ({ open: !!document.querySelector('#helpCard'), hash: location.hash }));
+  ck('Back restores the view without closing the glossary',
+    helpBack.open && helpBack.hash.includes('v=saldo'), JSON.stringify(helpBack));
+
   /* ══════════ 390 px pass (house rule 1: geometry at 1440 AND 390) ══════════ */
   await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
   await fresh('');

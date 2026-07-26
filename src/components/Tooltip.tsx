@@ -97,7 +97,10 @@ export default function Tooltip({ S }: { S: State }) {
   useLayoutEffect(() => { if (show) placeTip(); },
     [show, S.yi, S.hl, S.pairHl, S.jlsHl, S.cum, S.dir, S.flow, S.den, S.view]);
   return (
-    <div className={'tip' + (show ? ' show' : '')} id="tip" ref={ref}
+    /* aria-hidden: the same numbers now live in each feature's own aria-label
+       (metrics.countyAria / the .jl labels), so exposing this cursor-follower
+       too would read every value twice and anchor it to nothing */
+    <div className={'tip' + (show ? ' show' : '')} id="tip" ref={ref} aria-hidden="true"
       dangerouslySetInnerHTML={show ? { __html: tipHTML(S) } : undefined} />
   );
 }

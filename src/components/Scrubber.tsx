@@ -20,7 +20,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
   /* Collapsing is presentation-only, so it stays local rather than entering S
      (it must not land in the permalink). The body class lets the layout reserve
      the right amount of space under the fixed bar — same escape hatch App uses
-     for panel-open/story-open. */
+     for panel-open. */
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     document.body.classList.toggle('scrub-collapsed', collapsed);
@@ -50,7 +50,14 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     if (yi !== S.yi) setYi(yi);
   };
   const drag = useRef(false);
-  const onDown = (ev: ReactPointerEvent<SVGSVGElement>) => { drag.current = true; ev.currentTarget.setPointerCapture(ev.pointerId); scrubTo(ev); };
+  const onDown = (ev: ReactPointerEvent<SVGSVGElement>) => {
+    drag.current = true;
+    /* throws NotFoundError if the pointer is already gone by the time we run
+       (synthetic events, some assistive tech) — capture is an optimisation for
+       the drag, not a precondition for scrubbing */
+    try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch { /* no capture, still scrubs */ }
+    scrubTo(ev);
+  };
   const onMove = (ev: ReactPointerEvent<SVGSVGElement>) => { if (drag.current) scrubTo(ev); };
   /* pointercancel fires when the browser claims the gesture as a page scroll —
      without it the drag flag sticks and the next hover scrubs the year */
@@ -81,7 +88,11 @@ export default function Scrubber({ S, setYi, togglePlay }: {
         onClick={() => setCollapsed(c => !c)}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d={collapsed ? 'M7 14l5-5 5 5z' : 'M7 10l5 5 5-5z'} /></svg>
       </button>
-      <button className="play" id="play" aria-pressed={S.playing} onClick={togglePlay}
+      {/* `disabled`, not opacity + pointer-events:none — the same lesson the
+          segment groups already learned (Header.tsx): dimmed-but-focusable left
+          a keyboard user tabbing onto a dead control in the JLS view and
+          pressing Enter on nothing. */}
+      <button className="play" id="play" aria-pressed={S.playing} disabled={S.view === 'jmap'} onClick={togglePlay}
         title={S.playing ? 'Zaustavi reprodukciju' : 'Pokreni reprodukciju kroz godine'}
         aria-label={S.playing ? 'Zaustavi reprodukciju' : 'Pokreni reprodukciju kroz godine'}>
         <svg viewBox="0 0 24 24" id="playIco" aria-hidden="true">

@@ -3,6 +3,7 @@
    human-readable links; unknown or invalid fields are ignored on decode. */
 import { YEARS, ISOS } from './metrics.ts';
 import { STORIES } from './stories.ts';
+import { BASE } from './state.ts';
 import type { Patch, State } from './types.ts';
 
 const VIEWS = ['saldo', 'klas', 'reg', 'flow', 'mx', 'jmap'] as const;
@@ -13,15 +14,17 @@ const DIRS = ['out', 'in', 'net'] as const;
 export function encodeHash(S: State): string {
   const p = new URLSearchParams();
   p.set('v', S.view);
-  if (S.flow !== 'tot') p.set('f', S.flow);
-  if (S.den !== 'abs') p.set('d', S.den);
+  /* "same as BASE" is the omission rule, and decodeHash's story guard reads it
+     back the same way — so both sides must consult BASE, not a literal copy */
+  if (S.flow !== BASE.flow) p.set('f', S.flow);
+  if (S.den !== BASE.den) p.set('d', S.den);
   p.set('c', S.cum ? '1' : '0');
   p.set('y', String(YEARS[S.yi]));
-  if (S.thr !== 4500) p.set('t', String(S.thr));
+  if (S.thr !== BASE.thr) p.set('t', String(S.thr));
   if (S.thrRel) { p.set('tr', '1'); p.set('tp', String(S.thrPct)); }
   if (S.sel) p.set('s', S.sel);
   if (S.pair) p.set('pp', S.pair);
-  if (S.dir !== 'net') p.set('dir', S.dir);
+  if (S.dir !== BASE.dir) p.set('dir', S.dir);
   if (S.labels) p.set('lb', '1');
   if (S.citz) p.set('cz', S.citzTab === 'zem' ? '2' : '1');
   if (S.jls) p.set('jl', S.jlsTab === 'loc' ? '2' : '1');
@@ -59,17 +62,6 @@ export function decodeHash(hash: string): Patch {
   if (p.get('cz')) { o.citz = true; o.citzTab = p.get('cz') === '2' ? 'zem' : 'grp'; }
   if (p.get('jl')) { o.jls = true; o.jlsTab = p.get('jl') === '2' ? 'loc' : 'inter'; }
   if (p.get('ag')) { o.age = true; o.ageTab = p.get('ag') === '2' ? 'int' : 'ext'; }
-  /* A preset index is only honoured when the rest of the link still matches the
-     preset it names. App clears `story` the moment a control diverges, so links
-     this app produces are always consistent — this guards hand-edited ones, so
-     a caption can never assert numbers the decoded state does not produce. */
-  const st = Number(p.get('st')) - 1;
-  if (st >= 0 && st < STORIES.length) {
-    const patch = STORIES[st].patch as Record<string, unknown>;
-    const cand = { ...patch, ...o } as Record<string, unknown>;
-    if (Object.keys(patch).every(k => cand[k] === patch[k])) o.story = st;
-  }
-
   /* invariant repairs: flow-ish views need a hub and must not re-trigger the
      first-entry jump over the shared year; klas/cum clamp to ≥2011 */
   if (o.view === 'flow' && !o.sel) o.sel = 'HR-21';
@@ -80,5 +72,20 @@ export function decodeHash(hash: string): Patch {
   /* panels are mutually exclusive — keep at most one open (citz > jls > age) */
   if (o.citz) { o.jls = false; o.age = false; }
   else if (o.jls) o.age = false;
+
+  /* A preset index is only honoured when the state this link actually boots
+     still matches the preset it names — and that state is `{...BASE, ...o}`,
+     which is what App spreads. Seeding the comparison from the preset itself
+     made every key the URL omits compare against its own value and pass
+     vacuously: `#v=saldo&c=1&y=2024&st=2` kept a caption citing +27.521 over a
+     view rendering +41.986, because `f=all` is absent from the link and `flow`
+     therefore fell back to BASE's 'tot'. Runs last so the repairs above (a flow
+     hub, flowSeen, the jmap year) are part of what gets compared. */
+  const st = Number(p.get('st')) - 1;
+  if (st >= 0 && st < STORIES.length) {
+    const patch = STORIES[st].patch as Record<string, unknown>;
+    const boot = { ...BASE, ...o } as Record<string, unknown>;
+    if (Object.keys(patch).every(k => boot[k] === patch[k])) o.story = st;
+  }
   return o;
 }

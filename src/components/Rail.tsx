@@ -5,11 +5,25 @@ import {
 import { moveTip } from '../lib/tip.ts';
 import type { Patch, State } from '../lib/types.ts';
 
-type Row = { iso: string; v: number; reg?: boolean; pair?: [string, string]; jls?: number };
+/* `pair` is the corridor this row *points at* — the cell it highlights, the hub
+   it opens in Tokovi — while `nm` is how the row is worded, always in the
+   direction people actually moved. For neto the two differ: the row is worded
+   loser → gainer but points at the gainer's cell, which is the one displaying
+   the same +v the row shows. */
+type Row = { iso: string; v: number; reg?: boolean; pair?: [string, string]; nm?: [string, string]; jls?: number };
 
 function railTitle(S: State): string {
   if (S.view === 'jmap') return { out: 'odlasci', in: 'dolasci', net: 'neto' }[S.dir] + ' · 2018.';
-  if (S.view === 'flow' || S.view === 'mx') {
+  if (S.view === 'mx') {
+    const per = S.cum ? '2011.–' + YEARS[S.yi] + '.' : YEARS[S.yi] + '.';
+    /* Odlasci and Dolasci produce the same 20 rows and always will: every
+       directed corridor is one county's departure and another's arrival, so the
+       network's top 20 is one list seen from two sides. Naming a direction here
+       made switching Smjer look broken. Only neto reorders — it pairs counties
+       up — so only neto names itself. */
+    return (S.dir === 'net' ? 'neto · ' : 'koridori · ') + per;
+  }
+  if (S.view === 'flow') {
     const per = S.cum ? '2011.–' + YEARS[S.yi] + '.' : YEARS[S.yi] + '.';
     return { out: 'odlasci · ', in: 'dolasci · ', net: 'neto · ' }[S.dir] + per;
   }
@@ -26,13 +40,20 @@ function mxRows(S: State): Row[] {
     for (let i = 0; i < ISOS.length; i++) for (let j = i + 1; j < ISOS.length; j++) {
       const a = ISOS[i], b = ISOS[j];
       const v = mxCell(a, b, 'net', S.yi, S.cum);   /* a's gain from b */
-      if (v >= 0) rows.push({ iso: a, v, pair: [b, a] });
-      else rows.push({ iso: b, v: -v, pair: [a, b] });
+      /* point at the *gainer's* cell: mxCell(gainer, loser, 'net') is +v, so the
+         highlighted cell, the tooltip's "neto (…)" line, the legend mark and the
+         corridor card all carry the same sign the row shows. Pointing at the
+         loser's cell meant a row reading +517 lit a cell reading −517. */
+      if (v >= 0) rows.push({ iso: a, v, pair: [a, b], nm: [b, a] });
+      else rows.push({ iso: b, v: -v, pair: [b, a], nm: [a, b] });
     }
   } else {
     for (const a of ISOS) for (const b of ISOS) {
       if (a === b) continue;
-      rows.push({ iso: a, v: mxCell(a, b, 'out', S.yi, S.cum), pair: [a, b] });
+      /* in Dolasci the hub is the receiving county, so the cell this row lights
+         is again the one displaying this row's number under the current Smjer */
+      rows.push({ iso: S.dir === 'in' ? b : a, v: mxCell(a, b, 'out', S.yi, S.cum),
+        pair: S.dir === 'in' ? [b, a] : [a, b], nm: [a, b] });
     }
   }
   return rows.sort((x, y) => y.v - x.v).slice(0, 20);
@@ -82,17 +103,34 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
   const gross = (S.view === 'flow' && S.dir !== 'net') || S.view === 'mx' || (S.view === 'jmap' && S.dir !== 'net');
 
   const JNAME = new Map(JGEO.features.map(f => [f.properties.j, f.properties.n]));
+  /* Regije and JLS rows have nothing to open — there is no region selection and
+     no JLS drill — so they must not claim role=button. They stayed focusable:
+     that is what makes the map highlight reachable without a pointer. */
+  const canActivate = (d: Row) => !d.reg && d.jls == null;
   const activate = (d: Row) => {
-    if (d.reg || d.jls != null) return;
+    if (!canActivate(d)) return;
     if (d.pair) { jumpFlow(d.pair[0], d.pair[1]); return; }
     if (S.view === 'flow') openPair(d.iso);
     else selectCounty(d.iso);
   };
   const name = (d: Row) => {
     if (d.reg) return REG[d.iso].name;
-    if (d.pair) return SHORTN[d.pair[0]] + ' → ' + SHORTN[d.pair[1]];
+    if (d.nm) return SHORTN[d.nm[0]] + ' → ' + SHORTN[d.nm[1]];
     if (d.jls != null) return JNAME.get(d.jls) || '';
     return D[d.iso].n;
+  };
+  /* hover and focus drive the same highlight — see the row handlers below */
+  const lightOn = (d: Row) => {
+    if (d.jls != null) setJlsHl(d.jls);
+    else if (d.reg) setS({ regHl: d.iso });
+    else if (d.pair) setS({ pairHl: d.pair });
+    else setHL(d.iso);
+  };
+  const lightOff = (d: Row) => {
+    if (d.jls != null) setJlsHl(null);
+    else if (d.reg) setS({ regHl: null });
+    else if (d.pair) setS({ pairHl: null });
+    else setHL(null);
   };
   const railLab = S.view === 'jmap' ? (S.dir === 'net' ? 'JLS — 10 najvećih dobitaka i gubitaka' : 'JLS — 20 najvećih')
     : S.view === 'mx' ? 'Najveći koridori — cijela mreža'
@@ -109,26 +147,23 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
         {rows.map((d, i) => (
           <div key={d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso}
             className={'rrow' + (big ? ' big' : '') + (d.pair ? ' pairrow' : '') + (!d.reg && !d.pair && d.jls == null && d.iso === S.hl ? ' hl' : '') + (d.jls != null && d.jls === S.jlsHl ? ' hl' : '') + (d.reg && d.iso === S.regHl ? ' hl' : '') + (d.pair && S.pairHl && S.pairHl[0] === d.pair[0] && S.pairHl[1] === d.pair[1] ? ' hl' : '')}
-            role="button" tabIndex={0}
+            data-iso={d.iso}
+            role={canActivate(d) ? 'button' : undefined} tabIndex={0}
             aria-label={name(d) + ' ' + fmt(d)}
             /* the rail is the natural index into the map and the 420-cell grid,
                so hovering a row lights up whatever it names: a region's counties,
-               a corridor's matrix cell, a JLS, or a county */
-            onPointerEnter={() => {
-              if (d.jls != null) setJlsHl(d.jls);
-              else if (d.reg) setS({ regHl: d.iso });
-              else if (d.pair) setS({ pairHl: d.pair });
-              else setHL(d.iso);
-            }}
-            onPointerLeave={() => {
-              if (d.jls != null) setJlsHl(null);
-              else if (d.reg) setS({ regHl: null });
-              else if (d.pair) setS({ pairHl: null });
-              else setHL(null);
-            }}
+               a corridor's matrix cell, a JLS, or a county — and focus does the
+               same, which is the only way to reach that highlight from a keyboard */
+            onPointerEnter={() => lightOn(d)}
+            onPointerLeave={() => lightOff(d)}
+            onFocus={() => lightOn(d)}
+            onBlur={() => lightOff(d)}
             onPointerMove={moveTip}
             onClick={() => activate(d)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(d); } }}>
+            onKeyDown={e => {
+              if (!canActivate(d)) return;
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(d); }
+            }}>
             <div className="rname">{d.pair ? <>{i + 1}. {name(d)}</>
               : d.jls != null ? <>{name(d)}{name(d) !== SHORTN[d.iso] && <span className="jc"> {SHORTN[d.iso]}</span>}</>
               : name(d)}</div>
@@ -145,7 +180,10 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
         ))}
       </div>
       {S.view === 'flow' && <div className="rail-hint">klik na partnera otvara koridor kroz vrijeme · klik na kartu mijenja županiju</div>}
-      {S.view === 'mx' && <div className="rail-hint">klik na koridor otvara Tokove s tim parom</div>}
+      {S.view === 'mx' && (
+        <div className="rail-hint">klik na koridor otvara Tokove s tim parom
+          {S.dir !== 'net' && ' · isti popis za odlaske i dolaske — svaki je koridor nečiji odlazak i nečiji dolazak'}</div>
+      )}
     </aside>
   );
 }

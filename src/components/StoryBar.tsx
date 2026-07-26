@@ -1,4 +1,5 @@
 import { STORIES } from '../lib/stories.ts';
+import { focusSoon } from '../lib/state.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Nalazi — curated findings. The picker is a header control (left of Prikaz);
@@ -35,7 +36,8 @@ export default function StoryBar({ S, setS }: {
         <div className="storybar" id="storyBar">
           <span className="storybar-k">{(S.story + 1) + '/' + STORIES.length}</span>
           <span className="storybar-t" id="storyCap">{STORIES[S.story].cap}</span>
-          <button className="card-x" id="storyX" aria-label="Zatvori nalaz" onClick={() => setS({ story: null })}>×</button>
+          <button className="card-x" id="storyX" aria-label="Zatvori nalaz"
+            onClick={() => { setS({ story: null }); focusSoon('#story'); }}>×</button>
         </div>
       )}
     </>

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { scaleSqrt } from 'd3-scale';
 import {
-  GEO, REGGEO, JGEO, ISOS, D, DOM, RDOM, REGOF, SHORTN,
-  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowBadge, jlsVal, jmapScale, fmtI, sgn,
+  GEO, REGGEO, JGEO, ISOS, DOM, RDOM, REGOF, SHORTN,
+  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowBadge, jlsVal, jmapScale, countyAria, fmtI, sgn,
 } from '../lib/metrics.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
@@ -18,9 +18,9 @@ import { moveTip, COARSE } from '../lib/tip.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
 
-export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, toggleJls, toggleAge, toggleHelp }: {
+export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggleCitz, toggleJls, toggleAge, toggleHelp }: {
   S: State; setS: (p: Patch) => void; selectCounty: (iso: string) => void;
-  setHL: (iso: string | null) => void; toggleCitz: () => void; toggleJls: () => void;
+  setHL: (iso: string | null) => void; resetSeq: number; toggleCitz: () => void; toggleJls: () => void;
   toggleAge: () => void; toggleHelp: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -47,9 +47,10 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
   /* wheel/pinch zoom + drag pan; identity by default so nothing else shifts */
   const zoom = useZoom(size.w, size.h);
   const zt = `translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`;
-  /* a view change re-fits the content, so a leftover transform would be wrong */
+  /* a view change re-fits the content, so a leftover transform would be wrong;
+     resetSeq is the ⟲ button, which owns the same "back to how it started" */
   const resetZoom = zoom.reset;
-  useEffect(() => { resetZoom(); }, [S.view, resetZoom]);
+  useEffect(() => { resetZoom(); }, [S.view, resetSeq, resetZoom]);
 
   /* The legend floats bottom-left of the map. Over a map that lands on sea, but
      over the matrix it would cover live cells, so MatrixView lays the grid out
@@ -70,12 +71,15 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
 
   /* Same argument as the legend, for the chip panels: they float bottom-right
      over the map box and can be open in any view, so in the matrix they would
-     sit on top of live corridors. Only when they actually overlay (on mobile
-     they drop into normal flow below the map and cover nothing). */
+     sit on top of live corridors. Measured on the dock rather than the open
+     panel, so the collapsed sibling chip stacked above it is inside the box the
+     grid steers around. Only when the dock actually overlays (on mobile it drops
+     into normal flow below the map and covers nothing). */
   const [panel, setPanel] = useState({ w: 0, h: 0 });
   useEffect(() => {
-    const el = wrapRef.current?.parentElement?.querySelector<HTMLElement>('.citz.open,.agec.open');
-    if (!el || getComputedStyle(el).position !== 'absolute') { setPanel({ w: 0, h: 0 }); return; }
+    const el = wrapRef.current?.parentElement?.querySelector<HTMLElement>('.chipdock');
+    if (!el || !el.querySelector('.citz.open,.agec.open')
+      || getComputedStyle(el).position !== 'absolute') { setPanel({ w: 0, h: 0 }); return; }
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
       setPanel(p => (p.w === r.width && p.h === r.height ? p : { w: r.width, h: r.height }));
@@ -255,7 +259,7 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
               return (
                 <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')
                   + (S.view === 'reg' && S.regHl && REGOF[iso] === S.regHl ? ' rhl' : '')}
-                  data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={D[iso].n}
+                  data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={countyAria(S, iso)}
                   onPointerEnter={() => setHL(iso)} onPointerLeave={() => setHL(null)}
                   onPointerMove={moveTip} onClick={() => selectCounty(iso)}
                   onFocus={() => setHL(iso)} onBlur={() => setHL(null)}
@@ -297,10 +301,20 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
       <Legend S={S} />
       <JlsCard S={S} setS={setS} toggleJls={toggleJls} />
       <HelpPanel S={S} setS={setS} />
-      <StoryBar S={S} setS={setS} />
       </div>
-      <CitzPanel S={S} setS={setS} toggleCitz={toggleCitz} />
-      <AgePanel S={S} setS={setS} toggleAge={toggleAge} />
+      {/* Outside .map-box on purpose. Floated bottom-centre the caption shared
+          the map's bottom edge with the legend (left) and the chip dock (right),
+          and won on z-index: the "Dob i spol" chip was unclickable at every
+          desktop width from 1200 to 1600. In flow it collides with nothing. */}
+      <StoryBar S={S} setS={setS} />
+      {/* One dock, not two bottom-right anchors. Side by side the pair spanned
+          656 px of the map's bottom edge and ran into the legend below ~1150 px
+          and under the detail card below ~1100. Stacked, the dock is one panel
+          wide at every width and the two can never overlap each other. */}
+      <div className="chipdock">
+        <AgePanel S={S} setS={setS} toggleAge={toggleAge} />
+        <CitzPanel S={S} setS={setS} toggleCitz={toggleCitz} />
+      </div>
     </div>
   );
 }

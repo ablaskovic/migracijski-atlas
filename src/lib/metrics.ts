@@ -212,6 +212,30 @@ export function jmapScale(dir: Dir): { m: number; scale: (v: number) => string }
 export const natExt = YEARS.map((_, yi) => ISOS.reduce((a, iso) => a + D[iso].ie[yi] - D[iso].oe[yi], 0));
 export const natVol = YEARS.map((_, yi) => ISOS.reduce((a, iso) => a + D[iso].oi[yi], 0));
 
+/* Spoken summary for one county path. The map's tooltip is a visual-only div, so
+   without this the primary view offered 21 tab stops that each read out nothing
+   but a name — while the JLS map, whose labels are built from the data, read out
+   doseljeno/odseljeno/neto. Same period wording as the legend and the export. */
+export function countyAria(S: State, iso: string): string {
+  const n = D[iso].n, y = YEARS[S.yi];
+  const per = (S.cum || S.view === 'klas') ? '2011.–' + y + '.' : y + '.';
+  const num = (v: number) => S.den === 'abs' ? sgn(Math.round(v), fmtI) : sgn(v, fmtR) + ' %';
+  if (S.view === 'flow') {
+    if (iso === S.sel) return n + ' — odabrana županija';
+    const o = fsum(S.sel!, iso, S.yi, S.cum), i = fsum(iso, S.sel!, S.yi, S.cum);
+    return `${n}: iz ${D[S.sel!].n} ${fmtI.format(i)}, u ${D[S.sel!].n} ${fmtI.format(o)}, neto ${sgn(i - o, fmtI)} · ${per}`;
+  }
+  if (S.view === 'klas') {
+    const k = klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct);
+    return `${n}: ${KLAB[k]}, saldo ${sgn(Math.round(val(iso, S.yi, 'tot', 'abs', true)), fmtI)} · ${per}`;
+  }
+  if (S.view === 'reg') {
+    const rk = REGOF[iso];
+    return `${n}, ${REG[rk].name}: ${FLOWN[S.flow]} ${num(regVal(rk, S.yi, S.flow, S.den, S.cum))} · ${per}`;
+  }
+  return `${n}: ${FLOWN[S.flow]} ${num(val(iso, S.yi, S.flow, S.den, S.cum))} · ${per}`;
+}
+
 /* export caption from state */
 export function exportDesc(S: State): [string, string] {
   if (S.view === 'jmap') return ['Gradovi i općine: unutarnja migracija (izmjereno)', '2018.'];

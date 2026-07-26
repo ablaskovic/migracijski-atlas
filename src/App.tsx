@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { YEARS, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { decodeHash, encodeHash } from './lib/hash.ts';
+import { BASE, STORY_KEYS, focusSoon } from './lib/state.ts';
 import { STORIES } from './lib/stories.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
@@ -22,28 +23,25 @@ declare global {
    Deliberate v4 deviation: first entry into a flow-ish view (Tokovi/Matrica)
    always lands on godišnje 2018 — lead with the measured matrix, not the IPF
    cumulative estimate. */
-const BASE: State = {
-  view: 'saldo', flow: 'tot', den: 'abs', cum: true, yi: YEARS.indexOf(2024),
-  thr: 4500, thrRel: false, thrPct: 1.5, playing: false, hl: null, sel: null,
-  pair: null, pairHl: null, jlsHl: null, regHl: null, dir: 'net', flowSeen: false,
-  labels: false, citz: false, jls: false, age: false, help: false,
-  jlsTab: 'inter', citzTab: 'grp', ageTab: 'ext', story: null,
-};
 const INITIAL: State = { ...BASE, ...decodeHash(location.hash) };
-
-/* A Nalaz caption cites concrete numbers for one exact view, so the moment any
-   of these move the caption is no longer describing what is on screen. Clearing
-   the preset also keeps `st` out of the permalink, so a shared link can never
-   carry a caption that contradicts its own state. */
-const STORY_KEYS = ['view', 'flow', 'den', 'cum', 'yi', 'dir', 'sel', 'pair', 'thr', 'thrRel', 'thrPct'] as const;
 
 export default function App() {
   const [S, setS] = useState(INITIAL);
   const ref = useRef(S); ref.current = S;
+  /* Clearing the preset also keeps `st` out of the permalink, so a shared link
+     can never carry a caption that contradicts its own state. The invalidation
+     set is STORY_KEYS *plus the active preset's own patch keys*: Nalaz 4 asserts
+     something about the Državljanstvo panel, so closing that panel must kill the
+     caption — while Nalaz 2, which says nothing about panels, survives one being
+     opened. Without this the app emitted `…&st=4` with `cz=1` already dropped. */
   const up = (patch: Patch) => setS(s => {
     const n: State = { ...s, ...patch };
-    if (s.story != null && patch.story === undefined
-      && STORY_KEYS.some(k => k in patch && patch[k] !== s[k])) n.story = null;
+    if (s.story != null && patch.story === undefined) {
+      const keys = new Set<string>([...STORY_KEYS, ...Object.keys(STORIES[s.story].patch)]);
+      for (const k of keys) {
+        if (k in patch && patch[k as keyof State] !== s[k as keyof State]) { n.story = null; break; }
+      }
+    }
     return n;
   });
 
@@ -92,8 +90,12 @@ export default function App() {
   const toggleJls = () => { const s = ref.current; up({ jls: !s.jls, citz: false, age: false }); };
   const toggleAge = () => { const s = ref.current; up({ age: !s.age, citz: false, jls: false }); };
   const toggleHelp = () => { const s = ref.current; up({ help: !s.help }); };
-  /* back to the boot view, including the per-view year memory */
-  const resetAll = () => { vmem.current = {}; setS({ ...BASE }); };
+  /* Back to the boot view, including the per-view year memory and the map
+     transform. The zoom lives in useZoom, outside S, and only re-fitted on a
+     *view* change — so "vrati na početni prikaz" used to leave the map sitting
+     at 2.8×. Bumping a counter is the whole handshake MapView needs. */
+  const [resetSeq, setResetSeq] = useState(0);
+  const resetAll = () => { vmem.current = {}; setResetSeq(n => n + 1); setS({ ...BASE }); };
 
   /* reduced motion is a live preference, not a boot-time constant */
   const [reduced, setReduced] = useState(
@@ -144,7 +146,10 @@ export default function App() {
   useEffect(() => {
     const onPop = () => {
       lastView.current = decodeHash(location.hash).view ?? BASE.view;
-      setS(s => ({ ...s, ...BASE, ...decodeHash(location.hash) }));
+      /* `help` and `flowSeen` are deliberately not in the permalink, so folding
+         BASE back in would close the glossary and re-arm the first-entry 2018
+         jump as a side effect of pressing Back. Carry them across instead. */
+      setS(s => ({ ...s, ...BASE, help: s.help, flowSeen: s.flowSeen, ...decodeHash(location.hash) }));
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -169,17 +174,46 @@ export default function App() {
     window.addEventListener('pointerdown', onDown, true);
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, []);
-  useEffect(() => { document.body.classList.toggle('story-open', S.story != null); }, [S.story]);
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       const el = ev.target as HTMLElement;
       const tag = el.tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable) return;
       const s = ref.current;
-      if (ev.key === 'Escape' && (s.help || s.pair)) { up(s.help ? { help: false } : { pair: null }); return; }
+      /* Escape dismisses the topmost thing, one layer per press, and hands focus
+         back to whatever opened it. It used to reach only the glossary and the
+         corridor card, leaving the three chip panels and the detail card as the
+         only surfaces on the page you could open with a key but not close. */
+      if (ev.key === 'Escape') {
+        if (s.help) { up({ help: false }); focusSoon('#helpBtn'); return; }
+        if (s.pair) { up({ pair: null }); focusSoon('#railList .rrow[data-iso="' + s.pair + '"]'); return; }
+        if (s.citz || s.jls || s.age) {
+          up({ citz: false, jls: false, age: false });
+          focusSoon(s.citz ? '#citzHd' : s.jls ? '#jcardHd' : '#ageHd');
+          return;
+        }
+        /* in Tokovi `sel` is the hub, not a dismissible selection */
+        if (s.sel && s.view !== 'flow') {
+          up({ sel: null });
+          focusSoon('.cnt[data-iso="' + s.sel + '"], #railList .rrow[data-iso="' + s.sel + '"]');
+          return;
+        }
+        return;
+      }
       if (s.view === 'jmap') return;
+      const min = (s.cum || s.view === 'klas') ? IX2011 : 0;
+      /* The scrubber declares role=slider, so it owes the pattern's whole key
+         set — arrows alone meant 27 presses to cross 28 years. Scoped to the
+         slider itself: Home/End belong to the document everywhere else. */
+      if (el.id === 'spark') {
+        const jump = (yi: number) => { ev.preventDefault(); if (yi !== s.yi) up({ yi }); };
+        if (ev.key === 'Home') { jump(min); return; }
+        if (ev.key === 'End') { jump(YEARS.length - 1); return; }
+        if (ev.key === 'PageUp') { jump(Math.min(YEARS.length - 1, s.yi + 5)); return; }
+        if (ev.key === 'PageDown') { jump(Math.max(min, s.yi - 5)); return; }
+      }
       if (ev.key === 'ArrowRight' && s.yi < YEARS.length - 1) up({ yi: s.yi + 1 });
-      if (ev.key === 'ArrowLeft') { const min = (s.cum || s.view === 'klas') ? IX2011 : 0; if (s.yi > min) up({ yi: s.yi - 1 }); }
+      if (ev.key === 'ArrowLeft') { if (s.yi > min) up({ yi: s.yi - 1 }); }
       /* Space is also the native activation key for whatever holds focus, and
          preventDefault here used to swallow it — tabbing to a segment and
          pressing Space toggled playback instead of picking the segment. */
@@ -207,7 +241,7 @@ export default function App() {
     <>
       <Header S={S} setS={up} setView={setView} setMode={setMode} applyStory={applyStory} resetAll={resetAll} />
       <main className="main">
-        <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL}
+        <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL} resetSeq={resetSeq}
           toggleCitz={toggleCitz} toggleJls={toggleJls} toggleAge={toggleAge} toggleHelp={toggleHelp} />
         <Rail S={S} setS={up} selectCounty={selectCounty} setHL={setHL} openPair={openPair} jumpFlow={jumpFlow} setJlsHl={setJlsHl} />
       </main>

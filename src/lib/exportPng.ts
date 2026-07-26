@@ -38,6 +38,16 @@ function bakeMapClone(node: SVGSVGElement): SVGSVGElement {
   clone.querySelectorAll('.arc').forEach(p => {
     p.setAttribute('fill', 'none'); p.setAttribute('opacity', '0.82'); p.setAttribute('stroke-linecap', 'round');
   });
+  clone.querySelectorAll('.arch').forEach(p => p.setAttribute('opacity', '0.9'));
+  /* The matrix trace bands take fill:none from the stylesheet alone, and this
+     document ships without one — so an export taken while a corridor was
+     highlighted painted a solid black row and column (measured: rgb(0,0,0))
+     straight across the heatmap. Everything visible has to be baked, not just
+     the shapes that carry data. */
+  clone.querySelectorAll('.mxband rect').forEach(r => {
+    r.setAttribute('fill', 'none'); r.setAttribute('stroke', '#20262B');
+    r.setAttribute('stroke-width', '1.1'); r.setAttribute('opacity', '0.5');
+  });
   clone.querySelectorAll('*').forEach(el => {
     for (const a of ['fill', 'stroke']) {
       const v = el.getAttribute(a);
