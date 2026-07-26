@@ -59,8 +59,16 @@ export function decodeHash(hash: string): Patch {
   if (p.get('cz')) { o.citz = true; o.citzTab = p.get('cz') === '2' ? 'zem' : 'grp'; }
   if (p.get('jl')) { o.jls = true; o.jlsTab = p.get('jl') === '2' ? 'loc' : 'inter'; }
   if (p.get('ag')) { o.age = true; o.ageTab = p.get('ag') === '2' ? 'int' : 'ext'; }
+  /* A preset index is only honoured when the rest of the link still matches the
+     preset it names. App clears `story` the moment a control diverges, so links
+     this app produces are always consistent — this guards hand-edited ones, so
+     a caption can never assert numbers the decoded state does not produce. */
   const st = Number(p.get('st')) - 1;
-  if (st >= 0 && st < STORIES.length) o.story = st;
+  if (st >= 0 && st < STORIES.length) {
+    const patch = STORIES[st].patch as Record<string, unknown>;
+    const cand = { ...patch, ...o } as Record<string, unknown>;
+    if (Object.keys(patch).every(k => cand[k] === patch[k])) o.story = st;
+  }
 
   /* invariant repairs: flow-ish views need a hub and must not re-trigger the
      first-entry jump over the shared year; klas/cum clamp to ≥2011 */

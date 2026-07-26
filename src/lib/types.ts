@@ -25,12 +25,14 @@ export interface State {
   pair: string | null;  /* corridor card partner in flow view */
   pairHl: [string, string] | null;  /* hovered matrix cell (origin, destination) */
   jlsHl: number | null; /* hovered JLS feature index (j) in jmap view */
+  regHl: string | null; /* hovered region key in reg view — lights its counties */
   dir: Dir;
   flowSeen: boolean;
   labels: boolean;      /* county name labels on the map */
   citz: boolean;
   jls: boolean;
   age: boolean;         /* dob i spol chip panel */
+  help: boolean;        /* "Kako čitati" glossary overlay */
   jlsTab: JlsTab;
   citzTab: CitzTab;
   ageTab: AgeTab;

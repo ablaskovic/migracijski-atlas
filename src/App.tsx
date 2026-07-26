@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { YEARS, IX2011, IX2018 } from './lib/metrics.ts';
+import { YEARS, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { decodeHash, encodeHash } from './lib/hash.ts';
 import { STORIES } from './lib/stories.ts';
 import Header from './components/Header.tsx';
@@ -25,25 +25,45 @@ declare global {
 const BASE: State = {
   view: 'saldo', flow: 'tot', den: 'abs', cum: true, yi: YEARS.indexOf(2024),
   thr: 4500, thrRel: false, thrPct: 1.5, playing: false, hl: null, sel: null,
-  pair: null, pairHl: null, jlsHl: null, dir: 'net', flowSeen: false,
-  labels: false, citz: false, jls: false, age: false,
+  pair: null, pairHl: null, jlsHl: null, regHl: null, dir: 'net', flowSeen: false,
+  labels: false, citz: false, jls: false, age: false, help: false,
   jlsTab: 'inter', citzTab: 'grp', ageTab: 'ext', story: null,
 };
 const INITIAL: State = { ...BASE, ...decodeHash(location.hash) };
 
+/* A Nalaz caption cites concrete numbers for one exact view, so the moment any
+   of these move the caption is no longer describing what is on screen. Clearing
+   the preset also keeps `st` out of the permalink, so a shared link can never
+   carry a caption that contradicts its own state. */
+const STORY_KEYS = ['view', 'flow', 'den', 'cum', 'yi', 'dir', 'sel', 'pair', 'thr', 'thrRel', 'thrPct'] as const;
+
 export default function App() {
   const [S, setS] = useState(INITIAL);
   const ref = useRef(S); ref.current = S;
-  const up = (patch: Patch) => setS(s => ({ ...s, ...patch }));
+  const up = (patch: Patch) => setS(s => {
+    const n: State = { ...s, ...patch };
+    if (s.story != null && patch.story === undefined
+      && STORY_KEYS.some(k => k in patch && patch[k] !== s[k])) n.story = null;
+    return n;
+  });
+
+  /* Year+mode are one shared pair across views, so a flow-ish view forcing 2018
+     used to silently discard whatever cumulative window the user had built in
+     Saldo. Remember the pair per view and put it back on return; the documented
+     first-entry jump still wins the first time. Ephemeral — never in the hash. */
+  const vmem = useRef<Partial<Record<View, { yi: number; cum: boolean }>>>({});
 
   /* ── control transitions (v4 semantics + mx/jmap) ── */
   const setView = (v: View) => {
     const s = ref.current;
+    vmem.current[s.view] = { yi: s.yi, cum: s.cum };
     const p: Patch = { view: v, playing: false };
+    const mem = vmem.current[v];
     if (v === 'flow' || v === 'mx') {
       if (v === 'flow' && !s.sel) p.sel = 'HR-21';
       if (!s.flowSeen) { p.flowSeen = true; p.cum = false; p.yi = IX2018; }
-    }
+      else if (mem) { p.yi = mem.yi; p.cum = mem.cum; }
+    } else if (v !== 'jmap' && mem) { p.yi = mem.yi; p.cum = mem.cum; }
     if (s.view === 'flow' && v !== 'flow') { p.sel = null; p.pair = null; }
     if (v === 'jmap') { p.yi = IX2018; p.cum = false; }
     if ((v === 'klas' || (p.cum ?? s.cum)) && (p.yi ?? s.yi) < IX2011) p.yi = IX2011;
@@ -71,20 +91,36 @@ export default function App() {
   const toggleCitz = () => { const s = ref.current; up({ citz: !s.citz, jls: false, age: false }); };
   const toggleJls = () => { const s = ref.current; up({ jls: !s.jls, citz: false, age: false }); };
   const toggleAge = () => { const s = ref.current; up({ age: !s.age, citz: false, jls: false }); };
+  const toggleHelp = () => { const s = ref.current; up({ help: !s.help }); };
+  /* back to the boot view, including the per-view year memory */
+  const resetAll = () => { vmem.current = {}; setS({ ...BASE }); };
+
+  /* reduced motion is a live preference, not a boot-time constant */
+  const [reduced, setReduced] = useState(
+    () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const mq = matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => { setReduced(mq.matches); document.body.classList.toggle('reduced', mq.matches); };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   /* ── play loop (inert in jmap: single measured year) ── */
   useEffect(() => {
     if (!S.playing) return;
+    /* autoplay is the largest motion in the app — halve the pace rather than
+       remove the feature, since the user asked for it explicitly */
     const t = setInterval(() => {
       setS(s => {
         if (!s.playing) return s;
         const next = s.yi + 1;
-        if (next >= YEARS.length) return { ...s, yi: YEARS.length - 1, playing: false };
-        return { ...s, yi: next };
+        if (next >= YEARS.length) return { ...s, yi: YEARS.length - 1, playing: false, story: null };
+        return { ...s, yi: next, story: null };
       });
-    }, 650);
+    }, reduced ? 1400 : 650);
     return () => clearInterval(t);
-  }, [S.playing]);
+  }, [S.playing, reduced]);
   const togglePlay = () => {
     const s = ref.current;
     if (s.view === 'jmap') return;
@@ -94,17 +130,31 @@ export default function App() {
   };
 
   /* ── global effects: hash sync + body classes + keyboard ── */
+  /* A view change is the one transition worth a history entry: it makes the
+     browser Back button an undo for "how did I get to this screen", instead of
+     leaving the site outright. Everything finer stays a replace so the history
+     does not fill up with year steps. */
+  const lastView = useRef(S.view);
   useEffect(() => {
     const h = '#' + encodeHash(S);
-    if (location.hash !== h) history.replaceState(null, '', h);
+    if (location.hash === h) return;
+    if (S.view !== lastView.current) { lastView.current = S.view; history.pushState(null, '', h); }
+    else history.replaceState(null, '', h);
   }, [S]);
   useEffect(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.body.classList.add('reduced');
+    const onPop = () => {
+      lastView.current = decodeHash(location.hash).view ?? BASE.view;
+      setS(s => ({ ...s, ...BASE, ...decodeHash(location.hash) }));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  useEffect(() => {
     window.__exportPNG = dl => exportPNG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
     window.__exportSVG = dl => exportSVG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
     return () => { delete window.__exportPNG; delete window.__exportSVG; };
   }, []);
-  useEffect(() => { document.body.classList.toggle('panel-open', S.citz || S.jls || S.age); }, [S.citz, S.jls, S.age]);
+  useEffect(() => { document.body.classList.toggle('panel-open', S.citz || S.jls || S.age || S.help); }, [S.citz, S.jls, S.age, S.help]);
   /* Touch fires pointerenter but never pointerleave, so a tapped feature would
      leave its tooltip on screen forever. Clear the highlight on any pointerdown
      that is not itself a map feature — the tip is the only value readout in the
@@ -122,13 +172,23 @@ export default function App() {
   useEffect(() => { document.body.classList.toggle('story-open', S.story != null); }, [S.story]);
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      const tag = (ev.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'SELECT') return;
+      const el = ev.target as HTMLElement;
+      const tag = el.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable) return;
       const s = ref.current;
+      if (ev.key === 'Escape' && (s.help || s.pair)) { up(s.help ? { help: false } : { pair: null }); return; }
       if (s.view === 'jmap') return;
       if (ev.key === 'ArrowRight' && s.yi < YEARS.length - 1) up({ yi: s.yi + 1 });
       if (ev.key === 'ArrowLeft') { const min = (s.cum || s.view === 'klas') ? IX2011 : 0; if (s.yi > min) up({ yi: s.yi - 1 }); }
-      if (ev.key === ' ') { ev.preventDefault(); togglePlay(); }
+      /* Space is also the native activation key for whatever holds focus, and
+         preventDefault here used to swallow it — tabbing to a segment and
+         pressing Space toggled playback instead of picking the segment. */
+      if (ev.key === ' ') {
+        if (tag === 'BUTTON' || tag === 'A' || el.getAttribute('role') === 'button'
+          || el.getAttribute('role') === 'gridcell') return;
+        ev.preventDefault();
+        togglePlay();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -136,15 +196,23 @@ export default function App() {
   const setHL = (iso: string | null) => { if (ref.current.hl !== iso) up({ hl: iso }); };
   const setJlsHl = (j: number | null) => { if (ref.current.jlsHl !== j) up({ jlsHl: j }); };
 
+  /* Screen-reader status. Every value on screen is keyed to year + view, and
+     both change without any focus moving (scrub, arrows, autoplay), so without
+     this the whole app mutates silently. Held constant while the loop runs so
+     it announces once at start and once at the end, not 28 times. */
+  const live = S.playing ? 'Reprodukcija kroz godine u tijeku.'
+    : `${YEARS[S.yi]}. · ${VLAB[S.view]} · ${S.cum || S.view === 'klas' ? 'kumulativno' : 'godišnje'}`;
+
   return (
     <>
-      <Header S={S} setS={up} setView={setView} setMode={setMode} applyStory={applyStory} />
-      <div className="main">
+      <Header S={S} setS={up} setView={setView} setMode={setMode} applyStory={applyStory} resetAll={resetAll} />
+      <main className="main">
         <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL}
-          toggleCitz={toggleCitz} toggleJls={toggleJls} toggleAge={toggleAge} />
-        <Rail S={S} selectCounty={selectCounty} setHL={setHL} openPair={openPair} jumpFlow={jumpFlow} setJlsHl={setJlsHl} />
-      </div>
+          toggleCitz={toggleCitz} toggleJls={toggleJls} toggleAge={toggleAge} toggleHelp={toggleHelp} />
+        <Rail S={S} setS={up} selectCounty={selectCounty} setHL={setHL} openPair={openPair} jumpFlow={jumpFlow} setJlsHl={setJlsHl} />
+      </main>
       <Scrubber S={S} setYi={setYi} togglePlay={togglePlay} />
+      <div className="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true">{live}</div>
       <footer className="ft">
         <span>Izvori: DZS tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (Pitoski i sur. 2021, CC BY) · ostale godine: IPF procjena na DZS marginama · granice: geoBoundaries/OSM.</span>
         <span>DZS naknadno revidira serije — pojedine se vrijednosti razlikuju od rada.</span>

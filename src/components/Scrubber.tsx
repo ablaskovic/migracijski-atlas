@@ -52,6 +52,8 @@ export default function Scrubber({ S, setYi, togglePlay }: {
   const drag = useRef(false);
   const onDown = (ev: ReactPointerEvent<SVGSVGElement>) => { drag.current = true; ev.currentTarget.setPointerCapture(ev.pointerId); scrubTo(ev); };
   const onMove = (ev: ReactPointerEvent<SVGSVGElement>) => { if (drag.current) scrubTo(ev); };
+  /* pointercancel fires when the browser claims the gesture as a page scroll —
+     without it the drag flag sticks and the next hover scrubs the year */
   const onUp = () => { drag.current = false; };
 
   /* Tick labels are ~28 px wide (mono 9). The 2013/2015 pair sits 2 years apart,
@@ -79,13 +81,22 @@ export default function Scrubber({ S, setYi, togglePlay }: {
         onClick={() => setCollapsed(c => !c)}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d={collapsed ? 'M7 14l5-5 5 5z' : 'M7 10l5 5 5-5z'} /></svg>
       </button>
-      <button className="play" id="play" aria-label="Reprodukcija kroz godine" onClick={togglePlay}>
-        <svg viewBox="0 0 24 24" id="playIco">
+      <button className="play" id="play" aria-pressed={S.playing} onClick={togglePlay}
+        title={S.playing ? 'Zaustavi reprodukciju' : 'Pokreni reprodukciju kroz godine'}
+        aria-label={S.playing ? 'Zaustavi reprodukciju' : 'Pokreni reprodukciju kroz godine'}>
+        <svg viewBox="0 0 24 24" id="playIco" aria-hidden="true">
           <path d={S.playing ? 'M6 5h4v14H6zm8 0h4v14h-4z' : 'M8 5v14l11-7z'} />
         </svg>
       </button>
       <div className="scrub-chart" ref={chartRef}>
-        <svg id="spark" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
+        {/* a real slider: the year is the app's primary control, and it was
+            reachable only by dragging with a mouse. Arrow keys are handled
+            globally in App, so focus here just makes that discoverable. */}
+        <svg id="spark" role="slider" tabIndex={S.view === 'jmap' ? -1 : 0}
+          aria-label="Godina prikaza"
+          aria-valuemin={S.cum || S.view === 'klas' ? 2011 : Y0} aria-valuemax={YEND}
+          aria-valuenow={yr} aria-valuetext={yr + '.'}
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
           {x && (
             <g>
               <defs>
@@ -104,14 +115,21 @@ export default function Scrubber({ S, setYi, togglePlay }: {
               <text x={x(1999)} y={mT - 3} fontSize={8.5} fontFamily="var(--mono)" fill="var(--mut)">
                 {cap}
               </text>
+              {/* the arrow/space shortcuts existed but nothing said so */}
+              {sw >= 560 && (
+                <text id="kbdHint" x={x(YEND)} y={mT - 3} textAnchor="end" fontSize={8.5}
+                  fontFamily="var(--mono)" fill="var(--mut)">← → godina · razmaknica reprodukcija</text>
+              )}
               {ticks.map(t => (
                 <text key={t} x={x(t)} y={sh - 4} textAnchor={t === YEND ? 'end' : 'middle'}
                   fontSize={9} fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
               ))}
               <line x1={x(2013)} x2={x(2013)} y1={mT} y2={sh - mB} stroke="#8d968f" strokeWidth={0.7} strokeDasharray="1 3" />
               <text x={x(2013) + 3} y={mT + 7} fontSize={8} fontFamily="var(--mono)" fill="var(--mut)">EU</text>
+              {/* Matrica is anchored on the same measured 2018 matrix as Tokovi,
+                  so it gets the same "this is the measured year" marker. */}
               <circle id="realMark" cx={x(2018)} cy={sh - mB} r={3} fill="none" stroke="var(--acc)" strokeWidth={1.5}
-                style={{ display: S.view === 'flow' ? undefined : 'none' }} />
+                style={{ display: S.view === 'flow' || S.view === 'mx' ? undefined : 'none' }} />
               <line id="cur" x1={x(yr)} x2={x(yr)} y1={mT - 6} y2={sh - mB + 6} stroke="var(--acc)" strokeWidth={2} />
               <circle id="curDot" cx={x(yr)} cy={sy!(natExt[S.yi])} r={3.5} fill="var(--acc)" />
             </g>

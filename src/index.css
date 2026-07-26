@@ -26,7 +26,13 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .seg button{padding:5px 7px;font-size:12px;color:var(--mut);border-right:1px solid var(--line);white-space:nowrap}
 .seg button:last-child{border-right:none}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:500}
-.seg.off{opacity:.35;pointer-events:none}
+.seg button:disabled{cursor:default}
+/* `off` groups: the buttons carry `disabled` (so they leave the tab order and
+   cannot be Enter-activated while looking dead), and this overlay takes the
+   hover the disabled buttons no longer emit — otherwise the title explaining
+   *why* the group is off can never surface. */
+.seg.off{opacity:.35;position:relative}
+.seg.off::after{content:'';position:absolute;inset:0;cursor:not-allowed}
 /* Nalazi select — a header control, sitting left of Prikaz. Kept narrow on
    purpose: the controls row has ~1400 px at 1440 and the other five groups
    already claim ~1240, so a wide select wraps Izvoz onto a third row and blows
@@ -34,9 +40,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .storysel select{border:1px solid var(--line);border-radius:3px;
   background:color-mix(in srgb,var(--panel) 92%,transparent);color:var(--mut);
   font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
-  padding:4px 6px;cursor:pointer;width:124px}
+  padding:4px 6px;cursor:pointer;width:98px}
 .storysel select:hover{color:var(--ink)}
 .storysel select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.storysel-row{display:flex;gap:4px;align-items:stretch}
+/* reset: without it the only way back from a deep view was reversing every
+   control by hand (Back used to leave the site — App now pushes view changes) */
+.rstbtn{border:1px solid var(--line);border-radius:3px;color:var(--mut);
+  background:color-mix(in srgb,var(--panel) 92%,transparent);
+  font-size:12px;line-height:1;padding:0 7px}
+.rstbtn:hover{color:var(--ink)}
 .only{display:none}.only.show{display:flex}
 .thr input[type=range]{width:110px;accent-color:var(--acc)}
 .thr-val{font-family:var(--mono);font-size:12px;min-width:52px}
@@ -64,7 +77,9 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .legend-lbls{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--mut);margin-top:3px}
 .legend-cats{display:flex;flex-direction:column;gap:4px}
 .legend-cat{display:flex;align-items:center;gap:6px}
-.legend-sw{width:11px;height:11px;border:1px solid rgba(0,0,0,.15);flex:none}
+/* the swatch is the graphical stand-in for a data category, so its own edge has
+   to clear 3:1 — at rgba(0,0,0,.15) the pale "neutralne" chip sat at 1.6:1 */
+.legend-sw{width:11px;height:11px;border:1px solid var(--mut);flex:none}
 .legend-note{margin-top:5px;color:var(--mut);font-size:9px;line-height:1.35}
 
 .card{position:absolute;top:14px;left:16px;width:308px;background:var(--panel);border:1px solid var(--line);
@@ -102,7 +117,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .play{width:40px;display:flex;align-items:center;justify-content:center;color:var(--acc)}
 .play svg{width:20px;height:20px;fill:currentColor}
 .scrub-chart{flex:1;min-width:0;position:relative}
-.scrub-chart svg{display:block;width:100%;height:96px;cursor:ew-resize}
+/* touch-action:none — setPointerCapture does not stop the browser claiming a
+   near-vertical drag as a page scroll, which cancels the gesture mid-scrub */
+.scrub-chart svg{display:block;width:100%;height:96px;cursor:ew-resize;touch-action:none}
+#spark:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .big-year{width:122px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding-left:12px}
 .big-year-n{font-family:var(--disp);font-weight:600;font-size:46px;line-height:1;letter-spacing:.02em}
 .big-year-s{font-family:var(--mono);font-size:9px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase;text-align:right;max-width:120px}
@@ -120,7 +138,14 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .pos{color:#7FA8DC}.neg{color:#E08A78}
 .tip-hint{margin-top:5px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;
   text-transform:uppercase;color:#AEB6AC}
-.cls-tag{display:inline-block;margin-top:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border-radius:2px}
+/* Measured vs estimated is the atlas's central honesty distinction and both
+   badges used to render as the same neutral pill, so only the wording carried
+   it. Solid = measured fact; dashed outline = computed estimate. */
+.cls-tag{display:inline-block;margin-top:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border-radius:2px;border:1px solid transparent}
+.cls-tag.meas{background:#E4E7E0;color:#20262B;border-color:#20262B}
+.cls-tag.est{background:transparent;color:#5F6A72;border:1px dashed #5F6A72}
+.tip .cls-tag.meas{background:#F2F3EF;color:#20262B;border-color:#F2F3EF}
+.tip .cls-tag.est{background:transparent;color:#C2C9BF;border:1px dashed #8b938a}
 
 .chipcard{position:absolute;z-index:4;background:color-mix(in srgb,var(--panel) 94%,transparent);
   border:1px solid var(--line);border-radius:3px;box-shadow:0 2px 10px rgba(32,38,43,.07)}
@@ -146,7 +171,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .citz svg{display:block;width:100%;height:148px}
 .citz-rows{display:grid;grid-template-columns:11px 1fr auto auto;gap:2px 7px;align-items:center;
   font-size:10px;margin-top:6px}
-.citz-rows .sw{width:11px;height:11px;border:1px solid rgba(0,0,0,.12)}
+.citz-rows .sw{width:11px;height:11px;border:1px solid var(--mut)}
 .citz-rows .cv{font-family:var(--mono);font-size:9.5px;text-align:right;color:var(--mut)}
 .citz-rows .ct{font-weight:500;border-top:1px solid var(--line);padding-top:2px}
 .citz-note{font-size:9px;color:var(--mut);margin-top:5px;line-height:1.35}
@@ -188,11 +213,41 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .labbtn:hover{color:var(--ink)}
 .labbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 
-/* zoom reset — only mounted while zoomed, sits under the labels toggle */
-.zoomrst{position:absolute;top:44px;right:16px;z-index:4;font-family:var(--mono);font-size:9.5px;
+/* Zoom reset — shares the top strip with the labels toggle rather than sitting
+   at top:44/right:16, which is exactly where .paircard lands: the card has the
+   higher z-index, so opening a corridor while zoomed hid the only way back. */
+/* Top strip, right to left: labels toggle (16), help (108), zoom reset (138).
+   Top-left is spoken for by the detail card and the JLS chip, and top:44/right:16
+   is where .paircard lands — which is exactly where the zoom reset used to sit,
+   under a card with a higher z-index. */
+.zoomrst{position:absolute;top:14px;right:138px;z-index:6;font-family:var(--mono);font-size:9.5px;
   letter-spacing:.08em;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
 .zoomrst:hover{color:var(--ink)}
+
+/* "Kako čitati" — the only place the vocabulary is explained */
+.helpbtn{position:absolute;top:14px;right:108px;z-index:6;font-family:var(--mono);font-size:11px;
+  line-height:1;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
+  border:1px solid var(--line);border-radius:3px;width:22px;height:22px}
+.helpbtn:hover{color:var(--ink)}
+.helpbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.helpcard{position:absolute;top:44px;left:16px;width:330px;max-height:calc(100% - 60px);overflow-y:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;
+  box-shadow:0 2px 14px rgba(32,38,43,.14);padding:10px 12px 10px;z-index:9;font-size:11px;line-height:1.45}
+.help-h{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--mut);margin:9px 0 3px;border-top:1px solid var(--line);padding-top:7px}
+.help-p{color:var(--ink)}
+.help-blue{color:var(--gain)}
+.help-red{color:var(--loss)}
+.helpcard .cls-tag{margin-top:0;vertical-align:baseline}
+.help-dl{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin-top:2px}
+.help-dl dt{font-weight:600;white-space:nowrap}
+.help-dl dd{color:var(--mut)}
+.help-note{margin-top:9px;border-top:1px solid var(--line);padding-top:6px;font-size:9.5px;color:var(--mut)}
+
+/* screen-reader status line: year and view change with no focus move at all */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
 
 /* Nalazi caption banner — bottom-center between legend and chip panels */
 .storybar{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;z-index:6;
@@ -206,6 +261,18 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 
 /* matrix cells */
 .mxc{cursor:pointer}
+.mxc:focus{outline:none;stroke:var(--acc);stroke-width:2}
+.mxd{cursor:help}
+/* trace lines: bolding the two axis labels is not enough to locate one pair
+   among 420 cells, so the active row and column are outlined back to the axes */
+.mxband rect{fill:none;stroke:var(--ink);stroke-width:1.1;opacity:.5}
+/* arrowheads carry arc direction — colour alone read the wrong way for dolasci */
+.arch{pointer-events:none;opacity:.9}
+/* hovering a region row in the rail lights that region's counties */
+.cnt.rhl{stroke:var(--ink);stroke-width:1.6}
+.jl:focus{outline:none;stroke:var(--acc);stroke-width:1.6}
+.citz-clamp{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--loss);
+  margin-top:5px;line-height:1.35}
 
 /* JLS 2018 map */
 .jl{stroke:#fff;stroke-width:.35;cursor:crosshair}
@@ -240,10 +307,17 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   .chip-more{display:none}
   .hd-title{font-size:18px}
   .big-year{width:84px}.big-year-n{font-size:32px}
-  .paircard{width:min(308px,calc(100vw - 32px));top:44px}
+  /* corridor card joins the detail card in normal flow above the map, instead
+     of floating a 232 px panel over a 439 px map box */
+  .paircard{position:static;width:auto;margin:8px 8px 0;top:auto;right:auto;
+    box-shadow:none;max-width:none}
   .storybar{left:8px;right:8px;transform:none;max-width:none;bottom:8px}
-  .rail-hint{display:none}
+  /* On touch a matrix tap reads the corridor but deliberately does not navigate
+     — the rail is the way through. Hiding the hint that says so removed exactly
+     the affordance the mobile user needs. */
+  .rail-hint{font-size:9px;padding:7px 14px}
   .rrow.pairrow{grid-template-columns:132px 1fr 52px}
+  .helpcard{left:8px;right:8px;width:auto;top:44px;max-height:70vh}
 
   /* time scrubber pinned to the bottom so the year is always reachable while
      scrolling the map/rail. Body padding keeps the footer clear of it. */
@@ -256,10 +330,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
     position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:2;
     width:64px;height:18px;color:var(--mut);border-radius:0 0 4px 4px;
     border:1px solid var(--line);border-top:none;background:var(--panel)}
+  /* the visible handle stays 18 px so it does not eat the chart's lane, but a
+     64×18 tap target is below any usable minimum — extend the hit area only */
+  .scrub-tog::before{content:'';position:absolute;left:-24px;right:-24px;top:-4px;bottom:-10px}
   .scrub-tog:hover{color:var(--ink)}
   .scrub-tog svg{width:16px;height:16px;fill:currentColor}
-  /* top strip at 390: jcard chip left, Nalazi right; labels are desktop/export-only */
+  /* top strip at 390: jcard chip left, Nalazi right; labels are desktop/export-only,
+     so help and zoom reset slide over into the space it frees */
   .labbtn{display:none}
+  .helpbtn{right:16px}
+  .zoomrst{right:46px}
   .storysel select{width:100%}
 }
 
@@ -275,8 +355,12 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
     grid-auto-flow:row dense;align-items:start;width:100%}
   .ctrl{grid-column:span 2;min-width:0;gap:3px}
   #cMode,#dirBox,.ctrls>.ctrl:last-child{grid-column:span 1}
-  .seg{width:100%}
-  .seg button{flex:1;text-align:center;padding:8px 4px;font-size:11.5px}
+  /* .seg is overflow:hidden, so buttons that do not fit were clipped away
+     rather than scrolled — at 360 px the six-button Prikaz group needs ~405 px
+     and "JLS 2018." became unreachable. Wrap instead of clip: every button
+     stays visible, fully labelled and tappable. */
+  .seg{width:100%;flex-wrap:wrap}
+  .seg button{flex:1 1 auto;min-width:33.333%;text-align:center;padding:8px 4px;font-size:11.5px}
   .ft{padding:6px 12px;font-size:9px}
   /* keep the 18px top padding from the ≤900 block — it is the handle's lane.
      Shrinking it here would put the handle on top of the chart, which then
@@ -286,28 +370,33 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
      so shrinking the SVG box clips the year-tick axis off the bottom */
   .big-year{width:70px;padding-left:8px}
   .big-year-n{font-size:26px}
-  .big-year-s{font-size:8px}
+  /* honesty labels are load-bearing, and 8–9 px is where they stop being read —
+     on the devices most likely to misread the data */
+  .big-year-s{font-size:9px}
+  .legend-note,.citz-note,.jls-note,.help-note{font-size:10px}
   .play{width:32px}
   .legend{left:8px;bottom:8px;max-width:56vw;padding:6px 8px}
   .legend-bar{width:min(160px,44vw)}
-  .card,.citz,.agec{margin:8px 8px 0}
+  .card,.citz,.agec,.paircard{margin:8px 8px 0}
   /* the JLS card still floats over the map — drop it below the Nalazi row */
   .jcard{left:8px;top:50px}
-  /* full-width paircard would sit under the collapsed jcard chip — stack them,
-     and yield entirely once the jcard is expanded over the same strip */
-  .paircard{top:92px}
-  body:has(.jcard.open) .paircard{display:none}
 }
 
-/* touch: DOM-contract controls must clear a 32 px tap target */
+/* Touch: min-height 44 px, the iOS/Material convention. The previous rule aimed
+   at 32 px, which clears the WCAG 2.5.8 floor but is short of what a thumb
+   actually hits — and these are the controls that open and dismiss every panel. */
 @media (pointer:coarse){
-  .seg button{padding:9px 8px}
-  .jtabs button{padding:10px 12px}
-  .chip-hd{padding:10px 12px}
-  .rrow{padding:10px 14px}
-  .rrow.big{padding:12px 14px}
-  .storysel select{padding:8px 8px}
-  .card-x{padding:9px 10px;margin:-4px -4px 0 0}
+  .seg button{padding:9px 8px;min-height:44px}
+  .jtabs button{padding:10px 12px;min-height:44px}
+  .chip-hd{padding:10px 12px;min-height:44px}
+  .rrow{padding:10px 14px;min-height:44px}
+  .rrow.big{padding:12px 14px;min-height:48px}
+  .storysel select{padding:8px 8px;min-height:44px}
+  .rstbtn{min-width:44px;min-height:44px}
+  .card-x{padding:9px 10px;margin:-4px -4px 0 0;
+    display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px}
+  .helpbtn{width:44px;height:44px;font-size:14px}
+  .play{width:48px}
 }
 
 /* React mount: #root must not create a box — body keeps the app layout */

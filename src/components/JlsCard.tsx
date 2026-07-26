@@ -27,7 +27,10 @@ export default function JlsCard({ S, setS, toggleJls }: {
       <div className="chip-hd" id="jcardHd" role="button" tabIndex={0} aria-expanded={open}
         onClick={toggleJls} onKeyDown={onKey}>
         <span className="chip-arr">▸</span>
-        <span id="jcardTitle">{on ? 'JLS koridori · ' + (D[S.sel!]?.n || '') : 'JLS koridori'}</span>
+        {/* scope in the collapsed header, matching the Državljanstvo / Dob chips
+            — otherwise this one chip hides its year and status until opened */}
+        <span id="jcardTitle">{on ? 'JLS koridori · ' + (D[S.sel!]?.n || '') : 'JLS koridori'}
+          {!open && <span className="chip-more"> · 2018. · izmjereno</span>}</span>
       </div>
       {open && (
         <div className="chip-body">
@@ -45,7 +48,9 @@ export default function JlsCard({ S, setS, toggleJls }: {
             )) : (
               <div className="jrow">
                 <span className="jn" style={{ color: 'var(--mut)' }}>
-                  {S.jlsTab === 'loc' ? 'Jedna JLS — nema koridora unutar županije.' : '—'}
+                  {S.jlsTab === 'loc'
+                    ? 'Jedna JLS — nema koridora unutar županije.'
+                    : 'Nema zabilježenih koridora prema drugim županijama.'}
                 </span>
               </div>
             )}

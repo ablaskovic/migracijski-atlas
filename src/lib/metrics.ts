@@ -54,7 +54,12 @@ for (const k in REG) REG[k].c.forEach(i => { REGOF[i] = k; });
 
 export const FLOWN: Record<Flow, string> = {
   tot: 'migracijski saldo', int: 'unutarnji saldo', ext: 'vanjski saldo',
-  nat: 'prirodni prirast', all: 'ukupna promjena (migracije + prirodni prirast)',
+  nat: 'prirodni prirast', all: 'migracije + prirodni prirast',
+};
+/* spoken view names for the screen-reader status line */
+export const VLAB: Record<string, string> = {
+  saldo: 'saldo', klas: 'klasifikacija', reg: 'regije',
+  flow: 'tokovi', mx: 'matrica', jmap: 'JLS 2018.',
 };
 export const SHORTN: Record<string, string> = {
   'HR-01': 'Zagrebačka', 'HR-02': 'Krapinsko-zag.', 'HR-03': 'Sisačko-mosl.', 'HR-04': 'Karlovačka',

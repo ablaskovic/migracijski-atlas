@@ -7,10 +7,15 @@ import type { Patch, State, View } from '../lib/types.ts';
 function Seg<T extends string>({ id, opts, value, onPick, off, title }: {
   id: string; opts: [T, string][]; value: T; onPick: (v: T) => void; off?: boolean; title?: string;
 }) {
+  /* `off` used to be opacity + pointer-events:none, which left the buttons in the
+     tab order (focusable and Enter-activatable while looking dead) and killed
+     hover on the very element carrying the explanation. `disabled` handles the
+     first; .seg.off::after re-captures hover for the title, see index.css. */
   return (
     <div className={'seg' + (off ? ' off' : '')} id={id} title={off ? title : undefined}>
       {opts.map(([v, label]) => (
-        <button key={v} data-v={v} aria-pressed={v === value} onClick={() => onPick(v)}>{label}</button>
+        <button key={v} data-v={v} aria-pressed={v === value} disabled={off}
+          onClick={() => onPick(v)}>{label}</button>
       ))}
     </div>
   );
@@ -18,9 +23,9 @@ function Seg<T extends string>({ id, opts, value, onPick, off, title }: {
 
 const OFF_TIP = 'Nije primjenjivo u ovom prikazu';
 
-export default function Header({ S, setS, setView, setMode, applyStory }: {
+export default function Header({ S, setS, setView, setMode, applyStory, resetAll }: {
   S: State; setS: (p: Patch) => void; setView: (v: View) => void;
-  setMode: (v: 'yr' | 'cum') => void; applyStory: (i: number) => void;
+  setMode: (v: 'yr' | 'cum') => void; applyStory: (i: number) => void; resetAll: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
@@ -46,7 +51,7 @@ export default function Header({ S, setS, setView, setMode, applyStory }: {
         <div className="hd-sub">Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz Maras &amp; Vinovrški (2026.)</div>
       </div>
       <div className="ctrls">
-        <StorySelect S={S} applyStory={applyStory} />
+        <StorySelect S={S} applyStory={applyStory} resetAll={resetAll} />
         <div className="ctrl"><span className="ctrl-lab">Prikaz</span>
           <Seg id="segView" value={S.view} onPick={setView}
             opts={[['saldo', 'Saldo'], ['klas', 'Klasifikacija'], ['reg', 'Regije'], ['flow', 'Tokovi'], ['mx', 'Matrica'], ['jmap', 'JLS 2018.']]} />

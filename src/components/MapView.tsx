@@ -3,7 +3,7 @@ import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { scaleSqrt } from 'd3-scale';
 import {
   GEO, REGGEO, JGEO, ISOS, D, DOM, RDOM, REGOF, SHORTN,
-  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowBadge, jlsVal, jmapScale,
+  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowBadge, jlsVal, jmapScale, fmtI, sgn,
 } from '../lib/metrics.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
@@ -12,15 +12,16 @@ import JlsCard from './JlsCard.tsx';
 import CitzPanel from './CitzPanel.tsx';
 import AgePanel from './AgePanel.tsx';
 import MatrixView from './MatrixView.tsx';
+import HelpPanel from './HelpPanel.tsx';
 import StoryBar from './StoryBar.tsx';
 import { moveTip, COARSE } from '../lib/tip.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
 
-export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, toggleJls, toggleAge }: {
+export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, toggleJls, toggleAge, toggleHelp }: {
   S: State; setS: (p: Patch) => void; selectCounty: (iso: string) => void;
   setHL: (iso: string | null) => void; toggleCitz: () => void; toggleJls: () => void;
-  toggleAge: () => void;
+  toggleAge: () => void; toggleHelp: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -32,6 +33,16 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
     ro.observe(wrapRef.current!);
     return () => ro.disconnect();
   }, []);
+
+  /* roving tabindex over the 556 municipalities — see the .jl paths below */
+  const [jf, setJf] = useState(0);
+  const jNav = useRef(false);
+  const jgRef = useRef<SVGGElement>(null);
+  useEffect(() => {
+    if (!jNav.current) return;
+    jNav.current = false;
+    jgRef.current?.querySelector<SVGPathElement>('.jl[tabindex="0"]')?.focus();
+  }, [jf]);
 
   /* wheel/pinch zoom + drag pan; identity by default so nothing else shifts */
   const zoom = useZoom(size.w, size.h);
@@ -56,6 +67,22 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
     ro.observe(el);
     return () => ro.disconnect();
   }, [S.view, S.dir, S.cum]);
+
+  /* Same argument as the legend, for the chip panels: they float bottom-right
+     over the map box and can be open in any view, so in the matrix they would
+     sit on top of live corridors. Only when they actually overlay (on mobile
+     they drop into normal flow below the map and cover nothing). */
+  const [panel, setPanel] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = wrapRef.current?.parentElement?.querySelector<HTMLElement>('.citz.open,.agec.open');
+    if (!el || getComputedStyle(el).position !== 'absolute') { setPanel({ w: 0, h: 0 }); return; }
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect();
+      setPanel(p => (p.w === r.width && p.h === r.height ? p : { w: r.width, h: r.height }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [S.citz, S.age, S.citzTab, S.ageTab, S.view, size.w]);
 
   const { drawn, cent, cds, rds, box, jds } = useMemo(() => {
     if (!size.w || !size.h) {
@@ -113,22 +140,41 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
       const mx = (sx + tx) / 2, my = (sy + ty) / 2;
       const dx = tx - sx, dy = ty - sy, L = Math.hypot(dx, dy) || 1;
       const cx = mx - dy / L * L * 0.16, cy = my + dx / L * L * 0.16;
+      const w = wsc(Math.abs(v));
+      /* Every arc is drawn hub→partner whatever the direction, so colour was the
+         only thing saying which way people actually moved — a blue "dolasci"
+         arc reads as hub→partner and means the opposite. Put a head on the
+         receiving end: partner for odlasci, hub for dolasci, sign for neto. */
+      const toHub = S.dir === 'in' || (S.dir === 'net' && v > 0);
+      const [px, py] = toHub ? [sx, sy] : [tx, ty];
+      let ax = px - cx, ay = py - cy;
+      const aL = Math.hypot(ax, ay) || 1;
+      ax /= aL; ay /= aL;
+      const back = toHub ? 5.5 : 1.5;          /* clear the hub dot (r 4.5) */
+      const tipX = px - ax * back, tipY = py - ay * back;
+      const len = Math.max(5, w * 1.9), hw = Math.max(2.4, w * 0.85);
+      const bx = tipX - ax * len, by = tipY - ay * len;
+      const head = `M${tipX},${tipY} L${bx - ay * hw},${by + ax * hw} L${bx + ay * hw},${by - ax * hw} Z`;
       return { p, d: `M${sx},${sy} Q${cx},${cy} ${tx},${ty}`,
-        stroke: S.dir === 'net' ? dv(v) : sq(Math.abs(v)), w: wsc(Math.abs(v)) };
+        stroke: S.dir === 'net' ? dv(v) : sq(Math.abs(v)), w, head };
     });
     return { paths, sx, sy };
   }, [S.view, S.sel, S.dir, S.yi, S.cum, cent]);
 
-  /* county labels: skip counties whose projected bbox can't hold the name */
+  /* county labels: skip counties whose projected bbox can't hold the name.
+     The test is against the *zoomed* size, so zooming into a small county now
+     reveals its name; type is counter-scaled so it stays 9 px on screen at any
+     k instead of growing to 72 px with its halo. */
+  const k = zoom.t.k;
   const labels = S.labels && drawn && S.view !== 'mx'
-    ? ISOS.filter(iso => box[iso][0] > 70 && box[iso][1] > 34)
+    ? ISOS.filter(iso => box[iso][0] * k > 70 && box[iso][1] * k > 34)
     : [];
   const labelG = (
     <g>
       {labels.map(iso => (
-        <text key={iso} className="clab" x={cent[iso][0]} y={cent[iso][1] + 3}
-          textAnchor="middle" fontSize={9} fontFamily="IBM Plex Mono,ui-monospace,monospace"
-          fill="#20262B" stroke="#FFFFFF" strokeWidth={2.4} paintOrder="stroke"
+        <text key={iso} className="clab" x={cent[iso][0]} y={cent[iso][1] + 3 / k}
+          textAnchor="middle" fontSize={9 / k} fontFamily="IBM Plex Mono,ui-monospace,monospace"
+          fill="#20262B" stroke="#FFFFFF" strokeWidth={2.4 / k} paintOrder="stroke"
           pointerEvents="none">{SHORTN[iso]}</text>
       ))}
     </g>
@@ -142,14 +188,22 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
   return (
     <div className="map-wrap">
       <DetailCard S={S} setS={setS} />
+      {/* outside .map-box on purpose: at ≤900 it leaves the overlay layer and
+          sits in normal flow above the map, like the detail card. Floating, it
+          is a 232 px panel over a 439 px map that collides with both the JLS
+          chip and the legend. Desktop is unaffected — .map-wrap and .map-box
+          are the same box, so absolute positioning resolves identically. */}
+      <PairCard S={S} setS={setS} />
       <div className="map-box" ref={wrapRef}>
       {S.view === 'mx' ? (
-        <MatrixView S={S} setS={setS} size={size} legend={legend} zoom={zoom} />
+        <MatrixView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} />
       ) : S.view === 'jmap' ? (
-        <svg id="map" role="img" aria-label="Karta gradova i općina — unutarnja migracija 2018."
+        /* role=img would declare this a single leaf graphic and hide the
+           focusable features inside it from assistive tech */
+        <svg id="map" role="group" aria-label="Karta gradova i općina — unutarnja migracija 2018. Strelice pomiču odabir."
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
-          <g>
+          <g ref={jgRef}>
             {drawn && (() => {
               const { scale } = jmapScale(S.dir);
               return JGEO.features.map((f, ix) => {
@@ -158,11 +212,29 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
                 return (
                   <path key={p.j} className={'jl' + (S.jlsHl === p.j ? ' hl' : '')} data-j={p.j}
                     d={jds[ix]} fill={scale(S.dir === 'net' ? v : Math.abs(v))}
+                    /* the per-JLS numbers lived only in a hover tooltip, so the
+                       whole view was unreachable without a pointer. One tab stop
+                       in, arrows walk the features (grouped by county). */
+                    tabIndex={ix === jf ? 0 : -1}
+                    aria-label={`${p.n}, ${SHORTN[ISOS[p.c]]}: doseljeno ${fmtI.format(p.i)}, odseljeno ${fmtI.format(p.o)}, neto ${sgn(p.i - p.o, fmtI)}`}
                     onPointerEnter={() => setS({ jlsHl: p.j })}
                     /* touch sends leave the moment the finger lifts, which would
                        flash the readout away; keep it until the next tap instead */
                     onPointerLeave={() => { if (!COARSE) setS({ jlsHl: null }); }}
-                    onPointerMove={moveTip} />
+                    onPointerMove={moveTip}
+                    onFocus={e => {
+                      setS({ jlsHl: p.j });
+                      const r = e.currentTarget.getBoundingClientRect();
+                      moveTip({ clientX: r.right, clientY: r.bottom });
+                    }}
+                    onBlur={() => { if (!COARSE) setS({ jlsHl: null }); }}
+                    onKeyDown={e => {
+                      const d: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+                      if (!d[e.key]) return;
+                      e.preventDefault(); e.stopPropagation();
+                      jNav.current = true;
+                      setJf(x => Math.max(0, Math.min(JGEO.features.length - 1, x + d[e.key])));
+                    }} />
                 );
               });
             })()}
@@ -174,14 +246,15 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
           </g>
         </svg>
       ) : (
-        <svg id="map" role="img" aria-label="Karta županija Hrvatske"
+        <svg id="map" role="group" aria-label="Karta županija Hrvatske"
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
           <g>
             {drawn && GEO.features.map(f => {
               const iso = f.properties.shapeISO;
               return (
-                <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')}
+                <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')
+                  + (S.view === 'reg' && S.regHl && REGOF[iso] === S.regHl ? ' rhl' : '')}
                   data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={D[iso].n}
                   onPointerEnter={() => setHL(iso)} onPointerLeave={() => setHL(null)}
                   onPointerMove={moveTip} onClick={() => selectCounty(iso)}
@@ -200,12 +273,17 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
               <path key={a.p} className="arc" d={a.d} stroke={a.stroke} strokeWidth={a.w}
                 strokeDasharray={est ? '7 4' : undefined} />
             ))}
+            {arcs && arcs.paths.map(a => (
+              <path key={'h' + a.p} className="arch" d={a.head} fill={a.stroke} />
+            ))}
             {arcs && <circle cx={arcs.sx} cy={arcs.sy} r={4.5} fill="var(--ink)" stroke="#fff" strokeWidth={1.5} />}
           </g>
           {labelG}
           </g>
         </svg>
       )}
+      <button className={'helpbtn' + (S.help ? ' on' : '')} id="helpBtn" aria-pressed={S.help}
+        title="Kako čitati atlas" aria-label="Kako čitati atlas" onClick={toggleHelp}>?</button>
       {S.view !== 'mx' && (
         <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
           onClick={() => setS({ labels: !S.labels })}>Aa oznake</button>
@@ -217,8 +295,8 @@ export default function MapView({ S, setS, selectCounty, setHL, toggleCitz, togg
         </button>
       )}
       <Legend S={S} />
-      <PairCard S={S} setS={setS} />
       <JlsCard S={S} setS={setS} toggleJls={toggleJls} />
+      <HelpPanel S={S} setS={setS} />
       <StoryBar S={S} setS={setS} />
       </div>
       <CitzPanel S={S} setS={setS} toggleCitz={toggleCitz} />

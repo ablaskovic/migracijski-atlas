@@ -3,7 +3,7 @@ import {
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, mxCell, jlsVal, jmapScale, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 import { moveTip } from '../lib/tip.ts';
-import type { State } from '../lib/types.ts';
+import type { Patch, State } from '../lib/types.ts';
 
 type Row = { iso: string; v: number; reg?: boolean; pair?: [string, string]; jls?: number };
 
@@ -38,8 +38,8 @@ function mxRows(S: State): Row[] {
   return rows.sort((x, y) => y.v - x.v).slice(0, 20);
 }
 
-export default function Rail({ S, selectCounty, setHL, openPair, jumpFlow, setJlsHl }: {
-  S: State; selectCounty: (iso: string) => void; setHL: (iso: string | null) => void;
+export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow, setJlsHl }: {
+  S: State; setS: (p: Patch) => void; selectCounty: (iso: string) => void; setHL: (iso: string | null) => void;
   openPair: (iso: string) => void; jumpFlow: (a: string, b: string) => void;
   setJlsHl: (j: number | null) => void;
 }) {
@@ -108,11 +108,24 @@ export default function Rail({ S, selectCounty, setHL, openPair, jumpFlow, setJl
       <div className="rail-list" id="railList">
         {rows.map((d, i) => (
           <div key={d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso}
-            className={'rrow' + (big ? ' big' : '') + (d.pair ? ' pairrow' : '') + (!d.reg && !d.pair && d.jls == null && d.iso === S.hl ? ' hl' : '') + (d.jls != null && d.jls === S.jlsHl ? ' hl' : '')}
+            className={'rrow' + (big ? ' big' : '') + (d.pair ? ' pairrow' : '') + (!d.reg && !d.pair && d.jls == null && d.iso === S.hl ? ' hl' : '') + (d.jls != null && d.jls === S.jlsHl ? ' hl' : '') + (d.reg && d.iso === S.regHl ? ' hl' : '') + (d.pair && S.pairHl && S.pairHl[0] === d.pair[0] && S.pairHl[1] === d.pair[1] ? ' hl' : '')}
             role="button" tabIndex={0}
             aria-label={name(d) + ' ' + fmt(d)}
-            onPointerEnter={() => { if (d.jls != null) setJlsHl(d.jls); else setHL(d.reg || d.pair ? null : d.iso); }}
-            onPointerLeave={() => { if (d.jls != null) setJlsHl(null); else setHL(null); }}
+            /* the rail is the natural index into the map and the 420-cell grid,
+               so hovering a row lights up whatever it names: a region's counties,
+               a corridor's matrix cell, a JLS, or a county */
+            onPointerEnter={() => {
+              if (d.jls != null) setJlsHl(d.jls);
+              else if (d.reg) setS({ regHl: d.iso });
+              else if (d.pair) setS({ pairHl: d.pair });
+              else setHL(d.iso);
+            }}
+            onPointerLeave={() => {
+              if (d.jls != null) setJlsHl(null);
+              else if (d.reg) setS({ regHl: null });
+              else if (d.pair) setS({ pairHl: null });
+              else setHL(null);
+            }}
             onPointerMove={moveTip}
             onClick={() => activate(d)}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(d); } }}>

@@ -51,7 +51,7 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
       </svg>
       <div className="pair-row" id="pairRow">
         <span>{YEARS[S.yi]}. · → {fmtI.format(outs[S.yi])} · ← {fmtI.format(ins[S.yi])} · neto {sgn(nets[S.yi], fmtI)}</span>
-        <span className="cls-tag" style={{ color: '#20262B', background: '#E4E7E0' }}>{flowBadge(S.yi, false)}</span>
+        <span className={'cls-tag ' + (flowBadge(S.yi, false) === 'izmjereno' ? 'meas' : 'est')}>{flowBadge(S.yi, false)}</span>
       </div>
       <div className="pair-note">{S.yi === IX2018 ? 'Jedina godina s izmjerenom matricom tokova.' : 'Točka 2018. je izmjerena; ostale su godine IPF procjena na DZS marginama.'}</div>
     </div>

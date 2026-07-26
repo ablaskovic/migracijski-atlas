@@ -10,7 +10,11 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
   const open = S.citz;
   const zem = S.citzTab === 'zem';
   const yy = CIT.years;
-  const y = yy.includes(YEARS[S.yi]) ? YEARS[S.yi] : yy[yy.length - 1];
+  /* the scrubber can sit anywhere in 1998–2025 while this panel only has
+     2021–2025, and the clamp used to be silent: the big year could read 2015.
+     while the chart highlighted 2025. Say so when it actually bites. */
+  const inRange = yy.includes(YEARS[S.yi]);
+  const y = inRange ? YEARS[S.yi] : yy[yy.length - 1];
   const ci = yy.indexOf(y);
 
   const w = 276, h = 148, mL = 8, mR = 8, mT = 8, mB = 14;
@@ -54,6 +58,9 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
             <button data-v="grp" aria-pressed={!zem} onClick={() => setS({ citzTab: 'grp' })}>Skupine</button>
             <button data-v="zem" aria-pressed={zem} onClick={() => setS({ citzTab: 'zem' })}>{`Zemlje ${DEMO.year}.`}</button>
           </div>
+          {/* one panel, two time behaviours: Skupine follows the scrubber,
+              Zemlje is frozen — make the frozen one say so up front */}
+          {zem && <div className="citz-clamp" id="zemFixed">{`Fiksno ${DEMO.year}. — vremenska vrpca ne mijenja ovaj popis.`}</div>}
           {zem ? (
             <>
               <div id="zemList">
@@ -94,6 +101,11 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                 <span className="cv ct">{'+' + fmtI.format(td)}</span>
                 <span className="cv ct">{'−' + fmtI.format(to)}</span>
               </div>
+              {!inRange && (
+                <div className="citz-clamp" id="citzClamp">
+                  {`Vremenska vrpca je na ${YEARS[S.yi]}. — izvan objavljenog raspona, prikazano ${y}.`}
+                </div>
+              )}
               <div className="citz-note" id="citzNote">{`Prema zemlji državljanstva · DZS STAN-2026-2-1 (t. 2) · odabir godine prati vremensku vrpcu unutar ${yy[0]}.–${yy[yy.length - 1]}.`}</div>
             </>
           )}

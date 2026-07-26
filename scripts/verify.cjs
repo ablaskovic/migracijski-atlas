@@ -403,6 +403,305 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     relLeg.includes('pobjednice · 7') && relLeg.includes('neutralne · 3') && relLeg.includes('gubitnice · 11'), relLeg);
   ck('klas rel legend states % prag', relLeg.includes('1,5 % popisa 2011.'), relLeg);
 
+  /* ══════════ UX / a11y remediation checks ══════════ */
+
+  /* ── landmark + live region ── */
+  await fresh('');
+  const land = await page.evaluate(() => ({
+    main: document.querySelectorAll('main.main').length,
+    live: document.querySelector('#srLive')?.getAttribute('aria-live') || '',
+    txt: document.querySelector('#srLive')?.textContent || '' }));
+  ck('main landmark present', land.main === 1, String(land.main));
+  ck('aria-live status announces year + view', land.live === 'polite' && land.txt.includes('2024.') && land.txt.includes('saldo'), land.txt);
+
+  /* ── default legend now carries a plain-language colour key ── */
+  const defLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
+  ck('default legend states blue=gain / red=loss',
+    defLeg.includes('dobiva stanovnike') && defLeg.includes('gubi ih'), defLeg.slice(0, 80));
+
+  /* ── Space on a focused button activates it, not the play loop ── */
+  const spaceKey = await page.evaluate(() => {
+    const b = document.querySelector('#segView button[data-v="reg"]');
+    b.focus();
+    return document.activeElement === b;
+  });
+  ck('segment button can hold focus', spaceKey);
+  await page.keyboard.press(' ');
+  await settle(150);
+  const afterSpace = await page.evaluate(() => ({
+    view: document.querySelector('#segView button[aria-pressed="true"]').dataset.v,
+    playing: document.querySelector('#play').getAttribute('aria-pressed') }));
+  ck('Space activates the focused segment and does not start playback',
+    afterSpace.view === 'reg' && afterSpace.playing === 'false', JSON.stringify(afterSpace));
+
+  /* ── Space with nothing focused still toggles playback ── */
+  await page.evaluate(() => document.activeElement.blur());
+  await page.keyboard.press(' ');
+  await settle(120);
+  const playOn = await page.evaluate(() => document.querySelector('#play').getAttribute('aria-pressed'));
+  ck('Space on the page body still toggles playback', playOn === 'true', String(playOn));
+  await page.keyboard.press(' ');
+  await settle(120);
+
+  /* ── off segments are truly disabled, and say why ── */
+  await fresh('#v=klas');
+  const offSeg = await page.evaluate(() => {
+    const seg = document.querySelector('#segFlow');
+    return { off: seg.classList.contains('off'), title: seg.getAttribute('title') || '',
+      disabled: [...seg.querySelectorAll('button')].every(b => b.disabled) };
+  });
+  ck('inapplicable segment is disabled (not just dimmed) and titled',
+    offSeg.off && offSeg.disabled && offSeg.title.includes('Nije primjenjivo'), JSON.stringify(offSeg));
+
+  /* ── per-view year memory: Saldo's cumulative window survives a detour ── */
+  await fresh('');
+  await click('#segView button[data-v="flow"]');
+  await click('#segView button[data-v="saldo"]');
+  const back = await page.evaluate(() => ({
+    yr: document.querySelector('#bigYear').textContent,
+    mode: document.querySelector('#segMode button[aria-pressed="true"]').dataset.v }));
+  ck('returning to Saldo restores its own year + mode (kum 2024)',
+    back.yr === '2024.' && back.mode === 'cum', JSON.stringify(back));
+
+  /* ── story clears on divergence, and stops poisoning the permalink ── */
+  await fresh('');
+  await page.select('#story', '1');           /* saldo / all / kum 2024 */
+  await settle(250);
+  const stOn = await page.evaluate(() => ({
+    cap: !!document.querySelector('#storyCap'), hash: location.hash }));
+  ck('story 2 shows its banner and lands in the permalink',
+    stOn.cap && stOn.hash.includes('st=2'), stOn.hash);
+  await click('#segFlow button[data-v="int"]');   /* diverge from the preset */
+  const stOff = await page.evaluate(() => ({
+    cap: !!document.querySelector('#storyCap'), hash: location.hash }));
+  ck('changing a control clears the stale caption and drops st= from the hash',
+    !stOff.cap && !stOff.hash.includes('st='), stOff.hash);
+
+  /* ── reset returns to the boot view ── */
+  await click('#resetBtn');
+  await settle(150);
+  const rst = await page.evaluate(() => ({
+    view: document.querySelector('#segView button[aria-pressed="true"]').dataset.v,
+    flow: document.querySelector('#segFlow button[aria-pressed="true"]').dataset.v,
+    yr: document.querySelector('#bigYear').textContent }));
+  ck('reset restores saldo / migracije / 2024', rst.view === 'saldo' && rst.flow === 'tot' && rst.yr === '2024.',
+    JSON.stringify(rst));
+
+  /* ── measured vs estimated are visually distinct, not just differently worded ── */
+  await fresh('#v=flow&s=HR-21&c=0&y=2018&dir=out');
+  /* HR-18, not HR-01: Zagrebačka is a ring around Grad Zagreb, so its bbox
+     centre — where page.hover aims — lands on the hub, whose tip has no badge */
+  await page.hover('path[data-iso="HR-18"]');
+  await settle(120);
+  const measTag = await page.evaluate(() => {
+    const t = document.querySelector('#tip .cls-tag');
+    return { cls: t.className, txt: t.textContent, border: getComputedStyle(t).borderStyle };
+  });
+  ck('2018 tooltip badge is the solid "measured" variant',
+    measTag.cls.includes('meas') && measTag.txt === 'izmjereno' && measTag.border === 'solid', JSON.stringify(measTag));
+  await page.keyboard.press('ArrowLeft');
+  await settle(150);
+  /* HR-18, not HR-01: Zagrebačka is a ring around Grad Zagreb, so its bbox
+     centre — where page.hover aims — lands on the hub, whose tip has no badge */
+  await page.hover('path[data-iso="HR-18"]');
+  await settle(120);
+  const estTag = await page.evaluate(() => {
+    const t = document.querySelector('#tip .cls-tag');
+    return { cls: t.className, txt: t.textContent, border: getComputedStyle(t).borderStyle };
+  });
+  ck('2017 tooltip badge is the dashed "estimate" variant',
+    estTag.cls.includes('est') && estTag.txt.includes('procjena') && estTag.border === 'dashed', JSON.stringify(estTag));
+
+  /* ── arcs carry direction, not just colour ── */
+  const heads = await page.evaluate(() => ({
+    arcs: document.querySelectorAll('.arc').length, heads: document.querySelectorAll('.arch').length }));
+  ck('every flow arc has an arrowhead', heads.arcs > 0 && heads.heads === heads.arcs,
+    heads.arcs + ' arcs / ' + heads.heads + ' heads');
+
+  /* ── tooltip percentage names its denominator ── */
+  await fresh('');
+  await page.hover('path[data-iso="HR-18"]');
+  await settle(120);
+  const pctTip = await page.evaluate(() => document.querySelector('#tip').textContent);
+  ck('tooltip percentage states % popisa 2011.', NBSP(pctTip).includes('% pop. 2011.'), pctTip.slice(0, 90));
+  ck('tooltip renames "ukupna promjena" to the honest sum label',
+    pctTip.includes('mig. + prirodno') && !pctTip.includes('ukupna promjena'), pctTip.slice(0, 90));
+
+  /* ── matrix: measured-year ring, keyboard grid, diagonal, trace bands ── */
+  await fresh('#v=mx&c=0&y=2018&dir=out');
+  const mxRing = await page.evaluate(() =>
+    getComputedStyle(document.querySelector('#realMark')).display);
+  ck('Matrica shows the measured-2018 ring on the timeline', mxRing !== 'none', mxRing);
+  const roving = await page.evaluate(() => ({
+    zero: document.querySelectorAll('.mxc[tabindex="0"]').length,
+    minus: document.querySelectorAll('.mxc[tabindex="-1"]').length,
+    lab: document.querySelector('.mxc[tabindex="0"]').getAttribute('aria-label') || '' }));
+  ck('matrix uses one roving tab stop over 420 cells',
+    roving.zero === 1 && roving.minus === 419, roving.zero + ' / ' + roving.minus);
+  ck('matrix cell exposes its corridor + value to AT',
+    /→.+:\s*[\d.]+/.test(roving.lab), roving.lab);
+  await page.evaluate(() => document.querySelector('.mxc[tabindex="0"]').focus());
+  await page.keyboard.press('ArrowRight');
+  await settle(120);
+  const moved = await page.evaluate(() => {
+    const c = document.querySelector('.mxc[tabindex="0"]');
+    return { b: c.dataset.b, focused: document.activeElement === c, yr: document.querySelector('#bigYear').textContent };
+  });
+  ck('arrow key moves the matrix focus and does not also step the year',
+    moved.focused && moved.b === 'HR-02' && moved.yr === '2018.', JSON.stringify(moved));
+  const band = await page.evaluate(() => document.querySelectorAll('.mxband rect').length);
+  ck('focused cell draws row + column trace bands', band === 2, String(band));
+  await page.hover('.mxc[data-a="HR-21"][data-b="HR-01"]');
+  await settle(100);
+  await page.hover('.mxd[data-a="HR-01"][data-b="HR-01"]');
+  await settle(120);
+  const diagTip = await page.evaluate(() => document.querySelector('#tip').textContent);
+  ck('matrix diagonal explains itself instead of staying silent',
+    diagTip.includes('unutar iste županije') && diagTip.includes('dijagonala'), diagTip.slice(0, 80));
+
+  /* ── matrix clears an open chip panel instead of hiding cells under it ── */
+  await fresh('#v=mx&c=0&y=2018&dir=out&cz=1');
+  await settle(300);
+  const clear = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll('.mxc')].map(c => c.getBoundingClientRect());
+    const g = { left: Math.min(...cells.map(r => r.left)), right: Math.max(...cells.map(r => r.right)),
+      top: Math.min(...cells.map(r => r.top)), bottom: Math.max(...cells.map(r => r.bottom)) };
+    const p = document.querySelector('#citz').getBoundingClientRect();
+    /* real rectangle intersection — the grid may clear the panel on either axis */
+    const ov = Math.max(0, Math.min(g.right, p.right) - Math.max(g.left, p.left))
+      * Math.max(0, Math.min(g.bottom, p.bottom) - Math.max(g.top, p.top));
+    return { ov: Math.round(ov), open: document.querySelector('#citz').classList.contains('open'),
+      cell: Math.round(cells[0].width) };
+  });
+  ck('open panel does not overlap the matrix grid, and cells stay usable',
+    clear.open && clear.ov === 0 && clear.cell >= 12,
+    'overlap ' + clear.ov + ' px², cell ' + clear.cell);
+
+  /* ── JLS map is reachable without a pointer ── */
+  await fresh('#v=jmap&dir=net');
+  const jkey = await page.evaluate(() => ({
+    zero: document.querySelectorAll('.jl[tabindex="0"]').length,
+    lab: document.querySelector('.jl[tabindex="0"]').getAttribute('aria-label') || '',
+    role: document.querySelector('#map').getAttribute('role') }));
+  ck('JLS map exposes one roving tab stop', jkey.zero === 1, String(jkey.zero));
+  ck('JLS feature carries name, county and values in its label',
+    jkey.lab.includes('doseljeno') && jkey.lab.includes('neto'), jkey.lab.slice(0, 70));
+  ck('interactive maps are not role=img (children stay exposed)', jkey.role === 'group', String(jkey.role));
+
+  /* ── zoom reset stays reachable with a corridor card open ── */
+  await fresh('#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net');
+  await page.evaluate(() => {
+    const svg = document.querySelector('#map');
+    const r = svg.getBoundingClientRect();
+    svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true, cancelable: true }));
+  });
+  await settle(200);
+  /* every map-anchored overlay measured against every other one, both widths */
+  const overlaps = () => page.evaluate(() => {
+    const ids = ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#jcard', '#card', '#legend'];
+    const els = ids.map(s => [s, document.querySelector(s)])
+      .filter(([, e]) => e && e.getBoundingClientRect().width > 0
+        && getComputedStyle(e).display !== 'none' && getComputedStyle(e).position === 'absolute');
+    const bad = [];
+    for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
+      const a = els[i][1].getBoundingClientRect(), b = els[j][1].getBoundingClientRect();
+      const ov = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+        * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+      if (ov > 1) bad.push(els[i][0] + '×' + els[j][0] + '=' + Math.round(ov));
+    }
+    return { bad, n: els.length };
+  });
+  const zr = await overlaps();
+  const zrHas = await page.evaluate(() => !!document.querySelector('#zoomRst'));
+  ck('zoom reset is mounted while zoomed and clears the corridor card',
+    zrHas && zr.bad.length === 0, zr.bad.join(' | ') + ' (' + zr.n + ' overlays)');
+
+  /* ── help panel: the one stable glossary ── */
+  await fresh('');
+  await click('#helpBtn');
+  const help = await page.evaluate(() => document.querySelector('#helpCard')?.textContent || '');
+  ck('help panel defines saldo, IPF and JLS in one place',
+    help.includes('saldo') && help.includes('iterativno') && help.includes('gradovi i općine'), help.slice(0, 60));
+  ck('help panel states the mig+prirodno caveat',
+    help.includes('nije jednako ukupnoj promjeni'), '');
+
+  /* ══════════ 390 px pass (house rule 1: geometry at 1440 AND 390) ══════════ */
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
+  await fresh('');
+  const m390 = await page.evaluate(() => {
+    const de = document.documentElement;
+    const segBad = [];
+    for (const seg of document.querySelectorAll('.ctrls .seg')) {
+      if (!seg.offsetParent) continue;   /* .only groups hidden in this view */
+      const sr = seg.getBoundingClientRect();
+      for (const b of seg.querySelectorAll('button')) {
+        const br = b.getBoundingClientRect();
+        if (br.right > sr.right + 0.5 || br.width < 24) segBad.push((b.dataset.v || b.id) + ':' + Math.round(br.width));
+      }
+    }
+    return {
+      overflow: de.scrollWidth - de.clientWidth,
+      segBad,
+      coarse: matchMedia('(pointer:coarse)').matches,
+      viewBtns: document.querySelectorAll('#segView button').length,
+    };
+  });
+  ck('390: page never scrolls sideways', m390.overflow <= 0, String(m390.overflow));
+  ck('390: emulated device reports a coarse pointer', m390.coarse);
+  ck('390: every segment button stays inside its group and is not clipped',
+    m390.segBad.length === 0 && m390.viewBtns === 6, m390.segBad.join(' | '));
+
+  const tap390 = await page.evaluate(() => {
+    const r = {};
+    const hd = document.querySelector('#citzHd').getBoundingClientRect();
+    r.chipHd = Math.round(hd.height);
+    const sv = document.querySelector('#segView button').getBoundingClientRect();
+    r.segBtn = Math.round(sv.height);
+    const rr = document.querySelector('#railList .rrow').getBoundingClientRect();
+    r.railRow = Math.round(rr.height);
+    return r;
+  });
+  ck('390: chip header, segment button and rail row all clear 44 px',
+    tap390.chipHd >= 44 && tap390.segBtn >= 44 && tap390.railRow >= 44, JSON.stringify(tap390));
+
+  await click('#citzHd');
+  const x390 = await page.evaluate(() => {
+    const x = document.querySelector('#citz .card-x, #citz .chip-hd');
+    const de = document.documentElement;
+    return { overflow: de.scrollWidth - de.clientWidth, h: Math.round(x.getBoundingClientRect().height) };
+  });
+  ck('390: opening a panel does not create horizontal overflow', x390.overflow <= 0, String(x390.overflow));
+
+  /* the matrix is the densest surface — check it fits and stays legible */
+  await fresh('#v=mx&c=0&y=2018&dir=out');
+  const mx390 = await page.evaluate(() => {
+    const de = document.documentElement;
+    const lab = document.querySelector('#map text');
+    return {
+      overflow: de.scrollWidth - de.clientWidth,
+      cells: document.querySelectorAll('.mxc').length,
+      fs: parseFloat(getComputedStyle(lab).fontSize),
+      hit: document.querySelectorAll('.mxhit').length,
+    };
+  });
+  ck('390: matrix renders all 420 cells without sideways scroll',
+    mx390.cells === 420 && mx390.overflow <= 0, mx390.cells + ' / ' + mx390.overflow);
+  ck('390: matrix axis labels stay at or above the 6.5 px floor', mx390.fs >= 6.5, String(mx390.fs));
+  ck('390: matrix gets the coarse-pointer tap overlay', mx390.hit === 1, String(mx390.hit));
+
+  const hint390 = await page.evaluate(() => {
+    const h = document.querySelector('.rail-hint');
+    return h ? getComputedStyle(h).display : 'absent';
+  });
+  ck('390: the rail hint that explains touch navigation is visible', hint390 !== 'none' && hint390 !== 'absent', hint390);
+
+  /* same overlay geometry, narrow: labels toggle drops out and the rest shift in */
+  await fresh('#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net');
+  const ov390 = await overlaps();
+  ck('390: map overlays do not overlap each other', ov390.bad.length === 0, ov390.bad.join(' | '));
+
+  await page.setViewport({ width: 1440, height: 900 });
+
   /* ── errors ── */
   ck('zero page/console errors', errors.length === 0, errors.join(' ; ').slice(0, 300));
 

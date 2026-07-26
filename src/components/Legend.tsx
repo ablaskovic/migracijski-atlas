@@ -37,7 +37,7 @@ function markPct(S: State, m: number): number | null {
     return clamp(S.dir === 'net' ? (v + m) / (2 * m) * 100 : Math.abs(v) / m * 100);
   }
   if (S.view === 'mx') {
-    if (!S.pairHl) return null;
+    if (!S.pairHl || S.pairHl[0] === S.pairHl[1]) return null;
     const v = mxCell(S.pairHl[0], S.pairHl[1], S.dir, S.yi, S.cum);
     return clamp(S.dir === 'net' ? (v + m) / (2 * m) * 100 : Math.abs(v) / m * 100);
   }
@@ -55,7 +55,9 @@ function markPct(S: State, m: number): number | null {
 export default function Legend({ S }: { S: State }) {
   const rel = S.den !== 'abs';
   const flowName = FLOWN[S.flow];
-  const denName = S.den === 'rel11' ? ' · % popisa 2011.' : S.den === 'relest' ? ' · % procjene sredinom god.' : '';
+  /* one wording for one denominator — the control, the legend and the export
+     caption used to say this three different ways */
+  const denName = S.den === 'rel11' ? ' · % popisa 2011.' : S.den === 'relest' ? ' · % tek. procjene' : '';
   const per = S.cum ? '2011.–' + YEARS[S.yi] + '.' : YEARS[S.yi] + '.';
 
   if (S.view === 'klas') {
@@ -82,7 +84,7 @@ export default function Legend({ S }: { S: State }) {
       <div className="legend" id="legend">
         <div className="legend-title">Regije (5) · {flowName}{denName}</div>
         <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
-        <div className="legend-note">Pripadnost prema prijedlogu iz rada; Ličko-senjska pridružena Sjevernom Jadranu (u radu neodređeno).</div>
+        <div className="legend-note">Plavo: regija dobiva stanovnike · crveno: gubi ih. Pripadnost prema prijedlogu iz rada; Ličko-senjska pridružena Sjevernom Jadranu (u radu neodređeno).</div>
       </div>
     );
   }
@@ -135,7 +137,7 @@ export default function Legend({ S }: { S: State }) {
         <div className="legend" id="legend">
           <div className="legend-title">Neto tokovi: {D[S.sel!]?.n || ''} ↔ partneri · {per}</div>
           <GradBar scale={divScale(m)} m={m} rel={false} mark={markPct(S, m)} />
-          <div className="legend-note">Plavo: odabrana županija dobiva od partnera. {src}</div>
+          <div className="legend-note">Plavo: odabrana županija dobiva od partnera. Strelica pokazuje smjer selidbe. {src}</div>
         </div>
       );
     }
@@ -149,15 +151,22 @@ export default function Legend({ S }: { S: State }) {
           {markPct(S, m) != null && <div className="legend-mark" style={{ left: markPct(S, m) + '%' }} />}
         </div>
         <div className="legend-lbls"><span>0</span><span>{fmtI.format(m)}</span></div>
-        <div className="legend-note">Debljina luka ∝ broju osoba. {src}</div>
+        <div className="legend-note">Debljina luka ∝ broju osoba, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. {src}</div>
       </div>
     );
   }
   const m = DOM[S.flow + S.den + S.cum];
+  /* The default landing view carried no key at all: a gradient and three signed
+     numbers, with the plain-language reading ("blue means it gains people")
+     living only in the flow-net legend most readers never reach. */
   return (
     <div className="legend" id="legend">
       <div className="legend-title">{flowName}{denName}</div>
       <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
+      <div className="legend-note">
+        Plavo: županija dobiva stanovnike · crveno: gubi ih · 0 = ravnoteža.
+        {S.flow === 'all' && ' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.'}
+      </div>
     </div>
   );
 }

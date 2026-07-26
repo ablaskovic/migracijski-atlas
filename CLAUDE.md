@@ -10,15 +10,20 @@ data provenance details, methodology, and project history (DZS zahtjev, outreach
 extends it with permalink state, Nalazi story presets, a corridor pair card, the
 Matrica (21×21 OD heatmap) and JLS-2018 municipal map views, a relative
 klasifikacija threshold, a dob/spol panel + zemlje tab, map labels, and SVG export
-— the suite grew to **67 checks**. New surfaces obey the same rules: honesty labels,
-generated-data-stays-generated, hr-HR formatting, and green verify before "done".
+— the suite grew to **67 checks**. **v2.0.2** is a UX/a11y pass over those surfaces:
+keyboard parity for the matrix and JLS map, a slider-semantic scrubber, an aria-live
+year/view status, story presets that clear when state diverges from them, visually
+distinct measured/estimate badges, a "Kako čitati" glossary, per-view year memory,
+Back-as-undo, and a **390 px geometry pass** — the suite is now **106 checks**. New
+surfaces obey the same rules: honesty labels, generated-data-stays-generated, hr-HR
+formatting, and green verify before "done".
 
 ## Commands
 
 ```
 npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath)
-npm run verify     # build + run the 32-check puppeteer suite against dist/
+npm run verify     # build + run the 106-check puppeteer suite (1440 px + 390 px)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
 ```
@@ -36,14 +41,22 @@ spare the ~170 MB Chrome download), or set `PUPPETEER_PATH` to an existing insta
    measured (element rects, overlap areas) at 1440 and 390 px.
 2. **DOM contract = test API.** `scripts/verify.cjs` selects on ids/classes
    (`#map .cnt[data-iso]`, `#map .jl[data-j]`, `.mxc[data-a][data-b]`,
-   `#railList .rrow .rname/.rval`, `#legend`, `#citzHd`, `#jcardHd`, `#ageHd`,
-   `#segView button[data-v]`, `#bigYear`, `#story`, `#storyCap`, `#labBtn`,
-   `#cardRow`, `#pairName/#pairRow`, `window.__exportPNG/__exportSVG`, …).
+   `.mxd[data-a][data-b]`, `.mxband`, `.arch`, `#railList .rrow .rname/.rval`,
+   `#legend`, `#citzHd`, `#jcardHd`, `#ageHd`, `#segView button[data-v]`,
+   `#bigYear`, `#story`, `#storyCap`, `#labBtn`, `#helpBtn`, `#helpCard`,
+   `#resetBtn`, `#zoomRst`, `#srLive`, `#spark[role=slider]`, `#play[aria-pressed]`,
+   `#cardRow`, `#pairName/#pairRow`, `.cls-tag.meas/.est`,
+   `window.__exportPNG/__exportSVG`, …).
    Renaming them breaks verification; change both sides deliberately or not at all.
+   Roving tabindex is asserted by count: exactly one `.mxc[tabindex="0"]` of 420
+   and one `.jl[tabindex="0"]` of 556 — a change to plain `tabIndex={0}` fails.
 3. **Honesty labels are load-bearing.** 2018 godišnje tokovi = "izmjereno"; every
    other tokovi year = "procjena (IPF)"; cumulative = "kumulativna procjena"; pair
-   nets carry the extra structural-estimate note. The **Matrica** view inherits the
-   same badge logic; its diagonal is hatched with a "not part of the matrix" note.
+   nets carry the extra structural-estimate note. Badges are also **visually**
+   distinct, not only worded: `.cls-tag.meas` is solid, `.cls-tag.est` is a dashed
+   outline (verify asserts `borderStyle`). The **Matrica** view inherits the same
+   badge logic and the scrubber's measured-2018 ring; its diagonal is hatched and
+   returns an explanatory tooltip rather than silence.
    The **JLS drill and the JLS-2018 map** are 2018-only, internal-moves-only, and
    say so (the map adds a √-scale note and OSM/ODbL attribution). The citizenship
    panel is national-scope 2021–2025; its **zemlje** tab and the **dob/spol** panel
@@ -69,17 +82,22 @@ src/lib/stories.ts       Nalazi presets (State patch + Croatian caption per find
 src/lib/exportPng.ts     canvas PNG + vector SVG composition (title band + baked
                          map SVG + legend); both share bakeMapClone/legendSpec
 src/App.tsx              state machine (single S object; v4 semantics + mx/jmap
-                         transitions, first-entry 2018 jump, klas/cum clamps, play
-                         loop, keyboard, hash sync, body classes, panel exclusion)
-src/components/          Header (segments + PNG/SVG), MapView (projection fit +
-                         county/JLS paths + region outlines + arcs + labels; owns
-                         overlay panels; delegates to MatrixView for mx), Legend,
-                         Rail, DetailCard, PairCard, JlsCard, CitzPanel (+ zemlje
-                         tab), AgePanel, StoryBar, MatrixView, Scrubber, Tooltip
+                         transitions, first-entry 2018 jump, per-view year memory,
+                         klas/cum clamps, play loop, keyboard, hash sync +
+                         pushState/popstate undo, aria-live status, reduced-motion,
+                         story-invalidation on divergence, body classes, panels)
+src/components/          Header (segments + PNG/SVG + reset), MapView (projection
+                         fit + county/JLS paths + region outlines + arcs with
+                         arrowheads + labels; owns overlay panels; delegates to
+                         MatrixView for mx), Legend, Rail, DetailCard, PairCard,
+                         JlsCard, CitzPanel (+ zemlje tab), AgePanel, HelpPanel
+                         ("Kako čitati" glossary), StoryBar, MatrixView, Scrubber,
+                         Tooltip
 src/index.css            design system from single-file v4 + v2 additions; class
                          names are part of the DOM contract
 src/data/                generated payloads (see tools/pipeline/)
-scripts/verify.cjs       the executable verification protocol (67 checks)
+scripts/verify.cjs       the executable verification protocol (106 checks; the
+                         last block re-runs geometry at 390 px with hasTouch)
 ```
 
 State flows one way: controls mutate `S` in App → components derive everything per

@@ -1,7 +1,8 @@
-import { REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI } from '../lib/metrics.ts';
+import { useEffect, useRef, useState } from 'react';
+import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI } from '../lib/metrics.ts';
 import { moveTip, COARSE } from '../lib/tip.ts';
 import type { useZoom } from '../lib/useZoom.ts';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { Patch, State } from '../lib/types.ts';
 
 /* 21×21 OD heatmap — the whole gravity structure at once (the star chart in
@@ -18,9 +19,9 @@ const BLOCKS: number[] = [];
   for (const k of Object.keys(REG)) { acc += REG[k].c.length; BLOCKS.push(acc); }
 }
 
-export default function MatrixView({ S, setS, size, legend, zoom }: {
+export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
   S: State; setS: (p: Patch) => void; size: { w: number; h: number };
-  legend: { w: number; h: number }; zoom: ReturnType<typeof useZoom>;
+  legend: { w: number; h: number }; panel: { w: number; h: number }; zoom: ReturnType<typeof useZoom>;
 }) {
   const n = MXORD.length;
   /* PADB is the plain bottom margin when the legend is not in the way */
@@ -34,18 +35,71 @@ export default function MatrixView({ S, setS, size, legend, zoom }: {
   const GAP = 10;
   const legRight = legend.w ? 16 + legend.w + GAP : 0;
   const legBand = legend.h ? legend.h + 12 + GAP : PADB;
+  /* The citizenship / dob panels float bottom-RIGHT over the same box and can be
+     open in any view, so stepping right of the legend walks straight into them.
+     Four placements, pick the one that leaves the largest cell: the panel can be
+     cleared vertically (shorter grid) or horizontally (narrower grid), and which
+     one wins depends on how tall the open panel happens to be. */
+  const panBand = panel.h ? panel.h + 12 + GAP : 0;
+  const panRight = panel.w ? panel.w + 16 + GAP : 0;
   const leftRight = Math.max(LBL, legRight + LBL);
-  const cellRight = Math.min((size.w - leftRight - PADR) / n, (size.h - TOPL - PADB) / n);
-  const cellAbove = Math.min((size.w - LBL - PADR) / n, (size.h - TOPL - legBand) / n);
-  const goRight = legend.w > 0 && cellRight >= cellAbove;
-  const left = goRight ? leftRight : LBL;
-  const cell = Math.max(8, goRight ? cellRight : cellAbove);
+  const cands = [
+    { left: leftRight, w: size.w - leftRight - PADR, h: size.h - TOPL - Math.max(PADB, panBand) },
+    { left: LBL, w: size.w - LBL - PADR, h: size.h - TOPL - Math.max(legBand, panBand) },
+    { left: LBL, w: size.w - LBL - PADR - panRight, h: size.h - TOPL - legBand },
+    { left: leftRight, w: size.w - leftRight - PADR - panRight, h: size.h - TOPL - PADB },
+  ];
+  const best = cands.reduce((a, c) => (Math.min(c.w, c.h) > Math.min(a.w, a.h) ? c : a));
+  const left = best.left;
+  const cell = Math.max(8, Math.min(best.w, best.h) / n);
   /* center in the leftover width so the grid does not hug the labels */
-  const x0 = left + Math.max(0, (size.w - left - PADR - n * cell) / 2), y0 = TOPL;
+  const x0 = left + Math.max(0, (best.w - n * cell) / 2), y0 = TOPL;
   const m = mxMax(S.dir, S.cum);
   const col = S.dir === 'net' ? divScale(m) : seqScale(m, S.dir);
   const showNum = cell >= 22;
   const hl = S.pairHl;
+  const hlR = hl ? MXORD.indexOf(hl[0]) : -1, hlC = hl ? MXORD.indexOf(hl[1]) : -1;
+  /* label floor: cell*0.42 bottoms out near 5 px on a phone, which is not a
+     label. Row pitch is `cell`, so 6.5 px still clears its own line. */
+  const rowFs = Math.max(6.5, Math.min(9.5, cell * 0.42));
+  const colFs = Math.max(6.5, Math.min(9, cell * 0.4));
+
+  /* Roving tabindex: 420 tab stops would be hostile, so one cell is tabbable and
+     the arrows walk the grid (the standard grid pattern). Arrow keys must stop
+     propagating or App's global handler also steps the year. */
+  const [fc, setFc] = useState<[number, number]>([0, 1]);
+  const navRef = useRef(false);
+  const gridRef = useRef<SVGGElement>(null);
+  useEffect(() => {
+    if (!navRef.current) return;
+    navRef.current = false;
+    gridRef.current?.querySelector<SVGRectElement>('.mxc[tabindex="0"]')?.focus();
+  }, [fc]);
+  const moveF = (dr: number, dc: number) => {
+    navRef.current = true;
+    setFc(([r, c]) => {
+      let nr = r + dr, nc = c + dc;
+      if (nr === nc) { nr += dr; nc += dc; }   /* the diagonal holds no value */
+      return nr < 0 || nr >= n || nc < 0 || nc >= n ? [r, c] : [nr, nc];
+    });
+  };
+  const onCellKey = (e: ReactKeyboardEvent<SVGRectElement>, a: string, b: string) => {
+    const d: Record<string, [number, number]> = {
+      ArrowRight: [0, 1], ArrowLeft: [0, -1], ArrowDown: [1, 0], ArrowUp: [-1, 0],
+    };
+    if (d[e.key]) { e.preventDefault(); e.stopPropagation(); moveF(...d[e.key]); return; }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); e.stopPropagation();
+      setS({ view: 'flow', sel: a, pair: b, flowSeen: true, playing: false });
+    }
+  };
+  /* keyboard focus must place the tip itself — moveTip otherwise replays the
+     last pointer position, which has nothing to do with the focused cell */
+  const onCellFocus = (e: ReactFocusEvent<SVGRectElement>, a: string, b: string) => {
+    setS({ pairHl: [a, b] });
+    const r = e.currentTarget.getBoundingClientRect();
+    moveTip({ clientX: r.right, clientY: r.bottom });
+  };
 
   /* Touch hit-testing: a finger is ~40 px against a ~10 px cell, so relying on
      the cell paths themselves means most taps land in a gap and read nothing.
@@ -62,8 +116,8 @@ export default function MatrixView({ S, setS, size, legend, zoom }: {
     const rw = Math.floor((gy - y0) / cell);
     const inside = rw >= 0 && rw < n && c >= 0 && c < n;
     const a = inside ? MXORD[rw] : null, b = inside ? MXORD[c] : null;
-    /* the diagonal is not part of the matrix — hatched, and has no value */
-    setS({ pairHl: a && b && a !== b ? [a, b] : null });
+    /* the diagonal carries no value, but it does carry an explanation */
+    setS({ pairHl: a && b ? [a, b] : null });
     const { clientX, clientY } = ev;
     requestAnimationFrame(() => moveTip({ clientX, clientY }));
   };
@@ -73,21 +127,33 @@ export default function MatrixView({ S, setS, size, legend, zoom }: {
     for (let c = 0; c < n; c++) {
       const a = MXORD[r], b = MXORD[c];
       if (a === b) {
-        cells.push(<rect key={a + b} x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
-          fill="url(#mxhatch)" />);
+        /* hatched, but no longer silent: probing the one visually distinct band
+           in the grid used to return nothing at all */
+        cells.push(<rect key={a + b} className="mxd" data-a={a} data-b={b}
+          x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
+          fill="url(#mxhatch)"
+          onPointerEnter={() => setS({ pairHl: [a, b] })}
+          onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
+          onPointerMove={moveTip} />);
         continue;
       }
       const v = mxCell(a, b, S.dir, S.yi, S.cum);
       const isHl = !!hl && hl[0] === a && hl[1] === b;
+      const isF = fc[0] === r && fc[1] === c;
       cells.push(
         <g key={a + b}>
           <rect className="mxc" data-a={a} data-b={b}
             x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
             fill={col(S.dir === 'net' ? v : Math.abs(v))}
             stroke={isHl ? '#20262B' : '#fff'} strokeWidth={isHl ? 1.6 : 0.5}
+            role="gridcell" tabIndex={isF ? 0 : -1}
+            aria-label={`${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`}
             onPointerEnter={() => setS({ pairHl: [a, b] })}
             onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
             onPointerMove={moveTip}
+            onFocus={e => onCellFocus(e, a, b)}
+            onBlur={() => { if (!COARSE) setS({ pairHl: null }); }}
+            onKeyDown={e => onCellKey(e, a, b)}
             /* Drill-through is pointer-only. At 21×21 a cell is ~10 px on a
                phone, so a tap that navigates is a tap that misfires — touch
                reads the corridor instead (see the .mxhit overlay below). */
@@ -95,7 +161,9 @@ export default function MatrixView({ S, setS, size, legend, zoom }: {
           {showNum && Math.abs(v) >= 1 && (
             <text x={x0 + c * cell + cell / 2} y={y0 + r * cell + cell / 2 + 2.5}
               textAnchor="middle" fontSize={Math.min(8.5, cell / 3)} fontFamily={MONO}
-              fill={Math.abs(v) > 0.55 * m ? '#fff' : '#20262B'} pointerEvents="none">
+              /* white only at the dark end: at the old 0.55 cut it was ~2.5:1,
+                 while ink was still above 5:1 there */
+              fill={Math.abs(v) > 0.85 * m ? '#fff' : '#20262B'} pointerEvents="none">
               {fmtI.format(Math.round(v))}
             </text>
           )}
@@ -105,7 +173,7 @@ export default function MatrixView({ S, setS, size, legend, zoom }: {
   }
 
   return (
-    <svg id="map" role="img" aria-label="Matrica međužupanijskih tokova"
+    <svg id="map" role="grid" aria-label="Matrica međužupanijskih tokova — strelice pomiču odabir, Enter otvara koridor"
       {...zoom.bind} style={zoom.style}>
       <defs>
         <pattern id="mxhatch" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
@@ -113,21 +181,29 @@ export default function MatrixView({ S, setS, size, legend, zoom }: {
           <line y2="5" stroke="#D9DDD6" strokeWidth="1" />
         </pattern>
       </defs>
-      <g transform={`translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`}>
+      <g transform={`translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`} ref={gridRef}>
       {MXORD.map((iso, r) => (
         <text key={'r' + iso} x={x0 - 6} y={y0 + r * cell + cell / 2 + 3} textAnchor="end"
-          fontSize={Math.min(9.5, cell * 0.42)} fontFamily={MONO}
+          fontSize={rowFs} fontFamily={MONO}
           fontWeight={hl && hl[0] === iso ? 600 : 400}
           fill={hl && hl[0] === iso ? '#20262B' : '#5F6A72'}>{SHORTN[iso]}</text>
       ))}
       {MXORD.map((iso, c) => (
         <text key={'c' + iso} textAnchor="start"
-          fontSize={Math.min(9, cell * 0.4)} fontFamily={MONO}
+          fontSize={colFs} fontFamily={MONO}
           fontWeight={hl && hl[1] === iso ? 600 : 400}
           fill={hl && hl[1] === iso ? '#20262B' : '#5F6A72'}
           transform={`translate(${x0 + c * cell + cell / 2 + 3},${y0 - 6}) rotate(-65)`}>{SHORTN[iso]}</text>
       ))}
       {cells}
+      {/* trace lines back to the axes — bolding two labels is not enough to find
+          one pair among 420 cells */}
+      {hlR >= 0 && hlC >= 0 && (
+        <g className="mxband" pointerEvents="none">
+          <rect x={x0} y={y0 + hlR * cell} width={n * cell} height={cell} />
+          <rect x={x0 + hlC * cell} y={y0} width={cell} height={n * cell} />
+        </g>
+      )}
       {BLOCKS.slice(0, -1).map(b => (
         <g key={'b' + b}>
           <line x1={x0 + b * cell} x2={x0 + b * cell} y1={y0} y2={y0 + n * cell} stroke="#20262B" strokeWidth={1.1} />
