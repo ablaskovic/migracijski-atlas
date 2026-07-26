@@ -73,12 +73,20 @@ spare the ~170 MB Chrome download), or set `PUPPETEER_PATH` to an existing insta
 ## Architecture
 
 ```
+src/main.tsx             React root; #root is display:contents so body owns layout
 src/lib/types.ts         State shape (literal unions) + generated-payload types
 src/lib/metrics.ts       pure computation layer: series, domains (DOM/RDOM),
                          scales, klas, flows (ODM), flowMax/mxMax/jmap caches,
-                         exportDesc. No DOM, no React. Most logic changes go here.
-src/lib/hash.ts          permalink codec (whitelisted State ⇄ location.hash)
+                         VLAB, exportDesc. No DOM, no React. Most logic goes here.
+src/lib/hash.ts          permalink codec (whitelisted State ⇄ location.hash);
+                         decodeHash repairs invariants and drops an `st` that
+                         contradicts the state it ships with
 src/lib/stories.ts       Nalazi presets (State patch + Croatian caption per finding)
+src/lib/tip.ts           tooltip placement (imperative, cursor-following) + the
+                         COARSE flag every hover/leave handler branches on
+src/lib/useZoom.ts       wheel/pinch zoom + drag pan on Pointer Events (KMIN 1,
+                         KMAX 8, DEAD 4 px so clicks survive a gesture; touch
+                         keeps one finger for page scroll). Map and matrix share it.
 src/lib/exportPng.ts     canvas PNG + vector SVG composition (title band + baked
                          map SVG + legend); both share bakeMapClone/legendSpec
 src/App.tsx              state machine (single S object; v4 semantics + mx/jmap
@@ -88,11 +96,16 @@ src/App.tsx              state machine (single S object; v4 semantics + mx/jmap
                          story-invalidation on divergence, body classes, panels)
 src/components/          Header (segments + PNG/SVG + reset), MapView (projection
                          fit + county/JLS paths + region outlines + arcs with
-                         arrowheads + labels; owns overlay panels; delegates to
-                         MatrixView for mx), Legend, Rail, DetailCard, PairCard,
-                         JlsCard, CitzPanel (+ zemlje tab), AgePanel, HelpPanel
+                         arrowheads + labels; measures the legend and any open
+                         chip panel and feeds both to MatrixView, which lays the
+                         grid out around them; delegates to MatrixView for mx),
+                         Legend, Rail, DetailCard, PairCard, JlsCard,
+                         CitzPanel (+ zemlje tab), AgePanel, HelpPanel
                          ("Kako čitati" glossary), StoryBar, MatrixView, Scrubber,
                          Tooltip
+                         NB: DetailCard and PairCard render *outside* .map-box on
+                         purpose — that is what lets them drop into normal flow
+                         above the map below 900 px instead of covering it.
 src/index.css            design system from single-file v4 + v2 additions; class
                          names are part of the DOM contract
 src/data/                generated payloads (see tools/pipeline/)
@@ -102,10 +115,23 @@ scripts/verify.cjs       the executable verification protocol (106 checks; the
 
 State flows one way: controls mutate `S` in App → components derive everything per
 render from `S` + `metrics.ts`. Imperative escape hatches: tooltip positioning (ref
-mutation on pointermove, documented in Tooltip.tsx) and hash sync
-(`history.replaceState` in an App effect). `INITIAL = {...BASE, ...decodeHash(hash)}`,
+mutation on pointermove, documented in Tooltip.tsx), zoom transforms (`useZoom`
+binds a non-passive wheel listener itself), and hash sync — a **view** change is
+`history.pushState` so Back is an undo, everything finer is `replaceState`, and a
+`popstate` listener decodes back into `S`. `INITIAL = {...BASE, ...decodeHash(hash)}`,
 so a shared URL boots straight into its view; `decodeHash` repairs invariants
-(flow needs a hub, klas/cum clamp to ≥2011, panels mutually exclusive).
+(flow needs a hub, klas/cum clamp to ≥2011, citz/jls/age mutually exclusive).
+
+Two pieces of state are deliberately **outside** `S` and the permalink: the
+per-view `{yi, cum}` memory (a `vmem` ref in App — restoring a shared link must not
+depend on where a previous session had been) and the scrubber's collapsed flag
+(presentation only, `Scrubber.tsx`). `help` is a State field but is *not* part of
+the panel-exclusion group — the glossary can sit open over any view.
+
+`up()` is the only writer: it clears `S.story` whenever a patch changes any key in
+`STORY_KEYS`, which is what stops a Nalaz caption asserting numbers the view no
+longer produces. Anything that mutates state without going through it re-opens
+that bug.
 
 ## Design tokens (keep)
 
@@ -114,6 +140,15 @@ only**, vermilion `#B5341F` ↔ indigo `#1D4E89` diverging data scale (Lab
 interpolation), Oswald display + IBM Plex Sans/Mono. Citizenship group colors are
 in `metrics.ts CGROUPS`. Don't introduce new hues without a reason tied to
 semantics.
+
+Two measured guardrails on those tokens:
+- Teal on the karst bg computes to **4.43:1** — fine for controls and focus rings
+  (3:1 threshold), below AA for normal text. Keep teal *text* on `--panel` (4.72:1)
+  or larger than 18 px. `--mut #5F6A72` is 5.06:1 on bg and is the safe body-muted.
+- Category swatches carry a `--mut` border, not `rgba(0,0,0,.15)`: the pale
+  "neutralne" chip `#C6CCC4` is 1.59:1 against panel, so its own edge is what
+  satisfies 1.4.11. In-cell matrix numbers flip to white only above `0.85·m`,
+  where white finally beats ink on contrast.
 
 ## Ground truths (independently derived; verify.cjs asserts them)
 
@@ -138,3 +173,25 @@ semantics.
 If a data refresh legitimately changes these (DZS revises series), recompute the
 constants from the raw sources (see `tools/pipeline/README.md`), update verify.cjs
 **and** this table in the same commit, and say which vintage moved them.
+
+## Behavioural invariants (verify.cjs pins these too)
+
+Not data facts, but regressions that are cheap to reintroduce and invisible
+without a browser:
+
+| Invariant | Why |
+|---|---|
+| Space with a control focused activates it; Space on the body toggles play | the global handler used to `preventDefault` both, so tabbing to a segment and pressing Space started playback instead |
+| Changing any `STORY_KEYS` field clears the banner **and** drops `st=` from the hash | a caption citing −334 must not survive a change of Smjer, or ship in a link |
+| Exactly one `.mxc[tabindex="0"]` of 420, one `.jl[tabindex="0"]` of 556 | roving tabindex; plain `tabIndex={0}` would mean 420/556 tab stops |
+| Matrix arrow keys `stopPropagation` | otherwise they also step the year via App's window handler |
+| Returning to a view restores its own `{yi, cum}` | `vmem`; the flow-entry 2018 jump used to overwrite Saldo's window permanently |
+| Matrix grid never intersects an open chip panel, cell ≥ 12 px | clearing the panel *vertically* alone crushes cells to the 8 px floor — the placement search must be free to step left instead |
+| No map overlay rect intersects another, at 1440 **and** 390 | `.zoomrst` and `.paircard` once shared `top:44/right:16` |
+| `.paircard` is `position:static` below 900 px | floating, it is a 232 px panel over a 439 px map |
+| Page `scrollWidth ≤ clientWidth` at 390 | `.seg` is `overflow:hidden`, so anything too wide is clipped, not scrolled |
+| `.chip-hd` / segment / rail row ≥ 44 px on coarse pointers | these open and dismiss every panel on touch |
+
+The 390 px block runs last in `verify.cjs` and re-boots the app under
+`isMobile + hasTouch`, so `(pointer:coarse)` and the `COARSE` flag in `tip.ts`
+are genuinely exercised — reading them at 1440 tests nothing.
