@@ -45,7 +45,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
     <div className={'chipcard citz' + (open ? ' open' : '')} id="citz">
       <div className="chip-hd" id="citzHd" role="button" tabIndex={0} aria-expanded={open}
         onClick={toggleCitz} onKeyDown={onKey}>
-        <span className="chip-arr">▸</span>
+        <span className="chip-arr" aria-hidden="true">▸</span>
         <span>Državljanstvo<span className="chip-more">{` · RH · ${yy[0]}.–${yy[yy.length - 1]}.`}</span></span>
       </div>
       {open && (
@@ -101,8 +101,12 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                 <span className="cv ct">{'+' + fmtI.format(td)}</span>
                 <span className="cv ct">{'−' + fmtI.format(to)}</span>
               </div>
+              {/* A load-bearing honesty message that appears and disappears as
+                  the year is scrubbed, with no focus moving — exactly the case
+                  role=status exists for. Without it the panel silently shows one
+                  year while the big year reads another. */}
               {!inRange && (
-                <div className="citz-clamp" id="citzClamp">
+                <div className="citz-clamp" id="citzClamp" role="status" aria-live="polite">
                   {`Vremenska vrpca je na ${YEARS[S.yi]}. — izvan objavljenog raspona, prikazano ${y}.`}
                 </div>
               )}

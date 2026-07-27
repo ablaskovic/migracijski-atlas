@@ -84,6 +84,16 @@ export function decodeHash(hash: string): Patch {
      flag with no panel behind it: it still set body.panel-open (which hides the
      legend outright below 900 px) and still swallowed an Escape press. */
   if (at('view') !== 'flow') o.jls = false;
+  /* `pair` is the same shape of dead flag and was the one key the jls repair did
+     not cover: PairCard renders null outside Tokovi, but App's Escape cascade
+     still consumed a press for it and aimed focusSoon at a rail row whose
+     data-iso does not exist in that view — so `#v=reg&pp=HR-01&cz=1` booted with
+     an invisible pair, and the first Escape closed nothing, moved focus nowhere
+     and never reached the open panel. encodeHash then re-emitted `pp`. */
+  if (at('view') !== 'flow') o.pair = null;
+  /* Matrica and the JLS map have no county detail card, so a carried `sel` is a
+     card painted over a grid it cannot describe (see App.setView). */
+  if (at('view') === 'mx' || at('view') === 'jmap') o.sel = null;
   /* panels are mutually exclusive — keep at most one open (citz > jls > age) */
   if (at('citz')) { o.jls = false; o.age = false; }
   else if (at('jls')) o.age = false;

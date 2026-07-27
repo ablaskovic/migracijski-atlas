@@ -20,7 +20,7 @@ python3 ipf.py           # od2018.json + margins -> odm.json (2018 measured, res
 `geo_jls.cjs` needs `d3-geo` (already a project dep) and runs from repo root's
 `node_modules`; it joins `parse_jlsmap.py`'s per-JLS 2018 totals onto OSM municipal
 geometry and asserts a perfect 1:1 cover (556 JLS) plus the d3 winding test before
-writing. Its geometry input `raw/jls_geo_osm.geojson` (472 KB, committed) came from
+writing. Its geometry input `raw/jls_geo_osm.geojson` (480.545 B, committed) came from
 an Overpass query — `area["ISO3166-1"="HR"][admin_level=2]; rel(area)[admin_level=7]
 [boundary=administrative]; out geom;` (© OpenStreetMap contributors, **ODbL**) — run
 through `osmtogeojson` then `mapshaper -simplify visvalingam 2% keep-shapes
@@ -55,3 +55,36 @@ These do NOT, and need a manual sweep in the same commit as the data refresh:
   (same rule as the ground-truth table)
 - `scripts/verify.cjs` ground-truth constants + the table in `CLAUDE.md` — recompute
   from raw sources if DZS revised the series, and say which vintage moved them
+
+## v4 → React port: where things moved
+
+`reference/HANDOFF-v4-singlefile.md` is a frozen record of the single-file v4 and
+is still the authority on *provenance and methodology* — but every path in its
+file map predates the port. Translation table:
+
+| Handoff says | Repo has |
+|---|---|
+| `src/data/hrv21_fixed.geojson` | `src/data/geo_counties.json` |
+| `src/data/regions5.geojson` | `src/data/geo_regions5.json` |
+| `src/data/od2018.json` | `tools/pipeline/ref/od2018.json` (a pipeline *input*) |
+| `src/data/raw/*.xlsx` | `tools/pipeline/raw/*.xlsx` |
+| `src/ipf.py`, `src/parse_*.py` | `tools/pipeline/` |
+| `src/verify.js` (32 checks) | `scripts/verify.cjs` (209 checks) |
+
+The Python docstrings still cite the pre-port paths in their prose; the code
+itself opens the correct relative paths from `tools/pipeline/`.
+
+## What this pipeline does *not* regenerate
+
+Three payloads in `src/data/` have no parser here, and CLAUDE.md House Rule 4 is
+scoped accordingly:
+
+- **`atlas_data2.json`** — `parse_nat.py` only *patches* the `nat` arrays into an
+  existing file. The leaf series (`ii`, `oi`, `ie`, `oe`), `pe` and `p` come from
+  the upstream sheet 7.4.2/7.4.3 parser, which lives outside this repo. A DZS
+  revision of those sheets cannot be absorbed by "rerun the pipeline".
+- **`geo_counties.json`**, **`geo_regions5.json`** — mapshaper one-liners over
+  geoBoundaries ADM1, recorded only in the handoff's provenance section.
+
+Committing the upstream series parser as `parse_series.py` would close the first
+gap and is the single most useful addition here.

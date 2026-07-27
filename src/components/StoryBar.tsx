@@ -33,7 +33,10 @@ export default function StoryBar({ S, setS }: {
   return (
     <>
       {S.story != null && (
-        <div className="storybar" id="storyBar">
+        /* Picking a preset rewrites the whole view, and the caption *is* the
+           feature — it reached no AT user, who heard only the year/view status
+           line while ~30 tab stops away from the text that explains it. */
+        <div className="storybar" id="storyBar" role="status" aria-live="polite">
           <span className="storybar-k">{(S.story + 1) + '/' + STORIES.length}</span>
           <span className="storybar-t" id="storyCap">{STORIES[S.story].cap}</span>
           <button className="card-x" id="storyX" aria-label="Zatvori nalaz"

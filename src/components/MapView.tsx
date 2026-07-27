@@ -5,7 +5,7 @@ import {
   GEO, ISOS, DOM, RDOM, REGOF, SHORTN,
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowBadge, jlsVal, jmapScale, countyAria, fmtI, sgn,
 } from '../lib/metrics.ts';
-import { jlsGeo, regGeo } from '../lib/geoAsync.ts';
+import { jlsGeo, regGeo, jlsFailed, retryGeo } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
 import PairCard from './PairCard.tsx';
@@ -16,6 +16,7 @@ import MatrixView from './MatrixView.tsx';
 import HelpPanel from './HelpPanel.tsx';
 import StoryBar from './StoryBar.tsx';
 import { moveTip, COARSE } from '../lib/tip.ts';
+import { focusSoon } from '../lib/state.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
 
@@ -35,6 +36,11 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
     return () => ro.disconnect();
   }, []);
 
+  /* Which feature actually holds focus, kept out of S: presentation only, and
+     deliberately separate from `hl` (hover) for the reason v2.0.4 documented.
+     It backs the two-tone focus ring — see .focusring in index.css. */
+  const [fIso, setFIso] = useState<string | null>(null);
+  const [jFoc, setJFoc] = useState(false);
   /* roving tabindex over the 556 municipalities — see the .jl paths below */
   const [jf, setJf] = useState(0);
   const jNav = useRef(false);
@@ -233,6 +239,11 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                        whole view was unreachable without a pointer. One tab stop
                        in, arrows walk the features (grouped by county). */
                     tabIndex={ix === jf ? 0 : -1}
+                    /* Nothing opens when a municipality is activated, so this is
+                       a readout, not a button — the same call the inert rail
+                       rows make. role=img is what keeps the aria-label exposed
+                       on a focusable element that claims no behaviour. */
+                    role="img"
                     aria-label={`${p.n}, ${SHORTN[ISOS[p.c]]}: doseljeno ${fmtI.format(p.i)}, odseljeno ${fmtI.format(p.o)}, neto ${sgn(p.i - p.o, fmtI)}`}
                     onPointerEnter={() => setS({ jlsHl: p.j })}
                     /* touch sends leave the moment the finger lifts, which would
@@ -240,17 +251,26 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                     onPointerLeave={() => { if (!COARSE) setS({ jlsHl: null }); }}
                     onPointerMove={moveTip}
                     onFocus={e => {
-                      setS({ jlsHl: p.j });
+                      setS({ jlsHl: p.j }); setJFoc(true);
                       const r = e.currentTarget.getBoundingClientRect();
                       moveTip({ clientX: r.right, clientY: r.bottom });
                     }}
-                    onBlur={() => { if (!COARSE) setS({ jlsHl: null }); }}
+                    onBlur={() => { setJFoc(false); if (!COARSE) setS({ jlsHl: null }); }}
                     onKeyDown={e => {
+                      const last = JGEO.features.length - 1;
                       const d: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
-                      if (!d[e.key]) return;
+                      /* 556 features on a flat list is 555 presses end to end;
+                         Home/End/PageUp/PageDown make it navigable */
+                      const abs: Record<string, number> = { Home: 0, End: last };
+                      const page: Record<string, number> = { PageUp: -25, PageDown: 25 };
+                      let next: number | null = null;
+                      if (d[e.key]) next = ix + d[e.key];
+                      else if (e.key in abs) next = abs[e.key];
+                      else if (page[e.key]) next = ix + page[e.key];
+                      if (next === null) return;
                       e.preventDefault(); e.stopPropagation();
                       jNav.current = true;
-                      setJf(x => Math.max(0, Math.min(JGEO.features.length - 1, x + d[e.key])));
+                      setJf(Math.max(0, Math.min(last, next)));
                     }} />
                 );
               });
@@ -259,11 +279,13 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           <g>
             {drawn && ISOS.map(iso => <path key={iso} className="jbord" d={cds[iso]} />)}
           </g>
-          {/* the 475 KB municipal geometry is its own chunk now — say so for the
-              frame or two it is in flight rather than showing an empty country */}
-          {drawn && !JGEO && (
-            <text id="jloading" x={size.w / 2} y={size.h / 2} textAnchor="middle"
-              fontSize={11} fontFamily="var(--mono)" fill="var(--mut)">Učitavanje geometrije JLS…</text>
+          {/* same two-tone ring as the county map — a 1.6 px teal stroke on a
+              √-scaled indigo/vermilion fill measured as low as 1.02:1 */}
+          {jFoc && JGEO && jds[jf] && (
+            <g className="focusring">
+              <path className="fr-halo" d={jds[jf]} />
+              <path className="fr-ink" d={jds[jf]} />
+            </g>
           )}
           {labelG}
           </g>
@@ -279,10 +301,26 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                 <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')
                   + (S.view === 'reg' && S.regHl && REGOF[iso] === S.regHl ? ' rhl' : '')}
                   data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={countyAria(S, iso)}
+                  /* A focusable path with an aria-label and no role is a name
+                     ARIA does not guarantee AT will expose — the rule the rail
+                     rows and the matrix diagonal already follow. It is also
+                     genuinely activatable, and in every view but Tokovi it
+                     toggles the detail card, so it owes aria-expanded too. */
+                  role="button"
+                  aria-expanded={S.view === 'flow' ? undefined : iso === S.sel}
                   onPointerEnter={() => setHL(iso)} onPointerLeave={() => setHL(null)}
                   onPointerMove={moveTip} onClick={() => selectCounty(iso)}
-                  onFocus={() => setHL(iso)} onBlur={() => setHL(null)}
-                  onKeyDown={e => { if (e.key === 'Enter') selectCounty(iso); }} />
+                  onFocus={() => { setHL(iso); setFIso(iso); }}
+                  onBlur={() => { setHL(null); setFIso(null); }}
+                  /* Space is the other native activation key. Without it the
+                     press fell through to App's window handler, which read a
+                     <path> as "not a control" and started the 28-year
+                     animation from the app's primary view. */
+                  onKeyDown={e => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault(); e.stopPropagation();
+                    selectCounty(iso);
+                  }} />
               );
             })}
           </g>
@@ -301,6 +339,14 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
             ))}
             {arcs && <circle cx={arcs.sx} cy={arcs.sy} r={4.5} fill="var(--ink)" stroke="#fff" strokeWidth={1.5} />}
           </g>
+          {/* Two-tone focus ring, drawn above every fill so it is never the
+              county's own stroke competing with its own colour. See index.css. */}
+          {fIso && cds[fIso] && (
+            <g className="focusring">
+              <path className="fr-halo" d={cds[fIso]} />
+              <path className="fr-ink" d={cds[fIso]} />
+            </g>
+          )}
           {labelG}
           </g>
         </svg>
@@ -312,10 +358,32 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           onClick={() => setS({ labels: !S.labels })}>Aa oznake</button>
       )}
       {zoom.zoomed && (
-        <button className="zoomrst" id="zoomRst" onClick={zoom.reset}
-          title="Vrati prikaz" aria-label="Vrati zumiranje na početno">
+        /* Resetting the zoom unmounts this button, so focus had nowhere to go;
+           hand it to the neighbouring map control. The title and the aria-label
+           also used to say two different things to two different users. */
+        <button className="zoomrst" id="zoomRst"
+          onClick={() => { zoom.reset(); focusSoon('#labBtn, #helpBtn'); }}
+          title="Vrati zumiranje na početno"
+          aria-label={`Vrati zumiranje na početno, trenutačno ${Math.round(zoom.t.k * 10) / 10}×`}>
           ⤢ {Math.round(zoom.t.k * 10) / 10}×
         </button>
+      )}
+      {/* The 475 KB municipal geometry is its own chunk, so "not here yet" and
+          "never arriving" are two different states and the view has to name
+          both. It used to name neither: `jlsGeo()` returns null before the
+          fetch *and* after it fails, so the loading placeholder was also the
+          permanent post-failure UI — an empty country under a spinner, with no
+          retry short of a reload. role=status so the wait and the failure both
+          reach assistive tech, which the SVG <text> never did. */}
+      {S.view === 'jmap' && !JGEO && (
+        <div className="geostat" id="jstatus" role="status" aria-live="polite">
+          {jlsFailed() ? (
+            <>
+              <span id="jerror">Geometrija JLS nije učitana.</span>
+              <button id="jretry" onClick={retryGeo}>Pokušaj ponovno</button>
+            </>
+          ) : <span id="jloading">Učitavanje geometrije JLS…</span>}
+        </div>
       )}
       <Legend S={S} />
       <JlsCard S={S} setS={setS} toggleJls={toggleJls} />

@@ -28,6 +28,17 @@ direction of their own number, the export carries the structural-estimate note
 and its own cumulative badge, a focused county keeps its ring when the pointer
 wanders, highlights die with the view that made them, every segment group has a
 name, and the two big geometry payloads left the entry chunk — **166 checks**.
+**v2.0.5** is a third review pass: the on-demand geometry chunk can now fail
+(it had no `.catch`, cached its own rejection for the session, and left an
+eternal spinner), Space on a focused county no longer starts the 28-year
+animation, Alt+← is Back again instead of Back-plus-a-year-step, a county
+selection dies with the view that could describe it, focus rings became
+**two-tone** because a single tone measured 1.02:1 against the data it sits on,
+matrix numbers got a halo because no ink/white threshold clears 4.5:1 on these
+ramps, the glossary stopped covering live tab stops, the JLS export stopped
+crediting the wrong boundary source, `storyHolds` became the *only* definition
+of caption validity, and the harness stopped leaking a Chromium on failure —
+**209 checks**, and the suite now asserts its own size.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -38,13 +49,17 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # build + run the 166-check puppeteer suite (960–1600 px + 390 px)
+npm run verify     # typecheck + lint + build + the 209-check puppeteer suite
+                   #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
 ```
 
 `verify` needs puppeteer: `npm i -D puppeteer` once (kept out of default deps to
-spare the ~170 MB Chrome download), or set `PUPPETEER_PATH` to an existing install.
+spare the ~170 MB Chrome download). `PUPPETEER_PATH` points at a puppeteer
+*package directory*; to reuse a Chrome you already have, set puppeteer's own
+`PUPPETEER_EXECUTABLE_PATH` — the old fallback re-tried the `require` that had
+just failed and could never have helped.
 
 ## House rules (non-negotiable)
 
@@ -66,7 +81,20 @@ spare the ~170 MB Chrome download), or set `PUPPETEER_PATH` to an existing insta
    `#cardRow`, `#cardNote`, `#pairName/#pairRow`, `.cls-tag.meas/.est`,
    `#segViewLab`/`#segFlowLab`/… (the `aria-labelledby` targets), `#segExp`,
    `window.__exportPNG/__exportSVG`, …).
+   v2.0.5 adds: `.focusring .fr-halo/.fr-ink`, `.mxnum`, `#jstatus/#jloading/
+   #jerror/#jretry`, `a.skip`, `aside.rail[aria-labelledby]`, `#cardSvg[role=img]`,
+   `#pairSvg[role=img]`, `#thr[aria-valuetext]`, `#citzClamp[role=status]`,
+   `.cnt[role=button][aria-expanded]`, `.jl[role=img]`, `#card[inert]`,
+   `#jcard[inert]`, `#helpCard[tabindex]`, `#helpTitle`.
    Renaming them breaks verification; change both sides deliberately or not at all.
+   Two caveats on that sentence, both measured: `#segExp` is **not** selected by
+   id anywhere, and the `*Lab` ids are resolved *generically* through
+   `aria-labelledby`, so renaming one on both sides passes. The contract there is
+   the association, not the id. The `…` hides ~40 more hard dependencies —
+   `#tip`, `#citz*`, `#age*`, `#zemList`, `#jcard*`, `#card*`, `#pairX`, `#helpX`,
+   `#railLab/#railYear`, `#bigYearSub`, `#realMark`, `#scrubBox`, `.scrub.inert`,
+   `.arc[stroke-dasharray="7 4"]`, `.clab`, `.mxhit`, `body.panel-open` — before
+   renaming anything, grep `scripts/verify.cjs` for it.
    Roving tabindex is asserted by count: exactly one `.mxc[tabindex="0"]` of 420
    and one `.jl[tabindex="0"]` of 556 — a change to plain `tabIndex={0}` fails.
    `role` is asserted on rail rows both ways: `button` exactly when activating does
@@ -93,8 +121,16 @@ spare the ~170 MB Chrome download), or set `PUPPETEER_PATH` to an existing insta
    scrubber does not change them. "Mig. + prirodno" is the identity sum of two
    published components, not DZS total population change. The relative
    klasifikacija threshold states it is % popisa 2011. Never weaken these.
-4. **Generated data stays generated.** `src/data/*.json` are outputs of
-   `tools/pipeline/` — edit the pipeline, rerun, never hand-edit the JSONs.
+4. **Generated data stays generated.** Never hand-edit `src/data/*.json`.
+   Five of the eight are regenerable here — `odm.json` (`ipf.py`), `citizen.json`
+   (`parse_cit.py`), `demo.json` (`parse_demo.py`), `jls_drill.json`
+   (`parse_jls.py`) and `geo_jls.json` (`geo_jls.cjs`; the last two need the
+   31 MB `ext/` download). **Three are not:** `atlas_data2.json`'s leaf series
+   (`ii/oi/ie/oe`, `pe`, `p` — `parse_nat.py` only patches `nat` into an existing
+   file), `geo_counties.json` and `geo_regions5.json` (mapshaper one-liners
+   recorded only in `reference/HANDOFF-v4-singlefile.md` §provenance). A DZS
+   revision of sheet 7.4.2 therefore cannot be absorbed by "rerun the pipeline" —
+   the parser does not live in this repo. See `tools/pipeline/README.md`.
 5. **hr-HR formatting** everywhere (`Intl 'hr-HR'`), display minus is U+2212 `−`
    (verify.cjs matches on it), UI copy is Croatian, declension avoided via arrow
    phrasing ("X → ostale županije").
@@ -106,7 +142,9 @@ src/main.tsx             React root; #root is display:contents so body owns layo
 src/lib/types.ts         State shape (literal unions) + generated-payload types
 src/lib/metrics.ts       pure computation layer: series, domains (DOM/RDOM),
                          scales, klas, flows (ODM), flowMax/mxMax/jmap caches,
-                         VLAB, exportDesc. No DOM, no React. Most logic goes here.
+                         VLAB, countyAria, exportDesc. No DOM and no React *in
+                         this file* — it does import geoAsync, which imports
+                         React, so the graph is not React-free. Most logic here.
 src/lib/state.ts         BASE (the boot state) + STORY_KEYS + focusSoon; shared by
                          App and the codec so "omitted from the hash" and
                          "still at its default" cannot drift apart. focusSoon walks
@@ -162,7 +200,7 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (166 checks; the
+scripts/verify.cjs       the executable verification protocol (209 checks; the
                          390 px block re-runs geometry with hasTouch, and the
                          v2.0.4 block after it pins the review-pass-2 findings)
 ```
@@ -225,12 +263,26 @@ semantics.
 
 Two measured guardrails on those tokens:
 - Teal on the karst bg computes to **4.43:1** — fine for controls and focus rings
-  (3:1 threshold), below AA for normal text. Keep teal *text* on `--panel` (4.72:1)
-  or larger than 18 px. `--mut #5F6A72` is 5.06:1 on bg and is the safe body-muted.
+  **on the chrome** (3:1 threshold), below AA for normal text. Keep teal *text* on
+  `--panel` (4.72:1) or larger than 18 px. `--mut #5F6A72` is 5.06:1 on bg and is
+  the safe body-muted.
+- **That 4.43:1 is against the background, and says nothing about the data.** A
+  focus ring drawn as a feature's own stroke is measured against the *fill*, and
+  on the diverging ramp teal bottoms out at **1.02:1** (+0.75·m), 1.25 at −1·m,
+  1.99 on the Tokovi hub; ink fails at both ends (2.53 at −1·m, 1.82 at +1·m).
+  So `.cnt`/`.jl`/`.mxc` focus is a **two-tone overlay** (`.focusring`: white
+  halo under an ink dash). White↔ink is 15.29:1, and at least one of them clears
+  3:1 at every point on the ramp — worst case 3.21. Never collapse it to one tone.
 - Category swatches carry a `--mut` border, not `rgba(0,0,0,.15)`: the pale
   "neutralne" chip `#C6CCC4` is 1.59:1 against panel, so its own edge is what
-  satisfies 1.4.11. In-cell matrix numbers flip to white only above `0.85·m`,
-  where white finally beats ink on contrast.
+  satisfies 1.4.11.
+- **In-cell matrix numbers use a white halo, not an ink/white flip.** There is no
+  threshold that works: on the Dolasci ramp `t≈0.60–0.70` peaks at 4.42 (ink) /
+  4.30 (white) and on Odlasci `t≈0.70–0.80` at 4.43 / 4.14 — bands where *neither*
+  colour reaches the 4.5:1 this ≤8.5 px text owes. `.mxnum` paints ink over a
+  `paint-order:stroke` white outline (15.29:1 on every fill) and the export bakes
+  the same halo. The old `0.85·m` flip left 0.6–0.85 of the indigo ramp at
+  2.5–3.6:1.
 
 ## Ground truths (independently derived; verify.cjs asserts them)
 
@@ -247,7 +299,7 @@ Two measured guardrails on those tokens:
 | regije rail kum 2011–2024 | +55.281 / +26.987 / +18.419 / −46.669 / −97.195 |
 | geometry | 21 `.cnt` paths, max county bbox ≤ 5 % of canvas, Istra west of Vukovar |
 | Matrica cell GZ↔Zagrebačka 2018 | 2.311 / 1.977 / neto −334; 420 directed cells; badge "izmjereno" |
-| klasifikacija counts at 1,5 % popisa 2011 | 7 / 3 / 11 (Karlovačka + Koprivničko-kr. flip to gubitnice) |
+| klasifikacija counts at 1,5 % popisa 2011 | 7 / 3 / 11 (Šibensko-kninska −3.257 + Međimurska −4.125 flip to gubitnice) |
 | JLS-2018 map (measured, internal only) | 556 polygons; net top Grad Zagreb +3.413, bottom Split −691; Split tip +1.693 / −2.384 / −691; max JLS bbox ≤ 5 % |
 | dob/spol 2025 (STAN I T3/II T2) | vanjska +56.665 / −37.485, 66 % M doseljeni, vrh 25–29; unutarnja 73.838, 54 % žene |
 | zemlje 2025 (STAN I T4) | Njemačka +9.628/−6.238, Nepal +6.264; total +56.665 |
@@ -289,7 +341,7 @@ without a browser:
 | `.chip-hd` / segment / rail row ≥ 44 px on coarse pointers | these open and dismiss every panel on touch |
 | The entry chunk stays under 600 KB | `geo_jls.json` (475 KB) + `geo_regions5.json` (68 KB) were static imports in `metrics.ts` — 53 % of the bundle, parsed before the default view could paint, for two of six views |
 
-The 390 px block runs last in `verify.cjs` and re-boots the app under
+The 390 px geometry block runs before the v2.0.4 block in `verify.cjs` and re-boots the app under
 `isMobile + hasTouch`, so `(pointer:coarse)` and the `COARSE` flag in `tip.ts`
 are genuinely exercised — reading them at 1440 tests nothing.
 
@@ -304,3 +356,32 @@ Two more, on the keyboard and the screen reader:
 | Every segment group is a named `role="group"` | the visible `.ctrl-lab` beside each was decoration: AT heard seven indistinguishable runs of pressed/not-pressed buttons |
 | The map zooms from the keyboard (`+` `−` `0`) | wheel/pinch/drag only meant the whole feature failed 2.1.1 — and so did the county labels, which only appear once a county is *zoomed* wide enough |
 | The matrix diagonal is a named `gridcell` at `tabindex="-1"` | the roving tabindex steps over it by design, so its "not part of the matrix" explanation was pointer-only |
+
+### v2.0.5 invariants (review pass 3)
+
+| Invariant | Why |
+|---|---|
+| An on-demand geometry chunk that fails **says so and offers a retry** | `geoAsync` had no `.catch`: the rejection was unhandled, `??=` cached it for the session so leaving and re-entering the view never retried, and `jlsGeo()` returns `null` both before the fetch *and* after it fails — so the loading placeholder was the permanent post-failure UI. The retry **reloads**, because a failed module fetch is cached in the browser's module map and a second `import()` of the same specifier never hits the network (measured: 0 of 556) |
+| `.cnt` is a `role="button"` that handles **Enter *and* Space** | an SVG `<path>` matches none of App's Space exemptions (`tagName` is `path`, no role, not in `.rrow`), so Space on the primary view's 21 tab stops started the 28-year animation — v2.0.4's rail-row fix, one element short |
+| The global key handler ignores **Ctrl / Meta / Alt** chords | Alt+← is the browser's Back, which this app deliberately makes an undo; stepping the year on it mutated the history entry the user was leaving. `useZoom` guarded the same window correctly and the two disagreed |
+| Space yields when the document can actually scroll | below 900 px `body` scrolls, and Space / Shift+Space are the primary keyboard scroll keys — a 1440 px window at 200 % zoom is in that band too |
+| `sel` dies entering Matrica or the JLS map | there is no county card for those views, so it painted a 1998–2025 county card over a 21×21 grid, and its `×` aimed `focusSoon` at a `.cnt` that does not exist there → focus to `<body>`. Same defect as the stale tooltip, on the fifth key that fix did not clear. Enforced in `setView` **and** `decodeHash` |
+| A dead `pp=` is dropped on decode, like `jl=` | `PairCard` renders null outside Tokovi but App's Escape cascade still consumed a press for it and `encodeHash` re-emitted it — `#v=reg&pp=HR-01&cz=1` booted with an invisible pair whose Escape closed nothing and never reached the open panel |
+| Re-hubbing in Tokovi **closes** the corridor card | it silently re-pointed at a pair the user never chose. Carried open as "finding 27" through two passes; the hub is what was picked, so the pair is stale by construction |
+| `storyHolds()` is the **only** definition of caption validity | `up()` walked `storyKeys` against the patch directly and invalidated on STORY_KEYS fields a preset never sets, while the codec skipped them — two rules for one question, and this file claimed they were one |
+| Focus rings on data surfaces are **two-tone** | see Design tokens: one tone measured 1.02:1 against the ramp it sits on. `.focusring` is an overlay above every fill, and `bakeMapClone` **removes** it — UI state must not reach a figure in a paper |
+| Matrix numbers carry a baked white halo | no ink/white threshold clears 4.5:1 on these ramps (see Design tokens). `.mxnum` gets its halo from a class, so the export bakes it or reverts to ~2.5:1 |
+| The glossary makes what it covers **inert** | `.helpcard`, `.card` and `.jcard` all resolve to `top:14/left:16` and the glossary is wider and above; `#cardX` and `#jcardHd` were fully covered and still tab stops (2.4.11). Opening it also moves focus *into* the dialog it declares |
+| Every activation that unmounts its own control hands focus on | matrix cell, matrix rail row, `#zoomRst` and `#pngBtn` each dropped focus to `<body>` — `focusSoon` covered the `×` buttons and the Escape cascade only |
+| The map **pans** from the keyboard (Shift + arrows) | `zoomBy` anchors on the box centre, so zoom alone only ever magnified the middle of Croatia; Istria and Vukovar were unreachable at k > 1, and so were their labels |
+| The grid and the JLS list have jump keys | 21×21 is ~40 presses corner to corner and 556 features is 555; App scoped Home/End to `#spark`, so on a cell they did nothing |
+| Escape dismisses the tooltip, last in the cascade | 1.4.13: it is `pointer-events:none` and cursor-following, so it can never be hovered either, and in Matrica/JLS it is the only *visible* readout — up to 260 px sitting on the neighbours being compared. Runs after every real surface so Escape still closes panels first |
+| The boundary credit is **two** credits, and names ODbL | `geo_jls.json` is a raw Overpass `admin_level=7` pull, not geoBoundaries — a JLS export carried an attribution that was both wrong and licence-free. ODbL §4.3 wants the licence named; see `LICENSE` |
+| The corridor card encodes its two series by **shape** | they differed by hue alone and the caption said "(crvena)/(plava)" — 1.4.1, and the two hues are 1.39:1 apart in luminance |
+| One `<h1>`, real `<h2>`/`<h3>`, a skip link, named landmarks | there was exactly one heading in the whole app and everything else was a styled `div`; heading navigation reached one target and a sighted keyboard user had no bypass |
+| `verify.cjs` closes the browser on **failure** | there was no `try/finally`, and most DOM regressions surface as a throw (`querySelector(...).textContent`), so a failed run orphaned a Chromium and leaked a socket |
+| The suite asserts **its own check count** | three documents once claimed three different counts and none was right; a deleted `ck()` was a quieter green run |
+| No check depends on the network | `waitUntil:'networkidle0'` waited on fonts.googleapis.com and four checks are font-metric-dependent, so a box with no egress silently measured the fallback. The host is stubbed |
+| `#v=jmap` waits on **556 features**, not a stopwatch | the 464 kB chunk loads from a `useEffect` *after* `networkidle0` resolves; every jmap check was racing it against `settle(400)` |
+| Overlay sweeps assert what they compared | filtering to `position === 'absolute'` meant a refactor to static/fixed shrank the set to nothing and the check passed having compared no pairs — and it silently excluded `.helpcard`, which is `fixed` below 900 px |
+| `.paircard` is asserted `static` below 960 px directly | it was documented and never tested, and the sweeps *exclude* static elements, so a regression to floating would have been caught only if it happened to overlap |

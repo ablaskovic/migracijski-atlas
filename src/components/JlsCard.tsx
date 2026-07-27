@@ -23,10 +23,16 @@ export default function JlsCard({ S, setS, toggleJls }: {
   const onKey = (e: ReactKeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleJls(); } };
 
   return (
-    <div className={'chipcard jcard' + (on ? ' show' : '') + (open ? ' open' : '')} id="jcard">
+    /* inert under the open glossary: .jcard and .helpcard share top:14/left:16
+       and the glossary is wider and above it, so #jcardHd was fully covered and
+       still a tab stop (2.4.11) */
+    <div className={'chipcard jcard' + (on ? ' show' : '') + (open ? ' open' : '')} id="jcard"
+      inert={S.help || undefined}>
       <div className="chip-hd" id="jcardHd" role="button" tabIndex={0} aria-expanded={open}
         onClick={toggleJls} onKeyDown={onKey}>
-        <span className="chip-arr">▸</span>
+        {/* decorative: the state is already in aria-expanded, so announcing
+            "▸ JLS koridori, collapsed" just reads the glyph out loud */}
+        <span className="chip-arr" aria-hidden="true">▸</span>
         {/* scope in the collapsed header, matching the Državljanstvo / Dob chips
             — otherwise this one chip hides its year and status until opened */}
         <span id="jcardTitle">{on ? 'JLS koridori · ' + (D[S.sel!]?.n || '') : 'JLS koridori'}

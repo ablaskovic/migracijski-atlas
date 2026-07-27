@@ -9,15 +9,20 @@ import type { Patch, State } from '../lib/types.ts';
 export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => void }) {
   if (!S.help) return null;
   return (
-    <div className="helpcard" id="helpCard" role="dialog" aria-modal="false" aria-label="Kako čitati atlas">
+    /* tabIndex -1 so App can move focus *into* the panel on open: it declared
+       role=dialog and then left focus on the ? button three tab stops away,
+       which told a screen-reader user nothing had happened. Named by its own
+       visible heading rather than a duplicate aria-label. */
+    <div className="helpcard" id="helpCard" role="dialog" aria-modal="false"
+      aria-labelledby="helpTitle" tabIndex={-1}>
       <div className="card-hd">
-        <span className="card-name">Kako čitati</span>
+        <h2 className="card-name" id="helpTitle">Kako čitati</h2>
         {/* back to the ? that opened it — same as the Escape path in App */}
-        <button className="card-x" id="helpX" aria-label="Zatvori"
+        <button className="card-x" id="helpX" aria-label="Zatvori pojmovnik"
           onClick={() => { setS({ help: false }); focusSoon('#helpBtn'); }}>×</button>
       </div>
 
-      <div className="help-h">Boje</div>
+      <h3 className="help-h">Boje</h3>
       <div className="help-p">
         <b className="help-blue">Plavo</b> — županija dobiva stanovnike (pozitivna vrijednost).{' '}
         <b className="help-red">Crveno</b> — gubi ih (negativna). Sredina skale je 0, tj. ravnoteža.
@@ -25,7 +30,7 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         izgledaju blijedo jer su vrijednosti male.
       </div>
 
-      <div className="help-h">Izmjereno ili procjena</div>
+      <h3 className="help-h">Izmjereno ili procjena</h3>
       <div className="help-p">
         <span className="cls-tag meas">izmjereno</span> — stvarno objavljeni podatak.{' '}
         <span className="cls-tag est">procjena (IPF)</span> — izračun, ne mjerenje.
@@ -34,7 +39,7 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         godišnje zbrojeve). Kumulativni zbroj je uvijek procjena.
       </div>
 
-      <div className="help-h">Pojmovi</div>
+      <h3 className="help-h">Pojmovi</h3>
       <dl className="help-dl">
         <dt>saldo</dt><dd>doseljeni minus odseljeni — razlika, ne ukupan broj selidbi</dd>
         <dt>unutarnje / vanjske</dt><dd>selidbe unutar RH / selidbe preko granice</dd>
@@ -46,23 +51,25 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <dt>kumulativno</dt><dd>zbroj svih godina od 2011. do odabrane, umjesto jedne godine</dd>
       </dl>
 
-      <div className="help-h">Kratice</div>
+      <h3 className="help-h">Kratice</h3>
       <div className="help-p">
         <b>DZS</b> — Državni zavod za statistiku. <b>JLS</b> — jedinice lokalne samouprave,
         tj. gradovi i općine. <b>STAN</b> — oznaka DZS-ove serije o stanovništvu.
         <b> OD matrica</b> — origin–destination, tablica selidbi iz svake županije u svaku.
       </div>
 
-      <div className="help-h">Upravljanje</div>
+      <h3 className="help-h">Upravljanje</h3>
       <div className="help-p">
         <b>← →</b> mijenjaju godinu, <b>Home</b> / <b>End</b> skaču na prvu i zadnju,
         <b> razmaknica</b> pokreće reprodukciju kroz godine.
         {/* zoom was wheel/pinch/drag only — the feature, and the county labels that
             only appear once a county is zoomed large enough, had no keyboard route */}
-        <b> +</b> i <b>−</b> zumiraju kartu i matricu, <b>0</b> vraća na početno;
-        isto radi kotačić miša, a povlačenje pomiče prikaz.
-        Klik na županiju otvara njezinu karticu; u Tokovima klik na partnera u popisu
-        otvara koridor kroz vrijeme.
+        <b> +</b> i <b>−</b> zumiraju kartu i matricu, <b>0</b> vraća na početno,
+        a <b>Shift</b> + strelice pomiču zumirani prikaz; isto radi kotačić miša,
+        odnosno povlačenje mišem.
+        Na karti i u matrici <b>Enter</b> ili <b>razmaknica</b> otvaraju odabrano —
+        karticu županije, odnosno koridor. U matrici i na JLS karti
+        <b> Home</b> / <b>End</b> i <b>PageUp</b> / <b>PageDown</b> skaču kroz mrežu.
       </div>
 
       <div className="help-note">

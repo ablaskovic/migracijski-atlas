@@ -22,16 +22,23 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
   const cx = x(YEARS[S.yi]);
 
   return (
-    <div className="card show" id="card">
+    /* inert while the glossary is open: .helpcard and .card share top:14/left:16
+       and the glossary is both wider and above on z-index, so #cardX was 100 %
+       covered and still a tab stop — a control a sighted keyboard user cannot
+       see (2.4.11). */
+    <div className="card show" id="card" inert={S.help || undefined}>
       <div className="card-hd">
-        <span className="card-name" id="cardName">{D[sel].n}</span>
+        <h2 className="card-name" id="cardName">{D[sel].n}</h2>
         {/* hand focus to the county this card described, else its rail row —
             closing used to drop focus to <body> and restart Tab from the top */}
-        <button className="card-x" id="cardX" aria-label="Zatvori"
+        <button className="card-x" id="cardX" aria-label={`Zatvori karticu — ${D[sel].n}`}
           onClick={() => { setS({ sel: null }); focusSoon(`.cnt[data-iso="${sel}"], #railList .rrow[data-iso="${sel}"]`); }}>×</button>
       </div>
-      <div className="card-sub">{`godišnji saldo ${Y0}.–${YEND}. · vanjske (površina) · unutarnje (crta) · prirodni prirast (crtkano)`}</div>
-      <svg id="cardSvg" viewBox={`0 0 ${w} ${h}`}>
+      <div className="card-sub" id="cardSub">{`godišnji saldo ${Y0}.–${YEND}. · vanjske (površina) · unutarnje (crta) · prirodni prirast (crtkano)`}</div>
+      {/* an unlabelled <svg> exposes its tick <text> children as loose strings in
+          the reading order; role=img + a name collapses them into one figure */}
+      <svg id="cardSvg" viewBox={`0 0 ${w} ${h}`} role="img"
+        aria-label={`${D[sel].n} — godišnji saldo ${Y0}.–${YEND}., raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`}>
         <defs>
           <clipPath id={uid + 'p'}><rect width={w} height={y(0)} /></clipPath>
           <clipPath id={uid + 'n'}><rect y={y(0)} width={w} height={h - y(0)} /></clipPath>

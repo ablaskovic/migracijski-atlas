@@ -27,13 +27,19 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
   return (
     <div className="paircard" id="pair">
       <div className="card-hd">
-        <span className="card-name" id="pairName">{SHORTN[sel]} ⇄ {SHORTN[pair]}</span>
+        <h2 className="card-name" id="pairName">{SHORTN[sel]} ⇄ {SHORTN[pair]}</h2>
         {/* back to the partner row that opened this corridor */}
-        <button className="card-x" id="pairX" aria-label="Zatvori"
+        <button className="card-x" id="pairX" aria-label={`Zatvori koridor — ${SHORTN[sel]} i ${SHORTN[pair]}`}
           onClick={() => { setS({ pair: null }); focusSoon(`#railList .rrow[data-iso="${pair}"]`); }}>×</button>
       </div>
-      <div className="card-sub">{`godišnji tok ${Y0}.–${YEND}. · neto za ${SHORTN[sel]} (površina) · odlasci (crvena) · dolasci (plava)`}</div>
-      <svg id="pairSvg" viewBox={`0 0 ${w} ${h}`}>
+      {/* The two series were separated by hue alone and the caption named them
+          by colour — 1.4.1, and measured the two hues are only 1.39:1 apart in
+          luminance, so in greyscale or to a deuteranope this is one line
+          crossing itself. Every sibling chart here already encodes with shape;
+          dolasci now carries a dash, and the caption says so. */}
+      <div className="card-sub">{`godišnji tok ${Y0}.–${YEND}. · neto za ${SHORTN[sel]} (površina) · odlasci (puna crta) · dolasci (crtkano)`}</div>
+      <svg id="pairSvg" viewBox={`0 0 ${w} ${h}`} role="img"
+        aria-label={`Koridor ${SHORTN[sel]} i ${SHORTN[pair]}, godišnji tok ${Y0}.–${YEND}., raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`}>
         <defs>
           <clipPath id={uid + 'p'}><rect width={w} height={y(0)} /></clipPath>
           <clipPath id={uid + 'n'}><rect y={y(0)} width={w} height={h - y(0)} /></clipPath>
@@ -42,7 +48,7 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
         <path d={areaG(nets)!} fill="#B5341F" opacity={0.28} clipPath={`url(#${uid}n)`} />
         <line x1={mL} x2={w - mR} y1={y(0)} y2={y(0)} stroke="var(--line)" />
         <path d={lineG(outs)!} fill="none" stroke="#B5341F" strokeWidth={1.3} />
-        <path d={lineG(ins)!} fill="none" stroke="#1D4E89" strokeWidth={1.3} />
+        <path d={lineG(ins)!} fill="none" stroke="#1D4E89" strokeWidth={1.3} strokeDasharray="4 2.5" />
         <circle cx={x(2018)} cy={h - mB} r={3} fill="none" stroke="var(--acc)" strokeWidth={1.5} />
         {[2000, 2010, 2020].map(t => (
           <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize={8.5}

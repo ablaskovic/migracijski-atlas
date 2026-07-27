@@ -22,13 +22,18 @@ npm install
 npm run dev          # develop
 npm run build        # production build -> dist/ (serve it — the entry is an ES
                      #   module, so file:// is CORS-blocked and renders blank)
+npm run lint         # oxlint
+npm run typecheck    # tsc --noEmit (strict)
 npm i -D puppeteer   # once, for verification
-npm run verify       # build + 166-check suite (must pass)
+npm run verify       # typecheck + lint + build + 209-check suite (must pass)
 ```
 
-The two large geometry payloads (`geo_jls.json` 475 KB, `geo_regions5.json` 68 KB)
-load as their own chunks when the JLS or Regije view needs them, so the entry chunk
-is ~492 KB / 164 KB gzip rather than ~995 KB / 288 KB.
+The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
+are their own chunks: the view that needs one fetches it on entry, and the other is
+warmed on a 1,5 s timer, so neither is ever on the first-paint path. The entry chunk
+is ~492 kB / 164 kB gzip rather than ~1.019 kB / 295 kB (decimal kB throughout).
+
+Requires Node ≥ 20.19 (vite 8).
 
 Before touching code, read `CLAUDE.md` — it carries the project's hard rules
 (verification protocol, DOM contract, honesty labeling, design tokens).
@@ -39,8 +44,17 @@ Before touching code, read `CLAUDE.md` — it carries the project's hard rules
 (included) and the Pitoski figshare edge list (31 MB, download separately). See
 `tools/pipeline/README.md`.
 
-## Attribution
+## Attribution & licence
 
-2018 flows: Pitoski, Lampoltshammer & Parycek (2021), figshare
-10.6084/m9.figshare.12497177, CC BY 4.0. Boundaries: geoBoundaries/OSM.
-Statistics: DZS (podaci.dzs.hr).
+- **Code** — MIT.
+- **2018 flows** — Pitoski, Lampoltshammer & Parycek (2021), figshare
+  10.6084/m9.figshare.12497177, **CC BY 4.0**. Cite the paper.
+- **Boundaries** — county outlines from geoBoundaries (ADM1), municipal
+  outlines from an Overpass `admin_level=7` extract of OpenStreetMap.
+  © OpenStreetMap contributors, **ODbL 1.0** — redistribution of these files,
+  or of anything derived from them, must stay under ODbL and keep the credit.
+- **Statistics** — DZS (podaci.dzs.hr), tables 7.4.1.–7.4.3. and STAN-2026-2-1.
+- **IPF layers** — generated here, not published statistics. Labelled as
+  estimates throughout the UI; do not redistribute them as DZS figures.
+
+See [LICENSE](LICENSE) for the full terms of all three.

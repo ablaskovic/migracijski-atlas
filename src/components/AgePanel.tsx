@@ -24,7 +24,7 @@ export default function AgePanel({ S, setS, toggleAge }: {
     <div className={'chipcard agec' + (open ? ' open' : '')} id="agec">
       <div className="chip-hd" id="ageHd" role="button" tabIndex={0} aria-expanded={open}
         onClick={toggleAge} onKeyDown={onKey}>
-        <span className="chip-arr">▸</span>
+        <span className="chip-arr" aria-hidden="true">▸</span>
         <span>Dob i spol<span className="chip-more">{` · RH · ${DEMO.year}.`}</span></span>
       </div>
       {open && (

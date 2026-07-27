@@ -48,6 +48,20 @@ function bakeMapClone(node: SVGSVGElement): SVGSVGElement {
     r.setAttribute('fill', 'none'); r.setAttribute('stroke', '#20262B');
     r.setAttribute('stroke-width', '1.1'); r.setAttribute('opacity', '0.5');
   });
+  /* The focus ring is UI state, not data — it must not be baked into a figure
+     that ends up in a paper. It also takes its stroke from the stylesheet, so
+     leaving it in would ship a painting node with no fill/stroke of its own,
+     the exact self-containment failure the .mxband bar was. */
+  clone.querySelectorAll('.focusring').forEach(g => g.remove());
+  /* the in-cell number's white halo is what makes it legible on the dark end of
+     both ramps (see MatrixView); it comes from a class, so it has to be baked
+     or the exported matrix reverts to ink-on-indigo at ~2,5:1 */
+  clone.querySelectorAll('.mxnum').forEach(t => {
+    t.setAttribute('paint-order', 'stroke');
+    t.setAttribute('stroke', '#fff');
+    t.setAttribute('stroke-width', '2.2');
+    t.setAttribute('stroke-linejoin', 'round');
+  });
   clone.querySelectorAll('*').forEach(el => {
     for (const a of ['fill', 'stroke']) {
       const v = el.getAttribute(a);
@@ -123,7 +137,15 @@ function gradBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number,
   ctx.strokeStyle = '#D9DDD6'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
 
-const SRC_LINE = 'Izvori: DZS 7.4.1.–7.4.3., STAN-2026-2-1 · tokovi 2018.: Pitoski i sur. 2021. (CC BY) · ostale godine: IPF procjena · granice: geoBoundaries/OSM';
+/* The boundary credit is not one credit. The county outlines come from
+   geoBoundaries; `geo_jls.json` is a raw Overpass `admin_level=7` pull, i.e.
+   OpenStreetMap directly — so a JLS export used to carry an attribution that
+   was both wrong *and* licence-free. ODbL requires the licence to be named, and
+   this is the artifact that leaves the app: there is no footnote to click. */
+const SRC_BASE = 'Izvori: DZS 7.4.1.–7.4.3., STAN-2026-2-1 · tokovi 2018.: Pitoski i sur. 2021. (CC BY) · ostale godine: IPF procjena';
+const srcLine = (S: State): string => SRC_BASE + (S.view === 'jmap'
+  ? ' · granice JLS: OpenStreetMap suradnici (ODbL)'
+  : ' · granice županija: geoBoundaries/OSM (ODbL)');
 
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
   const w = node.clientWidth, h = node.clientHeight;
@@ -179,7 +201,7 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   ctx.fillStyle = '#5F6A72'; ctx.font = '400 8.5px "IBM Plex Mono",ui-monospace,monospace';
   const note = legendNote(S);
   if (note && leg.kind !== 'klas') ctx.fillText(note, 222, ly + 22);
-  ctx.fillText(SRC_LINE, 20, h + TOP + BOT - 14);
+  ctx.fillText(srcLine(S), 20, h + TOP + BOT - 14);
   if (!dl) {
     const b = await new Promise<Blob | null>(r => cv.toBlob(r, 'image/png'));
     return { w: cv.width, h: cv.height, bytes: b ? b.size : 0 };
@@ -263,7 +285,7 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
     + `<line x1="20" y1="70" x2="${w - 20}" y2="70" stroke="#D9DDD6"/>`
     + new XMLSerializer().serializeToString(clone)
     + legSvg
-    + txt(20, h + TOP + BOT - 14, SRC_LINE, `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`)
+    + txt(20, h + TOP + BOT - 14, srcLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`)
     + '</svg>';
   if (dl) download(new Blob([doc], { type: 'image/svg+xml;charset=utf-8' }), fname(S, per, 'svg'));
   return doc;

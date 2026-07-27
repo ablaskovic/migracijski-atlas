@@ -13,6 +13,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
   display:flex;flex-direction:column;overflow:hidden}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+/* off-screen until focused — the keyboard bypass for the header's ~28 controls */
+.skip{position:absolute;left:-9999px;top:0;z-index:20;background:var(--ink);color:var(--bg);
+  padding:8px 14px;font-size:13px;text-decoration:none;border-radius:0 0 3px 0}
+.skip:focus{left:0}
 
 .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
   padding:12px 20px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -72,6 +76,18 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
    selection (teal) without hiding either. */
 .cnt:focus{outline:none;stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
 .cnt.sel:focus{stroke:var(--acc);stroke-width:2.4}
+/* 1.4.11 — a *single-tone* ring cannot clear 3:1 against a diverging data ramp,
+   and this one was being drawn as the feature's own stroke, i.e. directly on
+   the colour it has to contrast with. Measured against the shipping Lab ramp:
+   teal bottoms out at 1.02:1 at +0.75·m (and 1.25 at −1·m, 1.99 on the Tokovi
+   hub); ink fails at both ends, 2.53 at −1·m and 1.82 at +1·m.
+   Two tones fix it structurally: white↔ink are 15.29:1 apart, and at every
+   point on the ramp at least one of them clears 3:1 — worst case 3.21 at
+   +0.75·m, 4.07 at −0.75·m. Drawn as an overlay above every fill so it is the
+   same ring in all six views and cannot be overwritten by hover. */
+.focusring{pointer-events:none;fill:none}
+.focusring .fr-halo{stroke:#fff;stroke-width:4.5;stroke-linejoin:round}
+.focusring .fr-ink{stroke:var(--ink);stroke-width:2;stroke-dasharray:4 2.5;stroke-linejoin:round}
 .reduced .cnt{transition:none}
 .regline{fill:none;stroke:var(--ink);stroke-width:1.8;pointer-events:none;stroke-linejoin:round}
 .arc{fill:none;pointer-events:none;opacity:.82;stroke-linecap:round}
@@ -255,6 +271,18 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
 .zoomrst:hover{color:var(--ink)}
 
+/* "the chunk has not arrived" and "the chunk is not coming" are two states, and
+   the JLS view has to name both — null geometry is what both look like from the
+   render path. Centred over the empty country rather than anchored to a corner:
+   it is the only thing on screen. */
+.geostat{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:6;
+  display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;
+  color:var(--mut);background:color-mix(in srgb,var(--panel) 92%,transparent);
+  border:1px solid var(--line);border-radius:3px;padding:8px 12px;text-align:center}
+.geostat button{border:1px solid var(--acc);border-radius:3px;padding:4px 9px;
+  color:var(--acc);font-family:var(--mono);font-size:11px;white-space:nowrap}
+.geostat button:hover{background:var(--acc);color:var(--panel)}
+
 /* "Kako čitati" — the only place the vocabulary is explained */
 .helpbtn{position:absolute;top:14px;right:108px;z-index:6;font-family:var(--mono);font-size:11px;
   line-height:1;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
@@ -301,7 +329,12 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 
 /* matrix cells */
 .mxc{cursor:pointer}
-.mxc:focus{outline:none;stroke:var(--acc);stroke-width:2}
+/* the cell keeps a stroke of its own, but the ring that has to clear 3:1 against
+   the fill is the two-tone overlay below — same reasoning as .focusring */
+.mxc:focus{outline:none;stroke:var(--ink);stroke-width:2}
+/* in-cell numbers: a white halo instead of an ink/white flip, because the flip
+   has no working threshold — see the comment in MatrixView.tsx */
+.mxnum{paint-order:stroke;stroke:#fff;stroke-width:2.2;stroke-linejoin:round}
 .mxd{cursor:help}
 /* trace lines: bolding the two axis labels is not enough to locate one pair
    among 420 cells, so the active row and column are outlined back to the axes */

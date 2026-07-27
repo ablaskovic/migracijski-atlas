@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { YEARS, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { decodeHash, encodeHash } from './lib/hash.ts';
 import { BASE, focusSoon } from './lib/state.ts';
-import { STORIES, storyKeys } from './lib/stories.ts';
+import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
@@ -39,11 +39,13 @@ export default function App() {
      "Dob i spol" killed Nalaz 7 alone, for no reason its caption could explain. */
   const up = (patch: Patch) => setS(s => {
     const n: State = { ...s, ...patch };
-    if (s.story != null && patch.story === undefined) {
-      for (const k of storyKeys(s.story)) {
-        if (k in patch && patch[k] !== s[k]) { n.story = null; break; }
-      }
-    }
+    /* One predicate, not two. This used to walk `storyKeys(i)` against the patch
+       directly, which invalidated on any STORY_KEYS field — while `storyHolds`,
+       which both halves of the permalink codec use, skips the keys a preset
+       never sets. Two rules for one question, and CLAUDE.md claimed they were
+       one. `storyHolds` against the *resulting* state is the question actually
+       being asked: does this caption still describe the screen? */
+    if (n.story != null && patch.story === undefined && !storyHolds(n, n.story)) n.story = null;
     return n;
   });
 
@@ -73,6 +75,13 @@ export default function App() {
        flag with no panel behind it that still sets body.panel-open (hiding the
        legend outright below 900 px) and still eats an Escape press */
     if (s.view === 'flow' && v !== 'flow') { p.sel = null; p.pair = null; p.jls = false; }
+    /* `sel` is a hub in Tokovi and a detail-card selection everywhere else, but
+       Matrica and the JLS map have no county-level card to show: a county picked
+       in Saldo used to keep its 1998–2025 card painted over the 21×21 grid and
+       the 556-municipality map, and its × then aimed `focusSoon` at a `.cnt`
+       that does not exist in those views, dropping focus to <body>. Same defect
+       as the stale tooltip, on the fifth key that fix did not clear. */
+    if (v === 'mx' || v === 'jmap') p.sel = null;
     if (v === 'jmap') { p.yi = IX2018; p.cum = false; }
     if ((v === 'klas' || (p.cum ?? s.cum)) && (p.yi ?? s.yi) < IX2011) p.yi = IX2011;
     up(p);
@@ -83,7 +92,13 @@ export default function App() {
   };
   const selectCounty = (iso: string) => {
     const s = ref.current;
-    if (s.view === 'flow') up({ sel: iso, ...(s.pair === iso ? { pair: null } : {}) });
+    /* Re-hubbing closes the corridor card. Keeping it open silently re-pointed
+       it at a pair the user never chose — GZ ⇄ Zagrebačka became
+       Splitsko-dalmatinska ⇄ Zagrebačka on one click of the map, under a card
+       whose numbers had all changed. Partner-preservation is defensible when
+       the partner is what you picked; here the *hub* is, so the pair is stale
+       by construction. (Carried open as finding 27 through two passes.) */
+    if (s.view === 'flow') up({ sel: iso, ...(s.sel !== iso ? { pair: null } : {}) });
     else up({ sel: s.sel === iso ? null : iso });
   };
   const openPair = (iso: string) => {
@@ -99,7 +114,14 @@ export default function App() {
   const toggleCitz = () => { const s = ref.current; up({ citz: !s.citz, jls: false, age: false }); };
   const toggleJls = () => { const s = ref.current; up({ jls: !s.jls, citz: false, age: false }); };
   const toggleAge = () => { const s = ref.current; up({ age: !s.age, citz: false, jls: false }); };
-  const toggleHelp = () => { const s = ref.current; up({ help: !s.help }); };
+  /* role=dialog owes focus movement. Opening used to leave focus on the ? button
+     with ~40 lines of new content unannounced and its own × three tab stops
+     away; closing already returned focus, so only the open half was missing. */
+  const toggleHelp = () => {
+    const s = ref.current;
+    up({ help: !s.help });
+    focusSoon(s.help ? '#helpBtn' : '#helpCard');
+  };
   /* Back to the boot view, including the per-view year memory and the map
      transform. The zoom lives in useZoom, outside S, and only re-fitted on a
      *view* change — so "vrati na početni prikaz" used to leave the map sitting
@@ -193,12 +215,16 @@ export default function App() {
     const onKey = (ev: KeyboardEvent) => {
       const el = ev.target as HTMLElement;
       const tag = el.tagName;
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable) return;
+      const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable;
       const s = ref.current;
       /* Escape dismisses the topmost thing, one layer per press, and hands focus
          back to whatever opened it. It used to reach only the glossary and the
          corridor card, leaving the three chip panels and the detail card as the
-         only surfaces on the page you could open with a key but not close. */
+         only surfaces on the page you could open with a key but not close.
+         It runs *before* the typing guard: the threshold slider and the Nalazi
+         select are the two controls you can be standing in while a panel is
+         open, and "Escape reaches every dismissible surface" has to mean from
+         there too. */
       if (ev.key === 'Escape') {
         if (s.help) { up({ help: false }); focusSoon('#helpBtn'); return; }
         if (s.pair) { up({ pair: null }); focusSoon('#railList .rrow[data-iso="' + s.pair + '"]'); return; }
@@ -213,8 +239,25 @@ export default function App() {
           focusSoon('.cnt[data-iso="' + s.sel + '"], #railList .rrow[data-iso="' + s.sel + '"]');
           return;
         }
+        /* Last layer: the tooltip. 1.4.13 wants hover/focus content dismissible
+           without moving the pointer or focus, and this one is
+           pointer-events:none and cursor-following so it can never be hovered
+           either. In Matrica and the JLS map it is the only *visible* readout —
+           up to 260 px wide, 14 px from the cursor, sitting on the neighbours a
+           magnifier user is trying to compare. Clearing the highlight hides it
+           and leaves focus exactly where it was. Runs after every real surface
+           so Escape still closes panels first. */
+        if (s.hl || s.pairHl || s.jlsHl != null) up({ hl: null, pairHl: null, jlsHl: null });
         return;
       }
+      if (typing) return;
+      /* Everything below is a bare-key shortcut, so a chord must not trigger it.
+         Alt+← / Alt+→ (Cmd+←/→ on macOS) are the browser's Back and Forward —
+         and this app deliberately makes Back an undo — so stepping the year on
+         them mutated the very history entry the user was leaving, via the
+         replaceState in the hash-sync effect. useZoom guards the same window
+         correctly; the two handlers now agree. */
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       if (s.view === 'jmap') return;
       const min = (s.cum || s.view === 'klas') ? IX2011 : 0;
       /* The scrubber declares role=slider, so it owes the pattern's whole key
@@ -227,8 +270,9 @@ export default function App() {
         if (ev.key === 'PageUp') { jump(Math.min(YEARS.length - 1, s.yi + 5)); return; }
         if (ev.key === 'PageDown') { jump(Math.max(min, s.yi - 5)); return; }
       }
-      if (ev.key === 'ArrowRight' && s.yi < YEARS.length - 1) up({ yi: s.yi + 1 });
-      if (ev.key === 'ArrowLeft') { if (s.yi > min) up({ yi: s.yi - 1 }); }
+      /* Shift+arrows pan the map (useZoom) — bare arrows step the year */
+      if (!ev.shiftKey && ev.key === 'ArrowRight' && s.yi < YEARS.length - 1) up({ yi: s.yi + 1 });
+      if (!ev.shiftKey && ev.key === 'ArrowLeft') { if (s.yi > min) up({ yi: s.yi - 1 }); }
       /* Space is also the native activation key for whatever holds focus, and
          preventDefault here used to swallow it — tabbing to a segment and
          pressing Space toggled playback instead of picking the segment. */
@@ -237,9 +281,18 @@ export default function App() {
            rows carry no role because activating them does nothing — which sent
            Space straight through to here, so tabbing onto "Zagrebačka regija"
            and pressing Space started playback. Doing nothing is the right answer
-           for a row with nothing to activate; starting the film is not. */
+           for a row with nothing to activate; starting the film is not.
+           The county paths now carry role=button and handle Space themselves,
+           so they exit here rather than starting the film from the map. */
         if (tag === 'BUTTON' || tag === 'A' || el.getAttribute('role') === 'button'
-          || el.getAttribute('role') === 'gridcell' || el.closest?.('.rrow')) return;
+          || el.getAttribute('role') === 'gridcell' || el.getAttribute('role') === 'img'
+          || el.closest?.('.rrow')) return;
+        /* Below 900 px the body scrolls (index.css) and Space / Shift+Space are
+           the primary keyboard scroll keys — a 1440 px window at 200 % zoom is
+           in that band too. Claim Space only when there is nothing to scroll,
+           which is the ≥900 px layout the shortcut was designed for. */
+        if (ev.shiftKey) return;
+        if (document.documentElement.scrollHeight > window.innerHeight + 1) return;
         ev.preventDefault();
         togglePlay();
       }
@@ -259,6 +312,9 @@ export default function App() {
 
   return (
     <>
+      {/* ~28 header controls sit between the page top and the map; landmarks
+          serve AT but a sighted keyboard-only user had no bypass at all (2.4.1) */}
+      <a className="skip" href="#map">Prijeđi na kartu</a>
       <Header S={S} setS={up} setView={setView} setMode={setMode} applyStory={applyStory} resetAll={resetAll} />
       <main className="main">
         <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL} resetSeq={resetSeq}
@@ -268,7 +324,9 @@ export default function App() {
       <Scrubber S={S} setYi={setYi} togglePlay={togglePlay} />
       <div className="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true">{live}</div>
       <footer className="ft">
-        <span>Izvori: DZS tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (Pitoski i sur. 2021, CC BY) · ostale godine: IPF procjena na DZS marginama · granice: geoBoundaries/OSM.</span>
+        {/* ODbL §4.3 wants the licence named, not just the source — the legend
+            did it, the footer, the export and the README did not */}
+        <span>Izvori: DZS tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (Pitoski i sur. 2021, CC BY) · ostale godine: IPF procjena na DZS marginama · granice županija: geoBoundaries/OSM, granice JLS: OpenStreetMap suradnici — oboje ODbL.</span>
         <span>DZS naknadno revidira serije — pojedine se vrijednosti razlikuju od rada.</span>
       </footer>
       <Tooltip S={S} />

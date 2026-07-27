@@ -11,11 +11,22 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 
+/* PUPPETEER_PATH is a path to a puppeteer *package directory*; the old fallback
+   was `require(process.env.PUPPETEER_PATH || 'puppeteer')`, i.e. it retried the
+   exact require that had just failed and could never have helped. A pre-existing
+   *Chrome* is puppeteer's own PUPPETEER_EXECUTABLE_PATH, honoured at launch. */
 let puppeteer;
 try { puppeteer = require('puppeteer'); }
 catch {
-  try { puppeteer = require(process.env.PUPPETEER_PATH || 'puppeteer'); }
-  catch { console.error('puppeteer not found: npm i -D puppeteer  (or set PUPPETEER_PATH)'); process.exit(2); }
+  try {
+    if (!process.env.PUPPETEER_PATH) throw new Error('no PUPPETEER_PATH');
+    puppeteer = require(process.env.PUPPETEER_PATH);
+  } catch {
+    console.error('puppeteer not found: npm i -D puppeteer'
+      + '\n  (or set PUPPETEER_PATH to a puppeteer package dir,'
+      + '\n   and/or PUPPETEER_EXECUTABLE_PATH to an existing Chrome)');
+    process.exit(2);
+  }
 }
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -24,7 +35,9 @@ function serve(dir) {
     const srv = http.createServer((req, res) => {
       let p = decodeURIComponent(req.url.split('?')[0]);
       if (p.endsWith('/')) p += 'index.html';
-      const f = path.join(dir, p);
+      const f = path.resolve(dir, '.' + path.posix.normalize('/' + p));
+      /* localhost-only and test-scoped, but `..%2f..%2f` still read outside dist */
+      if (f !== dir && !f.startsWith(dir + path.sep)) { res.writeHead(403); res.end('no'); return; }
       fs.readFile(f, (err, data) => {
         if (err) { res.writeHead(404); res.end('nope'); return; }
         res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' });
@@ -37,6 +50,22 @@ function serve(dir) {
 
 const NBSP = s => s.replace(/\u00a0/g, ' ');
 let fails = 0, n = 0;
+/* Kept in module scope so the exit path can always reach them. There was no
+   try/finally: any throw \u2014 and most DOM regressions surface here as a throw,
+   because `querySelector(...).textContent` throws rather than returning falsy \u2014
+   went to the outer .catch and called process.exit(2) without closing either,
+   orphaning a Chromium and leaking a listening socket on every failed run. */
+let browser = null, srv = null;
+/* pinned by the last check in the file; update deliberately, like the DOM contract */
+const EXPECTED_CHECKS = 211;
+async function finish(code) {
+  try { if (browser) await browser.close(); } catch { /* already gone */ }
+  try { if (srv) srv.close(); } catch { /* already gone */ }
+  console.log(fails === 0 ? `\nALL ${n} CHECKS PASS` : `\n${fails}/${n} CHECKS FAILED`);
+  /* exitCode rather than exit(): with 190+ log lines, process.exit truncates a
+     pending stdout flush when the output is redirected to a file or a pipe */
+  process.exitCode = code !== undefined ? code : (fails ? 1 : 0);
+}
 function ck(name, cond, extra = '') {
   n++;
   if (cond) console.log('  ok  ' + name);
@@ -46,16 +75,33 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
   const arg = process.argv[2] || 'dist';
-  let url = arg, srv = null;
+  let url = arg;
   if (!/^https?:/.test(arg)) {
     const dir = path.resolve(arg);
     if (!fs.existsSync(path.join(dir, 'index.html'))) { console.error('no index.html in ' + dir + ' — run `npm run build` first'); process.exit(2); }
     ({ srv, url } = await serve(dir));
   }
 
-  const browser = await puppeteer.launch({ args: ['--no-sandbox', '--force-device-scale-factor=1'] });
+  browser = await puppeteer.launch({ args: ['--no-sandbox', '--force-device-scale-factor=1'] });
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
+  /* index.html loads Oswald + IBM Plex from fonts.googleapis.com, and
+     `waitUntil: 'networkidle0'` waited on it — so the suite depended on the
+     network, and at least four checks are font-metric-dependent (header
+     height, scrubber tick clipping, the exported-SVG title fit, PNG dims). A
+     box with no egress silently measured the Arial Narrow fallback instead.
+     Stub the host so every run measures the same fallback, deterministically. */
+  await page.setRequestInterception(true);
+  let fontReqs = 0;
+  /* one handler only — a second `page.on('request')` makes both call continue()
+     on the same request and puppeteer throws "Request is already handled" */
+  let blockGeoChunk = false;
+  page.on('request', r => {
+    const u = r.url();
+    if (/fonts\.(googleapis|gstatic)\.com/.test(u)) { fontReqs++; return r.respond({ status: 200, contentType: 'text/css', body: '' }); }
+    if (blockGeoChunk && /geo_jls/.test(u)) return r.abort();
+    return r.continue();
+  });
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
@@ -264,6 +310,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     await page.goto('about:blank');
     await page.goto(url + h, { waitUntil: 'networkidle0' });
     await settle(400);
+    /* geo_jls.json (464 kB) loads via a dynamic import() fired from a useEffect,
+       i.e. *after* networkidle0 can already have resolved — so every #v=jmap
+       check was racing the chunk against a fixed 400 ms. Wait on the condition
+       instead of on a stopwatch. */
+    if (/v=jmap/.test(h)) {
+      await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 });
+    }
   };
 
   /* ── first Tokovi entry lands on measured 2018 (even from default cum) ── */
@@ -608,9 +661,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* every map-anchored overlay measured against every other one, both widths */
   const overlaps = () => page.evaluate(() => {
     const ids = ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#jcard', '#card', '#legend'];
+    /* `position === 'absolute'` used to be part of this filter, which meant a
+       refactor to static or fixed shrank `els` to nothing and the check passed
+       having compared no pairs at all — and it silently excluded every `fixed`
+       overlay, which is what .helpcard becomes below 900 px. Take everything
+       visible and out of flow; the caller asserts the count so an empty sweep
+       can no longer read as a pass. */
     const els = ids.map(s => [s, document.querySelector(s)])
       .filter(([, e]) => e && e.getBoundingClientRect().width > 0
-        && getComputedStyle(e).display !== 'none' && getComputedStyle(e).position === 'absolute');
+        && getComputedStyle(e).display !== 'none'
+        && getComputedStyle(e).position !== 'static');
     const bad = [];
     for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
       const a = els[i][1].getBoundingClientRect(), b = els[j][1].getBoundingClientRect();
@@ -624,6 +684,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const zrHas = await page.evaluate(() => !!document.querySelector('#zoomRst'));
   ck('zoom reset is mounted while zoomed and clears the corridor card',
     zrHas && zr.bad.length === 0, zr.bad.join(' | ') + ' (' + zr.n + ' overlays)');
+  /* the sweep above is only meaningful if it actually compared something */
+  ck('the overlay sweep compared a real set of overlays', zr.n >= 4, String(zr.n));
 
   /* ── help panel: the one stable glossary ── */
   await fresh('');
@@ -745,7 +807,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const ids = ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#jcard', '#card', '#legend', '#chipdock', '#storyBar'];
     const els = ids.map(s => [s, s === '#chipdock' ? document.querySelector('.chipdock') : document.querySelector(s)])
       .filter(([, e]) => e && e.getBoundingClientRect().width > 0
-        && getComputedStyle(e).display !== 'none' && getComputedStyle(e).position === 'absolute');
+        && getComputedStyle(e).display !== 'none'
+        && getComputedStyle(e).position !== 'static');
     const bad = [];
     for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
       const a = els[i][1].getBoundingClientRect(), b = els[j][1].getBoundingClientRect();
@@ -753,19 +816,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
       if (ov > 1) bad.push(els[i][0] + '×' + els[j][0] + '=' + Math.round(ov));
     }
-    return bad;
+    return { bad, n: els.length };
   });
   const midOv = [];
-  for (const w of [1440, 1200, 1100, 1000, 960]) {
+  let midMin = 99;
+  for (const w of [1600, 1440, 1200, 1100, 1000, 960]) {
     await page.setViewport({ width: w, height: 900 });
+    /* the matrix with the *taller* age panel open is the placement search's
+       worst case and was never in this sweep */
     for (const h of ['#v=saldo&c=1&y=2024&s=HR-18&ag=1', '#v=saldo&f=ext&c=0&y=2025&cz=1&st=4',
-      '#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0&jl=1']) {
+      '#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0&jl=1', '#v=mx&y=2018&c=0&dir=net&ag=1']) {
       await fresh(h);
-      const bad = await allOv();
-      if (bad.length) midOv.push(w + ':' + bad.join(','));
+      const r = await allOv();
+      midMin = Math.min(midMin, r.n);
+      if (r.bad.length) midOv.push(w + ':' + r.bad.join(','));
     }
   }
-  ck('no map overlay overlaps another at 960–1440 px either', midOv.length === 0, midOv.slice(0, 4).join(' | '));
+  ck('no map overlay overlaps another at 960–1600 px either', midOv.length === 0, midOv.slice(0, 4).join(' | '));
+  ck('the 960–1600 sweep compared overlays at every width', midMin >= 3, String(midMin));
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── .paircard is static below 960 px ──
+     The invariant was documented and never asserted — and the sweeps above
+     *exclude* static elements, so a regression to floating would have been
+     caught only if it happened to overlap something. Assert the position
+     directly, on both sides of the breakpoint. */
+  await page.setViewport({ width: 900, height: 900 });
+  await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+  const pcNarrow = await page.evaluate(() => getComputedStyle(document.querySelector('.paircard')).position);
+  await page.setViewport({ width: 1200, height: 900 });
+  await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+  const pcWide = await page.evaluate(() => getComputedStyle(document.querySelector('.paircard')).position);
+  ck('.paircard drops to static below 960 px and floats above it',
+    pcNarrow === 'static' && pcWide === 'absolute', pcNarrow + ' / ' + pcWide);
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ══════════ keyboard: nothing dimmed-but-focusable, nothing dead ══════════ */
@@ -1319,13 +1402,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('+ zooms the map from the keyboard and 0 returns it to 1×',
     kbZoom.zoomed !== kbZoom.before && kbZoom.rst && kbZoom.after === kbZoom.before,
     JSON.stringify(kbZoom));
-  ck('the glossary documents the zoom keys it now has', await page.evaluate(async () => {
+  const gloss = await page.evaluate(async () => {
     document.querySelector('#helpBtn').click();
     await new Promise(r => setTimeout(r, 250));
     const t = document.querySelector('#helpCard').textContent;
     document.querySelector('#helpX').click();
-    return t.includes('zumiraju') && t.includes('0');
-  }));
+    /* `t.includes('0')` was a tautology — the glossary text also contains
+       "2021.–2025.", "−4.500", "1.4". Match the key as its own word instead. */
+    return { zoom: t.includes('zumiraju'), zero: /\b0\b/.test(t),
+      pan: t.includes('Shift'), grid: t.includes('PageUp') };
+  });
+  ck('the glossary documents the zoom keys it now has',
+    gloss.zoom && gloss.zero, JSON.stringify(gloss));
+  ck('the glossary documents the pan and grid-jump keys too',
+    gloss.pan && gloss.grid, JSON.stringify(gloss));
 
   /* ── the two big geometry payloads are no longer on the critical path ── */
   const chunks = await page.evaluate(() => performance.getEntriesByType('resource')
@@ -1368,8 +1458,391 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* ── errors ── */
   ck('zero page/console errors', errors.length === 0, errors.join(' ; ').slice(0, 300));
 
-  await browser.close();
-  if (srv) srv.close();
-  console.log(fails === 0 ? `\nALL ${n} CHECKS PASS` : `\n${fails}/${n} CHECKS FAILED`);
-  process.exit(fails ? 1 : 0);
-})().catch(e => { console.error('harness error:', e); process.exit(2); });
+  /* ══════════════════ v2.0.5 — review pass 3 ══════════════════ */
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── P1: Space on a focused county selects it, it does not start the film ── */
+  await fresh('');
+  const cntSpace = await page.evaluate(async () => {
+    const c = document.querySelector('.cnt[data-iso="HR-18"]');
+    c.focus();
+    c.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { card: !!document.querySelector('#cardName'),
+      playing: document.querySelector('#play').getAttribute('aria-pressed'),
+      role: c.getAttribute('role'), exp: c.getAttribute('aria-expanded') };
+  });
+  ck('Space on a focused county opens its card and does not start playback',
+    cntSpace.card && cntSpace.playing === 'false', JSON.stringify(cntSpace));
+  ck('county paths claim role=button and report their own expanded state',
+    cntSpace.role === 'button' && cntSpace.exp === 'true', JSON.stringify(cntSpace));
+
+  /* ── P1: modifier chords are not bare-key shortcuts ──
+     Alt+← is the browser's Back, which this app makes an undo; stepping the
+     year on it corrupted the history entry the user was leaving. */
+  await fresh('#v=saldo&c=1&y=2020');
+  const alt = await page.evaluate(async () => {
+    const yr = () => document.querySelector('#bigYear').textContent;
+    const before = yr();
+    for (const k of ['ArrowRight', 'ArrowLeft']) {
+      for (const mod of ['altKey', 'ctrlKey', 'metaKey']) {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, [mod]: true }));
+      }
+    }
+    await new Promise(r => setTimeout(r, 300));
+    const held = yr();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    await new Promise(r => setTimeout(r, 250));
+    return { before, held, bare: yr() };
+  });
+  ck('Alt/Ctrl/Meta + arrows do not step the year, bare arrows still do',
+    alt.held === alt.before && alt.bare !== alt.before, JSON.stringify(alt));
+
+  /* ── P1: a stale `sel` no longer paints a county card over the matrix/JLS ── */
+  const selCarry = await page.evaluate(async () => {
+    const out = {};
+    document.querySelector('.cnt[data-iso="HR-18"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 250));
+    out.saldo = !!document.querySelector('#cardName');
+    document.querySelector('#segView button[data-v="mx"]').click();
+    await new Promise(r => setTimeout(r, 450));
+    out.mx = !!document.querySelector('#cardName');
+    out.hash = location.hash;
+    return out;
+  });
+  ck('a county selected in Saldo does not keep its card over the Matrica grid',
+    selCarry.saldo && !selCarry.mx && !/[?&]s=/.test(selCarry.hash), JSON.stringify(selCarry));
+
+  /* the permalink half of the same repair */
+  await fresh('#v=mx&y=2018&c=0&dir=net&s=HR-18');
+  ck('a permalink cannot carry a county selection into Matrica',
+    await page.evaluate(() => !document.querySelector('#cardName') && !/[?&]s=/.test(location.hash)));
+
+  /* ── P2: a dead `pp=` no longer swallows an Escape outside Tokovi ── */
+  await fresh('#v=reg&c=1&y=2024&pp=HR-01&cz=1');
+  const deadPair = await page.evaluate(async () => {
+    const open = document.querySelector('#citz').classList.contains('open');
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { open, closed: !document.querySelector('#citz').classList.contains('open'),
+      hash: location.hash, body: document.activeElement === document.body };
+  });
+  ck('a stale pp= is dropped on decode, so the first Escape reaches the open panel',
+    deadPair.open && deadPair.closed && !/pp=/.test(deadPair.hash), JSON.stringify(deadPair));
+
+  /* ── P2: re-hubbing in Tokovi closes the corridor card (finding 27) ── */
+  await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+  const rehub = await page.evaluate(async () => {
+    const was = !!document.querySelector('#pairName');
+    document.querySelector('.cnt[data-iso="HR-19"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { was, still: !!document.querySelector('#pairName'), hash: location.hash };
+  });
+  ck('re-hubbing the map closes the corridor card instead of re-pointing it',
+    rehub.was && !rehub.still && !/pp=/.test(rehub.hash), JSON.stringify(rehub));
+
+  /* ── P2: the two-tone focus ring, and it must not reach the export ── */
+  await fresh('');
+  const ring2 = await page.evaluate(async () => {
+    document.querySelector('.cnt[data-iso="HR-18"]').focus();
+    await new Promise(r => setTimeout(r, 250));
+    const g = document.querySelector('.focusring');
+    if (!g) return { has: false };
+    const halo = getComputedStyle(g.querySelector('.fr-halo'));
+    const ink = getComputedStyle(g.querySelector('.fr-ink'));
+    const svg = window.__exportSVG(false) || '';
+    return { has: true, halo: halo.stroke, haloW: parseFloat(halo.strokeWidth),
+      ink: ink.stroke, dash: ink.strokeDasharray, inExport: svg.includes('focusring') };
+  });
+  ck('a focused county draws a two-tone ring (white halo under an ink dash)',
+    ring2.has && ring2.halo === 'rgb(255, 255, 255)' && ring2.haloW >= 4
+    && ring2.ink === 'rgb(32, 38, 43)' && /\d/.test(ring2.dash), JSON.stringify(ring2));
+  ck('the focus ring is UI state and never reaches the exported document',
+    ring2.has && ring2.inExport === false, JSON.stringify(ring2));
+
+  /* ── P2: the in-cell halo is baked, not left to a stylesheet the export lacks ──
+     numbers only render at cell >= 22 px, which 1440 does not reach (19 px) */
+  await page.setViewport({ width: 1920, height: 1200 });
+  await fresh('#v=mx&y=2018&c=0&dir=in');
+  const halo = await page.evaluate(() => {
+    const svg = window.__exportSVG(false) || '';
+    const live = document.querySelector('.mxnum');
+    return { livePaint: live ? getComputedStyle(live).paintOrder : null,
+      baked: /class="mxnum"[^>]*paint-order="stroke"/.test(svg) || /paint-order="stroke"/.test(svg),
+      whiteStroke: /paint-order="stroke"[^>]*stroke="#fff"|stroke="#fff"[^>]*paint-order="stroke"/.test(svg) };
+  });
+  ck('matrix numbers carry a white halo on screen and baked into the export',
+    halo.livePaint === 'stroke' && halo.baked && halo.whiteStroke, JSON.stringify(halo));
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── P2: the JLS export attributes OSM/ODbL, not geoBoundaries ── */
+  await fresh('#v=jmap&dir=net');
+  const attrib = await page.evaluate(() => {
+    const j = window.__exportSVG(false) || '';
+    return { jls: j, hasOdbl: j.includes('ODbL'), hasOsm: j.includes('OpenStreetMap'),
+      wrongGeoB: j.includes('geoBoundaries') };
+  });
+  ck('a JLS export credits OpenStreetMap under ODbL and not geoBoundaries',
+    attrib.hasOdbl && attrib.hasOsm && !attrib.wrongGeoB,
+    JSON.stringify({ odbl: attrib.hasOdbl, osm: attrib.hasOsm, geoB: attrib.wrongGeoB }));
+  await fresh('');
+  ck('a county export still credits geoBoundaries, and now names ODbL',
+    await page.evaluate(() => {
+      const s = window.__exportSVG(false) || '';
+      return s.includes('geoBoundaries') && s.includes('ODbL');
+    }));
+
+  /* ── P2: the glossary no longer covers live tab stops ── */
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  const inert = await page.evaluate(async () => {
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 300));
+    const card = document.querySelector('#card');
+    const x = document.querySelector('#cardX');
+    x.focus();
+    return { cardInert: card.hasAttribute('inert'),
+      focusable: document.activeElement === x,
+      inDialog: document.activeElement === document.querySelector('#helpCard') };
+  });
+  ck('the open glossary makes the covered detail card inert, not merely hidden',
+    inert.cardInert && !inert.focusable, JSON.stringify(inert));
+  ck('opening the glossary moves focus into the dialog it declares',
+    inert.inDialog, JSON.stringify(inert));
+
+  /* ── P2: activations that unmount their own control hand focus on ── */
+  await fresh('#v=mx&y=2018&c=0&dir=net');
+  const drillFocus = await page.evaluate(async () => {
+    const c = document.querySelector('.mxc[tabindex="0"]');
+    c.focus();
+    c.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await new Promise(r => setTimeout(r, 500));
+    return { view: location.hash, body: document.activeElement === document.body,
+      id: document.activeElement ? document.activeElement.id : null };
+  });
+  ck('drilling from a matrix cell does not drop focus to <body>',
+    /v=flow/.test(drillFocus.view) && !drillFocus.body, JSON.stringify(drillFocus));
+
+  /* ── P2: keyboard pan, and the year keeps the bare arrows ── */
+  await fresh('');
+  const pan = await page.evaluate(async () => {
+    const tr = () => document.querySelector('#map g').getAttribute('transform');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    const zoomed = tr();
+    const yr = document.querySelector('#bigYear').textContent;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, shiftKey: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { zoomed, panned: tr(), yr, yrAfter: document.querySelector('#bigYear').textContent };
+  });
+  ck('Shift + arrow pans the zoomed map and does not step the year',
+    pan.panned !== pan.zoomed && pan.yrAfter === pan.yr, JSON.stringify(pan));
+
+  /* ── P2: the grid and the JLS list have jump keys ── */
+  await fresh('#v=mx&y=2018&c=0&dir=net');
+  const gridJump = await page.evaluate(async () => {
+    const first = document.querySelector('.mxc[tabindex="0"]');
+    first.focus();
+    const a0 = first.dataset.a;
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    const now = document.querySelector('.mxc[tabindex="0"]');
+    return { a0, a1: now.dataset.a, b1: now.dataset.b, focused: document.activeElement === now };
+  });
+  /* ARIA 1.2 requires a grid to own rows; 441 gridcells hanging off the svg meant
+     NVDA/JAWS table navigation never engaged and no cell had positional context */
+  const gridRows = await page.evaluate(() => {
+    const g = document.querySelector('#map[role="grid"]');
+    const rows = g.querySelectorAll(':scope > g > g[role="row"], :scope > g[role="row"]');
+    const cellsOutside = [...g.querySelectorAll('[role="gridcell"]')]
+      .filter(c => !c.closest('[role="row"]')).length;
+    const first = rows[0];
+    return { rows: rows.length, cellsOutside,
+      rowIdx: first ? first.getAttribute('aria-rowindex') : null,
+      rowName: first ? first.getAttribute('aria-label') : null,
+      colIdx: first ? (first.querySelector('[role="gridcell"]') || {}).getAttribute?.('aria-colindex') : null,
+      rowCount: g.getAttribute('aria-rowcount'), colCount: g.getAttribute('aria-colcount') };
+  });
+  ck('the matrix grid owns 21 named rows, with no gridcell outside a row',
+    gridRows.rows === 21 && gridRows.cellsOutside === 0 && !!gridRows.rowName,
+    JSON.stringify(gridRows));
+  ck('grid declares its row/column counts and indices',
+    gridRows.rowCount === '21' && gridRows.colCount === '21'
+    && gridRows.rowIdx === '1' && gridRows.colIdx === '1', JSON.stringify(gridRows));
+
+  ck('End jumps the matrix roving cell instead of doing nothing',
+    gridJump.b1 !== undefined && gridJump.focused && JSON.stringify(gridJump) !== '{}'
+    && (gridJump.a1 !== gridJump.a0 || gridJump.b1 !== '1'), JSON.stringify(gridJump));
+
+  await fresh('#v=jmap&dir=net');
+  const jJump = await page.evaluate(async () => {
+    const f = document.querySelector('.jl[tabindex="0"]');
+    f.focus();
+    const j0 = f.dataset.j;
+    f.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    const now = document.querySelector('.jl[tabindex="0"]');
+    return { j0, j1: now.dataset.j, one: document.querySelectorAll('.jl[tabindex="0"]').length,
+      role: now.getAttribute('role') };
+  });
+  ck('End jumps the JLS roving stop across the 556-feature list',
+    jJump.j1 !== jJump.j0 && jJump.one === 1, JSON.stringify(jJump));
+  ck('JLS features claim role=img — a named readout, not a fake button',
+    jJump.role === 'img', String(jJump.role));
+
+  /* ── P2: Escape dismisses the tooltip without moving focus (1.4.13) ── */
+  await fresh('');
+  const tipEsc = await page.evaluate(async () => {
+    const c = document.querySelector('.cnt[data-iso="HR-18"]');
+    c.focus();
+    await new Promise(r => setTimeout(r, 250));
+    const shown = getComputedStyle(document.querySelector('#tip')).display !== 'none';
+    c.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { shown, gone: getComputedStyle(document.querySelector('#tip')).display === 'none',
+      stillFocused: document.activeElement === c };
+  });
+  ck('Escape dismisses the tooltip and leaves focus where it was',
+    tipEsc.shown && tipEsc.gone && tipEsc.stillFocused, JSON.stringify(tipEsc));
+
+  /* ── P3: structure a screen reader can navigate ── */
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  const struct = await page.evaluate(() => ({
+    h1: document.querySelectorAll('h1').length,
+    h2: document.querySelectorAll('h2').length,
+    h3: 0,
+    skip: !!document.querySelector('a.skip[href="#map"]'),
+    railNamed: !!document.querySelector('aside.rail[aria-labelledby="railLab"]'),
+    cardSvg: document.querySelector('#cardSvg').getAttribute('role'),
+    arrHidden: [...document.querySelectorAll('.chip-arr')].every(a => a.getAttribute('aria-hidden') === 'true'),
+  }));
+  ck('the page has a real heading outline, not styled divs',
+    struct.h1 === 1 && struct.h2 >= 2, JSON.stringify(struct));
+  ck('a skip link bypasses the header controls', struct.skip, JSON.stringify(struct));
+  ck('the rail landmark is named and the card chart is a labelled figure',
+    struct.railNamed && struct.cardSvg === 'img', JSON.stringify(struct));
+  ck('decorative chip arrows are hidden from assistive tech', struct.arrHidden);
+
+  /* ── P3: the threshold slider says what the readout says ── */
+  await fresh('#v=klas&c=1&y=2024&tr=1&tp=1.5');
+  const thrVt = await page.evaluate(() => ({
+    vt: document.querySelector('#thr').getAttribute('aria-valuetext'),
+    seen: document.querySelector('#thrVal').textContent,
+  }));
+  ck('the % threshold slider carries an aria-valuetext matching its readout',
+    !!thrVt.vt && thrVt.vt.includes('1,5') && thrVt.vt.includes('−'), JSON.stringify(thrVt));
+
+  /* ── P3: the citizenship clamp is a live status, not silent text ── */
+  await fresh('#cz=1&y=2015&v=saldo&c=0');
+  ck('the out-of-range citizenship note is announced, not just drawn',
+    await page.evaluate(() => {
+      const c = document.querySelector('#citzClamp');
+      return !!c && c.getAttribute('role') === 'status';
+    }));
+
+  /* ── P3: the corridor card encodes its two series with shape, not hue ── */
+  await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+  const pairShape = await page.evaluate(() => {
+    const paths = [...document.querySelectorAll('#pairSvg path')].filter(p => p.getAttribute('stroke'));
+    const ins = paths.find(p => p.getAttribute('stroke') === '#1D4E89');
+    const outs = paths.find(p => p.getAttribute('stroke') === '#B5341F');
+    return { ins: ins && ins.getAttribute('stroke-dasharray'), outs: outs && outs.getAttribute('stroke-dasharray'),
+      cap: document.querySelector('#pair .card-sub').textContent };
+  });
+  ck('corridor series differ by dash, and the caption names shape not colour',
+    !!pairShape.ins && !pairShape.outs && /crtkano/.test(pairShape.cap)
+    && !/crvena/.test(pairShape.cap), JSON.stringify(pairShape));
+
+  /* ── P3: `den` — a whole segment group that had zero coverage ── */
+  for (const [d, label] of [['rel11', '% popisa 2011.'], ['relest', '% tek. procjene']]) {
+    await fresh('#v=saldo&c=1&y=2024&d=' + d);
+    const rel = await page.evaluate(() => {
+      const v = document.querySelector('#railList .rrow .rval');
+      return { val: v ? v.textContent : '', lab: document.querySelector('#legend').textContent,
+        aria: document.querySelector('.cnt[data-iso="HR-21"]').getAttribute('aria-label') };
+    });
+    ck(`den=${d} renders % values in the rail, legend and county labels`,
+      /%/.test(rel.val) && rel.lab.includes(label) && /%/.test(rel.aria),
+      JSON.stringify({ v: rel.val, a: rel.aria.slice(0, 50) }));
+  }
+
+  /* ── P3: the decodeHash repair that was never reached from a URL ── */
+  await fresh('#v=flow&dir=net&y=2018&c=0');
+  const hubRepair = await page.evaluate(() => ({
+    hash: location.hash, rail: document.querySelector('#railLab').textContent,
+    arcs: document.querySelectorAll('.arc').length,
+  }));
+  ck('#v=flow with no hub repairs to HR-21 instead of rendering nothing',
+    /s=HR-21/.test(hubRepair.hash) && hubRepair.arcs > 0, JSON.stringify(hubRepair));
+
+  /* ── P3: the play loop actually advances, stops, and kills the caption ── */
+  await fresh('');
+  const played = await page.evaluate(async () => {
+    const sel = document.querySelector('#story');
+    sel.value = '1';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 350));
+    const cap = !!document.querySelector('#storyCap');
+    const y0 = document.querySelector('#bigYear').textContent;
+    document.querySelector('#play').click();
+    await new Promise(r => setTimeout(r, 1500));
+    const y1 = document.querySelector('#bigYear').textContent;
+    document.querySelector('#play').click();
+    return { cap, y0, y1, capAfter: !!document.querySelector('#storyCap') };
+  });
+  ck('the play loop really advances the year and clears the Nalaz caption',
+    played.cap && played.y1 !== played.y0 && !played.capAfter, JSON.stringify(played));
+
+  /* ── P3: reduced motion is honoured, and it is a live preference ── */
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  await fresh('');
+  ck('prefers-reduced-motion lands body.reduced and suppresses the transitions',
+    await page.evaluate(() => document.body.classList.contains('reduced')
+      && getComputedStyle(document.querySelector('.cnt')).transitionDuration === '0s'));
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
+  await fresh('');
+  ck('and it comes back off without a reload',
+    await page.evaluate(() => !document.body.classList.contains('reduced')));
+
+  /* ── P3: the JLS chunk can fail, and the view says so and offers a retry ── */
+  blockGeoChunk = true;
+  await page.goto('about:blank');
+  await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+  await settle(2500);
+  const geoFail = await page.evaluate(() => {
+    const st = document.querySelector('#jstatus');
+    return { err: !!document.querySelector('#jerror'), retry: !!document.querySelector('#jretry'),
+      stillLoading: !!document.querySelector('#jloading'),
+      live: st ? st.getAttribute('role') : null };
+  });
+  ck('a failed geometry chunk reports an error instead of an eternal spinner',
+    geoFail.err && geoFail.retry && !geoFail.stillLoading, JSON.stringify(geoFail));
+  ck('and it says so through a live region, not silent SVG text',
+    geoFail.live === 'status', String(geoFail.live));
+  blockGeoChunk = false;
+  /* The retry reloads, because a failed module fetch is cached in the browser's
+     module map and a second import() of the same specifier never hits the
+     network (measured: 0 of 556 with the promise slot cleared). */
+  await page.click('#jretry');
+  await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 })
+    .catch(() => {});
+  const retried = await page.evaluate(() => document.querySelectorAll('#map .jl').length);
+  ck('the retry genuinely re-fetches the chunk it failed on', retried === 556, String(retried));
+  /* the aborted request above is a deliberate console error — drop exactly it,
+     so the error check that follows still means something */
+  for (let i = errors.length - 1; i >= 0; i--) if (/ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+  ck('the font host was stubbed, so no check depended on the network',
+    fontReqs > 0, String(fontReqs));
+
+  /* ── errors, again, after the v2.0.5 block ── */
+  await fresh('');
+  ck('still zero page/console errors after the pass-3 surfaces',
+    errors.length === 0, errors.join(' ; ').slice(0, 300));
+
+  /* The suite is a fixed protocol, so its size is itself an invariant: three
+     documents once claimed three different check counts and none was right.
+     A deleted ck() is now a failure, not a quieter green run. */
+  ck('the suite ran its full documented check count', n + 1 === EXPECTED_CHECKS, `${n + 1} vs ${EXPECTED_CHECKS}`);
+})().then(
+  () => finish(),
+  e => { console.error('harness error:', e); return finish(2); },
+);

@@ -54,13 +54,17 @@ export function useZoom(w: number, h: number) {
   /* a resize changes the clamp bounds — re-fit so content cannot end up adrift */
   useEffect(() => { setT(p => (p.k === 1 ? p : fit(p, w, h))); }, [w, h]);
 
-  /* zoom about a point, absolute scale — the pinch handler's shape */
-  const zoomAt = useCallback((k2: number, px: number, py: number) => {
-    setT(cur => zoomTo(cur, k2, px, py, w, h));
-  }, [w, h]);
   /* zoom about the centre of the box by a factor — the keyboard's shape */
   const zoomBy = useCallback((f: number) => {
     setT(cur => zoomTo(cur, cur.k * f, w / 2, h / 2, w, h));
+  }, [w, h]);
+  /* Pan by a fraction of the viewport. Zoom alone only ever magnifies the centre
+     of the box, so from the keyboard Istria, Dubrovnik and Vukovar — and the
+     county labels that only appear once a county is zoomed wide enough — were
+     unreachable at k > 1. `fit` still clamps, so this cannot drag content off
+     screen and is a no-op at k = 1. */
+  const panBy = useCallback((fx: number, fy: number) => {
+    setT(cur => (cur.k === 1 ? cur : fit({ ...cur, x: cur.x + fx * w * 0.25, y: cur.y + fy * h * 0.25 }, w, h)));
   }, [w, h]);
 
   /* Keyboard equivalent of the wheel. Bound to the window rather than the svg:
@@ -77,10 +81,16 @@ export function useZoom(w: number, h: number) {
       if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1.6); }
       else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomBy(1 / 1.6); }
       else if (e.key === '0') { e.preventDefault(); setT(IDENT); }
+      /* Shift+arrows pan. Bare arrows belong to the year scrubber, so the pan
+         keys have to be a chord; App's year handler skips shifted arrows. */
+      else if (e.shiftKey && e.key === 'ArrowLeft') { e.preventDefault(); panBy(1, 0); }
+      else if (e.shiftKey && e.key === 'ArrowRight') { e.preventDefault(); panBy(-1, 0); }
+      else if (e.shiftKey && e.key === 'ArrowUp') { e.preventDefault(); panBy(0, 1); }
+      else if (e.shiftKey && e.key === 'ArrowDown') { e.preventDefault(); panBy(0, -1); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [w, h, zoomBy]);
+  }, [w, h, zoomBy, panBy]);
 
   /* wheel must be non-passive to preventDefault, so it is bound imperatively */
   useEffect(() => {
@@ -164,5 +174,5 @@ export function useZoom(w: number, h: number) {
   };
   /* pan-y keeps one-finger page scrolling alive; pinch still reaches us */
   const style = { touchAction: 'pan-y' as const, cursor: t.k > 1 ? 'grab' : undefined };
-  return { t, bind, style, reset, zoomAt, zoomBy, zoomed: t.k > 1 };
+  return { t, bind, style, reset, zoomBy, panBy, zoomed: t.k > 1 };
 }

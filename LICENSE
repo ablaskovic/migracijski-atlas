@@ -1,0 +1,65 @@
+# Licences
+
+This repository contains three kinds of material under three different terms.
+They are listed separately because they cannot be relicensed as one.
+
+## 1. Source code — MIT
+
+Copyright (c) 2026 Ante Blašković
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Applies to: `src/**` (except `src/data/`), `scripts/**`, `tools/pipeline/*.py`,
+`tools/pipeline/*.cjs`, and the configuration files at the repository root.
+
+## 2. Boundary geometry — ODbL 1.0
+
+`src/data/geo_jls.json`, `src/data/geo_counties.json`,
+`src/data/geo_regions5.json` and `tools/pipeline/raw/jls_geo_osm.geojson` are
+**derived databases** under the Open Database License 1.0
+(https://opendatacommons.org/licenses/odbl/1-0/).
+
+- `geo_jls.json` and `jls_geo_osm.geojson` derive from an Overpass
+  `admin_level=7` extract of **OpenStreetMap**. © OpenStreetMap contributors.
+- `geo_counties.json` and `geo_regions5.json` derive from **geoBoundaries**
+  (ADM1, itself OSM-derived). © OpenStreetMap contributors.
+
+Per ODbL §4.3 the source is attributed wherever these are displayed (the map
+legend, the application footer, and both the PNG and SVG exports). Per §4.4,
+any redistribution of these files or of a database derived from them must be
+under ODbL 1.0 and must carry the same attribution.
+
+## 3. Migration statistics — see source terms
+
+- **2018 origin–destination flows** (`src/data/odm.json` 2018 layer,
+  `src/data/jls_drill.json`, `tools/pipeline/ref/od2018.json`, and the measured
+  layer of `geo_jls.json`): derived from Pitoski, Lampoltshammer & Parycek
+  (2021), figshare 10.6084/m9.figshare.12497177, **CC BY 4.0**. Cite the paper.
+- **All other years** in `odm.json` are IPF estimates computed here from the
+  above structure and DZS margins. They are estimates, not measurements, and
+  are labelled as such throughout the interface.
+- **DZS series** (`src/data/atlas_data2.json`, `citizen.json`, `demo.json`):
+  Državni zavod za statistiku, tables 7.4.1.–7.4.3. and STAN-2026-2-1
+  (podaci.dzs.hr). Reused under DZS terms of use; attribute DZS.
+
+## Note on the estimates
+
+The IPF layers are generated output, not published statistics. Do not
+redistribute them as DZS figures. `CLAUDE.md` and `tools/pipeline/README.md`
+document how they are produced.

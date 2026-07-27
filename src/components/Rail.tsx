@@ -4,6 +4,7 @@ import {
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
+import { focusSoon } from '../lib/state.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* `pair` is the corridor this row *points at* — the cell it highlights, the hub
@@ -122,7 +123,10 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
   const canActivate = (d: Row) => !d.reg && d.jls == null;
   const activate = (d: Row) => {
     if (!canActivate(d)) return;
-    if (d.pair) { jumpFlow(d.pair[0], d.pair[1]); return; }
+    /* This row's React key changes from the corridor to the hub iso, so every
+       row unmounts and focus fell to <body>. Hand it to the corridor card the
+       jump opens — the same handshake the matrix cells make. */
+    if (d.pair) { jumpFlow(d.pair[0], d.pair[1]); focusSoon('#pairX'); return; }
     if (S.view === 'flow') openPair(d.iso);
     else selectCounty(d.iso);
   };
@@ -155,9 +159,11 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
     : S.view === 'flow' ? 'Partneri · ' + (D[S.sel!]?.n || '') : 'Poredak županija';
 
   return (
-    <aside className="rail">
+    /* the complementary landmark was unnamed while its whole content changes per
+       view — landmark navigation announced "complementary" and nothing else */
+    <aside className="rail" aria-labelledby="railLab">
       <div className="rail-hd">
-        <div className="ctrl-lab" id="railLab">{railLab}</div>
+        <h2 className="ctrl-lab" id="railLab">{railLab}</h2>
         <div className="rail-year" id="railYear">{railTitle(S)}</div>
       </div>
       {/* the two lines above name what this list is and what period it covers;

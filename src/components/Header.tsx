@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fmtI, fmtR, Y0, YEND } from '../lib/metrics.ts';
 import { exportPNG, exportSVG } from '../lib/exportPng.ts';
 import { StorySelect } from './StoryBar.tsx';
+import { focusSoon } from '../lib/state.ts';
 import type { Patch, State, View } from '../lib/types.ts';
 
 function Seg<T extends string>({ id, opts, value, onPick, off, title, labId, aria }: {
@@ -33,17 +34,31 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
   setMode: (v: 'yr' | 'cum') => void; applyStory: (i: number) => void; resetAll: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(false);
+  /* Which exporter failed, not just "something did". One shared flag meant an
+     SVG failure lit "greška" on the PNG button — an error reported against the
+     control that did not fail, while the one that did looked untouched. */
+  const [err, setErr] = useState<'png' | 'svg' | null>(null);
+  const errT = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const fail = (which: 'png' | 'svg') => {
+    setErr(which);
+    clearTimeout(errT.current);
+    errT.current = setTimeout(() => setErr(null), 1600);
+  };
+  useEffect(() => () => clearTimeout(errT.current), []);
 
   const onPng = async () => {
-    setBusy(true); setErr(false);
+    setBusy(true); setErr(null);
     try { await exportPNG(document.querySelector<SVGSVGElement>('#map')!, S, true); }
-    catch { setErr(true); setTimeout(() => setErr(false), 1600); }
+    catch { fail('png'); }
     setBusy(false);
+    /* the button disables itself mid-export, and browsers blur a newly-disabled
+       element — so a keyboard export dropped focus to <body> every time */
+    focusSoon('#pngBtn');
   };
   const onSvg = () => {
+    setErr(null);
     try { exportSVG(document.querySelector<SVGSVGElement>('#map')!, S, true); }
-    catch { setErr(true); setTimeout(() => setErr(false), 1600); }
+    catch { fail('svg'); }
   };
 
   const lockFD = S.view === 'klas' || S.view === 'flow' || S.view === 'mx' || S.view === 'jmap';
@@ -80,12 +95,18 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
                 own name rather than a second claim on "Prag „gubitnice”" */}
             <Seg id="thrMode" aria="Jedinica praga" value={S.thrRel ? 'rel' : 'abs'} onPick={v => setS({ thrRel: v === 'rel' })}
               opts={[['abs', 'osobe'], ['rel', '%']]} />
+            {/* aria-valuetext, or AT reads the raw "1.5" while the visible
+                readout says "−1,5 %" — different sign, separator and unit */}
             {S.thrRel ? (
               <input type="range" id="thr" min="0.5" max="5" step="0.1" value={S.thrPct}
-                aria-label="Prag gubitnice (% popisa 2011.)" onChange={e => setS({ thrPct: +e.target.value })} />
+                aria-label="Prag gubitnice (% popisa 2011.)"
+                aria-valuetext={'−' + fmtR.format(S.thrPct) + ' % popisa 2011.'}
+                onChange={e => setS({ thrPct: +e.target.value })} />
             ) : (
               <input type="range" id="thr" min="500" max="15000" step="250" value={S.thr}
-                aria-label="Prag gubitnice (osobe)" onChange={e => setS({ thr: +e.target.value })} />
+                aria-label="Prag gubitnice (osobe)"
+                aria-valuetext={'−' + fmtI.format(S.thr) + ' osoba'}
+                onChange={e => setS({ thr: +e.target.value })} />
             )}
             <span className="thr-val" id="thrVal">
               {S.thrRel ? '−' + fmtR.format(S.thrPct) + ' %' : '−' + fmtI.format(S.thr)}
@@ -100,10 +121,16 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
         <div className="ctrl"><span className="ctrl-lab" id="segExpLab">Izvoz</span>
           <div className="seg" id="segExp" role="group" aria-labelledby="segExpLab">
             <button id="pngBtn" disabled={busy} onClick={onPng} title="Preuzmi kartu kao PNG"
-              aria-label="Preuzmi trenutačnu kartu kao PNG">{err ? 'greška' : busy ? '…' : 'PNG'}</button>
+              aria-label="Preuzmi trenutačnu kartu kao PNG">{err === 'png' ? 'greška' : busy ? '…' : 'PNG'}</button>
             <button id="svgBtn" onClick={onSvg} title="Preuzmi kartu kao SVG (vektor)"
-              aria-label="Preuzmi trenutačnu kartu kao SVG (vektor)">SVG</button>
+              aria-label="Preuzmi trenutačnu kartu kao SVG (vektor)">{err === 'svg' ? 'greška' : 'SVG'}</button>
           </div>
+          {/* An aria-label overrides button text, so the busy and error states
+              were invisible to AT — on the only error surface in the app. */}
+          <span className="sr-only" id="expLive" role="status" aria-live="polite">
+            {err === 'png' ? 'Izvoz PNG-a nije uspio.' : err === 'svg' ? 'Izvoz SVG-a nije uspio.'
+              : busy ? 'Priprema PNG-a…' : ''}
+          </span>
         </div>
       </div>
     </header>

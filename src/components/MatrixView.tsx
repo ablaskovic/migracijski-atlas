@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI, sgn } from '../lib/metrics.ts';
 import { moveTip, COARSE } from '../lib/tip.ts';
+import { focusSoon } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { Patch, State } from '../lib/types.ts';
@@ -68,6 +69,9 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
      the arrows walk the grid (the standard grid pattern). Arrow keys must stop
      propagating or App's global handler also steps the year. */
   const [fc, setFc] = useState<[number, number]>([0, 1]);
+  /* whether the roving cell actually holds focus — backs the two-tone ring, the
+     same way MapView tracks it for the county and municipality paths */
+  const [cellFoc, setCellFoc] = useState(false);
   const navRef = useRef(false);
   const gridRef = useRef<SVGGElement>(null);
   useEffect(() => {
@@ -88,14 +92,42 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
       ArrowRight: [0, 1], ArrowLeft: [0, -1], ArrowDown: [1, 0], ArrowUp: [-1, 0],
     };
     if (d[e.key]) { e.preventDefault(); e.stopPropagation(); moveF(...d[e.key]); return; }
+    /* The APG grid pattern requires these precisely because a 21×21 grid is
+       otherwise ~40 presses corner to corner, and App scopes its own Home/End
+       to #spark — so on a cell they did nothing at all. */
+    const jump: Record<string, [number, number] | null> = {
+      Home: e.ctrlKey ? [0, 1] : [-1, 0], End: e.ctrlKey ? [n - 1, n - 2] : [-1, n - 1],
+      PageUp: [0, -1], PageDown: [n - 1, -1],
+    };
+    if (e.key in jump) {
+      e.preventDefault(); e.stopPropagation();
+      navRef.current = true;
+      setFc(([r, c]) => {
+        const j = jump[e.key]!;
+        let nr = j[0] < 0 ? r : j[0], nc = j[1] < 0 ? c : j[1];
+        /* the diagonal holds no value — step off it the way moveF does */
+        if (nr === nc) { if (nc < n - 1) nc += 1; else nc -= 1; }
+        return [nr, nc];
+      });
+      return;
+    }
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault(); e.stopPropagation();
-      setS({ view: 'flow', sel: a, pair: b, flowSeen: true, playing: false });
+      drill(a, b);
     }
+  };
+  /* Activating a cell unmounts the entire grid this cell lives in, so focus had
+     nowhere to go and landed on <body> — restarting Tab from the top of the
+     page. Hand it to the corridor card the drill just opened, which is the
+     thing the user asked for. */
+  const drill = (a: string, b: string) => {
+    setS({ view: 'flow', sel: a, pair: b, flowSeen: true, playing: false });
+    focusSoon('#pairX, #railList .rrow[data-iso="' + b + '"]');
   };
   /* keyboard focus must place the tip itself — moveTip otherwise replays the
      last pointer position, which has nothing to do with the focused cell */
   const onCellFocus = (e: ReactFocusEvent<SVGRectElement>, a: string, b: string) => {
+    setCellFoc(true);
     setS({ pairHl: [a, b] });
     const r = e.currentTarget.getBoundingClientRect();
     moveTip({ clientX: r.right, clientY: r.bottom });
@@ -133,8 +165,15 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
     requestAnimationFrame(() => moveTip({ clientX, clientY }));
   };
 
-  const cells = [];
+  /* ARIA 1.2: a `grid` must own `row`s, and gridcells outside a row are not part
+     of the grid at all. This used to be 441 gridcells hanging directly off the
+     svg, so NVDA/JAWS table navigation — the only practical way to read a 21×21
+     matrix — never engaged, and no cell had any positional context. Rows now
+     wrap each line, the per-cell <g> is presentational so it does not break
+     ownership, and row/col indices are declared. */
+  const rows = [];
   for (let r = 0; r < n; r++) {
+    const cells = [];
     for (let c = 0; c < n; c++) {
       const a = MXORD[r], b = MXORD[c];
       if (a === b) {
@@ -145,7 +184,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
            mode without it ever becoming a tab stop. */
         cells.push(<rect key={a + b} className="mxd" data-a={a} data-b={b}
           x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
-          fill="url(#mxhatch)" role="gridcell" tabIndex={-1}
+          fill="url(#mxhatch)" role="gridcell" tabIndex={-1} aria-colindex={c + 1}
           aria-label={`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`}
           onPointerEnter={() => setS({ pairHl: [a, b] })}
           onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
@@ -156,39 +195,49 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
       const isHl = !!hl && hl[0] === a && hl[1] === b;
       const isF = fc[0] === r && fc[1] === c;
       cells.push(
-        <g key={a + b}>
+        <g key={a + b} role="presentation">
           <rect className="mxc" data-a={a} data-b={b}
             x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
             fill={col(S.dir === 'net' ? v : Math.abs(v))}
             stroke={isHl ? '#20262B' : '#fff'} strokeWidth={isHl ? 1.6 : 0.5}
-            role="gridcell" tabIndex={isF ? 0 : -1}
+            role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
             aria-label={cellAria(a, b, v)}
             onPointerEnter={() => setS({ pairHl: [a, b] })}
             onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
             onPointerMove={moveTip}
             onFocus={e => onCellFocus(e, a, b)}
-            onBlur={() => { if (!COARSE) setS({ pairHl: null }); }}
+            onBlur={() => { setCellFoc(false); if (!COARSE) setS({ pairHl: null }); }}
             onKeyDown={e => onCellKey(e, a, b)}
             /* Drill-through is pointer-only. At 21×21 a cell is ~10 px on a
                phone, so a tap that navigates is a tap that misfires — touch
                reads the corridor instead (see the .mxhit overlay below). */
-            onClick={() => { if (!COARSE) setS({ view: 'flow', sel: a, pair: b, flowSeen: true, playing: false }); }} />
+            onClick={() => { if (!COARSE) drill(a, b); }} />
           {showNum && Math.abs(v) >= 1 && (
-            <text x={x0 + c * cell + cell / 2} y={y0 + r * cell + cell / 2 + 2.5}
+            /* No ink/white flip any more: measured against the shipping Lab
+               ramps there is no threshold that works, because there are bands
+               where *neither* colour reaches the 4.5:1 this ≤8.5 px text owes.
+               On the Dolasci ramp t=0.60–0.70 peaks at 4.42 (ink) / 4.30
+               (white); on Odlasci t=0.70–0.80 peaks at 4.43 / 4.14. The old
+               0.85 cut left the whole 0.6–0.85 span of the indigo ramp on ink
+               at 2.5–3.6:1. A halo removes the dependency instead of tuning it:
+               ink on its own white outline is 15.29:1 over every fill, and the
+               palette stays exactly as documented. */
+            <text className="mxnum" x={x0 + c * cell + cell / 2} y={y0 + r * cell + cell / 2 + 2.5}
               textAnchor="middle" fontSize={Math.min(8.5, cell / 3)} fontFamily={MONO}
-              /* white only at the dark end: at the old 0.55 cut it was ~2.5:1,
-                 while ink was still above 5:1 there */
-              fill={Math.abs(v) > 0.85 * m ? '#fff' : '#20262B'} pointerEvents="none">
+              fill="#20262B" pointerEvents="none">
               {fmtI.format(Math.round(v))}
             </text>
           )}
         </g>,
       );
     }
+    rows.push(<g key={'row' + r} role="row" aria-rowindex={r + 1}
+      aria-label={D[MXORD[r]].n}>{cells}</g>);
   }
 
   return (
-    <svg id="map" role="grid" aria-label="Matrica međužupanijskih tokova — strelice pomiču odabir, Enter otvara koridor"
+    <svg id="map" role="grid" aria-rowcount={n} aria-colcount={n}
+      aria-label="Matrica međužupanijskih tokova — strelice pomiču odabir, Enter otvara koridor"
       {...zoom.bind} style={zoom.style}>
       <defs>
         <pattern id="mxhatch" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
@@ -210,7 +259,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
           fill={hl && hl[1] === iso ? '#20262B' : '#5F6A72'}
           transform={`translate(${x0 + c * cell + cell / 2 + 3},${y0 - 6}) rotate(-65)`}>{SHORTN[iso]}</text>
       ))}
-      {cells}
+      {rows}
       {/* trace lines back to the axes — bolding two labels is not enough to find
           one pair among 420 cells */}
       {hlR >= 0 && hlC >= 0 && (
@@ -226,6 +275,14 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
         </g>
       ))}
       <rect x={x0} y={y0} width={n * cell} height={n * cell} fill="none" stroke="#20262B" strokeWidth={1.1} />
+      {/* two-tone focus ring, above the block rules and the outline so it is not
+          the one thing on the grid another stroke can hide */}
+      {cellFoc && (
+        <g className="focusring">
+          <rect className="fr-halo" x={x0 + fc[1] * cell} y={y0 + fc[0] * cell} width={cell} height={cell} />
+          <rect className="fr-ink" x={x0 + fc[1] * cell} y={y0 + fc[0] * cell} width={cell} height={cell} />
+        </g>
+      )}
       {COARSE && (
         <rect className="mxhit" x={x0} y={y0} width={n * cell} height={n * cell}
           fill="transparent" onPointerDown={pick} onPointerMove={pick} />

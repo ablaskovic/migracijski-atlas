@@ -21,26 +21,58 @@ let jls: JlsGeo | null = null;
 let reg: RegGeo | null = null;
 let jlsP: Promise<void> | null = null;
 let regP: Promise<void> | null = null;
+let jlsErr = false;
+let regErr = false;
 const subs = new Set<() => void>();
 
 export const jlsGeo = (): JlsGeo | null => jls;
 export const regGeo = (): RegGeo | null => reg;
+/* A chunk that never arrives is a state the render path has to name. Without
+   this the JLS view sits under "Učitavanje geometrije JLS…" for ever: `jlsGeo()`
+   stays null, which is also the pre-arrival state, so the placeholder is the
+   permanent post-failure UI. */
+export const jlsFailed = (): boolean => jlsErr;
+export const regFailed = (): boolean => regErr;
+
+/* `??=` memoises the *promise*, so a rejected one used to be cached for the
+   whole session: leaving the view and coming back returned the same rejection
+   and only a reload could recover. Clear the slot on failure so the next call
+   genuinely retries, and swallow the rejection here — an unhandled rejection is
+   the one outcome that tells the user nothing. */
+function load<T>(
+  imp: () => Promise<{ default: unknown }>,
+  set: (v: T) => void,
+  slot: 'jls' | 'reg',
+): Promise<void> {
+  const p = imp().then(m => {
+    set(m.default as T);
+    if (slot === 'jls') jlsErr = false; else regErr = false;
+  }).catch(() => {
+    if (slot === 'jls') { jlsErr = true; jlsP = null; } else { regErr = true; regP = null; }
+  }).then(() => { subs.forEach(f => f()); });
+  return p;
+}
 
 export function loadJlsGeo(): Promise<void> {
   if (jls) return Promise.resolve();
-  jlsP ??= import('../data/geo_jls.json').then(m => {
-    jls = m.default as unknown as JlsGeo;
-    subs.forEach(f => f());
-  });
+  jlsP ??= load<JlsGeo>(() => import('../data/geo_jls.json'), v => { jls = v; }, 'jls');
   return jlsP;
 }
 export function loadRegGeo(): Promise<void> {
   if (reg) return Promise.resolve();
-  regP ??= import('../data/geo_regions5.json').then(m => {
-    reg = m.default as unknown as RegGeo;
-    subs.forEach(f => f());
-  });
+  regP ??= load<RegGeo>(() => import('../data/geo_regions5.json'), v => { reg = v; }, 'reg');
   return regP;
+}
+/* Retry entry point for the error UI.
+
+   This reloads the document rather than re-calling `import()`, and that is not
+   laziness: a failed module fetch is recorded in the browser's *module map*, so
+   a second `import()` of the same specifier resolves to the cached rejection
+   without touching the network. Measured — clearing `jlsP` alone still returned
+   0 of 556 features. The whole view state lives in the hash, so a reload costs
+   the user nothing and is the only thing that genuinely re-fetches. */
+export function retryGeo(): void {
+  location.reload();
 }
 
 /* Called once from App. Loads what the current view needs immediately, and warms
