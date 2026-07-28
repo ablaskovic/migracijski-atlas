@@ -3,6 +3,7 @@ import { fmtI, fmtR, Y0, YEND } from '../lib/metrics.ts';
 import { exportPNG, exportSVG } from '../lib/exportPng.ts';
 import { StorySelect } from './StoryBar.tsx';
 import { focusSoon } from '../lib/state.ts';
+import { paperSub } from '../lib/credits.ts';
 import type { Patch, State, View } from '../lib/types.ts';
 
 function Seg<T extends string>({ id, opts, value, onPick, off, title, labId, aria }: {
@@ -68,7 +69,10 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
       <div>
         <div className="hd-eyebrow">{`DZS 7.4.2. ${Y0}.–${YEND}. · tokovi: 2018. izmjereno · ostale godine IPF procjena`}</div>
         <h1 className="hd-title">Migracijski atlas županija</h1>
-        <div className="hd-sub">Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz Maras &amp; Vinovrški (2026.)</div>
+        {/* The study is unpublished, so the subtitle describes the reference
+            instead of naming it — see lib/credits.ts. The footer and the
+            glossary carry why, and the non-affiliation statement. */}
+        <div className="hd-sub">Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz {paperSub()}</div>
       </div>
       <div className="ctrls">
         <StorySelect S={S} applyStory={applyStory} resetAll={resetAll} />

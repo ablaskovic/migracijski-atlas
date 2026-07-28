@@ -2,6 +2,7 @@ import {
   ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
   klasOf, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc,
 } from './metrics.ts';
+import { paperExportLine } from './credits.ts';
 import type { Klas, State } from './types.ts';
 
 const VARS: Record<string, string> = {
@@ -147,6 +148,17 @@ const srcLine = (S: State): string => SRC_BASE + (S.view === 'jmap'
   ? ' · granice JLS: OpenStreetMap suradnici (ODbL)'
   : ' · granice županija: geoBoundaries/OSM (ODbL)');
 
+/* Klasifikacija reproduces the study's threshold and Regije its grouping, and
+   the on-screen legend says so ("Klasifikacija iz rada", "prijedlog iz rada").
+   The export is where that shorthand has to resolve itself: it is the artifact
+   that ends up in a slide or a paper, with no glossary to open. Its own line
+   rather than appended to srcLine — that line already runs ~950 px at 8,5 px
+   mono and would be clipped by the canvas edge, i.e. the disclaimer would be
+   the half that vanished. The four views that take nothing from the study say
+   nothing about it. */
+const paperLine = (S: State): string =>
+  S.view === 'klas' || S.view === 'reg' ? paperExportLine() : '';
+
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
   const w = node.clientWidth, h = node.clientHeight;
   const clone = bakeMapClone(node);
@@ -201,6 +213,8 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   ctx.fillStyle = '#5F6A72'; ctx.font = '400 8.5px "IBM Plex Mono",ui-monospace,monospace';
   const note = legendNote(S);
   if (note && leg.kind !== 'klas') ctx.fillText(note, 222, ly + 22);
+  const pl = paperLine(S);
+  if (pl) ctx.fillText(pl, 20, h + TOP + BOT - 28);
   ctx.fillText(srcLine(S), 20, h + TOP + BOT - 14);
   if (!dl) {
     const b = await new Promise<Blob | null>(r => cv.toBlob(r, 'image/png'));
@@ -285,6 +299,7 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
     + `<line x1="20" y1="70" x2="${w - 20}" y2="70" stroke="#D9DDD6"/>`
     + new XMLSerializer().serializeToString(clone)
     + legSvg
+    + (paperLine(S) ? txt(20, h + TOP + BOT - 28, paperLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`) : '')
     + txt(20, h + TOP + BOT - 14, srcLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`)
     + '</svg>';
   if (dl) download(new Blob([doc], { type: 'image/svg+xml;charset=utf-8' }), fname(S, per, 'svg'));

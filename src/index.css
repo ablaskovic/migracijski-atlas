@@ -302,6 +302,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .help-h{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--mut);margin:9px 0 3px;border-top:1px solid var(--line);padding-top:7px}
 .help-p{color:var(--ink)}
+/* only the attribution section runs several paragraphs under one heading */
+.help-p+.help-p{margin-top:6px}
 .help-blue{color:var(--gain)}
 .help-red{color:var(--loss)}
 .helpcard .cls-tag{margin-top:0;vertical-align:baseline}

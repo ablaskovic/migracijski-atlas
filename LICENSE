@@ -63,3 +63,20 @@ under ODbL 1.0 and must carry the same attribution.
 The IPF layers are generated output, not published statistics. Do not
 redistribute them as DZS figures. `CLAUDE.md` and `tools/pipeline/README.md`
 document how they are produced.
+
+## Note on the companion study
+
+The atlas was built as an interactive companion to a manuscript on county
+migration as a criterion for regionalisation that is **not published yet**. It
+is therefore not identified anywhere in the application or in this repository's
+shipped files: an unpublished manuscript is its authors' to release, and a
+citation a reader cannot retrieve is not a citation. Nothing from the manuscript
+is reproduced here — no text, no table, no figure. Two methodological choices
+follow it, the classification threshold and the five-region grouping, and both
+are marked "iz rada" in the interface; every number in the atlas comes from the
+DZS series or is computed here.
+
+This project is unaffiliated and unofficial. Its author has no connection to the
+study's authors or their institutions, and they have neither reviewed nor
+endorsed it. A full reference and attribution will be added once the study is
+publicly available — `src/lib/credits.ts` is the single place that changes.

@@ -1,4 +1,5 @@
 import { focusSoon } from '../lib/state.ts';
+import { NO_AFFIL, paperCheckNote, paperHelpIntro, paperTerm } from '../lib/credits.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* "Kako čitati" — the one stable place the vocabulary lives. Every other
@@ -49,6 +50,9 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <dt>koridor</dt><dd>jedan par županija i selidbe među njima</dd>
         <dt>klasifikacija</dt><dd>podjela na pobjednice / neutralne / gubitnice prema pragu koji sami pomičete</dd>
         <dt>kumulativno</dt><dd>zbroj svih godina od 2011. do odabrane, umjesto jedne godine</dd>
+        {/* the legend and the rail say "iz rada" in three places; without this
+            entry the shorthand pointed at nothing a reader could resolve */}
+        <dt>rad</dt><dd>{paperTerm()}</dd>
       </dl>
 
       <h3 className="help-h">Kratice</h3>
@@ -70,6 +74,28 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         Na karti i u matrici <b>Enter</b> ili <b>razmaknica</b> otvaraju odabrano —
         karticu županije, odnosno koridor. U matrici i na JLS karti
         <b> Home</b> / <b>End</b> i <b>PageUp</b> / <b>PageDown</b> skaču kroz mrežu.
+      </div>
+
+      {/* The full disclosure. The footer carries the same two facts in one line
+          because a statement only reachable through a panel is one most readers
+          never meet; this is where there is room to say why. All conditional
+          copy comes from lib/credits.ts — see the header of that file. */}
+      <h3 className="help-h">Rad i atribucija</h3>
+      <div className="help-p">
+        {/* the subject, not the title: the manuscript is unpublished, so even a
+            paraphrase close to its own wording identifies it */}
+        Atlas je interaktivna nadopuna znanstvenog rada koji migracije županija razmatra
+        kao kriterij regionalizacije Hrvatske. {paperHelpIntro()}
+      </div>
+      <div className="help-p">
+        Iz rada dolazi samo ono što je u sučelju označeno s „iz rada”: prag klasifikacije
+        i pripadnost županija u prikazu Regije. Nijedna brojka nije preuzeta iz rada — sve
+        su vrijednosti DZS-ove ili su izračunate ovdje, pa ništa na ekranu ne ovisi o tome
+        je li rad objavljen. {paperCheckNote()}
+      </div>
+      <div className="help-p">
+        {NO_AFFIL} Autori rada ovaj prikaz nisu pregledali, odobrili niti ga podupiru,
+        a za svaku pogrešku u njemu odgovoran je isključivo autor atlasa.
       </div>
 
       <div className="help-note">

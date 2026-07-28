@@ -38,7 +38,15 @@ matrix numbers got a halo because no ink/white threshold clears 4.5:1 on these
 ramps, the glossary stopped covering live tab stops, the JLS export stopped
 crediting the wrong boundary source, `storyHolds` became the *only* definition
 of caption validity, and the harness stopped leaking a Chromium on failure —
-**209 checks**, and the suite now asserts its own size.
+**211 checks** (this line long said 209; the pinned constant was always 211),
+and the suite now asserts its own size. **v2.0.6** is an attribution pass: the
+companion study is **not published yet**, so the atlas no longer names it. It
+says the reference is *pending* and that the project is unaffiliated, on every
+layer that used to name it or lean on it — header subtitle, footer, a "Rad i
+atribucija" glossary section, the `rad` term entry that makes the legend's "iz
+rada" shorthand resolvable, and both export formats for the two views that
+reproduce the study's method. `src/lib/credits.ts` is the single switch that
+publication flips — **221 checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -49,7 +57,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 209-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 221-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
@@ -86,6 +94,11 @@ just failed and could never have helped.
    `#pairSvg[role=img]`, `#thr[aria-valuetext]`, `#citzClamp[role=status]`,
    `.cnt[role=button][aria-expanded]`, `.jl[role=img]`, `#card[inert]`,
    `#jcard[inert]`, `#helpCard[tabindex]`, `#helpTitle`.
+   v2.0.6 adds the attribution surfaces, matched on **text**, not only on ids:
+   `.hd-sub`, `.ft`, `noscript`, `.legend-title`, `.map-box`, and inside the
+   glossary `.help-h` (the "Rad i atribucija" heading) and the `.help-dl dt`
+   whose text is exactly `rad` — the check reads the `dd` at the *same index*,
+   so reordering the definition list is fine but dropping the term is not.
    Renaming them breaks verification; change both sides deliberately or not at all.
    Two caveats on that sentence, both measured: `#segExp` is **not** selected by
    id anywhere, and the `*Lab` ids are resolved *generically* through
@@ -121,6 +134,17 @@ just failed and could never have helped.
    scrubber does not change them. "Mig. + prirodno" is the identity sum of two
    published components, not DZS total population change. The relative
    klasifikacija threshold states it is % popisa 2011. Never weaken these.
+   **The companion study is the same rule applied to a reference.** It is not
+   published, so the atlas does not name it, and a bare "iz rada" pointing at
+   nothing a reader can retrieve is an unlabelled claim exactly like an
+   unbadged estimate. So: the reference is stated as *pending* (never implied
+   to exist), the project is stated to be **unaffiliated** and unendorsed, and
+   the glossary says what the study contributes (the klas threshold, the Regije
+   grouping) and what it does not (no figure — every number is DZS or computed
+   here). All of it comes from `src/lib/credits.ts`; `index.html`'s `<noscript>`
+   is the one copy that cannot import it and is compared against the footer.
+   The subject may be described; the title may not be paraphrased closely
+   enough to identify it.
 4. **Generated data stays generated.** Never hand-edit `src/data/*.json`.
    Five of the eight are regenerable here — `odm.json` (`ipf.py`), `citizen.json`
    (`parse_cit.py`), `demo.json` (`parse_demo.py`), `jls_drill.json`
@@ -165,6 +189,12 @@ src/lib/geoAsync.ts      on-demand geo_jls.json (475 KB) + geo_regions5.json (68
                          which served two of six views and were 53 % of the bundle.
                          Sync accessors for the render path; App subscribes once via
                          useGeo() and its re-render feeds Rail/Legend/Tooltip too
+src/lib/credits.ts       the companion study's reference, in one place because it
+                         is unpublished: `PAPER {published, citation, url}` plus
+                         the per-surface copy derived from it (header subtitle,
+                         footer, glossary intro + `rad` term, export line) and
+                         the unconditional NO_AFFIL statement. Publication is one
+                         edit here + index.html's <noscript> + one pinned check
 src/lib/tip.ts           tooltip placement (imperative, cursor-following) + the
                          COARSE flag every hover/leave handler branches on
 src/lib/useZoom.ts       wheel/pinch/keyboard zoom + drag pan on Pointer Events
@@ -186,7 +216,8 @@ src/components/          Header (segments + PNG/SVG + reset), MapView (projectio
                          grid out around them; delegates to MatrixView for mx),
                          Legend, Rail, DetailCard, PairCard, JlsCard,
                          CitzPanel (+ zemlje tab), AgePanel, HelpPanel
-                         ("Kako čitati" glossary), StoryBar, MatrixView, Scrubber,
+                         ("Kako čitati" glossary + the "Rad i atribucija"
+                         disclosure), StoryBar, MatrixView, Scrubber,
                          Tooltip
                          NB: DetailCard, PairCard and StoryBar render *outside*
                          .map-box on purpose — that is what lets the cards drop
@@ -200,9 +231,10 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (209 checks; the
-                         390 px block re-runs geometry with hasTouch, and the
-                         v2.0.4 block after it pins the review-pass-2 findings)
+scripts/verify.cjs       the executable verification protocol (221 checks; the
+                         390 px block re-runs geometry with hasTouch, the
+                         v2.0.4 block after it pins the review-pass-2 findings,
+                         and the v2.0.6 block pins the attribution surfaces)
 ```
 
 State flows one way: controls mutate `S` in App → components derive everything per
@@ -385,3 +417,15 @@ Two more, on the keyboard and the screen reader:
 | `#v=jmap` waits on **556 features**, not a stopwatch | the 464 kB chunk loads from a `useEffect` *after* `networkidle0` resolves; every jmap check was racing it against `settle(400)` |
 | Overlay sweeps assert what they compared | filtering to `position === 'absolute'` meant a refactor to static/fixed shrank the set to nothing and the check passed having compared no pairs — and it silently excluded `.helpcard`, which is `fixed` below 900 px |
 | `.paircard` is asserted `static` below 960 px directly | it was documented and never tested, and the sweeps *exclude* static elements, so a regression to floating would have been caught only if it happened to overlap |
+
+### v2.0.6 invariants (unpublished companion study)
+
+| Invariant | Why |
+|---|---|
+| The study's authors appear **nowhere in the built app** | it is unpublished: naming it circulates it before they do. Asserted against the *bundle* (index.html + every same-origin script and stylesheet, fetched and scanned), not against the rendered text — a comment, an `aria-label` or a dead string all ship. The scanned count is asserted too, so a failed fetch cannot pass as "no hits" |
+| Header, footer and `<noscript>` **agree** on whether it is published | `index.html` is static markup and cannot import `credits.ts`, so it is the copy that gets left behind. The invariant is agreement, not any one wording — that check survives publication instead of silently pinning today's state. One further check *is* pinned to "unpublished"; publication updates `credits.ts`, the `<noscript>` and that line, in one commit |
+| The footer always carries a reference clause **and** the non-affiliation statement | it is the only always-visible surface. A disclosure reachable only through a panel is one most readers never meet — the glossary is where it gets room, not where it lives |
+| The disclosure costs the map ≤ 11 px | measured: the footer went 56 → 67 px at 1440 and `.map-box` 593 → 582. Three separate `<span>`s cost 23 px because each flex item wraps on its own; one merged span costs 11. Both numbers are pinned, so the next copy edit cannot quietly eat the map |
+| `rad` is a glossary term | the legend and the rail say "iz rada" in three places (`Klasifikacija iz rada`, `prijedlog iz rada`, `Regije — prijedlog iz rada`). Once the names are gone, the shorthand resolves to nothing unless the glossary defines it, and the entry points at the section that explains it |
+| The export carries it for **klas and reg only**, on its own line | those two reproduce the study's threshold and its grouping; the other four take nothing from it and must not imply otherwise. Own line because `srcLine` already runs ~950 px at 8,5 px mono — appended, the disclaimer is the half the canvas edge clips. Asserted by parsing the two 8,5 px `x="20"` rows out of the SVG and checking the 14 px gap and ≥ 12 px clearance from the legend |
+| The subject may be described, the title may not | the glossary once opened with a near-verbatim paraphrase of the manuscript's title, which identifies it as surely as the names do |

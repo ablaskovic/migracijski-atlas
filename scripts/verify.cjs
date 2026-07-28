@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 211;
+const EXPECTED_CHECKS = 221;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1832,6 +1832,130 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   for (let i = errors.length - 1; i >= 0; i--) if (/ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
   ck('the font host was stubbed, so no check depended on the network',
     fontReqs > 0, String(fontReqs));
+
+  /* ══════════ v2.0.6 — the companion study is unpublished ══════════
+     The paper this atlas is a companion to is not published yet, so three
+     things have to hold at once and they are cheap to break one at a time:
+     nothing identifies it, every surface says the reference is *pending*
+     rather than implying one exists, and the atlas states it is unaffiliated.
+     Same shape as the izmjereno/procjena rules — a bare "iz rada" with nothing
+     a reader can look up is an unlabelled claim. src/lib/credits.ts is the one
+     switch; these checks are what stops half a publication from shipping. */
+  await fresh('');
+  /* The names must not be in the *bundle*, not merely off-screen: a comment, an
+     aria-label or a dead string would all ship. Fetched from the page so this
+     works against a served dist and against a URL alike, and the scanned count
+     is asserted so a fetch failure cannot pass as "no hits". */
+  const bundleScan = await page.evaluate(async () => {
+    /* same-origin only: the font stylesheet is stubbed, and fetching it logs a
+       CORS error that the zero-console-errors check would then blame on the app */
+    const urls = [location.href,
+      ...[...document.querySelectorAll('script[src]')].map(s => s.src),
+      ...[...document.querySelectorAll('link[rel=stylesheet]')].map(l => l.href)]
+      .filter(u => new URL(u, location.href).origin === location.origin);
+    const hits = [];
+    let scanned = 0;
+    for (const u of urls) {
+      const t = await fetch(u).then(r => r.text()).catch(() => null);
+      if (t == null) continue;
+      scanned++;
+      const m = t.match(/maras|vinovr/i);
+      if (m) hits.push(u.split('/').pop() + ':' + m[0]);
+    }
+    return { scanned, hits };
+  });
+  ck('no identifying detail of the unpublished study ships in the built app',
+    bundleScan.scanned >= 2 && bundleScan.hits.length === 0, JSON.stringify(bundleScan));
+
+  const attr = await page.evaluate(() => ({
+    sub: document.querySelector('.hd-sub').textContent.trim(),
+    ft: document.querySelector('.ft').textContent.trim(),
+    ns: document.querySelector('noscript').textContent.trim(),
+    ftH: Math.round(document.querySelector('.ft').getBoundingClientRect().height),
+    boxH: Math.round(document.querySelector('.map-box').getBoundingClientRect().height),
+  }));
+  /* State-agnostic: the invariant is that the surfaces AGREE, not that any one
+     of them says "unpublished" today. index.html's <noscript> is static markup
+     that cannot import credits.ts, and the pinned check below is a third copy —
+     so publication that stops halfway fails here instead of shipping a page
+     that cites the paper in the footer and calls it unpublished in the header. */
+  const pending = {
+    hd: /neobjavljen/.test(attr.sub),
+    ft: /nije javno objavljen/.test(attr.ft),
+    ns: /nije javno objavljen/.test(attr.ns),
+  };
+  ck('header, footer and <noscript> agree on whether the study is published',
+    attr.sub.length > 60 && attr.ft.length > 40 && attr.ns.length > 40
+    && pending.hd === pending.ft && pending.ft === pending.ns,
+    JSON.stringify(pending));
+  ck('the footer always carries a reference clause and the non-affiliation statement',
+    /nije javno objavljen|preuzeti su iz rada:/.test(attr.ft) && /nije povezan/.test(attr.ft),
+    attr.ft.slice(-220));
+  /* The one deliberately state-dependent check in the block: today the paper is
+     unpublished, and that is a fact about this vintage of the atlas the same way
+     the ground-truth table is a fact about this vintage of the DZS series.
+     Publication updates credits.ts, index.html's <noscript> and this line — in
+     one commit, per CLAUDE.md. */
+  ck('as of this build the study is unpublished, and the subtitle cites no year',
+    pending.hd && pending.ft && !/\(\d{4}\.\)/.test(attr.sub), attr.sub);
+  /* the disclosure is always visible, and it cost the map 11 px — pin both, so
+     neither the footer nor the map can drift on the next copy edit */
+  ck('the always-visible disclosure stays inside its lane at 1440',
+    attr.ftH <= 72 && attr.boxH >= 560, JSON.stringify({ ftH: attr.ftH, boxH: attr.boxH }));
+
+  /* the legend and the rail say "iz rada" in three places; the glossary is the
+     only surface that can tell a reader what "rad" refers to */
+  await fresh('#v=klas');
+  const attrGloss = await page.evaluate(async () => {
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 300));
+    const c = document.querySelector('#helpCard');
+    const dts = [...c.querySelectorAll('.help-dl dt')];
+    const i = dts.findIndex(d => d.textContent.trim() === 'rad');
+    return {
+      legend: document.querySelector('.legend-title').textContent,
+      section: [...c.querySelectorAll('.help-h')].some(h => h.textContent.trim() === 'Rad i atribucija'),
+      term: i >= 0 ? c.querySelectorAll('.help-dl dd')[i].textContent.trim() : null,
+      body: c.textContent,
+    };
+  });
+  ck('the glossary defines the "iz rada" shorthand the legend uses',
+    /iz rada/.test(attrGloss.legend) && attrGloss.term != null
+    && /Rad i atribucija/.test(attrGloss.term)
+    && /nije javno objavljen/.test(attrGloss.term) === pending.ft,
+    JSON.stringify({ legend: attrGloss.legend, term: attrGloss.term }));
+  ck('and states independence, non-endorsement and what is not taken from the study',
+    attrGloss.section && /nije povezan/.test(attrGloss.body) && /nisu pregledali/.test(attrGloss.body)
+    && /Nijedna brojka nije preuzeta iz rada/.test(attrGloss.body),
+    JSON.stringify({ section: attrGloss.section }));
+
+  /* The export is the artifact that leaves the app, and Klasifikacija reproduces
+     the study's threshold while Regije reproduces its grouping. Both formats,
+     both views — and the four views that take nothing from it stay quiet. */
+  const expNote = async h => {
+    await fresh(h);
+    return page.evaluate(() => {
+      const s = window.__exportSVG(false);
+      return { svg: s,
+        has: /neobjavljenom znanstvenom radu|Klasifikacija i regije prema:/.test(s) && /nije povezan/.test(s) };
+    });
+  };
+  const eKlas = await expNote('#v=klas');
+  const eReg = await expNote('#v=reg&c=1&y=2024');
+  const eSaldo = await expNote('');
+  ck('exported klasifikacija and regije carry the pending reference and the disclaimer',
+    eKlas.has && eReg.has, JSON.stringify({ klas: eKlas.has, reg: eReg.has }));
+  ck('and the views that take nothing from the study claim nothing about it',
+    !/nije povezan|neobjavljen/.test(eSaldo.svg), 'saldo');
+  /* its own line, not glued onto the source credit: that line already runs
+     ~950 px at 8,5 px mono, so an appended disclaimer is the half that gets
+     clipped by the canvas edge */
+  const noteRows = [...eKlas.svg.matchAll(/<text x="20" y="(\d+(?:\.\d+)?)"[^>]*font-size="8\.5"/g)]
+    .map(m => +m[1]).sort((a, b) => a - b);
+  const swatch = +(eKlas.svg.match(/<rect x="20" y="(\d+(?:\.\d+)?)" width="11"/) || [0, 0])[1];
+  ck('the exported disclaimer is a line of its own, clear of the legend and the credit',
+    noteRows.length === 2 && noteRows[1] - noteRows[0] === 14 && noteRows[0] - swatch >= 12,
+    JSON.stringify({ noteRows, swatch }));
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

@@ -4,6 +4,7 @@ import { decodeHash, encodeHash } from './lib/hash.ts';
 import { BASE, focusSoon } from './lib/state.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
+import { NO_AFFIL, paperRefNote } from './lib/credits.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
@@ -327,7 +328,13 @@ export default function App() {
         {/* ODbL §4.3 wants the licence named, not just the source — the legend
             did it, the footer, the export and the README did not */}
         <span>Izvori: DZS tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (Pitoski i sur. 2021, CC BY) · ostale godine: IPF procjena na DZS marginama · granice županija: geoBoundaries/OSM, granice JLS: OpenStreetMap suradnici — oboje ODbL.</span>
-        <span>DZS naknadno revidira serije — pojedine se vrijednosti razlikuju od rada.</span>
+        {/* The study the atlas is a companion to is unpublished: the reference is
+            pending, not missing, and the atlas is not affiliated with it. Both
+            sentences come from lib/credits.ts, which is also what the header,
+            the glossary and the export read — one edit publishes all of them.
+            Always visible, because a disclaimer behind a panel is a disclaimer
+            most readers never meet. */}
+        <span>{paperRefNote()} {NO_AFFIL} DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.</span>
       </footer>
       <Tooltip S={S} />
     </>

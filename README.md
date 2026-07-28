@@ -25,7 +25,7 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
 npm i -D puppeteer   # once, for verification
-npm run verify       # typecheck + lint + build + 209-check suite (must pass)
+npm run verify       # typecheck + lint + build + 221-check suite (must pass)
 ```
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
@@ -56,5 +56,26 @@ Before touching code, read `CLAUDE.md` — it carries the project's hard rules
 - **Statistics** — DZS (podaci.dzs.hr), tables 7.4.1.–7.4.3. and STAN-2026-2-1.
 - **IPF layers** — generated here, not published statistics. Labelled as
   estimates throughout the UI; do not redistribute them as DZS figures.
+- **Companion study** — the classification threshold and the five-region
+  grouping come from a manuscript that is **not published yet**, so the atlas
+  does not identify it: an unpublished manuscript is its authors' to release,
+  and a citation nobody can retrieve is not a citation. Every surface says the
+  reference is *pending* instead — see below. No figure in the atlas comes from
+  it; every number is DZS or computed here.
+- **Independence** — the atlas is an unaffiliated, unofficial project. Its
+  author has no connection to the study's authors or their institutions, and
+  they have neither reviewed nor endorsed it. Stated in the footer, the
+  glossary, and on exports of the two views that use the study's method.
 
 See [LICENSE](LICENSE) for the full terms of all three.
+
+### When the study is published
+
+[`src/lib/credits.ts`](src/lib/credits.ts) is the switch: set `published: true`,
+fill `citation` (and `url`), and the header subtitle, footer, glossary section,
+the `rad` term entry and both export formats all start citing it. Two copies
+live outside that module and must change in the same commit — the `<noscript>`
+block in [index.html](index.html), which cannot import it, and the one pinned
+check in `scripts/verify.cjs` that records the study as unpublished. The suite
+compares the three, so a half-done publication fails rather than shipping a page
+that cites the paper in one place and calls it unpublished in another.
