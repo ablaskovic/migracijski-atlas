@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 242;
+const EXPECTED_CHECKS = 243;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2240,6 +2240,38 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     fv: document.activeElement.matches(':focus-visible') }));
   ck('and an arrow key brings it straight back',
     kbRing.ring && kbRing.fv, JSON.stringify(kbRing));
+
+  /* The UA ring is the other half of that fix, and the first cut of it got this
+     wrong: `outline:none` was moved under `:focus-visible` together with the
+     stroke, so a plain mouse click — deliberately *not* focus-visible — got
+     Chrome's default ring back. On an SVG element an outline is drawn round the
+     bbox, i.e. a rounded rectangle, and inside the zoom transform it scales with
+     k: ~20 px of black at k=4,1, over the shape it is supposed to indicate.
+     `outline:none` is unconditional; the indicator alone is conditional. */
+  const uaOutline = {};
+  for (const [hash, sel] of [['#v=jmap&dir=net', '.jl'], ['', '.cnt'], ['#v=mx&y=2018&c=0&dir=out', '.mxc']]) {
+    await fresh(hash);
+    const p = await page.evaluate(s => {
+      for (const el of document.querySelectorAll(s)) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 12 && r.height > 12) {
+          const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+          if (document.elementFromPoint(x, y) === el) return { x, y };
+        }
+      }
+      return null;
+    }, sel);
+    if (p) await page.mouse.click(p.x, p.y);
+    await settle(300);
+    uaOutline[sel] = await page.evaluate(() => {
+      const el = document.activeElement;
+      return { cls: el.getAttribute ? el.getAttribute('class') : null,
+        outline: getComputedStyle(el).outlineStyle };
+    });
+  }
+  ck('a mouse click never gets the UA focus ring — a bbox rounded rect, scaled by k',
+    ['.jl', '.cnt', '.mxc'].every(s => uaOutline[s] && uaOutline[s].outline === 'none'
+      && (uaOutline[s].cls || '').includes(s.slice(1))), JSON.stringify(uaOutline));
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

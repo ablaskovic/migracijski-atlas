@@ -54,7 +54,7 @@ grid, with its card docked in the rail; and every stroke in the map scaled with
 the zoom, so at k=6,55 the county outlines drew 6,55 px and the focus ring 29,5 px
 of white under 13,1 px of dashed ink, which is the "thick border on some parts" it
 was reported as. Strokes are now non-scaling and the ring is keyboard-only —
-**242 checks**.
+**243 checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -65,7 +65,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 242-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 243-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
@@ -259,7 +259,7 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (242 checks; the
+scripts/verify.cjs       the executable verification protocol (243 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)
@@ -478,3 +478,4 @@ Two more, on the keyboard and the screen reader:
 | **Strokes do not scale with the zoom** | every stroke is inside the zoom transform: at k=6,55 the county outlines on the JLS map drew 6,55 px, a highlighted municipality 8,5 px, and the focus ring 29,5 px of white under 13,1 px of dashed ink — reported as "weird thick border on some parts", which is what a scaled dash looks like. `vector-effect="non-scaling-stroke"` as an **attribute**, because the export clones the live SVG *with* its transform and a stylesheet rule would not travel with it. Arc widths are excluded on purpose: they encode magnitude |
 | That is asserted in **pixels**, differentially | `getBoundingClientRect` excludes an SVG element's stroke (measured: 0 px of contribution either way), so presence of the attribute is not evidence. The check rasterises the exported SVG twice — as it ships, and with the attribute stripped — and compares ink-run medians: **1 px vs 7 px** at k=6,55 |
 | The two-tone ring is **keyboard-only** | it was drawn from the `focus` event, which a mouse click fires too, so clicking a municipality painted the ring meant for Tab. `isKeyFocus` (`:focus-visible`) gates it, and the CSS `:focus` rules became `:focus-visible`. The check drives a **real** mouse through CDP: an in-page `dispatchEvent` + `.focus()` reports focus-visible and passed the bug |
+| `outline:none` stays **unconditional** — only the indicator is conditional | the first cut of the rule above moved `outline:none` under `:focus-visible` along with the stroke, so a mouse click got Chrome's default ring back. On an SVG element an outline is drawn round the **bbox** — a rounded rectangle — and inside the zoom transform it scales with k: ~20 px of black sitting over the shape it indicates, at k=4,1. Split into `.cnt:focus{outline:none}` + `.cnt:focus-visible{stroke:…}`, same for `.jl` and `.mxc` |

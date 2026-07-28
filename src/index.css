@@ -83,7 +83,13 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
    indicator at all (measured: activeElement unchanged, class back to "cnt").
    A dash is orthogonal to colour, so focus survives on top of hover (ink) and
    selection (teal) without hiding either. */
-.cnt:focus-visible{outline:none;stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
+/* `outline:none` is unconditional, and separate from the indicator below. An
+   outline on an SVG element is drawn round its *bbox* — a rounded rectangle, and
+   inside the zoom transform it scales with k too (measured ~20 px of black at
+   k=6,55). Gating it on :focus-visible along with the stroke meant a plain mouse
+   click, which is deliberately not focus-visible, got the UA ring back. */
+.cnt:focus{outline:none}
+.cnt:focus-visible{stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
 .cnt.sel:focus-visible{stroke:var(--acc);stroke-width:2.4}
 /* 1.4.11 — a *single-tone* ring cannot clear 3:1 against a diverging data ramp,
    and this one was being drawn as the feature's own stroke, i.e. directly on
@@ -350,7 +356,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .mxc{cursor:pointer}
 /* the cell keeps a stroke of its own, but the ring that has to clear 3:1 against
    the fill is the two-tone overlay below — same reasoning as .focusring */
-.mxc:focus-visible{outline:none;stroke:var(--ink);stroke-width:2}
+.mxc:focus{outline:none}
+.mxc:focus-visible{stroke:var(--ink);stroke-width:2}
 /* in-cell numbers: a white halo instead of an ink/white flip, because the flip
    has no working threshold — see the comment in MatrixView.tsx */
 .mxnum{paint-order:stroke;stroke:#fff;stroke-width:2.2;stroke-linejoin:round}
@@ -362,7 +369,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .arch{pointer-events:none;opacity:.9}
 /* hovering a region row in the rail lights that region's counties */
 .cnt.rhl{stroke:var(--ink);stroke-width:1.6}
-.jl:focus-visible{outline:none;stroke:var(--acc);stroke-width:1.6}
+.jl:focus{outline:none}
+.jl:focus-visible{stroke:var(--acc);stroke-width:1.6}
 .citz-clamp{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--loss);
   margin-top:5px;line-height:1.35}
 
