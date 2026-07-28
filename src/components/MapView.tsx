@@ -16,7 +16,7 @@ import MatrixView from './MatrixView.tsx';
 import HelpPanel from './HelpPanel.tsx';
 import StoryBar from './StoryBar.tsx';
 import { moveTip, COARSE } from '../lib/tip.ts';
-import { focusSoon } from '../lib/state.ts';
+import { focusSoon, isKeyFocus } from '../lib/state.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
 
@@ -216,7 +216,11 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           is a 232 px panel over a 439 px map that collides with both the JLS
           chip and the legend. Desktop is unaffected — .map-wrap and .map-box
           are the same box, so absolute positioning resolves identically. */}
-      <PairCard S={S} setS={setS} />
+      {/* In Matrica this mount is skipped and Rail renders the card instead — a
+          floating card over a heatmap covers live corridors (measured: ~12×9
+          cells at 960 px, and steering the grid around it crushes the cell to
+          ~10 px). Over a map it costs sea. */}
+      {S.view !== 'mx' && <PairCard S={S} setS={setS} />}
       <div className="map-box" ref={wrapRef}>
       {S.view === 'mx' ? (
         <MatrixView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} />
@@ -235,6 +239,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                 return (
                   <path key={p.j} className={'jl' + (S.jlsHl === p.j ? ' hl' : '')} data-j={p.j}
                     d={jds[ix]} fill={scale(S.dir === 'net' ? v : Math.abs(v))}
+                    vectorEffect="non-scaling-stroke"
                     /* the per-JLS numbers lived only in a hover tooltip, so the
                        whole view was unreachable without a pointer. One tab stop
                        in, arrows walk the features (grouped by county). */
@@ -251,7 +256,12 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                     onPointerLeave={() => { if (!COARSE) setS({ jlsHl: null }); }}
                     onPointerMove={moveTip}
                     onFocus={e => {
-                      setS({ jlsHl: p.j }); setJFoc(true);
+                      setS({ jlsHl: p.j });
+                      /* clicking a municipality focuses it, and the ring plus the
+                         tip-jump that follow are both keyboard behaviour: the
+                         pointer already placed the tip on pointermove */
+                      if (!isKeyFocus(e.currentTarget)) return;
+                      setJFoc(true);
                       const r = e.currentTarget.getBoundingClientRect();
                       moveTip({ clientX: r.right, clientY: r.bottom });
                     }}
@@ -277,14 +287,14 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
             })()}
           </g>
           <g>
-            {drawn && ISOS.map(iso => <path key={iso} className="jbord" d={cds[iso]} />)}
+            {drawn && ISOS.map(iso => <path key={iso} className="jbord" d={cds[iso]} vectorEffect="non-scaling-stroke" />)}
           </g>
           {/* same two-tone ring as the county map — a 1.6 px teal stroke on a
               √-scaled indigo/vermilion fill measured as low as 1.02:1 */}
           {jFoc && JGEO && jds[jf] && (
             <g className="focusring">
-              <path className="fr-halo" d={jds[jf]} />
-              <path className="fr-ink" d={jds[jf]} />
+              <path className="fr-halo" d={jds[jf]} vectorEffect="non-scaling-stroke" />
+              <path className="fr-ink" d={jds[jf]} vectorEffect="non-scaling-stroke" />
             </g>
           )}
           {labelG}
@@ -301,6 +311,9 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                 <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')
                   + (S.view === 'reg' && S.regHl && REGOF[iso] === S.regHl ? ' rhl' : '')}
                   data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={countyAria(S, iso)}
+                  /* every stroke in the map is inside the zoom transform, so a
+                     hairline border grew with k — see index.css */
+                  vectorEffect="non-scaling-stroke"
                   /* A focusable path with an aria-label and no role is a name
                      ARIA does not guarantee AT will expose — the rule the rail
                      rows and the matrix diagonal already follow. It is also
@@ -310,7 +323,9 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                   aria-expanded={S.view === 'flow' ? undefined : iso === S.sel}
                   onPointerEnter={() => setHL(iso)} onPointerLeave={() => setHL(null)}
                   onPointerMove={moveTip} onClick={() => selectCounty(iso)}
-                  onFocus={() => { setHL(iso); setFIso(iso); }}
+                  /* the ring is a keyboard affordance: drawn from the focus
+                     event alone it also appeared on a plain mouse click */
+                  onFocus={e => { setHL(iso); if (isKeyFocus(e.currentTarget)) setFIso(iso); }}
                   onBlur={() => { setHL(null); setFIso(null); }}
                   /* Space is the other native activation key. Without it the
                      press fell through to App's window handler, which read a
@@ -326,7 +341,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           </g>
           <g>
             {drawn && rds.map((d, i) => (
-              <path key={i} className="regline" d={d} style={{ display: S.view === 'reg' ? undefined : 'none' }} />
+              <path key={i} className="regline" d={d} vectorEffect="non-scaling-stroke" style={{ display: S.view === 'reg' ? undefined : 'none' }} />
             ))}
           </g>
           <g>
@@ -343,8 +358,8 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
               county's own stroke competing with its own colour. See index.css. */}
           {fIso && cds[fIso] && (
             <g className="focusring">
-              <path className="fr-halo" d={cds[fIso]} />
-              <path className="fr-ink" d={cds[fIso]} />
+              <path className="fr-halo" d={cds[fIso]} vectorEffect="non-scaling-stroke" />
+              <path className="fr-ink" d={cds[fIso]} vectorEffect="non-scaling-stroke" />
             </g>
           )}
           {labelG}

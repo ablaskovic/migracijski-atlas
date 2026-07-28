@@ -4,7 +4,7 @@ import {
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
-import { focusSoon } from '../lib/state.ts';
+import PairCard from './PairCard.tsx';
 import type { Patch, State } from '../lib/types.ts';
 
 /* `pair` is the corridor this row *points at* — the cell it highlights, the hub
@@ -61,9 +61,9 @@ function mxRows(S: State): Row[] {
   return rows.sort((x, y) => y.v - x.v).slice(0, 20);
 }
 
-export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow, setJlsHl }: {
+export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorridor, setJlsHl }: {
   S: State; setS: (p: Patch) => void; selectCounty: (iso: string) => void; setHL: (iso: string | null) => void;
-  openPair: (iso: string) => void; jumpFlow: (a: string, b: string) => void;
+  openPair: (iso: string) => void; openCorridor: (a: string, b: string) => void;
   setJlsHl: (j: number | null) => void;
 }) {
   const JG = jlsGeo();
@@ -123,13 +123,23 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
   const canActivate = (d: Row) => !d.reg && d.jls == null;
   const activate = (d: Row) => {
     if (!canActivate(d)) return;
-    /* This row's React key changes from the corridor to the hub iso, so every
-       row unmounts and focus fell to <body>. Hand it to the corridor card the
-       jump opens — the same handshake the matrix cells make. */
-    if (d.pair) { jumpFlow(d.pair[0], d.pair[1]); focusSoon('#pairX'); return; }
+    /* Used to jump to Tokovi, which unmounted every row (the key changes from
+       the corridor to the hub iso) and re-framed the screen around one county —
+       20 arcs and all 20 partners for a question about one corridor. It now
+       opens the corridor in place, like a matrix cell: the ranking stays, this
+       row stays mounted, and focus stays on it. */
+    if (d.pair) { openCorridor(d.pair[0], d.pair[1]); return; }
     if (S.view === 'flow') openPair(d.iso);
     else selectCounty(d.iso);
   };
+  /* which row the open corridor card describes — the rail is also where that card
+     lives in Matrica, so an unmarked list next to it reads as unrelated */
+  const isOpen = (d: Row): boolean => d.pair
+    ? S.sel === d.pair[0] && S.pair === d.pair[1]
+    : S.view === 'flow' && S.pair === d.iso;
+  /* activating either kind of row toggles the corridor card, so the row owns a
+     disclosure — the same contract `.cnt` has with the county card */
+  const owns = (d: Row): boolean => canActivate(d) && (!!d.pair || S.view === 'flow');
   const name = (d: Row) => {
     if (d.reg) return REG[d.iso].name;
     if (d.nm) return SHORTN[d.nm[0]] + ' → ' + SHORTN[d.nm[1]];
@@ -162,6 +172,11 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
     /* the complementary landmark was unnamed while its whole content changes per
        view — landmark navigation announced "complementary" and nothing else */
     <aside className="rail" aria-labelledby="railLab">
+      {/* Matrica's corridor card docks here rather than floating over the grid,
+          which is data all the way to its edges. Above the header so the list
+          keeps its own name and period, and so the card is next to the corridor
+          ranking it belongs to. See PairCard. */}
+      {S.view === 'mx' && <PairCard S={S} setS={setS} />}
       <div className="rail-hd">
         <h2 className="ctrl-lab" id="railLab">{railLab}</h2>
         <div className="rail-year" id="railYear">{railTitle(S)}</div>
@@ -172,7 +187,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
       <div className="rail-list" id="railList" role="group" aria-labelledby="railLab railYear">
         {rows.map((d, i) => (
           <div key={d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso}
-            className={'rrow' + (big ? ' big' : '') + (d.pair ? ' pairrow' : '') + (!d.reg && !d.pair && d.jls == null && d.iso === S.hl ? ' hl' : '') + (d.jls != null && d.jls === S.jlsHl ? ' hl' : '') + (d.reg && d.iso === S.regHl ? ' hl' : '') + (d.pair && S.pairHl && S.pairHl[0] === d.pair[0] && S.pairHl[1] === d.pair[1] ? ' hl' : '')}
+            className={'rrow' + (big ? ' big' : '') + (d.pair ? ' pairrow' : '') + (!d.reg && !d.pair && d.jls == null && d.iso === S.hl ? ' hl' : '') + (d.jls != null && d.jls === S.jlsHl ? ' hl' : '') + (d.reg && d.iso === S.regHl ? ' hl' : '') + (d.pair && S.pairHl && S.pairHl[0] === d.pair[0] && S.pairHl[1] === d.pair[1] ? ' hl' : '') + (isOpen(d) ? ' selrow' : '')}
             data-iso={d.iso}
             /* A row claims role=button only when activating it does something.
                The inert ones used to carry no role at all, which left an
@@ -182,6 +197,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
                string we want announced. */
             role={canActivate(d) ? 'button' : 'img'} tabIndex={0}
             aria-label={rowAria(d)}
+            aria-expanded={owns(d) ? isOpen(d) : undefined}
             /* the rail is the natural index into the map and the 420-cell grid,
                so hovering a row lights up whatever it names: a region's counties,
                a corridor's matrix cell, a JLS, or a county — and focus does the
@@ -213,7 +229,9 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, jumpFlow,
       </div>
       {S.view === 'flow' && <div className="rail-hint">klik na partnera otvara koridor kroz vrijeme · klik na kartu mijenja županiju</div>}
       {S.view === 'mx' && (
-        <div className="rail-hint">klik na koridor otvara Tokove s tim parom
+        /* the hint has to describe what the click now does: it opens the corridor
+           here, in the grid, instead of jumping to Tokovi */
+        <div className="rail-hint">klik na koridor otvara njegovu karticu i označuje ćeliju u mreži
           {S.dir !== 'net' && ' · isti popis za odlaske i dolaske — svaki je koridor nečiji odlazak i nečiji dolazak'}</div>
       )}
     </aside>

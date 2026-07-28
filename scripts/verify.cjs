@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 221;
+const EXPECTED_CHECKS = 242;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1619,8 +1619,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     return { view: location.hash, body: document.activeElement === document.body,
       id: document.activeElement ? document.activeElement.id : null };
   });
-  ck('drilling from a matrix cell does not drop focus to <body>',
-    /v=flow/.test(drillFocus.view) && !drillFocus.body, JSON.stringify(drillFocus));
+  /* v2.0.7: the cell no longer unmounts the grid, so the fix is now "focus stays
+     on the control that opened the card" rather than "focus is handed onward" */
+  ck('activating a matrix cell does not drop focus to <body>',
+    /v=mx/.test(drillFocus.view) && !drillFocus.body, JSON.stringify(drillFocus));
 
   /* ── P2: keyboard pan, and the year keeps the bare arrows ── */
   await fresh('');
@@ -1956,6 +1958,288 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the exported disclaimer is a line of its own, clear of the legend and the credit',
     noteRows.length === 2 && noteRows[1] - noteRows[0] === 14 && noteRows[0] - swatch >= 12,
     JSON.stringify({ noteRows, swatch }));
+
+  /* ══════════ v2.0.7 — a corridor opens where it was picked ══════════
+     Activating a matrix cell used to set `{view:'flow', sel:a, pair:b}`, which
+     answered a corridor question with a county one: measured, clicking
+     Istarska→Zadarska (31 people) unmounted the grid, drew 20 arcs from Istarska
+     and listed all 20 partners summing 996 — the county's entire outflow — with
+     the corridor demoted to a card in the corner. The matrix is *the* view for
+     comparing corridors and one click threw it away. Now the corridor opens in
+     place, and the card docks in the rail rather than floating over a surface
+     that is data to its edges. */
+  const mxOpen = async (hash, a, b, how) => {
+    await fresh(hash);
+    const before = await page.evaluate(() =>
+      +document.querySelector('.mxc').getBoundingClientRect().width.toFixed(1));
+    const selCell = `.mxc[data-a="${a}"][data-b="${b}"]`;
+    if (how === 'key') {
+      await page.evaluate(s => {
+        const c = document.querySelector(s);
+        c.focus();
+        c.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      }, selCell);
+    } else if (how === 'rail') {
+      await page.click('#railList .rrow');
+    } else {
+      await page.click(selCell);
+    }
+    await settle(400);
+    return page.evaluate(s => {
+      const c = document.querySelector(s);
+      const cells = [...document.querySelectorAll('.mxc')].map(x => x.getBoundingClientRect());
+      const g = { l: Math.min(...cells.map(r => r.left)), r: Math.max(...cells.map(r => r.right)),
+        t: Math.min(...cells.map(r => r.top)), b: Math.max(...cells.map(r => r.bottom)) };
+      const card = document.querySelector('#pair');
+      const cb = card && card.getBoundingClientRect();
+      const marks = [...document.querySelectorAll('.mxsel rect')];
+      const ring = marks[3] && marks[3].getBoundingClientRect();
+      const cr = c && c.getBoundingClientRect();
+      return {
+        view: document.querySelector('#segView button[aria-pressed="true"]').dataset.v,
+        hash: location.hash, cells: document.querySelectorAll('.mxc').length,
+        cell: +document.querySelector('.mxc').getBoundingClientRect().width.toFixed(1),
+        cardIn: card ? (card.closest('aside.rail') ? 'rail' : 'map') : null,
+        name: document.querySelector('#pairName') ? document.querySelector('#pairName').textContent : null,
+        row: document.querySelector('#pairRow') ? document.querySelector('#pairRow').textContent : null,
+        sub: document.querySelector('#pair .card-sub') ? document.querySelector('#pair .card-sub').textContent : '',
+        cellAria: c ? c.getAttribute('aria-label') : null,
+        expanded: c ? c.getAttribute('aria-expanded') : null,
+        expandedElsewhere: [...document.querySelectorAll('.mxc[aria-expanded="true"]')].length,
+        roving: document.querySelector('.mxc[tabindex="0"]').dataset.a + '/' + document.querySelector('.mxc[tabindex="0"]').dataset.b,
+        marks: marks.length,
+        ringOnCell: !!(ring && cr && Math.abs(ring.x - cr.x) < 3 && Math.abs(ring.y - cr.y) < 3),
+        naked: marks.filter(r => !r.hasAttribute('fill') || !r.hasAttribute('stroke')).length,
+        selrow: document.querySelectorAll('.rrow.selrow').length,
+        rowExpanded: document.querySelector('.rrow.selrow') ? document.querySelector('.rrow.selrow').getAttribute('aria-expanded') : null,
+        hint: document.querySelector('.rail-hint') ? document.querySelector('.rail-hint').textContent : '',
+        detailCard: document.querySelector('#card').textContent.length,
+        focusOnCell: document.activeElement === c,
+        gridCardOverlap: cb ? Math.round(Math.max(0, Math.min(g.r, cb.right) - Math.max(g.l, cb.left))
+          * Math.max(0, Math.min(g.b, cb.bottom) - Math.max(g.t, cb.top))) : 0,
+        before: null,
+      };
+    }, selCell).then(r => ({ ...r, before }));
+  };
+
+  const gz = await mxOpen('#v=mx&y=2018&c=0&dir=out', 'HR-21', 'HR-01', 'click');
+  ck('a matrix cell opens the corridor in place — the grid survives the click',
+    gz.view === 'mx' && gz.cells === 420 && !!gz.name && /s=HR-21/.test(gz.hash) && /pp=HR-01/.test(gz.hash),
+    JSON.stringify({ v: gz.view, cells: gz.cells, hash: gz.hash }));
+  /* The old jump's real cost: the card was right and everything around it was the
+     county. Pin that the card is the corridor by matching it against the cell's
+     own aria-label, which is the only other place that number appears. */
+  ck('the card carries the cell\'s own corridor numbers, not the county\'s',
+    /2\.311/.test(gz.row) && /1\.977/.test(gz.row) && /−334/.test(NBSP(gz.row))
+    && gz.cellAria.includes('2.311'),
+    JSON.stringify({ row: gz.row, aria: gz.cellAria }));
+  ck('and its caption names both endpoints in the direction each series runs',
+    /samo ovaj koridor/.test(gz.sub) && /Grad Zagreb → Zagrebačka/.test(gz.sub)
+    && /Zagrebačka → Grad Zagreb/.test(gz.sub) && !/odlasci \(puna crta\)/.test(gz.sub),
+    gz.sub);
+  /* The card docks in the rail because a floating card over a heatmap covers
+     live corridors — and steering the grid around it costs cells, which is the
+     whole reason the placement search exists. Both halves asserted: where it is,
+     and that opening it did not shrink a single cell. */
+  ck('the corridor card docks in the rail and costs the grid nothing',
+    gz.cardIn === 'rail' && gz.gridCardOverlap === 0 && gz.cell === gz.before && gz.cell >= 12,
+    JSON.stringify({ where: gz.cardIn, overlap: gz.gridCardOverlap, cell: gz.cell, before: gz.before }));
+  ck('the grid marks the selected corridor: two bands, a two-tone ring on the cell',
+    gz.marks === 4 && gz.ringOnCell, JSON.stringify({ marks: gz.marks, ring: gz.ringOnCell }));
+  /* .mxband had to be baked for the export because it took fill/stroke from the
+     stylesheet and shipped as a solid black bar. These carry attributes instead. */
+  ck('and paints them with attributes, so the export needs no new baking',
+    gz.naked === 0, String(gz.naked));
+  ck('the cell owns the disclosure: aria-expanded, exactly one, roving stop on it',
+    gz.expanded === 'true' && gz.expandedElsewhere === 1 && gz.roving === 'HR-21/HR-01',
+    JSON.stringify({ exp: gz.expanded, n: gz.expandedElsewhere, roving: gz.roving }));
+  ck('focus stays on the cell that opened the card',
+    gz.focusOnCell, String(gz.focusOnCell));
+  /* `sel` is now set in Matrica, and DetailCard keyed off `sel` alone: it painted
+     a 1998–2025 county card for the corridor's *row* — a county the user never
+     picked — which is the v2.0.5 "no county card in Matrica" rule arriving by a
+     new route. */
+  ck('no county detail card in Matrica, even though sel is set',
+    gz.detailCard === 0, String(gz.detailCard));
+  ck('the rail marks the row the card describes and says what a click now does',
+    gz.selrow === 1 && gz.rowExpanded === 'true' && !/otvara Tokove/.test(gz.hint),
+    JSON.stringify({ selrow: gz.selrow, exp: gz.rowExpanded, hint: gz.hint.slice(0, 60) }));
+
+  /* the same click, from the rail row and from the keyboard */
+  const viaRail = await mxOpen('#v=mx&y=2018&c=0&dir=out', 'HR-21', 'HR-01', 'rail');
+  ck('the matrix rail row opens the corridor in place too, and keeps its own list',
+    viaRail.view === 'mx' && viaRail.cells === 420 && viaRail.selrow === 1 && !!viaRail.name,
+    JSON.stringify({ v: viaRail.view, name: viaRail.name, selrow: viaRail.selrow }));
+  const viaKey = await mxOpen('#v=mx&y=2018&c=0&dir=out', 'HR-21', 'HR-01', 'key');
+  ck('Enter on a cell does the same and leaves focus where it was',
+    viaKey.view === 'mx' && viaKey.cells === 420 && viaKey.focusOnCell && !!viaKey.name,
+    JSON.stringify({ v: viaKey.view, focus: viaKey.focusOnCell }));
+
+  /* it is a toggle: the control that opens it closes it */
+  await page.click('.mxc[data-a="HR-21"][data-b="HR-01"]');
+  await settle(350);
+  const toggled = await page.evaluate(() => ({ card: !!document.querySelector('#pair'),
+    marks: document.querySelectorAll('.mxsel rect').length, hash: location.hash,
+    exp: document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').getAttribute('aria-expanded') }));
+  ck('a second activation closes the corridor and clears its marks',
+    !toggled.card && toggled.marks === 0 && !/pp=/.test(toggled.hash) && toggled.exp === 'false',
+    JSON.stringify(toggled));
+
+  /* Escape and the card's × both return focus to the cell, and both clear *both*
+     halves — a lone `sel` in Matrica marks a row with no card behind it. */
+  await fresh('#v=mx&y=2018&c=0&dir=out&s=HR-21&pp=HR-01');
+  const esc = await page.evaluate(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise(r => setTimeout(r, 350));
+    const el = document.activeElement;
+    return { card: !!document.querySelector('#pair'), hash: location.hash,
+      cell: !!(el.classList && el.classList.contains('mxc')),
+      a: el.getAttribute ? el.getAttribute('data-a') : null, b: el.getAttribute ? el.getAttribute('data-b') : null };
+  });
+  ck('Escape closes the corridor, drops both halves and lands back on the cell',
+    !esc.card && esc.cell && esc.a === 'HR-21' && esc.b === 'HR-01'
+    && !/pp=/.test(esc.hash) && !/s=HR/.test(esc.hash), JSON.stringify(esc));
+  await fresh('#v=mx&y=2018&c=0&dir=out&s=HR-21&pp=HR-01');
+  await click('#pairX');
+  const xBack = await page.evaluate(() => {
+    const el = document.activeElement;
+    return { card: !!document.querySelector('#pair'), hash: location.hash,
+      cell: !!(el.classList && el.classList.contains('mxc')),
+      a: el.getAttribute ? el.getAttribute('data-a') : null };
+  });
+  ck('the card\'s × does the same from the rail',
+    !xBack.card && xBack.cell && xBack.a === 'HR-21' && !/pp=/.test(xBack.hash), JSON.stringify(xBack));
+
+  /* A corridor means the same thing in Tokovi and in Matrica, so those two carry
+     it between them; no other view can render it, so both halves die there. */
+  await fresh('#v=mx&y=2018&c=0&dir=out&s=HR-21&pp=HR-01');
+  await click('#segView button[data-v="flow"]');
+  const carried = await page.evaluate(() => ({ hash: location.hash,
+    name: document.querySelector('#pairName') ? document.querySelector('#pairName').textContent : null,
+    where: document.querySelector('#pair') && document.querySelector('#pair').closest('aside.rail') ? 'rail' : 'map' }));
+  await fresh('#v=mx&y=2018&c=0&dir=out&s=HR-21&pp=HR-01');
+  await click('#segView button[data-v="saldo"]');
+  const dropped = await page.evaluate(() => ({ hash: location.hash, card: !!document.querySelector('#pair'),
+    detail: document.querySelector('#card').textContent.length }));
+  ck('Matrica → Tokovi keeps the corridor (and the card floats again); → Saldo drops it',
+    /s=HR-21/.test(carried.hash) && /pp=HR-01/.test(carried.hash) && carried.where === 'map'
+    && !dropped.card && !/pp=/.test(dropped.hash) && !/s=HR/.test(dropped.hash) && dropped.detail === 0,
+    JSON.stringify({ carried, dropped }));
+
+  /* half a corridor is not a corridor: each of these used to be a mark or an
+     Escape-eating flag with nothing on screen behind it */
+  const halves = {};
+  for (const h of ['#v=mx&s=HR-18', '#v=mx&pp=HR-13', '#v=flow&s=HR-01&pp=HR-01']) {
+    await fresh(h);
+    halves[h] = await page.evaluate(() => ({ hash: location.hash, card: !!document.querySelector('#pair'),
+      marks: document.querySelectorAll('.mxsel rect').length }));
+  }
+  ck('a permalink carrying half a corridor boots without one',
+    Object.values(halves).every(v => !v.card && v.marks === 0)
+    && !/s=HR/.test(halves['#v=mx&s=HR-18'].hash) && !/pp=/.test(halves['#v=mx&pp=HR-13'].hash)
+    && !/pp=/.test(halves['#v=flow&s=HR-01&pp=HR-01'].hash), JSON.stringify(halves));
+
+  /* ══════════ v2.0.7 — strokes do not scale with the zoom ══════════
+     Every stroke in the map is inside the zoom transform, so its width was
+     multiplied by k. Measured on the JLS map at k=6,55: county outlines 6,55 px,
+     a highlighted municipality 8,5 px, and the focus ring 29,5 px of white under
+     13,1 px of dashed ink — the dash is why it read as "thick in places". The
+     fix is `vector-effect="non-scaling-stroke"`, as an attribute so the export
+     (which clones the live SVG *with* its transform) renders what the screen
+     does. Arc widths are excluded: they encode magnitude. */
+  await fresh('#v=jmap&dir=net');
+  await page.evaluate(() => { for (let i = 0; i < 4; i++) window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true })); });
+  await settle(700);
+  /* The measurement is differential and on one document: rasterise the export as
+     it ships, then rasterise the same string with the attribute stripped. Same
+     scene, same zoom, one variable. `getBoundingClientRect` cannot see this —
+     Chrome excludes the stroke from an SVG element's rect (measured: 0 px of
+     stroke contribution either way), which is why this goes through pixels. */
+  const strokes = await page.evaluate(async () => {
+    const doc = window.__exportSVG(false);
+    const scan = async s => {
+      const url = URL.createObjectURL(new Blob([s], { type: 'image/svg+xml;charset=utf-8' }));
+      const img = new Image();
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+      const cv = document.createElement('canvas');
+      cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      const runs = [];
+      let opaque = 0;
+      /* the map band only: the title band above and the legend/credit band below
+         are full of ink text that has nothing to do with stroke width */
+      for (let x = 30; x < cv.width - 30; x += 6) {
+        let run = 0;
+        for (let y = 94; y < cv.height - 120; y++) {
+          const i = (y * cv.width + x) * 4;
+          if (d[i + 3] > 200) opaque++;
+          const dark = d[i + 3] > 200 && d[i] < 110 && d[i + 1] < 110 && d[i + 2] < 110;
+          if (dark) run++;
+          else { if (run > 0) runs.push(run); run = 0; }
+        }
+        if (run > 0) runs.push(run);
+      }
+      runs.sort((a, b) => a - b);
+      return { n: runs.length, opaque, median: runs[Math.floor(runs.length / 2)] || 0 };
+    };
+    const on = await scan(doc);
+    const off = await scan(doc.replace(/ vector-effect="non-scaling-stroke"/g, ''));
+    return { attrs: (doc.match(/non-scaling-stroke/g) || []).length, on, off };
+  });
+  ck('zooming the map does not fatten its strokes, and the export agrees',
+    strokes.on.opaque > 10000 && strokes.on.median <= 3 && strokes.off.median >= 6
+    && strokes.attrs > 500,
+    JSON.stringify({ attrs: strokes.attrs, on: strokes.on.median, off: strokes.off.median }));
+  const declared = await page.evaluate(() => {
+    const q = s => [...document.querySelectorAll(s)];
+    const all = sel => q(sel).length > 0 && q(sel).every(e => e.getAttribute('vector-effect') === 'non-scaling-stroke');
+    return { jl: all('.jl'), jbord: all('.jbord'), nJl: q('.jl').length,
+      ring: q('.focusring path').length === 0 || all('.focusring path') };
+  });
+  ck('every stroked feature on the JLS map declares it, not a stylesheet rule',
+    declared.jl && declared.jbord && declared.ring && declared.nJl === 556,
+    JSON.stringify(declared));
+
+  /* The two-tone ring is a *keyboard* affordance and was drawn from the `focus`
+     event, which a mouse click fires too — so clicking a municipality painted the
+     dashed ring meant for Tab (and, before the fix above, at 4× width). */
+  /* A real mouse, through CDP: `:focus-visible` keys off *trusted* input, so an
+     in-page `dispatchEvent(new PointerEvent(...)) + el.focus()` is indistinguishable
+     from a script focus and reports focus-visible — measured, that version of this
+     check passed the bug. */
+  const target = await page.evaluate(() => {
+    let best = null;
+    for (const p of document.querySelectorAll('.jl')) {
+      const r = p.getBoundingClientRect();
+      if (r.width > 14 && r.height > 14) {
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        if (document.elementFromPoint(cx, cy) === p && (!best || r.width * r.height > best.a)) {
+          best = { a: r.width * r.height, x: Math.round(cx), y: Math.round(cy) };
+        }
+      }
+    }
+    return best;
+  });
+  if (target) await page.mouse.click(target.x, target.y);
+  await settle(300);
+  const ptrRing = await page.evaluate(t => {
+    const el = document.activeElement;
+    return { skipped: !t, focused: !!(el.classList && el.classList.contains('jl')),
+      fv: el.matches ? el.matches(':focus-visible') : null,
+      ring: !!document.querySelector('.focusring') };
+  }, target);
+  ck('a pointer click focuses a municipality without painting the keyboard ring',
+    !ptrRing.skipped && ptrRing.focused && !ptrRing.fv && !ptrRing.ring, JSON.stringify(ptrRing));
+  await page.evaluate(() => document.querySelector('.jl[tabindex="0"]').focus());
+  await page.keyboard.press('ArrowRight');
+  await settle(350);
+  const kbRing = await page.evaluate(() => ({ ring: !!document.querySelector('.focusring .fr-ink'),
+    fv: document.activeElement.matches(':focus-visible') }));
+  ck('and an arrow key brings it straight back',
+    kbRing.ring && kbRing.fv, JSON.stringify(kbRing));
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

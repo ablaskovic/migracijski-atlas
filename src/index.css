@@ -63,6 +63,15 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 /* the measured map area — overlays that must stay over the map anchor to this */
 .map-box{flex:1;position:relative;min-height:0;min-width:0}
 .map-box svg{display:block;width:100%;height:100%}
+/* Every stroke in the map lives inside the zoom transform, so its width was
+   multiplied by k: measured on the JLS map at k=4,1 the county outlines drew
+   4,1 px, a highlighted municipality 5,3 px, and the focus ring 18,5 px of white
+   under 8,2 px of dashed ink — the dash is why it read as "thick in places".
+   Every stroked element therefore carries vector-effect="non-scaling-stroke" as
+   an ATTRIBUTE, in the JSX, not here: the export clones the live SVG with its
+   transform, and a rule in this file would not travel with it — the same reason
+   .mxband and .mxnum have to be baked. Arc widths are excluded on purpose: they
+   encode magnitude, so they are geometry, not chrome. */
 .cnt{stroke:#fff;stroke-width:.8;cursor:pointer;transition:fill .25s}
 .cnt.hl{stroke:var(--ink);stroke-width:1.6}
 .cnt.sel{stroke:var(--acc);stroke-width:2.2}
@@ -74,8 +83,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
    indicator at all (measured: activeElement unchanged, class back to "cnt").
    A dash is orthogonal to colour, so focus survives on top of hover (ink) and
    selection (teal) without hiding either. */
-.cnt:focus{outline:none;stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
-.cnt.sel:focus{stroke:var(--acc);stroke-width:2.4}
+.cnt:focus-visible{outline:none;stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
+.cnt.sel:focus-visible{stroke:var(--acc);stroke-width:2.4}
 /* 1.4.11 — a *single-tone* ring cannot clear 3:1 against a diverging data ramp,
    and this one was being drawn as the feature's own stroke, i.e. directly on
    the colour it has to contrast with. Measured against the shipping Lab ramp:
@@ -239,6 +248,14 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   border:1px solid var(--line);border-radius:3px;box-shadow:0 2px 10px rgba(32,38,43,.08);
   padding:10px 12px 8px;z-index:5}
 .paircard svg{display:block;width:100%;height:110px}
+/* Matrica docks the corridor card in the rail instead of floating it: a heatmap
+   is data to its edges, and at 960 px a floating card covered ~12 columns × 9
+   rows, while steering the grid around it drops the cell to ~10 px (floor 12).
+   Same component, no overlay geometry to negotiate. */
+.rail .paircard{position:static;width:auto;top:auto;right:auto;box-shadow:none;
+  border:0;border-bottom:1px solid var(--line);border-radius:0;padding:8px 14px 10px}
+/* the row the open card describes — teal, matching the grid's selection ring */
+.rrow.selrow{box-shadow:inset 2px 0 0 var(--acc)}
 .pair-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
   font-family:var(--mono);font-size:9px;color:var(--ink);margin-top:4px;white-space:nowrap}
 .pair-row .cls-tag{font-size:8.5px;margin-top:0}
@@ -333,7 +350,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .mxc{cursor:pointer}
 /* the cell keeps a stroke of its own, but the ring that has to clear 3:1 against
    the fill is the two-tone overlay below — same reasoning as .focusring */
-.mxc:focus{outline:none;stroke:var(--ink);stroke-width:2}
+.mxc:focus-visible{outline:none;stroke:var(--ink);stroke-width:2}
 /* in-cell numbers: a white halo instead of an ink/white flip, because the flip
    has no working threshold — see the comment in MatrixView.tsx */
 .mxnum{paint-order:stroke;stroke:#fff;stroke-width:2.2;stroke-linejoin:round}
@@ -345,7 +362,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .arch{pointer-events:none;opacity:.9}
 /* hovering a region row in the rail lights that region's counties */
 .cnt.rhl{stroke:var(--ink);stroke-width:1.6}
-.jl:focus{outline:none;stroke:var(--acc);stroke-width:1.6}
+.jl:focus-visible{outline:none;stroke:var(--acc);stroke-width:1.6}
 .citz-clamp{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--loss);
   margin-top:5px;line-height:1.35}
 

@@ -46,7 +46,15 @@ layer that used to name it or lean on it — header subtitle, footer, a "Rad i
 atribucija" glossary section, the `rad` term entry that makes the legend's "iz
 rada" shorthand resolvable, and both export formats for the two views that
 reproduce the study's method. `src/lib/credits.ts` is the single switch that
-publication flips — **221 checks**.
+publication flips — **221 checks**. **v2.0.7** fixes two things a user found in
+one sitting: activating a matrix cell used to answer a corridor question with a
+county one (it switched to Tokovi and drew all 20 of the hub's arcs, the corridor
+demoted to a card in the corner) — a corridor now opens *in place*, marked in the
+grid, with its card docked in the rail; and every stroke in the map scaled with
+the zoom, so at k=6,55 the county outlines drew 6,55 px and the focus ring 29,5 px
+of white under 13,1 px of dashed ink, which is the "thick border on some parts" it
+was reported as. Strokes are now non-scaling and the ring is keyboard-only —
+**242 checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -57,7 +65,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 221-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 242-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
@@ -99,6 +107,15 @@ just failed and could never have helped.
    glossary `.help-h` (the "Rad i atribucija" heading) and the `.help-dl dt`
    whose text is exactly `rad` — the check reads the `dd` at the *same index*,
    so reordering the definition list is fine but dropping the term is not.
+   v2.0.7 adds the corridor-selection and stroke surfaces: `.mxsel` (+ its
+   `.mxsel-halo/.mxsel-ink` rects), `.rrow.selrow`, `.mxc[aria-expanded]`,
+   `.rrow[aria-expanded]`, `.rail .paircard` (the card's Matrica mount — the
+   check asserts `#pair.closest('aside.rail')`), and
+   `vector-effect="non-scaling-stroke"` on every `.cnt`/`.jl`/`.jbord`/`.regline`/
+   `.mxc`/`.mxd`/`.mxband rect`/`.mxsel rect`/`.focusring` child. That attribute
+   is asserted **by pixel measurement**, not only by presence: the check
+   rasterises the exported SVG twice, once as it ships and once with the
+   attribute stripped, and compares ink-run medians (1 px vs 7 px at k=6,55).
    Renaming them breaks verification; change both sides deliberately or not at all.
    Two caveats on that sentence, both measured: `#segExp` is **not** selected by
    id anywhere, and the `*Lab` ids are resolved *generically* through
@@ -189,6 +206,12 @@ src/lib/geoAsync.ts      on-demand geo_jls.json (475 KB) + geo_regions5.json (68
                          which served two of six views and were 53 % of the bundle.
                          Sync accessors for the render path; App subscribes once via
                          useGeo() and its re-render feeds Rail/Legend/Tooltip too
+src/lib/state.ts (cont.)  `isKeyFocus(el)` — `:focus-visible` behind a try/catch.
+                         The two-tone rings are a keyboard affordance and were
+                         drawn from the `focus` event, which a mouse click fires
+                         too. Chrome answers this correctly in both directions:
+                         false after a real click on the element, true for a
+                         programmatic `.focus()` (which is how verify drives it)
 src/lib/credits.ts       the companion study's reference, in one place because it
                          is unpublished: `PAPER {published, citation, url}` plus
                          the per-surface copy derived from it (header subtitle,
@@ -214,7 +237,12 @@ src/components/          Header (segments + PNG/SVG + reset), MapView (projectio
                          arrowheads + labels; measures the legend and the open
                          chip dock and feeds both to MatrixView, which lays the
                          grid out around them; delegates to MatrixView for mx),
-                         Legend, Rail, DetailCard, PairCard, JlsCard,
+                         Legend, Rail, DetailCard, PairCard (two mounts, one
+                         active: floating over the map in Tokovi, docked inside
+                         the rail in Matrica — a floating card over a heatmap
+                         covers live corridors, measured ~12×9 cells at 960 px,
+                         and steering the grid around it crushes the cell to
+                         ~10 px), JlsCard,
                          CitzPanel (+ zemlje tab), AgePanel, HelpPanel
                          ("Kako čitati" glossary + the "Rad i atribucija"
                          disclosure), StoryBar, MatrixView, Scrubber,
@@ -231,7 +259,7 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (221 checks; the
+scripts/verify.cjs       the executable verification protocol (242 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)
@@ -245,7 +273,9 @@ binds a non-passive wheel listener itself), and hash sync — a **view** change 
 `popstate` listener decodes back into `S`. `INITIAL = {...BASE, ...decodeHash(hash)}`,
 so a shared URL boots straight into its view; `decodeHash` repairs invariants
 (flow needs a hub, klas/cum clamp to ≥2011, the JLS chip only exists in Tokovi,
-citz/jls/age mutually exclusive).
+citz/jls/age mutually exclusive, and a corridor — `sel` + `pair` — exists only in
+Tokovi and Matrica, never as half of itself and never as a county paired with
+itself).
 
 **Every repair must test the state the link boots, not the decoded patch.** They
 are two different objects and the difference is invisible in the common case:
@@ -305,6 +335,11 @@ Two measured guardrails on those tokens:
   So `.cnt`/`.jl`/`.mxc` focus is a **two-tone overlay** (`.focusring`: white
   halo under an ink dash). White↔ink is 15.29:1, and at least one of them clears
   3:1 at every point on the ramp — worst case 3.21. Never collapse it to one tone.
+  Two v2.0.7 riders: the ring is drawn only for **keyboard** focus (`isKeyFocus`,
+  i.e. `:focus-visible`) — from the `focus` event alone a mouse click painted it
+  too — and it carries `vector-effect="non-scaling-stroke"` like every other
+  stroke in the map, because inside the zoom transform its 4.5/2 px measured
+  29.5/13.1 px at k=6.55.
 - Category swatches carry a `--mut` border, not `rgba(0,0,0,.15)`: the pale
   "neutralne" chip `#C6CCC4` is 1.59:1 against panel, so its own edge is what
   satisfies 1.4.11.
@@ -397,7 +432,7 @@ Two more, on the keyboard and the screen reader:
 | `.cnt` is a `role="button"` that handles **Enter *and* Space** | an SVG `<path>` matches none of App's Space exemptions (`tagName` is `path`, no role, not in `.rrow`), so Space on the primary view's 21 tab stops started the 28-year animation — v2.0.4's rail-row fix, one element short |
 | The global key handler ignores **Ctrl / Meta / Alt** chords | Alt+← is the browser's Back, which this app deliberately makes an undo; stepping the year on it mutated the history entry the user was leaving. `useZoom` guarded the same window correctly and the two disagreed |
 | Space yields when the document can actually scroll | below 900 px `body` scrolls, and Space / Shift+Space are the primary keyboard scroll keys — a 1440 px window at 200 % zoom is in that band too |
-| `sel` dies entering Matrica or the JLS map | there is no county card for those views, so it painted a 1998–2025 county card over a 21×21 grid, and its `×` aimed `focusSoon` at a `.cnt` that does not exist there → focus to `<body>`. Same defect as the stale tooltip, on the fifth key that fix did not clear. Enforced in `setView` **and** `decodeHash` |
+| A **lone** `sel` dies entering Matrica or the JLS map | there is no county card for those views, so it painted a 1998–2025 county card over a 21×21 grid, and its `×` aimed `focusSoon` at a `.cnt` that does not exist there → focus to `<body>`. Same defect as the stale tooltip, on the fifth key that fix did not clear. Enforced in `setView` **and** `decodeHash`. Amended in v2.0.7: in Matrica `sel` survives as one half of a *corridor* (`sel` + `pair`), which the grid can point at — DetailCard is what must stay out, and it now checks the view, not just `sel` |
 | A dead `pp=` is dropped on decode, like `jl=` | `PairCard` renders null outside Tokovi but App's Escape cascade still consumed a press for it and `encodeHash` re-emitted it — `#v=reg&pp=HR-01&cz=1` booted with an invisible pair whose Escape closed nothing and never reached the open panel |
 | Re-hubbing in Tokovi **closes** the corridor card | it silently re-pointed at a pair the user never chose. Carried open as "finding 27" through two passes; the hub is what was picked, so the pair is stale by construction |
 | `storyHolds()` is the **only** definition of caption validity | `up()` walked `storyKeys` against the patch directly and invalidated on STORY_KEYS fields a preset never sets, while the codec skipped them — two rules for one question, and this file claimed they were one |
@@ -429,3 +464,17 @@ Two more, on the keyboard and the screen reader:
 | `rad` is a glossary term | the legend and the rail say "iz rada" in three places (`Klasifikacija iz rada`, `prijedlog iz rada`, `Regije — prijedlog iz rada`). Once the names are gone, the shorthand resolves to nothing unless the glossary defines it, and the entry points at the section that explains it |
 | The export carries it for **klas and reg only**, on its own line | those two reproduce the study's threshold and its grouping; the other four take nothing from it and must not imply otherwise. Own line because `srcLine` already runs ~950 px at 8,5 px mono — appended, the disclaimer is the half the canvas edge clips. Asserted by parsing the two 8,5 px `x="20"` rows out of the SVG and checking the 14 px gap and ≥ 12 px clearance from the legend |
 | The subject may be described, the title may not | the glossary once opened with a near-verbatim paraphrase of the manuscript's title, which identifies it as surely as the names do |
+
+### v2.0.7 invariants (a corridor opens where it was picked; strokes)
+
+| Invariant | Why |
+|---|---|
+| Activating a matrix cell or a matrix rail row opens the corridor **in place** | it used to set `{view:'flow', sel:a, pair:b}`, i.e. answer a corridor question with a county one: measured, Istarska→Zadarska (31 people) unmounted the grid, drew 20 arcs from Istarska and listed all 20 partners summing 996 — the county's whole outflow — with the corridor demoted to a card in the corner. The matrix is *the* view for comparing corridors and one click threw it away |
+| A corridor is `sel` **+** `pair`, and it lives in Tokovi **and** Matrica | the same pair, hub/partner there and row/column here, so those two views carry it between them and every other view drops both halves. Half a corridor is dropped on decode too — `#v=mx&s=…` alone marked a row with no card, `#v=mx&pp=…` was an Escape-eating flag with nothing on screen, and `s=X&pp=X` is not a corridor at all |
+| The corridor card docks in the **rail** in Matrica | a floating card is free over a map (it lands on sea) and expensive over a heatmap: measured at 960 px it covered ~12 columns × 9 rows, and steering the grid around it (the placement search) drops the cell to ~10 px, under the 12 px floor. Asserted both ways — where the card is, and that opening it changed no cell's size |
+| The grid marks the corridor its card describes | one cell in 420 is not findable from memory: two teal trace bands plus a two-tone ring on the cell (teal alone is 1.02:1 against the ramp — see Design tokens). Painted with **attributes**, so unlike `.mxband` the export needs no new baking |
+| The cell and the rail row own the disclosure (`aria-expanded`) | activating either opens the card and leaves the control mounted, so it is a toggle and says so — the contract `.cnt` already has with the county card. Focus therefore stays put instead of being handed on, and Escape / the card's `×` come back to that exact cell |
+| No county detail card in Matrica, even though `sel` is set | DetailCard keyed off `sel` alone and painted a 1998–2025 county card for the corridor's *row* — a county the user never picked. Same rule as v2.0.5, reached by a new route |
+| **Strokes do not scale with the zoom** | every stroke is inside the zoom transform: at k=6,55 the county outlines on the JLS map drew 6,55 px, a highlighted municipality 8,5 px, and the focus ring 29,5 px of white under 13,1 px of dashed ink — reported as "weird thick border on some parts", which is what a scaled dash looks like. `vector-effect="non-scaling-stroke"` as an **attribute**, because the export clones the live SVG *with* its transform and a stylesheet rule would not travel with it. Arc widths are excluded on purpose: they encode magnitude |
+| That is asserted in **pixels**, differentially | `getBoundingClientRect` excludes an SVG element's stroke (measured: 0 px of contribution either way), so presence of the attribute is not evidence. The check rasterises the exported SVG twice — as it ships, and with the attribute stripped — and compares ink-run medians: **1 px vs 7 px** at k=6,55 |
+| The two-tone ring is **keyboard-only** | it was drawn from the `focus` event, which a mouse click fires too, so clicking a municipality painted the ring meant for Tab. `isKeyFocus` (`:focus-visible`) gates it, and the CSS `:focus` rules became `:focus-visible`. The check drives a **real** mouse through CDP: an in-page `dispatchEvent` + `.focus()` reports focus-visible and passed the bug |

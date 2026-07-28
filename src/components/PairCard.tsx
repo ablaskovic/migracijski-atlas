@@ -6,12 +6,28 @@ import { focusSoon } from '../lib/state.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Corridor card: the annual series of one directed pair (sel ⇄ pair) from ODM.
-   Opened by clicking a partner row in the rail (map click keeps re-hubbing).
-   2018 is the only measured point — ringed like the scrubber's realMark. */
+   Opened by clicking a partner row in the Tokovi rail (a map click keeps
+   re-hubbing) or a cell / corridor row in Matrica, where it opens in place.
+   2018 is the only measured point — ringed like the scrubber's realMark.
+
+   Two mounts, one active: over the map in Tokovi, inside the rail in Matrica.
+   A floating card is free over a map (it lands on sea) and expensive over a
+   heatmap — measured at 960 px it covered ~12 columns × 9 rows of live cells,
+   and steering the grid around it drops the cell to ~10 px, under the 12 px
+   floor. See MapView/Rail for the mounts. */
 export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => void }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const sel = S.sel, pair = S.pair;
-  if (S.view !== 'flow' || !sel || !pair || pair === sel) return null;
+  if ((S.view !== 'flow' && S.view !== 'mx') || !sel || !pair || pair === sel) return null;
+  /* In Matrica the corridor *is* the selection, so closing the card clears both
+     halves — a lone `sel` there is a hub with no view to be a hub in. Focus goes
+     back to the cell that opened it; in Tokovi, to the partner row. */
+  const inMx = S.view === 'mx';
+  const close = () => {
+    setS(inMx ? { sel: null, pair: null } : { pair: null });
+    focusSoon(inMx ? `.mxc[data-a="${sel}"][data-b="${pair}"], #railList .rrow[data-iso="${pair}"]`
+      : `#railList .rrow[data-iso="${pair}"]`);
+  };
 
   const outs = YEARS.map((_, i) => getOD(sel, pair, i));
   const ins = YEARS.map((_, i) => getOD(pair, sel, i));
@@ -28,18 +44,23 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
     <div className="paircard" id="pair">
       <div className="card-hd">
         <h2 className="card-name" id="pairName">{SHORTN[sel]} ⇄ {SHORTN[pair]}</h2>
-        {/* back to the partner row that opened this corridor */}
+        {/* back to whatever opened this corridor — matrix cell or partner row */}
         <button className="card-x" id="pairX" aria-label={`Zatvori koridor — ${SHORTN[sel]} i ${SHORTN[pair]}`}
-          onClick={() => { setS({ pair: null }); focusSoon(`#railList .rrow[data-iso="${pair}"]`); }}>×</button>
+          onClick={close}>×</button>
       </div>
       {/* The two series were separated by hue alone and the caption named them
           by colour — 1.4.1, and measured the two hues are only 1.39:1 apart in
           luminance, so in greyscale or to a deuteranope this is one line
           crossing itself. Every sibling chart here already encodes with shape;
           dolasci now carries a dash, and the caption says so. */}
-      <div className="card-sub">{`godišnji tok ${Y0}.–${YEND}. · neto za ${SHORTN[sel]} (površina) · odlasci (puna crta) · dolasci (crtkano)`}</div>
+      {/* "neto za Istarska (površina) · odlasci · dolasci" described the card as
+          if it were about the county: a reader who clicked one 31-person cell in
+          the matrix was told the chart showed Istarska's odlasci. Every series
+          here is this corridor and nothing else, so the caption names both
+          endpoints in the direction each series runs. */}
+      <div className="card-sub">{`godišnji tok ${Y0}.–${YEND}., samo ovaj koridor · površina: neto za ${SHORTN[sel]} · puna crta: ${SHORTN[sel]} → ${SHORTN[pair]} · crtkano: ${SHORTN[pair]} → ${SHORTN[sel]}`}</div>
       <svg id="pairSvg" viewBox={`0 0 ${w} ${h}`} role="img"
-        aria-label={`Koridor ${SHORTN[sel]} i ${SHORTN[pair]}, godišnji tok ${Y0}.–${YEND}., raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`}>
+        aria-label={`Koridor ${SHORTN[sel]} i ${SHORTN[pair]} — samo selidbe između te dvije županije, ne ukupni tokovi županije. Godišnji tok ${Y0}.–${YEND}., raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`}>
         <defs>
           <clipPath id={uid + 'p'}><rect width={w} height={y(0)} /></clipPath>
           <clipPath id={uid + 'n'}><rect y={y(0)} width={w} height={h - y(0)} /></clipPath>

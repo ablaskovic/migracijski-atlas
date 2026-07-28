@@ -39,3 +39,16 @@ export function focusSoon(sel: string) {
     }
   });
 }
+
+/* Is this focus a *keyboard* focus? The two-tone rings are a keyboard affordance,
+   and they used to be drawn from the `focus` event, which fires for a mouse click
+   too: clicking a municipality painted the dashed ink ring meant for Tab, and at
+   k = 4,1 that ring measured 18,5 px of white under 8,2 px of dashed ink (see the
+   non-scaling-stroke note in index.css). `:focus-visible` is exactly this
+   question, and Chrome answers it the way we need in both directions — measured:
+   false after a real click on the element, true for a programmatic .focus(),
+   which is how the suite drives it. Older engines without the pseudo throw on
+   `matches`, and there the honest default is to keep the ring. */
+export function isKeyFocus(el: Element): boolean {
+  try { return el.matches(':focus-visible'); } catch { return true; }
+}

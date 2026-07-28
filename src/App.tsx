@@ -75,14 +75,22 @@ export default function App() {
     /* the JLS corridor chip only exists in Tokovi; leaving it set outside is a
        flag with no panel behind it that still sets body.panel-open (hiding the
        legend outright below 900 px) and still eats an Escape press */
-    if (s.view === 'flow' && v !== 'flow') { p.sel = null; p.pair = null; p.jls = false; }
-    /* `sel` is a hub in Tokovi and a detail-card selection everywhere else, but
-       Matrica and the JLS map have no county-level card to show: a county picked
-       in Saldo used to keep its 1998–2025 card painted over the 21×21 grid and
-       the 556-municipality map, and its × then aimed `focusSoon` at a `.cnt`
-       that does not exist in those views, dropping focus to <body>. Same defect
-       as the stale tooltip, on the fifth key that fix did not clear. */
-    if (v === 'mx' || v === 'jmap') p.sel = null;
+    if (s.view === 'flow' && v !== 'flow') p.jls = false;
+    /* A corridor is `sel` + `pair`, and it means the same thing in Tokovi and in
+       Matrica — hub/partner there, row/column here — so switching between those
+       two carries it and lands on the same pair. No other view can describe it:
+       drop both halves rather than leave a card-less flag that still eats an
+       Escape press and still ships in the hash. */
+    const corr = (w: View) => w === 'flow' || w === 'mx';
+    if (corr(s.view) && !corr(v)) { p.sel = null; p.pair = null; }
+    /* `sel` alone is a hub in Tokovi and a detail-card selection in Saldo /
+       Klasifikacija / Regije. Matrica and the JLS map have neither: a county
+       picked in Saldo used to keep its 1998–2025 card painted over the 21×21
+       grid and the 556-municipality map, and its × then aimed `focusSoon` at a
+       `.cnt` that does not exist there, dropping focus to <body>. In Matrica it
+       survives only as one half of a corridor, which the grid can point at. */
+    if (v === 'jmap') { p.sel = null; p.pair = null; }
+    if (v === 'mx' && !(s.sel && s.pair)) { p.sel = null; p.pair = null; }
     if (v === 'jmap') { p.yi = IX2018; p.cum = false; }
     if ((v === 'klas' || (p.cum ?? s.cum)) && (p.yi ?? s.yi) < IX2011) p.yi = IX2011;
     up(p);
@@ -106,8 +114,17 @@ export default function App() {
     const s = ref.current;
     if (s.view === 'flow') up({ pair: s.pair === iso ? null : iso });
   };
-  /* matrix rail: jump into tokovi with the corridor's pair card open */
-  const jumpFlow = (a: string, b: string) => up({ view: 'flow', sel: a, pair: b, flowSeen: true, playing: false });
+  /* A corridor opens where it was picked. Both the matrix cells and the matrix
+     rail used to jump into Tokovi, which answered a corridor question with a
+     county one: clicking Istarska→Zadarska (31 people) left the grid, drew 20
+     arcs from Istarska and listed all 20 partners summing 996 — the county's
+     whole outflow — with the corridor itself demoted to a card in the corner.
+     Toggling, so the control that opened it also closes it. */
+  const openCorridor = (a: string, b: string) => {
+    const s = ref.current;
+    const open = s.sel === a && s.pair === b;
+    up(open ? { sel: null, pair: null } : { sel: a, pair: b, playing: false });
+  };
   const setYi = (yi: number) => up({ yi });
   const applyStory = (i: number) => up({ ...STORIES[i].patch, story: i, playing: false });
 
@@ -228,7 +245,15 @@ export default function App() {
          there too. */
       if (ev.key === 'Escape') {
         if (s.help) { up({ help: false }); focusSoon('#helpBtn'); return; }
-        if (s.pair) { up({ pair: null }); focusSoon('#railList .rrow[data-iso="' + s.pair + '"]'); return; }
+        if (s.pair) {
+          /* in Matrica the corridor *is* the selection, so both halves go; focus
+             returns to the cell that opened it, the rail row otherwise */
+          up(s.view === 'mx' ? { sel: null, pair: null } : { pair: null });
+          focusSoon(s.view === 'mx'
+            ? '.mxc[data-a="' + s.sel + '"][data-b="' + s.pair + '"], #railList .rrow[data-iso="' + s.pair + '"]'
+            : '#railList .rrow[data-iso="' + s.pair + '"]');
+          return;
+        }
         if (s.citz || s.jls || s.age) {
           up({ citz: false, jls: false, age: false });
           focusSoon(s.citz ? '#citzHd' : s.jls ? '#jcardHd' : '#ageHd');
@@ -320,7 +345,7 @@ export default function App() {
       <main className="main">
         <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL} resetSeq={resetSeq}
           toggleCitz={toggleCitz} toggleJls={toggleJls} toggleAge={toggleAge} toggleHelp={toggleHelp} />
-        <Rail S={S} setS={up} selectCounty={selectCounty} setHL={setHL} openPair={openPair} jumpFlow={jumpFlow} setJlsHl={setJlsHl} />
+        <Rail S={S} setS={up} selectCounty={selectCounty} setHL={setHL} openPair={openPair} openCorridor={openCorridor} setJlsHl={setJlsHl} />
       </main>
       <Scrubber S={S} setYi={setYi} togglePlay={togglePlay} />
       <div className="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true">{live}</div>

@@ -90,10 +90,20 @@ export function decodeHash(hash: string): Patch {
      data-iso does not exist in that view — so `#v=reg&pp=HR-01&cz=1` booted with
      an invisible pair, and the first Escape closed nothing, moved focus nowhere
      and never reached the open panel. encodeHash then re-emitted `pp`. */
-  if (at('view') !== 'flow') o.pair = null;
-  /* Matrica and the JLS map have no county detail card, so a carried `sel` is a
-     card painted over a grid it cannot describe (see App.setView). */
-  if (at('view') === 'mx' || at('view') === 'jmap') o.sel = null;
+  /* Matrica renders the same corridor as Tokovi (row/column instead of
+     hub/partner), so `pp` is legal in both and nowhere else. */
+  if (at('view') !== 'flow' && at('view') !== 'mx') o.pair = null;
+  /* The JLS map has no county detail card either, so a carried `sel` is a card
+     painted over a grid it cannot describe (see App.setView). */
+  if (at('view') === 'jmap') o.sel = null;
+  /* In Matrica `sel` is legible only as a corridor's row — there is no county
+     card there — so a lone half of a corridor is dropped, whichever half it is:
+     `#v=mx&s=HR-18` would otherwise mark a row with no card, and `#v=mx&pp=HR-13`
+     an Escape-eating flag with nothing on screen at all. */
+  if (at('view') === 'mx' && !(at('sel') && at('pair'))) { o.sel = null; o.pair = null; }
+  /* A county is not a corridor with itself: `#v=flow&s=HR-01&pp=HR-01` renders no
+     card (PairCard guards `pair === sel`) and left the same dead flag behind. */
+  if (at('sel') && at('sel') === at('pair')) o.pair = null;
   /* panels are mutually exclusive — keep at most one open (citz > jls > age) */
   if (at('citz')) { o.jls = false; o.age = false; }
   else if (at('jls')) o.age = false;

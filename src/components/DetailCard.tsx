@@ -8,7 +8,12 @@ import type { Patch, State } from '../lib/types.ts';
 export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => void }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const sel = S.sel;
-  if (!sel || S.view === 'flow') return <div className="card" id="card" />;
+  /* `sel` is a hub in Tokovi and, since corridors open in place, a corridor's row
+     in Matrica — neither is a county the county card can describe. Rendering it
+     in Matrica put a 1998–2025 county card beside the 21×21 grid for a county the
+     user never picked (they picked a *pair*), which is the same defect the
+     v2.0.5 "sel dies entering Matrica" rule fixed, arriving by a new route. */
+  if (!sel || S.view === 'flow' || S.view === 'mx') return <div className="card" id="card" />;
 
   const w = 284, h = 128, mL = 4, mR = 4, mT = 8, mB = 14;
   const ints = YEARS.map((_, i) => netAt(sel, i, 'int'));

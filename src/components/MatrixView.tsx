@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI, sgn } from '../lib/metrics.ts';
 import { moveTip, COARSE } from '../lib/tip.ts';
-import { focusSoon } from '../lib/state.ts';
+import { isKeyFocus } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { Patch, State } from '../lib/types.ts';
@@ -60,6 +60,12 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
   const showNum = cell >= 22;
   const hl = S.pairHl;
   const hlR = hl ? MXORD.indexOf(hl[0]) : -1, hlC = hl ? MXORD.indexOf(hl[1]) : -1;
+  /* The selected corridor — the one the card in the rail describes. Orthogonal to
+     hover (which is one transient pair) and to focus (the roving tab stop), so it
+     gets its own marks: a persistent trace band and a ring on the cell. Finding
+     one cell in 420 by memory is not a UI. */
+  const selR = S.sel && S.pair ? MXORD.indexOf(S.sel) : -1;
+  const selC = S.sel && S.pair ? MXORD.indexOf(S.pair) : -1;
   /* label floor: cell*0.42 bottoms out near 5 px on a phone, which is not a
      label. Row pitch is `cell`, so 6.5 px still clears its own line. */
   const rowFs = Math.max(6.5, Math.min(9.5, cell * 0.42));
@@ -79,6 +85,14 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
     navRef.current = false;
     gridRef.current?.querySelector<SVGRectElement>('.mxc[tabindex="0"]')?.focus();
   }, [fc]);
+  /* Move the roving tab stop onto the selected corridor, so the grid's one tab
+     stop is the cell the open card describes — and so Escape / the card's ×,
+     which return focus to that cell, do not leave focus on a `tabindex="-1"`
+     cell while Tab resumes from somewhere else entirely. navRef stays false, so
+     this places the stop without stealing focus from wherever it is. */
+  useEffect(() => {
+    if (selR >= 0 && selC >= 0) setFc([selR, selC]);
+  }, [selR, selC]);
   const moveF = (dr: number, dc: number) => {
     navRef.current = true;
     setFc(([r, c]) => {
@@ -116,19 +130,30 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
       drill(a, b);
     }
   };
-  /* Activating a cell unmounts the entire grid this cell lives in, so focus had
-     nowhere to go and landed on <body> — restarting Tab from the top of the
-     page. Hand it to the corridor card the drill just opened, which is the
-     thing the user asked for. */
+  /* Activating a cell used to switch to Tokovi: `{view:'flow', sel:a, pair:b}`.
+     That answered a corridor question with a county answer — measured, clicking
+     Istarska→Zadarska (31 people) left the grid entirely and drew 20 arcs from
+     Istarska with a rail of all 20 partners summing 996, i.e. the whole county
+     outflow, with the one corridor the user asked for reduced to a card in the
+     corner. It also destroyed the thing they were reading: the matrix is *the*
+     view for comparing corridors, and one click threw it away.
+     Now the corridor opens in place: the grid stays, `sel`+`pair` mark it (band
+     + selection ring below), and the card renders in the rail. Focus stays on
+     the cell — it is no longer unmounted, and `aria-expanded` on the cell is
+     what says a card opened, the same contract `.cnt` uses for its county card.
+     A second activation closes it, so the cell is a toggle both ways. */
   const drill = (a: string, b: string) => {
-    setS({ view: 'flow', sel: a, pair: b, flowSeen: true, playing: false });
-    focusSoon('#pairX, #railList .rrow[data-iso="' + b + '"]');
+    const open = S.sel === a && S.pair === b;
+    setS(open ? { sel: null, pair: null } : { sel: a, pair: b });
   };
   /* keyboard focus must place the tip itself — moveTip otherwise replays the
      last pointer position, which has nothing to do with the focused cell */
   const onCellFocus = (e: ReactFocusEvent<SVGRectElement>, a: string, b: string) => {
-    setCellFoc(true);
     setS({ pairHl: [a, b] });
+    /* same rule as the map: a click focuses the cell, and neither the ring nor
+       the tip-jump belong to a pointer that already did both */
+    if (!isKeyFocus(e.currentTarget)) return;
+    setCellFoc(true);
     const r = e.currentTarget.getBoundingClientRect();
     moveTip({ clientX: r.right, clientY: r.bottom });
   };
@@ -183,6 +208,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
            diagonal. As a named gridcell a screen reader reaches it in browse
            mode without it ever becoming a tab stop. */
         cells.push(<rect key={a + b} className="mxd" data-a={a} data-b={b}
+          vectorEffect="non-scaling-stroke"
           x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
           fill="url(#mxhatch)" role="gridcell" tabIndex={-1} aria-colindex={c + 1}
           aria-label={`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`}
@@ -196,12 +222,16 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
       const isF = fc[0] === r && fc[1] === c;
       cells.push(
         <g key={a + b} role="presentation">
-          <rect className="mxc" data-a={a} data-b={b}
+          <rect className="mxc" data-a={a} data-b={b} vectorEffect="non-scaling-stroke"
             x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
             fill={col(S.dir === 'net' ? v : Math.abs(v))}
             stroke={isHl ? '#20262B' : '#fff'} strokeWidth={isHl ? 1.6 : 0.5}
             role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
             aria-label={cellAria(a, b, v)}
+            /* activating a cell opens the corridor card in the rail and leaves
+               the grid standing, so the cell is the control that owns it —
+               same contract `.cnt` has with the county card */
+            aria-expanded={r === selR && c === selC}
             onPointerEnter={() => setS({ pairHl: [a, b] })}
             onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
             onPointerMove={moveTip}
@@ -264,8 +294,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
           one pair among 420 cells */}
       {hlR >= 0 && hlC >= 0 && (
         <g className="mxband" pointerEvents="none">
-          <rect x={x0} y={y0 + hlR * cell} width={n * cell} height={cell} />
-          <rect x={x0 + hlC * cell} y={y0} width={cell} height={n * cell} />
+          <rect x={x0} y={y0 + hlR * cell} width={n * cell} height={cell} vectorEffect="non-scaling-stroke" />
+          <rect x={x0 + hlC * cell} y={y0} width={cell} height={n * cell} vectorEffect="non-scaling-stroke" />
         </g>
       )}
       {BLOCKS.slice(0, -1).map(b => (
@@ -275,12 +305,31 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
         </g>
       ))}
       <rect x={x0} y={y0} width={n * cell} height={n * cell} fill="none" stroke="#20262B" strokeWidth={1.1} />
+      {/* The selected corridor, the one the rail's card describes. Teal, because
+          in this app teal is control/selection and never data — so it cannot be
+          read as a value the way another ink stroke could. The cell ring is
+          two-tone for the reason the focus ring is: teal measures 1.02:1 against
+          the light end of the diverging ramp, and the white halo underneath is
+          15.29:1 against both. fill/stroke are attributes, not classes, so the
+          export ships it without baking (unlike .mxband, which had to be). */}
+      {selR >= 0 && selC >= 0 && (
+        <g className="mxsel" pointerEvents="none">
+          <rect x={x0} y={y0 + selR * cell} width={n * cell} height={cell}
+            fill="none" stroke="#0F7D8C" strokeWidth={1.2} opacity={0.8} vectorEffect="non-scaling-stroke" />
+          <rect x={x0 + selC * cell} y={y0} width={cell} height={n * cell}
+            fill="none" stroke="#0F7D8C" strokeWidth={1.2} opacity={0.8} vectorEffect="non-scaling-stroke" />
+          <rect className="mxsel-halo" x={x0 + selC * cell} y={y0 + selR * cell}
+            width={cell} height={cell} fill="none" stroke="#FFFFFF" strokeWidth={3.6} vectorEffect="non-scaling-stroke" />
+          <rect className="mxsel-ink" x={x0 + selC * cell} y={y0 + selR * cell}
+            width={cell} height={cell} fill="none" stroke="#0F7D8C" strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
+        </g>
+      )}
       {/* two-tone focus ring, above the block rules and the outline so it is not
           the one thing on the grid another stroke can hide */}
       {cellFoc && (
         <g className="focusring">
-          <rect className="fr-halo" x={x0 + fc[1] * cell} y={y0 + fc[0] * cell} width={cell} height={cell} />
-          <rect className="fr-ink" x={x0 + fc[1] * cell} y={y0 + fc[0] * cell} width={cell} height={cell} />
+          <rect className="fr-halo" x={x0 + fc[1] * cell} y={y0 + fc[0] * cell} width={cell} height={cell} vectorEffect="non-scaling-stroke" />
+          <rect className="fr-ink" x={x0 + fc[1] * cell} y={y0 + fc[0] * cell} width={cell} height={cell} vectorEffect="non-scaling-stroke" />
         </g>
       )}
       {COARSE && (
