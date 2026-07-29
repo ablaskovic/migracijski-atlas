@@ -1,6 +1,31 @@
 import { focusSoon } from '../lib/state.ts';
-import { NO_AFFIL, PAPER, paperCheckNote, paperHelpIntro, paperPending, paperTerm } from '../lib/credits.ts';
+import {
+  NO_AFFIL, PAPER, PAPER_THR, PAPER_WINDOW,
+  paperCheckNote, paperHelpIntro, paperPending, paperTerm,
+} from '../lib/credits.ts';
+import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
 import type { Patch, State } from '../lib/types.ts';
+
+const PW = `${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.`;
+
+/* The legend has room for the names; this has room for the reason. Grouped by
+   transition rather than listed per county, so the sentence stays one clause
+   however many counties move — and derived from PAPER_KLAS_DIFF rather than
+   written out, so a DZS revision that closes the gap deletes the sentence
+   instead of leaving it asserting a difference that is no longer there. */
+function klasDiffSentence(): string {
+  if (!PAPER_KLAS_DIFF.length) return 'Na seriji koju atlas prikazuje razredi se poklapaju s objavljenima.';
+  const by = new Map<string, string[]>();
+  for (const d of PAPER_KLAS_DIFF) {
+    const k = `${d.paper}|${d.here}`;
+    by.set(k, [...(by.get(k) ?? []), D[d.iso]?.n ?? d.iso]);
+  }
+  const parts = [...by.entries()].map(([k, names]) => {
+    const [paper, here] = k.split('|') as [keyof typeof KLAB, keyof typeof KLAB];
+    return `${names.join(' i ')} (u radu ${KLAB[paper]}, ovdje ${KLAB[here]})`;
+  });
+  return `Razlikuju se: ${parts.join('; ')}.`;
+}
 
 /* "Kako čitati" — the one stable place the vocabulary lives. Every other
    explanation in the atlas is a per-view legend note that changes as soon as the
@@ -50,6 +75,12 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <dt>koridor</dt><dd>jedan par županija i selidbe među njima</dd>
         <dt>klasifikacija</dt><dd>podjela na pobjednice / neutralne / gubitnice prema pragu koji sami pomičete</dd>
         <dt>kumulativno</dt><dd>zbroj svih godina od 2011. do odabrane, umjesto jedne godine</dd>
+        {/* Both denominators were undefined in the one surface that assumes
+            nothing, and nothing said which of the two is the study's measure.
+            The second also clamps: pe covers 2001.–2024., so 2025 divides by the
+            2024 estimate and 1998.–2000. by the 2001 one. */}
+        <dt>% popisa 2011.</dt><dd>vrijednost podijeljena brojem stanovnika po popisu 2011. — mjera kojom se služi i rad</dd>
+        <dt>% tek. procjene</dt><dd>podijeljeno procjenom stanovništva za tu godinu; procjene postoje za 2001.–2024., pa se za ranije godine i za 2025. uzima najbliža dostupna</dd>
         {/* the legend and the rail say "iz rada" in three places; without this
             entry the shorthand pointed at nothing a reader could resolve */}
         <dt>rad</dt><dd>{paperTerm()}</dd>
@@ -76,6 +107,29 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <b> Home</b> / <b>End</b> i <b>PageUp</b> / <b>PageDown</b> skaču kroz mrežu.
       </div>
 
+      {/* The study states these about the very series the atlas paints, and the
+          atlas said none of them. It was scrupulous about its own caveats (IPF,
+          identity sums, panel scope) and silent about its source's — which, now
+          that a reader can open the source and find them, reads as selective
+          rather than concise. */}
+      <h3 className="help-h">Ograničenja podataka</h3>
+      <div className="help-p">
+        Ova ograničenja iznosi i sam rad, a odnose se na iste serije koje atlas prikazuje.
+        Vanjske migracije DZS vodi po odjavama prebivališta pri MUP-u, a velik se dio
+        iseljenika ne odjavljuje — iseljavanje je zato podcijenjeno. Od 2011. metodologija
+        obuhvaća i privremeni boravak, što povećava i broj doseljenih i broj odseljenih.
+        Hrvatska nema jedinstveni registar stanovništva. U priobalnim županijama dio prijava
+        prebivališta ne prati stvarno preseljenje (kuće za odmor), pa su njihovi pokazatelji
+        povoljniji nego što kretanje ljudi opravdava. Dnevne migracije nisu obuhvaćene —
+        ni u radu ni ovdje.
+      </div>
+      <div className="help-p">
+        Serija počinje 1998., ali su međužupanijske margine usklađene tek od 2007.: prije
+        toga zbroj doseljenih među županijama ne odgovara zbroju odseljenih (do oko 550 osoba
+        godišnje), pa su te godine najmekši dio serije. Kumulativni zbroj i klasifikacija
+        uvijek počinju 2011., kao i rad.
+      </div>
+
       {/* The full disclosure. The footer carries the same two facts in one line
           because a statement only reachable through a panel is one most readers
           never meet; this is where there is room to say why. All conditional
@@ -95,10 +149,33 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         </div>
       )}
       <div className="help-p">
+        {/* This used to say "nijedna brojka nije preuzeta iz rada" one sentence
+            after naming the threshold, which is a number taken from the study.
+            The intent — no migration figure is copied — was right and is kept;
+            the exception is now stated instead of contradicted. */}
         Iz rada dolazi samo ono što je u sučelju označeno s „iz rada”: prag klasifikacije
-        i pripadnost županija u prikazu Regije. Nijedna brojka nije preuzeta iz rada — sve
-        su vrijednosti DZS-ove ili su izračunate ovdje, pa ništa na ekranu ne ovisi o tome
-        je li rad objavljen. {paperCheckNote()}
+        ({'−' + fmtI.format(PAPER_THR)}) i pripadnost županija u prikazu Regije. Osim samog
+        praga, nijedna brojka nije preuzeta iz rada — sve su vrijednosti DZS-ove ili su
+        izračunate ovdje. {paperCheckNote()}
+      </div>
+      <div className="help-p">
+        <b>Zašto se razredi razlikuju od objavljenih.</b> Klasifikacija ovdje primjenjuje
+        prag iz rada, ali na novijoj DZS seriji, pa rezultat nije istovjetan objavljenome.
+        Rad za {PW} objavljuje sedam pobjednica, sedam neutralnih i sedam gubitnica.
+        {' ' + klasDiffSentence()} Metoda je ista; razlikuje se berba podataka, a razlika
+        je nekoliko stotina osoba oko praga. Rad računa {PW} — pomaknete li vremensku vrpcu
+        dalje, prikaz više ne odgovara razdoblju koje je rad analizirao.
+      </div>
+      <div className="help-p">
+        <b>Kako je nastala podjela na regije.</b> Rad predlaže pet regija sa središtima u
+        Zagrebu, Splitu, Rijeci i Osijeku te Središnju Hrvatsku bez izrazitog središta, ali
+        ne objavljuje popis županija po regijama — raspored u prikazu Regije zato je
+        tumačenje atlasa, a ne prijepis. Dvije su odluke sporne: Ličko-senjska je ovdje u
+        Sjevernojadranskoj (rad je u varijanti s devet regija spominje uz Zadar), a
+        Šibensko-kninska u Dalmatinskoj (rad je ne navodi među dalmatinskim dobitnicima).
+        Rad uz podjelu na pet razmatra i međukorak s devet regija te iz literature navodi
+        prijedloge sa sedam i s 12–15 regija; atlas prikazuje samo podjelu na pet i ne
+        imenuje središta.
       </div>
       <div className="help-p">
         {NO_AFFIL} Autori rada ovaj prikaz nisu pregledali, odobrili niti ga podupiru,

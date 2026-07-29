@@ -25,8 +25,15 @@ export const STORIES: Story[] = [
     patch: { view: 'flow', sel: 'HR-21', dir: 'net', cum: false, yi: IX2018, flowSeen: true, pair: 'HR-01', jls: false },
   },
   {
-    label: 'Samo tri županije u plusu',
-    cap: 'S prirodnim kretanjem u zbroju, 2011.–2024. rastu samo tri županije: Grad Zagreb +27.521, Istarska +11.531 i Zadarska +3.292. Dno: Osječko-baranjska −48.271.',
+    label: 'Samo pet županija u plusu',
+    /* This said "samo tri" and named the three largest. Five counties are
+       positive on mig+prirodno for 2011.–2024. — Zagrebačka +2.240 and
+       Dubrovačko-neretvanska +125 as well — and the rail this preset opens
+       lists all five, directly under the caption denying two of them. The
+       count is what carried the point, so it is the count that had to be
+       right; the two small ones are named because "five" with three examples
+       is the same defect one line further down. */
+    cap: 'S prirodnim kretanjem u zbroju, 2011.–2024. raste samo pet županija: Grad Zagreb +27.521, Istarska +11.531, Zadarska +3.292, Zagrebačka +2.240 i Dubrovačko-neretvanska +125. Dno: Osječko-baranjska −48.271.',
     patch: { view: 'saldo', flow: 'all', den: 'abs', cum: true, yi: Y24, sel: null },
   },
   {

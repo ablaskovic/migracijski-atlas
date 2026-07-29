@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 244;
+const EXPECTED_CHECKS = 260;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -245,7 +245,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const png = await page.evaluate(async () => {
     const r = await window.__exportPNG(false);
     const svg = document.querySelector('#map');
-    return { ...r, expW: svg.clientWidth * 2, expH: (svg.clientHeight + 174) * 2 };
+    return { ...r, expW: svg.clientWidth * 2, expH: (svg.clientHeight + 188) * 2 };
   });
   ck('exportPNG dims = 2x map + bands', png.w === png.expW && png.h === png.expH,
     png.w + 'x' + png.h + ' vs ' + png.expW + 'x' + png.expH);
@@ -1950,7 +1950,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     JSON.stringify(links));
   ck('and states independence, non-endorsement and what is not taken from the study',
     attrGloss.section && /nije povezan/.test(attrGloss.body) && /nisu pregledali/.test(attrGloss.body)
-    && /Nijedna brojka nije preuzeta iz rada/.test(attrGloss.body),
+    && /nijedna brojka nije preuzeta iz rada/.test(attrGloss.body),
     JSON.stringify({ section: attrGloss.section }));
 
   /* The export is the artifact that leaves the app, and Klasifikacija reproduces
@@ -1970,7 +1970,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const eKlas = await expNote('#v=klas');
   const eReg = await expNote('#v=reg&c=1&y=2024');
   const eSaldo = await expNote('');
-  ck('exported klasifikacija and regije carry the pending reference and the disclaimer',
+  ck('exported klasifikacija and regije carry the study reference and the disclaimer',
     eKlas.has && eReg.has, JSON.stringify({ klas: eKlas.has, reg: eReg.has }));
   ck('and the views that take nothing from the study claim nothing about it',
     !/nije povezan|neobjavljen/.test(eSaldo.svg), 'saldo');
@@ -1980,8 +1980,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const noteRows = [...eKlas.svg.matchAll(/<text x="20" y="(\d+(?:\.\d+)?)"[^>]*font-size="8\.5"/g)]
     .map(m => +m[1]).sort((a, b) => a - b);
   const swatch = +(eKlas.svg.match(/<rect x="20" y="(\d+(?:\.\d+)?)" width="11"/) || [0, 0])[1];
+  /* Three rows now, not two: revision caveat, study reference, source credit,
+     bottom-up at a 14 px rhythm. The band grew (BOT 88 → 102) rather than the
+     rows tightening, because the top row still owes the legend 12 px. */
   ck('the exported disclaimer is a line of its own, clear of the legend and the credit',
-    noteRows.length === 2 && noteRows[1] - noteRows[0] === 14 && noteRows[0] - swatch >= 12,
+    noteRows.length === 3 && noteRows[1] - noteRows[0] === 14 && noteRows[2] - noteRows[1] === 14
+    && noteRows[0] - swatch >= 12,
     JSON.stringify({ noteRows, swatch }));
 
   /* ══════════ v2.0.7 — a corridor opens where it was picked ══════════
@@ -2321,6 +2325,128 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('no pointer click anywhere leaves a UA focus ring (a bbox rounded rect)',
     uaRing.n >= 28 && uaRing.hits.length === 0,   /* measured: 31 across the four views */
     JSON.stringify({ compared: uaRing.n, hits: uaRing.hits.slice(0, 4) }));
+
+  /* ══════════ v2.0.9 — answering to a source a reader can now open ══════════
+     While the study was unpublished, "differs slightly from the paper" was a
+     claim nobody could audit. Published, every approximation becomes checkable,
+     and three surfaces were carrying one: the klasifikacija legend showed a
+     count the study never published with no note, the Regije legend attributed a
+     21-county partition to a paper that prints none (and called the study silent
+     on Lika, which it is not), and the export cited the study by DOI while
+     dropping the one sentence that explains why its numbers differ. */
+
+  /* The count divergence is real and is the whole reason the note exists: the
+     study publishes 7/7/7 for 2011–2024, the atlas computes 7/5/9 on a newer
+     DZS pull. Asserted here as a ground truth so the note cannot quietly become
+     decorative — if a revision closes the gap, this fails and the copy changes
+     with it. */
+  await fresh('#v=klas&y=2024');
+  const klasCmp = await page.evaluate(() => ({
+    counts: [...document.querySelectorAll('#legend .legend-cat')].map(e => e.textContent.trim()),
+    note: (document.querySelector('#legend .legend-note') || {}).textContent || '',
+    h: document.querySelector('#legend').getBoundingClientRect().height,
+  }));
+  ck('the klasifikacija legend names the counties that differ from the published split',
+    /7 \/ 7 \/ 7/.test(klasCmp.note) && /2011\.–2024\./.test(klasCmp.note)
+    && /Karlova/.test(klasCmp.note) && /Koprivni/.test(klasCmp.note),
+    klasCmp.note);
+  ck('and the counts it qualifies are still the 7 / 5 / 9 that made it necessary',
+    /pobjednice · 7/.test(klasCmp.counts[0]) && /neutralne · 5/.test(klasCmp.counts[1])
+    && /gubitnice · 9/.test(klasCmp.counts[2]), JSON.stringify(klasCmp.counts));
+  /* One note, never two — the klas legend is the tallest in the app and both
+     .helpcard and .jcard reserve 164 px for its lane. */
+  const klasNotes = await page.evaluate(() => document.querySelectorAll('#legend .legend-note').length);
+  ck('exactly one klasifikacija legend note, and the legend still fits its 164 px lane',
+    klasNotes === 1 && klasCmp.h <= 164, JSON.stringify({ notes: klasNotes, h: klasCmp.h }));
+  /* Off the study's threshold or endpoint the comparison is meaningless, so the
+     note must stop asserting one and say what the study actually computed. */
+  await fresh('#v=klas&y=2025');
+  const klas25 = await page.evaluate(() => ({
+    note: document.querySelector('#legend .legend-note').textContent,
+    counts: [...document.querySelectorAll('#legend .legend-cat')].map(e => e.textContent.trim()),
+  }));
+  ck('one year past the study\'s endpoint the legend states its period instead of comparing',
+    !/7 \/ 7 \/ 7/.test(klas25.note) && /2011\.–2024\./.test(klas25.note)
+    && /pobjednice · 9/.test(klas25.counts[0]), JSON.stringify({ note: klas25.note, c: klas25.counts[0] }));
+
+  /* Regije: the study prints no membership table, so the legend says the
+     partition is the atlas's reading. The old copy footnoted Lika alone and
+     described the study as undecided about it. */
+  await fresh('#v=reg&c=1&y=2024');
+  const regNote = await page.evaluate(() => document.querySelector('#legend .legend-note').textContent);
+  ck('the Regije legend calls the county partition the atlas\'s reading, not the study\'s table',
+    /ne objavljuje popis županija/.test(regNote) && /tumačenje atlasa/.test(regNote)
+    && !/neodređeno/.test(regNote), regNote);
+
+  /* The glossary is where the interpretation gets named per county, and where
+     the study's own data caveats now live. */
+  await fresh('');
+  const gl9 = await page.evaluate(async () => {
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 300));   /* React has to flush before #helpCard exists */
+    const c = document.querySelector('#helpCard');
+    return {
+      heads: [...c.querySelectorAll('.help-h')].map(h => h.textContent.trim()),
+      body: c.textContent,
+      terms: [...c.querySelectorAll('.help-dl dt')].map(d => d.textContent.trim()),
+    };
+  });
+  ck('the glossary carries the study\'s own data-quality caveats, not only the atlas\'s',
+    gl9.heads.includes('Ograničenja podataka')
+    && /odjavama prebivališta/.test(gl9.body) && /privremeni boravak/.test(gl9.body)
+    && /registar stanovništva/.test(gl9.body) && /kuće za odmor/.test(gl9.body)
+    && /[Dd]nevne migracije nisu obuhvaćene/.test(gl9.body),
+    JSON.stringify(gl9.heads));
+  ck('and says the pre-2007 inter-county margins do not close',
+    /2007/.test(gl9.body) && /ne odgovara zbroju odseljenih/.test(gl9.body), 'pre-2007');
+  ck('the glossary explains the class divergence county by county',
+    /Zašto se razredi razlikuju/.test(gl9.body) && /u radu neutralne, ovdje gubitnice/.test(gl9.body)
+    && /berba podataka/.test(gl9.body), 'klas divergence');
+  ck('and names the two contestable region assignments and the nine-region variant',
+    /Ličko-senjska/.test(gl9.body) && /Šibensko-kninska/.test(gl9.body)
+    && /devet regija/.test(gl9.body) && /ne imenuje središta/.test(gl9.body), 'regions');
+  ck('both denominators are defined, including the estimate\'s clamp',
+    gl9.terms.includes('% popisa 2011.') && gl9.terms.includes('% tek. procjene')
+    && /2001\.–2024\./.test(gl9.body), JSON.stringify(gl9.terms.slice(-3)));
+  /* The threshold IS a number from the study; the old copy denied it one
+     sentence after naming it. */
+  ck('the "no figure is taken from the study" claim exempts the threshold it names',
+    /Osim samog praga, nijedna brojka nije preuzeta iz rada/.test(gl9.body), 'threshold exemption');
+
+  /* Pre-2007 renders only in godišnje mode, which is exactly where the
+     scrubber's hatch is drawn at opacity 0. */
+  await fresh('#v=saldo&c=0&y=2002');
+  const preNote = await page.evaluate(() => document.querySelector('#legend .legend-note').textContent);
+  ck('a pre-2007 godišnje year says its margins do not close',
+    /Prije 2007/.test(preNote), preNote);
+  await fresh('#v=saldo&c=0&y=2018');
+  ck('and a year after 2007 does not',
+    !/Prije 2007/.test(await page.evaluate(() => document.querySelector('#legend .legend-note').textContent)), '2018');
+
+  /* The export cites the study by DOI, so it owes the reason its numbers differ
+     on the same image — there is no footer to scroll to in a PNG. */
+  const eCav = await expNote('#v=klas');
+  const eCavSaldo = await expNote('');
+  ck('the exported study views carry the revision caveat, not only the reference',
+    /revidira serije/.test(eCav.svg) && /razlikuju od objavljenih u radu/.test(eCav.svg),
+    'klas export caveat');
+  ck('and a view that takes nothing from the study still says nothing about it',
+    !/revidira serije/.test(eCavSaldo.svg), 'saldo export');
+
+  /* Nalaz 2 said "samo tri županije" and the rail it opens listed five. */
+  await fresh('');
+  const nalaz2 = await page.evaluate(() => {
+    const sel = document.querySelector('#story');
+    sel.value = '1'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    return new Promise(r => setTimeout(() => r({
+      cap: (document.querySelector('#storyCap') || {}).textContent || '',
+      pos: [...document.querySelectorAll('#railList .rrow .rval')]
+        .map(e => e.textContent.trim()).filter(t => t.startsWith('+')).length,
+    }), 260));
+  });
+  ck('Nalaz 2 states the number of growing counties the rail beneath it lists',
+    /pet županija/.test(nalaz2.cap) && nalaz2.pos === 5 && !/samo tri/.test(nalaz2.cap),
+    JSON.stringify(nalaz2));
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

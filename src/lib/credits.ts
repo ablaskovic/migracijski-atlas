@@ -42,6 +42,29 @@ export const PAPER = {
 /** True while there is nothing a reader could look up. */
 export const paperPending = (): boolean => !PAPER.published || !PAPER.citation;
 
+/* ── What the paper published, as data ──────────────────────────────────────
+   The atlas applies the study's own rule to a newer DZS pull, so its result is
+   not the study's result. Saying which counties differ is the honest thing to
+   put on the legend — but writing the pair out in prose would hardcode a fact
+   the next DZS revision could silently falsify, which is precisely the defect
+   the ground-truth table exists to prevent. So the *published* classification
+   is recorded here as a citable fact (§4.2.1–4.2.3 of the paper, seven counties
+   each) and `PAPER_KLAS_DIFF` in metrics.ts derives the difference live. The
+   window and threshold are here for the same reason: three surfaces now state
+   "the study computes 2011.–2024. at 4.500" and none of them should own it. */
+export const PAPER_WINDOW = { from: 2011, to: 2024 } as const;
+export const PAPER_THR = 4500;
+export type PaperKlas = 'gain' | 'neu' | 'loss';
+export const PAPER_KLAS: Record<PaperKlas, readonly string[]> = {
+  gain: ['HR-21', 'HR-01', 'HR-18', 'HR-13', 'HR-08', 'HR-19', 'HR-17'],
+  neu: ['HR-02', 'HR-09', 'HR-04', 'HR-06', 'HR-05', 'HR-20', 'HR-15'],
+  loss: ['HR-14', 'HR-11', 'HR-16', 'HR-12', 'HR-03', 'HR-10', 'HR-07'],
+};
+/** iso → the class the study published for it. */
+export const PAPER_KLAS_OF: Record<string, PaperKlas> = {};
+for (const k of ['gain', 'neu', 'loss'] as const)
+  for (const i of PAPER_KLAS[k]) PAPER_KLAS_OF[i] = k;
+
 /** Header subtitle tail — link text, not the whole citation (an 11,5 px line). */
 export const paperSub = (): string =>
   paperPending() ? 'još neobjavljen znanstveni rad' : PAPER.short;
@@ -74,6 +97,17 @@ export const paperExportLine = (): string => (paperPending()
   ? 'Klasifikacija i regije prema još neobjavljenom znanstvenom radu (referenca po objavi)'
   : 'Klasifikacija i regije prema: ' + PAPER.short + ', ' + PAPER.doi)
   + ' · atlas nije povezan s njegovim autorima';
+
+/* The screen says this in the footer; the export has to carry its own copy. An
+   exported PNG ends up in a slide or a report with no footer to scroll to and
+   no link to click, and now that the study is retrievable a reader *can* put
+   the two side by side — so an image that cites it by DOI while showing a
+   different class count owes them the reason on the same image. Its own line
+   for the same reason `paperExportLine` has one: appended, it is the half the
+   canvas edge clips. Same two-view scoping — the other four take nothing from
+   the study and must not imply they disagree with it either. */
+export const paperCaveatLine = (): string =>
+  'DZS naknadno revidira serije, pa se pojedine vrijednosti i razredi razlikuju od objavljenih u radu';
 
 /** Glossary, first paragraph: the sentence the full citation follows. */
 export const paperHelpIntro = (): string => paperPending()

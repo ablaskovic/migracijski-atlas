@@ -40,8 +40,8 @@ crediting the wrong boundary source, `storyHolds` became the *only* definition
 of caption validity, and the harness stopped leaking a Chromium on failure —
 **211 checks** (this line long said 209; the pinned constant was always 211),
 and the suite now asserts its own size. **v2.0.6** is an attribution pass: the
-companion study is **not published yet**, so the atlas no longer names it. It
-says the reference is *pending* and that the project is unaffiliated, on every
+companion study was **not published yet**, so the atlas did not name it. It
+said the reference was *pending* and that the project is unaffiliated, on every
 layer that used to name it or lean on it — header subtitle, footer, a "Rad i
 atribucija" glossary section, the `rad` term entry that makes the legend's "iz
 rada" shorthand resolvable, and both export formats for the two views that
@@ -60,7 +60,17 @@ the atlas now names, cites and **links** it on every surface that used to say
 "pending" — subtitle, footer, glossary (full citation + DOI, `CC BY-NC`) and
 both export formats, which carry the DOI because an exported image has no link
 to click. The non-affiliation statement is unchanged, by design — **244
-checks**.
+checks**. **v2.0.9** is what publication actually costs: while the study was a
+manuscript, "differs a little from the paper" was a claim nobody could audit, and
+three surfaces were quietly carrying one. The klasifikacija legend showed 7 / 5 / 9
+under a heading saying "iz rada" while the study publishes **7 / 7 / 7**; the
+Regije legend attributed a 21-county partition to a paper that prints **no
+membership table**, and called it undecided about Lika when it is not; and the
+export cited the study by DOI while dropping the one sentence explaining why its
+numbers differ. All three now answer for themselves, the divergence is **derived**
+from the published classification rather than written out, the glossary carries the
+study's *own* five data caveats (it carried only the atlas's), and Nalaz 2 stopped
+saying "samo tri županije" over a rail listing five — **260 checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -71,7 +81,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 244-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 260-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
@@ -272,7 +282,7 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (244 checks; the
+scripts/verify.cjs       the executable verification protocol (260 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)
@@ -472,7 +482,7 @@ Two more, on the keyboard and the screen reader:
 |---|---|
 | ~~The study's authors appear **nowhere in the built app**~~ → **the citation ships in the built app** | while it was unpublished, naming it would have circulated it before its authors did; since 27 July 2026 the same scan runs inverted and requires the names, the Hrčak URL and the DOI to be *present*. Asserted against the *bundle* (index.html + every same-origin script and stylesheet, fetched and scanned), because a component that never renders proves nothing. The scanned count is asserted either way, so a failed fetch cannot pass as a result |
 | Every surface that names the study **links** to it | prominence was the ask: the first line under the `<h1>`, the always-visible footer and the glossary each reach the record in one click, and the exports carry the DOI as text because an image has nothing to click. All from `credits.ts`, so the four cannot drift |
-| Header, footer and `<noscript>` **agree** on whether it is published | `index.html` is static markup and cannot import `credits.ts`, so it is the copy that gets left behind. The invariant is agreement, not any one wording — that check survives publication instead of silently pinning today's state. One further check *is* pinned to "unpublished"; publication updates `credits.ts`, the `<noscript>` and that line, in one commit |
+| Header, footer and `<noscript>` **agree** on whether it is published | `index.html` is static markup and cannot import `credits.ts`, so it is the copy that gets left behind. The invariant is agreement, not any one wording — that check survives publication instead of silently pinning today's state. One further check is pinned to the *current* state — it read "unpublished" until 27 July 2026 and now asserts the citation is live; a future change of state updates `credits.ts`, the `<noscript>` and that line, in one commit |
 | The footer always carries a reference clause **and** the non-affiliation statement | it is the only always-visible surface. A disclosure reachable only through a panel is one most readers never meet — the glossary is where it gets room, not where it lives |
 | The disclosure costs the map ≤ 11 px | measured: the footer went 56 → 67 px at 1440 and `.map-box` 593 → 582. Three separate `<span>`s cost 23 px because each flex item wraps on its own; one merged span costs 11. Both numbers are pinned, so the next copy edit cannot quietly eat the map |
 | `rad` is a glossary term | the legend and the rail say "iz rada" in three places (`Klasifikacija iz rada`, `prijedlog iz rada`, `Regije — prijedlog iz rada`). Once the names are gone, the shorthand resolves to nothing unless the glossary defines it, and the entry points at the section that explains it |
@@ -494,3 +504,19 @@ Two more, on the keyboard and the screen reader:
 | The two-tone ring is **keyboard-only** | it was drawn from the `focus` event, which a mouse click fires too, so clicking a municipality painted the ring meant for Tab. `isKeyFocus` (`:focus-visible`) gates it, and the CSS `:focus` rules became `:focus-visible`. The check drives a **real** mouse through CDP: an in-page `dispatchEvent` + `.focus()` reports focus-visible and passed the bug |
 | **No graphic ever shows a UA focus ring**, and `outline:none` is unconditional | an outline on an SVG element is drawn round its **bbox** — a rounded rectangle, nothing like the shape — and inside the zoom transform it scales with k (~20 px of ink at k=4,1). Chrome's own is `auto 5px rgb(16,16,16)`, which wrapped the whole 1.100 px timeline in a black rounded rect on every click of it. One rule does all of them: `svg :focus,#spark:focus{outline:none}` — `#spark` needs naming because it *is* the `<svg>`, not a child. Unconditional on `:focus`, because a mouse click is deliberately not `:focus-visible` and that is the case the ring appears in; the keyboard indicators stay on `:focus-visible` |
 | That is a **sweep**, not a list of selectors | the first cut of this check covered `.cnt`, `.jl` and `.mxc` and passed while `#spark` (all four views) and `.mxd` still rang. The check now clicks every focusable graphic and control with a real mouse across four views — measured 31 targets — and asserts none of them ends up with a visible outline. Form controls are excluded on purpose: Chrome reports focus-visible for `<select>`/`<input>` however they were focused, and the teal 2 px ring there is the app's own |
+
+### v2.0.9 invariants (answering to a source a reader can now open)
+
+| Invariant | Why |
+|---|---|
+| The klasifikacija legend states what the study published, and **names the counties that differ** | same rule, newer DZS pull: the study publishes 7 / 7 / 7 for 2011–2024, the atlas computes **7 / 5 / 9**. Karlovačka (−5.106) and Koprivničko-križevačka (−4.802) sit 606 and 302 people past the −4.500 line that the study's own figures (−3.513 and ≈ −4.219) put them inside. That was disclosed only in the footer and inside one Nalaz caption — never on the panel showing the counts |
+| The difference is **derived**, never written out | `PAPER_KLAS` in `credits.ts` records the study's published membership (§4.2.1–4.2.3) as a citable fact; `PAPER_KLAS_DIFF` in `metrics.ts` computes the delta at the study's own settings. A hardcoded pair of county names would keep asserting a difference a revision had closed, or hide one it opened — the exact defect the ground-truth table exists to prevent. The suite pins 7 / 5 / 9 so the note cannot become decorative |
+| Off the study's threshold or endpoint the legend **stops comparing** | at 2011–2025 the same "iz rada" heading reads **9 / 3 / 9** (Krapinsko-zagorska −68 → +43, Ličko-senjska −376 → +400) for a window the study never analysed. Comparable only at `thr === 4500 && !thrRel && YEARS[yi] === 2024`; otherwise the note states the study's period instead of asserting agreement |
+| Exactly **one** klas legend note, and the legend still fits 164 px | this is the tallest legend in the app and both `.helpcard` and `.jcard` reserve its lane. Two notes cost a control over there, so the relative-threshold caveat and the divergence note are branches of one string, not two elements |
+| Regije says the county partition is the **atlas's reading** | the study proposes five regions and their centres in prose and prints no membership table, so all 21 assignments are interpretation. The old note footnoted Lika alone and said the study was "neodređeno" about it — its nine-region passage names Lika alongside Zadar, so that was checkable and wrong. Šibensko-kninska in Dalmatinska was undisclosed entirely (the study never lists it among the Dalmatian winners). Measured: moving Lika to Dalmatinska costs 376 people absolutely but **flips which region ranks first** in `% popisa 2011.` (4,99 % vs 4,86 % → 5,43 %) |
+| The glossary carries the **study's** data caveats, not only the atlas's | undercounted emigration via MUP deregistration, post-2011 temporary-stay inflation of both flows, no unified population register, coastal holiday-home registration, commuting excluded. All five are about the exact series the atlas paints as a first-class `Sastavnica`, and the app repeated none of them while being scrupulous about its own — which reads as selective once the source is one click away |
+| Pre-2007 says so **in the mode where it renders** | measured on `atlas_data2.json`: the national inter-county margin Σ(ii) − Σ(oi) is −550/−519/−464/−489/−490 for 2002–06 and **exactly 0** from 2007. The scrubber's hatched pre-2011 band is drawn at `opacity 0` unless cumulative or klas — precisely the modes that already exclude those years — so godišnje mode, the only mode that renders them, had no marking at all |
+| The export carries the **caveat**, not only the reference | a PNG in a slide has no footer to scroll to and no link to click, and it now cites the study by DOI: an image asserting "prema radu" over a count the study did not publish owes the reason on the same image. `BOT` 88 → 102 for a third 8,5 px row rather than tightening the rhythm, because the top row still owes the legend 12 px |
+| "Nijedna brojka nije preuzeta iz rada" **exempts the threshold** | −4.500 *is* a number from the study, named in the sentence before. The intent (no migration figure is copied) was right and is kept; the exception is stated instead of contradicted |
+| Both denominators are defined, and the estimate's **clamp** is stated | `pe` covers 2001–2024, so `peAt` divides 2025 by the 2024 estimate and 1998–2000 by the 2001 one while the label says only "% tek. procjene". Neither denominator appeared in the glossary, and nothing said `rel11` is the study's like-for-like measure |
+| A Nalaz states the count the rail beneath it lists | Nalaz 2 said "samo tri županije" grow on mig+prirodno 2011–2024. Five do — Zagrebačka +2.240 and Dubrovačko-neretvanska +125 as well — and the rail the preset opens listed all five directly under the caption denying two of them |

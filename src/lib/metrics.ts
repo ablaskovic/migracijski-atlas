@@ -20,6 +20,7 @@ import DEMOjson from '../data/demo.json';
 /* geo_jls.json (475 KB) and geo_regions5.json (68 KB) are NOT imported here —
    together they were 53 % of the bundle for two of six views. See geoAsync.ts. */
 import { jlsGeo } from './geoAsync.ts';
+import { PAPER_KLAS_OF, PAPER_THR, PAPER_WINDOW } from './credits.ts';
 
 export const GEO = GEOjson as unknown as FeatureCollection<Geometry, CountyProps>;
 const RAW = RAWjson as unknown as AtlasRaw;
@@ -138,6 +139,28 @@ export function klasOf(iso: string, yi: number, thr: number, thrRel = false, thr
   const v = val(iso, yi, 'tot', 'abs', true);
   const lim = thrRel ? thrPct / 100 * D[iso].p : thr;
   return v > 0 ? 'gain' : v >= -lim ? 'neu' : 'loss';
+}
+
+/* ── the atlas's klasifikacija vs the study's published one ──────────────────
+   Same rule, newer DZS pull, so the membership is not identical. The legend and
+   the glossary both name the counties that moved, and neither writes them out:
+   a hardcoded pair would keep asserting a difference after a revision closed it
+   (or hide one a revision opened), which is the failure the ground-truth table
+   exists to prevent. Evaluated once, at the study's own settings — absolute
+   threshold, its endpoint — because that is the only state in which the two are
+   answering the same question. */
+export const PAPER_KLAS_DIFF: { iso: string; here: Klas; paper: Klas }[] = (() => {
+  const yi = YEARS.indexOf(PAPER_WINDOW.to);
+  if (yi < 0) return [];
+  return ISOS.map(iso => ({ iso, here: klasOf(iso, yi, PAPER_THR), paper: PAPER_KLAS_OF[iso] }))
+    .filter(d => d.paper && d.here !== d.paper);
+})();
+/* Is the current state comparable with what the study published? Off its
+   threshold, off its endpoint or in relative mode the two measure different
+   things, and a "differs from the study" note would be noise rather than
+   honesty. */
+export function paperKlasComparable(S: State): boolean {
+  return !S.thrRel && S.thr === PAPER_THR && YEARS[S.yi] === PAPER_WINDOW.to;
 }
 
 /* ── flows — ODM[a][b] = per-year array; 2018 measured, others IPF ── */

@@ -2,7 +2,7 @@ import {
   ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
   klasOf, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc,
 } from './metrics.ts';
-import { paperExportLine } from './credits.ts';
+import { paperCaveatLine, paperExportLine } from './credits.ts';
 import type { Klas, State } from './types.ts';
 
 const VARS: Record<string, string> = {
@@ -12,7 +12,15 @@ const VARS: Record<string, string> = {
 
 export interface ExportInfo { w: number; h: number; bytes: number }
 
-const TOP = 86, BOT = 88;
+/* BOT went 88 → 102 when the study's views gained a third credit row. The band
+   is laid out from its bottom edge upward at a 14 px rhythm — source credit at
+   BOT−14, the study reference at BOT−28, the revision caveat at BOT−42 — and
+   the legend's own last row sits 40 px below the map. At BOT = 88 a third row
+   would have landed 6 px under the legend; the suite asserts ≥ 12 px of
+   clearance, and 12 px is also roughly where 8,5 px mono stops reading as a
+   separate block. Non-study views draw two rows into the same taller band, so
+   every export keeps one page geometry. */
+const TOP = 86, BOT = 102;
 
 /* clone the live map SVG and bake class/CSS-var-provided presentation into
    attributes so the standalone document renders identically */
@@ -158,6 +166,12 @@ const srcLine = (S: State): string => SRC_BASE + (S.view === 'jmap'
    nothing about it. */
 const paperLine = (S: State): string =>
   S.view === 'klas' || S.view === 'reg' ? paperExportLine() : '';
+/* Same scoping, one row above: an image that cites the study by DOI while
+   showing a class count the study did not publish owes the reason on the image
+   itself. Not appended to paperLine — that row already runs ~700 px at 8,5 px
+   mono and the caveat is the half that would be clipped. */
+const caveatLine = (S: State): string =>
+  S.view === 'klas' || S.view === 'reg' ? paperCaveatLine() : '';
 
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
   const w = node.clientWidth, h = node.clientHeight;
@@ -213,7 +227,8 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   ctx.fillStyle = '#5F6A72'; ctx.font = '400 8.5px "IBM Plex Mono",ui-monospace,monospace';
   const note = legendNote(S);
   if (note && leg.kind !== 'klas') ctx.fillText(note, 222, ly + 22);
-  const pl = paperLine(S);
+  const pl = paperLine(S), cl = caveatLine(S);
+  if (cl) ctx.fillText(cl, 20, h + TOP + BOT - 42);
   if (pl) ctx.fillText(pl, 20, h + TOP + BOT - 28);
   ctx.fillText(srcLine(S), 20, h + TOP + BOT - 14);
   if (!dl) {
@@ -299,6 +314,7 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
     + `<line x1="20" y1="70" x2="${w - 20}" y2="70" stroke="#D9DDD6"/>`
     + new XMLSerializer().serializeToString(clone)
     + legSvg
+    + (caveatLine(S) ? txt(20, h + TOP + BOT - 42, caveatLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`) : '')
     + (paperLine(S) ? txt(20, h + TOP + BOT - 28, paperLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`) : '')
     + txt(20, h + TOP + BOT - 14, srcLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`)
     + '</svg>';

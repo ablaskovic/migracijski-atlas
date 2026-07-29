@@ -1,7 +1,8 @@
 import {
-  ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB,
+  ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, fmtI, fmtR,
 } from '../lib/metrics.ts';
+import { PAPER_THR, PAPER_WINDOW } from '../lib/credits.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import type { CSSProperties } from 'react';
 import type { Klas, State } from '../lib/types.ts';
@@ -67,6 +68,36 @@ function markPct(S: State, m: number): number | null {
   return clamp((v + m) / (2 * m) * 100);
 }
 
+/* The klasifikacija legend is the one panel in the app that shows a *result*
+   attributed to the study, so it is where the result has to answer for itself.
+   Exactly one note, never two: this legend is the tallest in the app and both
+   the glossary and the JLS card reserve a fixed lane for it (see index.css), so
+   a second line here costs a control over there. The branches are ordered by
+   what the reader is looking at — first "these counts differ from the published
+   ones", then "this threshold is not the study's". */
+const PW = `${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.`;
+
+/* Pre-2007 is the softest data in the file and the app never said so where it
+   shows. Measured on atlas_data2.json: the national inter-county margin
+   Σ(doseljeni) − Σ(odseljeni) is −550, −519, −464, −489, −490 for 2002–06 and
+   exactly 0 from 2007 on, i.e. before 2007 the county rows do not close against
+   each other. The scrubber's hatched pre-2011 band is drawn at opacity 0 unless
+   the view is cumulative or klas — precisely the modes that exclude these years
+   anyway — so in godišnje mode, the only mode where 1998–2006 actually renders
+   values, there was no marking at all. */
+const preNote = (S: State): string =>
+  !S.cum && YEARS[S.yi] < 2007 ? ' Prije 2007. međužupanijske margine ne zatvaraju se točno — v. „Kako čitati”.' : '';
+function klasNote(S: State): string {
+  if (paperKlasComparable(S)) {
+    if (!PAPER_KLAS_DIFF.length) return `Podjela odgovara objavljenoj u radu za ${PW}`;
+    const who = PAPER_KLAS_DIFF.map(d => SHORTN[d.iso]).join(', ');
+    return `Rad za ${PW} objavljuje 7 / 7 / 7. Na novijoj DZS seriji drukčije `
+      + `${PAPER_KLAS_DIFF.length > 1 ? 'su razvrstane' : 'je razvrstana'}: ${who} — v. „Kako čitati”.`;
+  }
+  if (S.thrRel) return `Prag u % popisa 2011. — rad koristi apsolutni prag (${fmtI.format(PAPER_THR)}, ${PW}), a argumentira relativno.`;
+  return `Prag i tri razreda iz rada; rad ih računa za ${PW} pragom ${fmtI.format(PAPER_THR)}.`;
+}
+
 export default function Legend({ S }: { S: State }) {
   const rel = S.den !== 'abs';
   const flowName = FLOWN[S.flow];
@@ -89,7 +120,7 @@ export default function Legend({ S }: { S: State }) {
             </div>
           ))}
         </div>
-        {S.thrRel && <div className="legend-note">Prag u % popisa 2011. — rad koristi apsolutni prag, a argumentira relativno.</div>}
+        <div className="legend-note">{klasNote(S)}</div>
       </div>
     );
   }
@@ -99,7 +130,14 @@ export default function Legend({ S }: { S: State }) {
       <div className="legend" id="legend">
         <div className="legend-title">Regije (5) · {flowName}{denName}</div>
         <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
-        <div className="legend-note">Plavo: regija dobiva stanovnike · crveno: gubi ih. Pripadnost prema prijedlogu iz rada; Ličko-senjska pridružena Sjevernom Jadranu (u radu neodređeno).</div>
+        {/* The note used to say Lika was "u radu neodređeno". Now that the study
+            is retrievable that is checkable and not quite true — its nine-region
+            passage mentions Lika alongside Zadar — and it also understated the
+            scope: the study proposes five regions in prose and prints no county
+            list at all, so the whole 21→5 partition is the atlas's reading, not
+            one footnote's worth of it. The per-county detail is in the glossary;
+            this line has to fit above the map. */}
+        <div className="legend-note">Plavo: regija dobiva stanovnike · crveno: gubi ih. Rad predlaže pet regija i njihova središta, ali ne objavljuje popis županija — raspored po županijama je tumačenje atlasa; v. „Kako čitati”.{preNote(S)}</div>
       </div>
     );
   }
@@ -171,6 +209,7 @@ export default function Legend({ S }: { S: State }) {
       <div className="legend-note">
         Plavo: županija dobiva stanovnike · crveno: gubi ih · 0 = ravnoteža.
         {S.flow === 'all' && ' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.'}
+        {preNote(S)}
       </div>
     </div>
   );
