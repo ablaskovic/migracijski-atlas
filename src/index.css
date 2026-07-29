@@ -13,6 +13,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
   display:flex;flex-direction:column;overflow:hidden}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+/* …but never on a graphic. An outline on an SVG element is drawn round its
+   *bbox* — a rounded rectangle, nothing like the shape it is meant to indicate —
+   and inside the zoom transform it scales with k as well (measured ~20 px of ink
+   at k=4,1). Chrome's own ring is worse: `auto 5px rgb(16,16,16)`, which is what
+   wrapped the whole 1.100 px timeline in a black rounded rect on every click of
+   it. Every focusable graphic here draws its own keyboard indicator instead —
+   see .focusring, .cnt/.jl/.mxc:focus-visible and #spark:focus-visible.
+   Unconditional on :focus, because a mouse click is deliberately *not*
+   :focus-visible and that is exactly the case the UA ring appears in. */
+svg :focus,#spark:focus{outline:none}
 /* off-screen until focused — the keyboard bypass for the header's ~28 controls */
 .skip{position:absolute;left:-9999px;top:0;z-index:20;background:var(--ink);color:var(--bg);
   padding:8px 14px;font-size:13px;text-decoration:none;border-radius:0 0 3px 0}
@@ -83,12 +93,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
    indicator at all (measured: activeElement unchanged, class back to "cnt").
    A dash is orthogonal to colour, so focus survives on top of hover (ink) and
    selection (teal) without hiding either. */
-/* `outline:none` is unconditional, and separate from the indicator below. An
-   outline on an SVG element is drawn round its *bbox* — a rounded rectangle, and
-   inside the zoom transform it scales with k too (measured ~20 px of black at
-   k=6,55). Gating it on :focus-visible along with the stroke meant a plain mouse
-   click, which is deliberately not focus-visible, got the UA ring back. */
-.cnt:focus{outline:none}
+/* Keyboard focus only — the UA ring is killed above, for every graphic at once. */
 .cnt:focus-visible{stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
 .cnt.sel:focus-visible{stroke:var(--acc);stroke-width:2.4}
 /* 1.4.11 — a *single-tone* ring cannot clear 3:1 against a diverging data ramp,
@@ -356,8 +361,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .mxc{cursor:pointer}
 /* the cell keeps a stroke of its own, but the ring that has to clear 3:1 against
    the fill is the two-tone overlay below — same reasoning as .focusring */
-.mxc:focus{outline:none}
 .mxc:focus-visible{stroke:var(--ink);stroke-width:2}
+/* the diagonal is tabindex=-1 (the roving stop steps over it) but a click still
+   focuses it, and it had no rule of its own at all */
+.mxd:focus-visible{stroke:var(--ink);stroke-width:2}
 /* in-cell numbers: a white halo instead of an ink/white flip, because the flip
    has no working threshold — see the comment in MatrixView.tsx */
 .mxnum{paint-order:stroke;stroke:#fff;stroke-width:2.2;stroke-linejoin:round}
@@ -369,7 +376,6 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .arch{pointer-events:none;opacity:.9}
 /* hovering a region row in the rail lights that region's counties */
 .cnt.rhl{stroke:var(--ink);stroke-width:1.6}
-.jl:focus{outline:none}
 .jl:focus-visible{stroke:var(--acc);stroke-width:1.6}
 .citz-clamp{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--loss);
   margin-top:5px;line-height:1.35}

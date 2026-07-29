@@ -2247,31 +2247,55 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      Chrome's default ring back. On an SVG element an outline is drawn round the
      bbox, i.e. a rounded rectangle, and inside the zoom transform it scales with
      k: ~20 px of black at k=4,1, over the shape it is supposed to indicate.
-     `outline:none` is unconditional; the indicator alone is conditional. */
-  const uaOutline = {};
-  for (const [hash, sel] of [['#v=jmap&dir=net', '.jl'], ['', '.cnt'], ['#v=mx&y=2018&c=0&dir=out', '.mxc']]) {
+     `outline:none` is unconditional; the indicator alone is conditional.
+     A sweep, not three selectors: the first cut of this check covered `.cnt`,
+     `.jl` and `.mxc`, and `#spark` — the timeline, an `<svg>` and so not matched
+     by `svg :focus` — still wrapped its whole 1.100 px box in Chrome's
+     `auto 5px rgb(16,16,16)` on every click of it, in all four views. `.mxd` had
+     no rule at all either. Clicking every focusable graphic and control is the
+     only version of this check that generalises. */
+  const uaRing = { hits: [], n: 0 };
+  const CLICKABLE = ['#spark', '.rrow', '.cnt', '.jl', '.mxc', '.mxd', '#play', '#labBtn',
+    '#helpBtn', '#zoomRst', '#pngBtn', '#segView button', '#thr', '.chip-hd', '#cardX', '#pairX'];
+  for (const hash of ['', '#v=mx&y=2018&c=0&dir=out', '#v=jmap&dir=net',
+    '#v=flow&s=HR-21&pp=HR-01&y=2018&c=0&dir=net']) {
     await fresh(hash);
-    const p = await page.evaluate(s => {
-      for (const el of document.querySelectorAll(s)) {
-        const r = el.getBoundingClientRect();
-        if (r.width > 12 && r.height > 12) {
-          const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
-          if (document.elementFromPoint(x, y) === el) return { x, y };
+    const targets = await page.evaluate(sels => {
+      const out = [];
+      for (const s of sels) {
+        for (const el of document.querySelectorAll(s)) {
+          const r = el.getBoundingClientRect();
+          if (r.width < 8 || r.height < 8) continue;
+          const x = Math.round(r.left + Math.min(r.width / 2, 40)), y = Math.round(r.top + r.height / 2);
+          const hit = document.elementFromPoint(x, y);
+          if (hit && (hit === el || el.contains(hit))) { out.push({ s, x, y }); break; }
         }
       }
-      return null;
-    }, sel);
-    if (p) await page.mouse.click(p.x, p.y);
-    await settle(300);
-    uaOutline[sel] = await page.evaluate(() => {
-      const el = document.activeElement;
-      return { cls: el.getAttribute ? el.getAttribute('class') : null,
-        outline: getComputedStyle(el).outlineStyle };
-    });
+      return out;
+    }, CLICKABLE);
+    for (const t of targets) {
+      await page.mouse.click(t.x, t.y);
+      await settle(150);
+      const st = await page.evaluate(() => {
+        const el = document.activeElement;
+        if (!el || el === document.body) return null;
+        const c = getComputedStyle(el);
+        return { id: el.id, tag: el.tagName, cls: (el.getAttribute && el.getAttribute('class')) || '',
+          style: c.outlineStyle, width: c.outlineWidth, fv: el.matches ? el.matches(':focus-visible') : null };
+      });
+      if (!st) continue;
+      uaRing.n++;
+      /* the app's own teal ring on a real form control is intended: Chrome reports
+         focus-visible for <select>/<input> however they were focused */
+      const formControl = /^(SELECT|INPUT)$/.test(st.tag || '') || st.fv === true;
+      if (st.style !== 'none' && parseFloat(st.width) > 0 && !formControl) {
+        uaRing.hits.push(`${hash || 'saldo'}:${t.s}→${st.id || st.cls}=${st.style} ${st.width}`);
+      }
+    }
   }
-  ck('a mouse click never gets the UA focus ring — a bbox rounded rect, scaled by k',
-    ['.jl', '.cnt', '.mxc'].every(s => uaOutline[s] && uaOutline[s].outline === 'none'
-      && (uaOutline[s].cls || '').includes(s.slice(1))), JSON.stringify(uaOutline));
+  ck('no pointer click anywhere leaves a UA focus ring (a bbox rounded rect)',
+    uaRing.n >= 28 && uaRing.hits.length === 0,   /* measured: 31 across the four views */
+    JSON.stringify({ compared: uaRing.n, hits: uaRing.hits.slice(0, 4) }));
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');
