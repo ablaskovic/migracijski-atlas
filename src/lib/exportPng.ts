@@ -3,6 +3,7 @@ import {
   klasOf, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc,
 } from './metrics.ts';
 import { paperCaveatLine, paperExportLine } from './credits.ts';
+import { exportLicenceLine } from './licences.ts';
 import type { Klas, State } from './types.ts';
 
 const VARS: Record<string, string> = {
@@ -11,16 +12,6 @@ const VARS: Record<string, string> = {
 };
 
 export interface ExportInfo { w: number; h: number; bytes: number }
-
-/* BOT went 88 → 102 when the study's views gained a third credit row. The band
-   is laid out from its bottom edge upward at a 14 px rhythm — source credit at
-   BOT−14, the study reference at BOT−28, the revision caveat at BOT−42 — and
-   the legend's own last row sits 40 px below the map. At BOT = 88 a third row
-   would have landed 6 px under the legend; the suite asserts ≥ 12 px of
-   clearance, and 12 px is also roughly where 8,5 px mono stops reading as a
-   separate block. Non-study views draw two rows into the same taller band, so
-   every export keeps one page geometry. */
-const TOP = 86, BOT = 102;
 
 /* clone the live map SVG and bake class/CSS-var-provided presentation into
    attributes so the standalone document renders identically */
@@ -138,6 +129,112 @@ function legendNote(S: State): string {
   return '';
 }
 
+/* ── measured band layout, shared by both formats ───────────────────────────
+   Reported by a user, and both halves are the same defect: text was drawn
+   without ever being fitted to the canvas.
+   1. The title shrank towards a floor and then drew anyway. At a narrow map the
+      floor is not enough, so "NETO TOKOVI: SISAČKO-MOSLAVAČKA ↔ PARTNERI ·
+      KUMULATIVNA PROCJENA" ran straight through the right-aligned period.
+      Truncating is not the fix: the tail of that string is the honesty badge,
+      and dropping it would be an unbadged estimate (CLAUDE.md §3). It wraps.
+   2. The four credit rows were drawn at x=20 with no fitting at all, so both
+      the licence row and the source row simply ran off the right edge — the
+      source row has been ~950 px at 8,5 px mono all along, which is wider than
+      the canvas at any browser window under ~1000 px. They wrap too, and the
+      bottom band is sized from the number of rows that produces rather than
+      pinned to a constant that was only ever right at one width.
+   Both bands are therefore computed, not fixed, and the two formats share this
+   one function so they cannot drift apart. */
+const TITLE_MAX = 23, TITLE_MIN = 12, TITLE_LH = 26;
+const CREDIT_FS = 8.5, CREDIT_LH = 14;
+const BASE_TOP = 86;
+const MONO_CSS = '"IBM Plex Mono",ui-monospace,monospace';
+const DISP_CSS = 'Oswald,"Arial Narrow",sans-serif';
+
+let MC: CanvasRenderingContext2D | null = null;
+function measureCtx(): CanvasRenderingContext2D | null {
+  if (!MC) MC = document.createElement('canvas').getContext('2d');
+  return MC;
+}
+/* Greedy word wrap against a real text measurement. `widths` is per line, so
+   the title's first line can reserve room for the right-aligned period while
+   its continuations get the full width. A single word longer than the line is
+   hard-broken rather than allowed to overflow. */
+function wrapText(text: string, font: string, widths: (i: number) => number): string[] {
+  const ctx = measureCtx();
+  if (!ctx) return [text];
+  ctx.font = font;
+  const fits = (s: string, i: number) => ctx.measureText(s).width <= widths(i);
+  const out: string[] = [];
+  let line = '';
+  const push = () => { out.push(line); line = ''; };
+  for (const word of text.split(' ')) {
+    const next = line ? line + ' ' + word : word;
+    if (fits(next, out.length) || !line) {
+      if (!fits(next, out.length) && !line) {
+        /* one unbreakable token wider than the whole line */
+        let chunk = '';
+        for (const ch of word) {
+          if (chunk && !fits(chunk + ch, out.length)) { line = chunk; push(); chunk = ''; }
+          chunk += ch;
+        }
+        line = chunk;
+        continue;
+      }
+      line = next;
+    } else { push(); line = word; }
+  }
+  if (line) out.push(line);
+  return out.length ? out : [text];
+}
+
+export interface Band {
+  top: number; bot: number; titleFs: number; titleLines: string[];
+  per: string; credits: string[];
+  /* the legend's own caveat, wrapped. It sits beside the gradient bar at x=222,
+     which leaves 148 px on a 390 px canvas — measured, "Neto parova je
+     strukturna procjena." ran to 401 there. Below a floor it drops to x=20 on
+     its own line under the scale labels instead of being squeezed. */
+  noteLines: string[]; noteX: number; legendBottom: number;
+}
+export function bandLayout(S: State, w: number): Band {
+  const [dsc, per] = exportDesc(S);
+  const title = dsc.toUpperCase();
+  const ctx = measureCtx();
+  let perW = 0;
+  if (ctx) { ctx.font = `600 ${TITLE_MAX}px ${DISP_CSS}`; perW = ctx.measureText(per).width; }
+  /* shrink first — a one-line title is the intended look — and only wrap once
+     the floor is reached, so narrow exports degrade in the right order */
+  let titleFs = TITLE_MAX, titleLines = [title];
+  const lineW = (i: number) => (i === 0 ? w - perW - 58 : w - 40);
+  while (titleFs > TITLE_MIN) {
+    if (wrapText(title, `600 ${titleFs}px ${DISP_CSS}`, lineW).length === 1) break;
+    titleFs--;
+  }
+  titleLines = wrapText(title, `600 ${titleFs}px ${DISP_CSS}`, lineW);
+  const credits = [caveatLine(S), paperLine(S), exportLicenceLine(), srcLine(S)]
+    .filter(Boolean)
+    .flatMap(t => wrapText(t, `400 ${CREDIT_FS}px ${MONO_CSS}`, () => w - 40));
+  /* legend geometry, band-relative: bar at 18, scale labels at 40 */
+  const note = legendNote(S);
+  const beside = w - 222 - 20;
+  const noteX = beside >= 140 ? 222 : 20;
+  const noteW = noteX === 222 ? beside : w - 40;
+  const noteLines = note ? wrapText(note, `400 ${CREDIT_FS}px ${MONO_CSS}`, () => noteW) : [];
+  /* at x=222 the note starts on the labels' own line; dropped to x=20 it starts
+     one line below them so it cannot sit on the numbers */
+  const noteTop = noteX === 222 ? 40 : 53;
+  const legendBottom = noteLines.length
+    ? Math.max(40, noteTop + (noteLines.length - 1) * 11) : 40;
+  return {
+    top: BASE_TOP + (titleLines.length - 1) * TITLE_LH,
+    /* 14 px per credit row, 14 px below the last, and 20 px of head room so the
+       top row clears whatever the legend actually ended up occupying */
+    bot: CREDIT_LH * credits.length + legendBottom + 20,
+    titleFs, titleLines, per, credits, noteLines, noteX, legendBottom,
+  };
+}
+
 function gradBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number,
   scale: (v: number) => string, m: number, neg: boolean) {
   const gr = ctx.createLinearGradient(x, 0, x + w, 0);
@@ -175,6 +272,7 @@ const caveatLine = (S: State): string =>
 
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
   const w = node.clientWidth, h = node.clientHeight;
+  const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
   const clone = bakeMapClone(node);
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
   const img = new Image();
@@ -186,17 +284,14 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   ctx.fillStyle = '#F4F5F2'; ctx.fillRect(0, 0, w, h + TOP + BOT);
   ctx.fillStyle = '#5F6A72'; ctx.font = '500 10px "IBM Plex Mono",ui-monospace,monospace';
   ctx.fillText(`MIGRACIJSKI ATLAS ŽUPANIJA · DZS · ${Y0}.–${YEND}.`, 20, 26);
-  const [dsc, per] = exportDesc(S);
+  const per = B.per;
   ctx.fillStyle = '#20262B';
-  let fs = 23; ctx.font = '600 ' + fs + 'px Oswald,"Arial Narrow",sans-serif';
-  const perW = ctx.measureText(per).width;
-  while (fs > 13 && ctx.measureText(dsc.toUpperCase()).width > w - perW - 58) {
-    fs--; ctx.font = '600 ' + fs + 'px Oswald,"Arial Narrow",sans-serif';
-  }
-  ctx.fillText(dsc.toUpperCase(), 20, 56);
-  ctx.textAlign = 'right'; ctx.font = '600 23px Oswald,"Arial Narrow",sans-serif';
+  ctx.font = '600 ' + B.titleFs + 'px ' + DISP_CSS;
+  B.titleLines.forEach((ln, i) => ctx.fillText(ln, 20, 56 + i * TITLE_LH));
+  ctx.textAlign = 'right'; ctx.font = '600 ' + TITLE_MAX + 'px ' + DISP_CSS;
   ctx.fillText(per, w - 20, 56); ctx.textAlign = 'left';
-  ctx.strokeStyle = '#D9DDD6'; ctx.beginPath(); ctx.moveTo(20, 70); ctx.lineTo(w - 20, 70); ctx.stroke();
+  const ruleY = 70 + (B.titleLines.length - 1) * TITLE_LH;
+  ctx.strokeStyle = '#D9DDD6'; ctx.beginPath(); ctx.moveTo(20, ruleY); ctx.lineTo(w - 20, ruleY); ctx.stroke();
   ctx.drawImage(img, 0, TOP, w, h);
   URL.revokeObjectURL(url);
   const ly = h + TOP + 18;
@@ -225,12 +320,11 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
     ctx.fillText(leg.badge, 222, ly + 9);
   }
   ctx.fillStyle = '#5F6A72'; ctx.font = '400 8.5px "IBM Plex Mono",ui-monospace,monospace';
-  const note = legendNote(S);
-  if (note && leg.kind !== 'klas') ctx.fillText(note, 222, ly + 22);
-  const pl = paperLine(S), cl = caveatLine(S);
-  if (cl) ctx.fillText(cl, 20, h + TOP + BOT - 42);
-  if (pl) ctx.fillText(pl, 20, h + TOP + BOT - 28);
-  ctx.fillText(srcLine(S), 20, h + TOP + BOT - 14);
+  if (leg.kind !== 'klas') B.noteLines.forEach((ln, i) =>
+    ctx.fillText(ln, B.noteX, h + TOP + 18 + (B.noteX === 222 ? 22 : 35) + i * 11));
+  /* bottom-up, so the source credit is always the last line on the image */
+  B.credits.forEach((ln, i) => ctx.fillText(
+    ln, 20, h + TOP + BOT - CREDIT_LH * (B.credits.length - i)));
   if (!dl) {
     const b = await new Promise<Blob | null>(r => cv.toBlob(r, 'image/png'));
     return { w: cv.width, h: cv.height, bytes: b ? b.size : 0 };
@@ -258,26 +352,13 @@ const txt = (x: number, y: number, s: string, attrs: string) => `<text x="${x}" 
    PARTNERI · KUMULATIVNA PROCJENA" ran 73 px straight through "2011.–2024.".
    Same canvas metrics the PNG measures with, so both formats break the same way
    or not at all. */
-const DISP_CSS = 'Oswald,"Arial Narrow",sans-serif';
-function fitTitle(dsc: string, per: string, w: number, start = 21, min = 12): number {
-  const ctx = document.createElement('canvas').getContext('2d');
-  if (!ctx) return start;
-  ctx.font = '600 ' + start + 'px ' + DISP_CSS;
-  const perW = ctx.measureText(per).width;
-  let fs = start;
-  while (fs > min) {
-    ctx.font = '600 ' + fs + 'px ' + DISP_CSS;
-    if (ctx.measureText(dsc).width <= w - perW - 58) break;
-    fs--;
-  }
-  return fs;
-}
 
 export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
   const w = node.clientWidth, h = node.clientHeight;
+  const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
   const clone = bakeMapClone(node);
   clone.setAttribute('y', String(TOP));
-  const [dsc, per] = exportDesc(S);
+  const per = B.per;
   const leg = legendSpec(S);
   const ly = h + TOP + 18;
   let defs = '', legSvg = '';
@@ -300,23 +381,22 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
       + txt(210, ly + 22, '+' + lab(leg.m), la + ' text-anchor="end"');
     else legSvg += txt(20, ly + 22, '0', la) + txt(210, ly + 22, fmtI.format(leg.m), la + ' text-anchor="end"');
     if (leg.badge) legSvg += txt(222, ly + 9, leg.badge, la);
-    const note = legendNote(S);
-    if (note) legSvg += txt(222, ly + 22, note, `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`);
+    legSvg += B.noteLines.map((ln, i) => txt(B.noteX, ly + (B.noteX === 222 ? 22 : 35) + i * 11, ln,
+      `font-family="${MONO}" font-size="${CREDIT_FS}" fill="#5F6A72"`)).join('');
   }
-  const tfs = fitTitle(dsc.toUpperCase(), per, w);
   const doc =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h + TOP + BOT}" viewBox="0 0 ${w} ${h + TOP + BOT}">`
     + `<defs>${defs}</defs>`
     + `<rect width="${w}" height="${h + TOP + BOT}" fill="#F4F5F2"/>`
     + txt(20, 26, `MIGRACIJSKI ATLAS ŽUPANIJA · DZS · ${Y0}.–${YEND}.`, `font-family="${MONO}" font-size="10" font-weight="500" fill="#5F6A72" letter-spacing="1"`)
-    + txt(20, 56, dsc.toUpperCase(), `font-family="${DISP}" font-size="${tfs}" font-weight="600" fill="#20262B"`)
-    + txt(w - 20, 56, per, `font-family="${DISP}" font-size="21" font-weight="600" fill="#20262B" text-anchor="end"`)
-    + `<line x1="20" y1="70" x2="${w - 20}" y2="70" stroke="#D9DDD6"/>`
+    + B.titleLines.map((ln, i) => txt(20, 56 + i * TITLE_LH, ln,
+      `font-family="${DISP}" font-size="${B.titleFs}" font-weight="600" fill="#20262B"`)).join('')
+    + txt(w - 20, 56, per, `font-family="${DISP}" font-size="${TITLE_MAX}" font-weight="600" fill="#20262B" text-anchor="end"`)
+    + `<line x1="20" y1="${70 + (B.titleLines.length - 1) * TITLE_LH}" x2="${w - 20}" y2="${70 + (B.titleLines.length - 1) * TITLE_LH}" stroke="#D9DDD6"/>`
     + new XMLSerializer().serializeToString(clone)
     + legSvg
-    + (caveatLine(S) ? txt(20, h + TOP + BOT - 42, caveatLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`) : '')
-    + (paperLine(S) ? txt(20, h + TOP + BOT - 28, paperLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`) : '')
-    + txt(20, h + TOP + BOT - 14, srcLine(S), `font-family="${MONO}" font-size="8.5" fill="#5F6A72"`)
+    + B.credits.map((ln, i) => txt(20, h + TOP + BOT - CREDIT_LH * (B.credits.length - i), ln,
+      `font-family="${MONO}" font-size="${CREDIT_FS}" fill="#5F6A72"`)).join('')
     + '</svg>';
   if (dl) download(new Blob([doc], { type: 'image/svg+xml;charset=utf-8' }), fname(S, per, 'svg'));
   return doc;

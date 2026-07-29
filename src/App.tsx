@@ -5,6 +5,7 @@ import { BASE, focusSoon } from './lib/state.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperPending, paperRefNote, paperRefTail } from './lib/credits.ts';
+import { SOURCES } from './lib/licences.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
@@ -351,8 +352,23 @@ export default function App() {
       <div className="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true">{live}</div>
       <footer className="ft">
         {/* ODbL §4.3 wants the licence named, not just the source — the legend
-            did it, the footer, the export and the README did not */}
-        <span>Izvori: DZS tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (Pitoski i sur. 2021, CC BY) · ostale godine: IPF procjena na DZS marginama · granice županija: geoBoundaries/OSM, granice JLS: OpenStreetMap suradnici — oboje ODbL.</span>
+            did it, the footer, the export and the README did not. The names are
+            links now: CC BY §3(a) asks for a hyperlink to the material where
+            practicable, and OSM's attribution guidance asks for one to its
+            copyright page. Threaded into the existing sentence rather than added
+            to it, so the lane costs the map exactly what it did before — the
+            legend keeps the plain-text wording because `.legend` is
+            `pointer-events:none` and a link in it could never be clicked. */}
+        <span>Izvori: <a className="paper-link" href={SOURCES[0].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`DZS — ${SOURCES[0].note}. Otvara se u novoj kartici.`}>DZS</a>{' '}
+          tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (
+          <a className="paper-link" href={SOURCES[1].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`Pitoski i sur. 2021 — ${SOURCES[1].note}. Otvara se u novoj kartici.`}>Pitoski i sur. 2021</a>, CC BY) ·
+          ostale godine: IPF procjena na DZS marginama · granice županija:{' '}
+          <a className="paper-link" href={SOURCES[3].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`geoBoundaries — ${SOURCES[3].note}. Otvara se u novoj kartici.`}>geoBoundaries</a>/OSM, granice JLS:{' '}
+          <a className="paper-link" href={SOURCES[2].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`OpenStreetMap — ${SOURCES[2].note}. Otvara se u novoj kartici.`}>OpenStreetMap</a> suradnici — oboje ODbL.</span>
         {/* The study the atlas is a companion to is unpublished: the reference is
             pending, not missing, and the atlas is not affiliated with it. Both
             sentences come from lib/credits.ts, which is also what the header,

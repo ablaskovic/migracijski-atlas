@@ -70,7 +70,7 @@ export cited the study by DOI while dropping the one sentence explaining why its
 numbers differ. All three now answer for themselves, the divergence is **derived**
 from the published classification rather than written out, the glossary carries the
 study's *own* five data caveats (it carried only the atlas's), and Nalaz 2 stopped
-saying "samo tri županije" over a rail listing five. It also **self-hosts the fonts** (they were on a third-party CDN, so every visitor's IP went there on first paint and the suite measured the *fallback* face) and adds **six Nalazi** for the study's argument, which the first seven barely touched — **266 checks**.
+saying "samo tri županije" over a rail listing five. It also **self-hosts the fonts** (they were on a third-party CDN, so every visitor's IP went there on first paint and the suite measured the *fallback* face) and adds **six Nalazi** for the study's argument, which the first seven barely touched. It links every upstream source it names (CC BY §3(a) asks for one), states the terms of the exported figure, and **fixes an export that did not fit inside itself** — a user reported a title running through the period and the credit rows running off the right edge — **275 checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -81,7 +81,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 266-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 275-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
@@ -282,7 +282,7 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (266 checks; the
+scripts/verify.cjs       the executable verification protocol (275 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)
@@ -533,3 +533,24 @@ Two more, on the keyboard and the screen reader:
 | Every Nalaz cites numbers **its own view renders** | unchanged rule, newly enforced on the six additions: the rail is read back and compared against the caption (Zagrebačka +15.287 internal, Istarska top at +10,8 %, 21 negative rows on prirodno, the corridor's 4.288 / −517) |
 | The Nalazi cover the **study's** argument, not only the atlas's apparatus | measured against the paper, the first seven used no internal/external split (its central analytic move), no "% popisa 2011." lens (half its own keyword list), nothing about *when* the turn happened, nothing of its Osijek conclusion — and the Matrica, an entire view, had no story at all. Six presets, one per gap |
 | The Matrica Nalaz opens its corridor **in the grid** | it would have been trivial to write it as `{view:'flow', …}`; that is exactly the v2.0.7 defect. The check asserts 420 cells survive, the corridor is marked, and the card docks in the rail |
+
+### v2.0.9 invariants (sources reachable, terms stated)
+
+| Invariant | Why |
+|---|---|
+| Every upstream source the footer **names**, it **links** | the atlas named four and linked none. For the 2018 flows that is closer to an obligation than a courtesy: they are Pitoski et al. under **CC BY 4.0**, whose §3(a) asks for a URI or hyperlink to the material "to the extent reasonably practicable" — on a web page it is — and OSM's own attribution guidance asks for a link to its copyright page. `src/lib/licences.ts` is the one list; the footer and the glossary are two renderings of it |
+| The **legend** keeps plain text on purpose | `.legend` is `pointer-events:none`, so a link inside it could never be clicked. Attribution there stays wording, and the reachable copy lives in the footer and the glossary |
+| The links cost the map **nothing** | threaded into the sentence already there rather than appended to it, and "nekomercijalan" is one word inside `NO_AFFIL` rather than its own clause — a separate sentence costs the footer a wrapped line, and the footer is a fixed lane above the map (~13 px at 1440). Pinned at ≤ 78 px |
+| Exported figures carry **their own licence**, every view | an exported map is a **Produced Work** under ODbL §4.3, not a derived database, so §4.4 share-alike does not reach it and its terms are ours to set: **CC BY 4.0**, so the next researcher can use it without asking. Unconditional, unlike the study line — the terms apply to all six views, the study reference only to the two that reproduce its method |
+| The band grew again rather than the rows tightening | `BOT` 88 → 102 → 116. Bottom-up at a 14 px rhythm: source credit, figure licence, study reference, revision caveat. The top row still owes the legend 12 px, and the suite asserts the rhythm and the clearance in both directions — four rows for a study view, two for the others, one page geometry either way |
+| The IPF caveat travels with the licence | granting CC BY on the figure must not read as granting it on the estimates. The glossary says so in the same paragraph: the IPF layers are this atlas's computation, not published statistics, and must not be passed on as DZS figures |
+
+### v2.0.9 invariants (the export fits inside itself)
+
+| Invariant | Why |
+|---|---|
+| **Nothing is drawn into the export band without being fitted first** | reported by a user, one root cause with two faces. The title shrank towards a floor and then drew anyway, so at a narrow map "NETO TOKOVI: SISAČKO-MOSLAVAČKA ↔ PARTNERI · KUMULATIVNA PROCJENA" ran straight through the right-aligned period; and the credit rows were drawn at `x=20` with no fitting at all, so the source row — ~950 px at 8,5 px mono, wider than the canvas at any browser window under ~1000 px — simply ran off the edge. The licence row made it visible, it did not cause it |
+| The title **wraps** rather than truncating | its tail is the honesty badge (`· KUMULATIVNA PROCJENA`), so an ellipsis would drop an honesty label and turn a labelled estimate into an unlabelled one. Degradation order is shrink-then-wrap: measured, 23 px at 1440, 17 px at 700, the 12 px floor at 560, and **two lines from 480 down**. `top` grows by 26 px per extra line so the rule and the map move with it |
+| The band heights are **computed, not pinned** | `bandLayout()` measures every string and returns `top`/`bot`; `BOT` had been a constant three times over (88 → 102 → 116) and each value was only ever right at one viewport width. The suite therefore stopped pinning a height and now asserts the PNG is exactly 2× the SVG the same state emits — the two formats are twins, which is the invariant that actually matters |
+| The legend caveat is fitted too | it sits beside the gradient bar at `x=222`, which leaves 148 px on a 390 px canvas — measured, "Neto parova je strukturna procjena." ran to 401 there. It wraps, and below a 140 px floor it drops to `x=20` on its own line under the scale labels rather than being squeezed; `bot` is sized from where the legend actually ended up |
+| Fit is asserted by **measuring the document**, not by reading the source | the strings are built from data at runtime, so no amount of inspecting the code shows the overflow. The check inserts the exported SVG into the page and asks every band `<text>` for its own `getComputedTextLength()`, at 1440 / 1024 / 390 across two views, and fails on any run past the canvas edge or any two runs overlapping on one baseline. It also asserts it inspected ≥ 6 runs, so a selector change cannot pass by comparing nothing |

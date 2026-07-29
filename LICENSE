@@ -1,6 +1,6 @@
 # Licences
 
-This repository contains three kinds of material under three different terms.
+This repository contains several kinds of material under different terms.
 They are listed separately because they cannot be relicensed as one.
 
 ## 1. Source code — MIT
@@ -73,6 +73,28 @@ text ships in `public/fonts/OFL-Oswald.txt` and `public/fonts/OFL-IBMPlex.txt`
 and is served by the built site at `./fonts/`. The fonts are self-hosted rather
 than loaded from Google's CDN so that no visitor's IP reaches a third party on
 first paint.
+
+## 5. Exported figures — CC BY 4.0
+
+The PNG and SVG a reader exports from the running atlas are **Produced Works**
+in the sense of ODbL §4.3, not derived databases: they are renderings, so the
+share-alike obligation in §4.4 does not reach them and their terms are ours to
+set. They are published under **Creative Commons Attribution 4.0**
+(https://creativecommons.org/licenses/by/4.0/) — reuse them in a paper, a slide
+or a report, keeping the credit band the export already prints, which carries
+every upstream attribution the choice depends on (DZS, Pitoski et al. CC BY,
+ODbL boundaries).
+
+This does not extend to the underlying data: the IPF layers remain generated
+output, not published statistics, and §3 above still governs the series.
+
+## The atlas is non-commercial
+
+It is published as a free, non-commercial project. Nothing it displays is
+derived from the companion study's expression — the numbers are DZS's or
+computed here, and what comes from the study is a threshold and a grouping,
+which are method rather than text — so the study's NC clause is not engaged
+either way. The statement is made so a reader does not have to reason it out.
 
 ## Note on the estimates
 

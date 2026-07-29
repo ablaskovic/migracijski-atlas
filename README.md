@@ -25,7 +25,7 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
 npm i -D puppeteer   # once, for verification
-npm run verify       # typecheck + lint + build + 266-check suite (must pass)
+npm run verify       # typecheck + lint + build + 275-check suite (must pass)
 ```
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)

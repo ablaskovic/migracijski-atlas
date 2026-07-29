@@ -87,7 +87,13 @@ export const paperRefTail = (): string => paperPending() ? '' : ', ' + PAPER.jou
    cannot. One canonical string, used by the footer and the glossary alike; the
    glossary adds the review/endorsement sentence after it rather than keeping a
    second, longer copy that could drift from this one. */
-export const NO_AFFIL = 'Atlas je neovisan i neslužben projekt: autor atlasa nije povezan s autorima rada ni s njihovim ustanovama.';
+/* "nekomercijalan" is one word rather than its own sentence on purpose: the
+   footer is a fixed lane above the map and a separate clause would cost it a
+   wrapped line (~13 px at 1440, measured). It belongs on the always-visible
+   surface because the study is CC BY-NC — nothing the atlas displays is derived
+   from the study's expression, so the NC clause is not engaged either way (see
+   LICENSE), but a reader should not have to work that out to be reassured. */
+export const NO_AFFIL = 'Atlas je neovisan, neslužben i nekomercijalan projekt: autor atlasa nije povezan s autorima rada ni s njihovim ustanovama.';
 
 /* The exported image is the artifact that leaves the app — there is no footnote
    to click through to and no link either, so it carries the DOI as text. Only

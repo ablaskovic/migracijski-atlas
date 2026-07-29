@@ -571,3 +571,8 @@ svg :focus,#spark:focus{outline:none}
 
 /* React mount: #root must not create a box — body keeps the app layout */
 #root{display:contents}
+
+/* "Licencije i izvori": one source per row, the link on its own line above the
+   note so a long note cannot push the link out of the panel's 330 px. */
+.help-src{margin-top:5px}
+.help-srcnote{color:var(--mut);font-size:10px}

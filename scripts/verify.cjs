@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 266;
+const EXPECTED_CHECKS = 275;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -248,12 +248,18 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('drill card hidden outside flow view', hidden === 'none', hidden);
 
   /* ── PNG export ── */
+  /* The band heights are computed from measured text now (the credit rows wrap,
+     and the title wraps rather than running through the period), so pinning a
+     constant here would pin one viewport width. The real invariant is that the
+     two formats are twins: the PNG is exactly 2× the SVG the same state emits. */
   const png = await page.evaluate(async () => {
     const r = await window.__exportPNG(false);
     const svg = document.querySelector('#map');
-    return { ...r, expW: svg.clientWidth * 2, expH: (svg.clientHeight + 188) * 2 };
+    const doc = window.__exportSVG(false);
+    const m = /<svg[^>]*width="(\d+(?:\.\d+)?)" height="(\d+(?:\.\d+)?)"/.exec(doc);
+    return { ...r, expW: svg.clientWidth * 2, expH: (+m[2]) * 2, svgW: +m[1] };
   });
-  ck('exportPNG dims = 2x map + bands', png.w === png.expW && png.h === png.expH,
+  ck('exportPNG dims = 2x the SVG twin, width = 2x map', png.w === png.expW && png.h === png.expH,
     png.w + 'x' + png.h + ' vs ' + png.expW + 'x' + png.expH);
   ck('exportPNG produces a real blob (>50 KB)', png.bytes > 50000, String(png.bytes));
 
@@ -1982,11 +1988,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      accessible name carries the full citation and *contains* the visible text,
      so 2.5.3 Label in Name holds. */
   ck('header, footer and glossary each link to the published record',
-    ['hd', 'ft', 'gl'].every(k => links[k].length === 1
-      && links[k][0].href === 'https://hrcak.srce.hr/349820'
-      && /noopener/.test(links[k][0].rel)
-      && links[k][0].name.includes(links[k][0].text)),
-    JSON.stringify(links));
+    /* the footer also links the four upstream sources now, so this asks for
+       exactly one link *to the study record* per surface, not one link total */
+    ['hd', 'ft', 'gl'].every(k => {
+      const paper = links[k].filter(a => a.href === 'https://hrcak.srce.hr/349820');
+      return paper.length === 1 && /noopener/.test(paper[0].rel)
+        && paper[0].name.includes(paper[0].text);
+    }),
+    JSON.stringify(links).slice(0, 300));
   ck('and states independence, non-endorsement and what is not taken from the study',
     attrGloss.section && /nije povezan/.test(attrGloss.body) && /nisu pregledali/.test(attrGloss.body)
     && /nijedna brojka nije preuzeta iz rada/.test(attrGloss.body),
@@ -2019,11 +2028,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const noteRows = [...eKlas.svg.matchAll(/<text x="20" y="(\d+(?:\.\d+)?)"[^>]*font-size="8\.5"/g)]
     .map(m => +m[1]).sort((a, b) => a - b);
   const swatch = +(eKlas.svg.match(/<rect x="20" y="(\d+(?:\.\d+)?)" width="11"/) || [0, 0])[1];
-  /* Three rows now, not two: revision caveat, study reference, source credit,
-     bottom-up at a 14 px rhythm. The band grew (BOT 88 → 102) rather than the
-     rows tightening, because the top row still owes the legend 12 px. */
+  /* The rows wrap now, so their count depends on the width; what does not
+     change is the rhythm and the clearance. Bottom-up: source credit, figure
+     licence, study reference, revision caveat — at least four rows for a study
+     view, 14 px apart, the topmost clearing the legend's last line by 12 px. */
   ck('the exported disclaimer is a line of its own, clear of the legend and the credit',
-    noteRows.length === 3 && noteRows[1] - noteRows[0] === 14 && noteRows[2] - noteRows[1] === 14
+    noteRows.length >= 4 && noteRows.every((y, i) => i === 0 || y - noteRows[i - 1] === 14)
     && noteRows[0] - swatch >= 12,
     JSON.stringify({ noteRows, swatch }));
 
@@ -2533,6 +2543,135 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the Matrica Nalaz opens its corridor inside the grid, card docked in the rail',
     nMx.cells === 420 && nMx.selMark && nMx.docked && /4\.288/.test(nMx.cap) && /−517/.test(nMx.cap),
     JSON.stringify(nMx));
+
+  /* ══════════ v2.0.9 — sources reachable, terms stated ══════════
+     Every upstream source was named in plain text and linked nowhere, which for
+     the 2018 flows is closer to an obligation than a courtesy: they are CC BY
+     4.0, whose §3(a) asks for a hyperlink to the material where practicable, and
+     OSM's attribution guidance asks for one to its copyright page. And nothing
+     said what a reader may do with the artifact that actually leaves the app. */
+  await fresh('');
+  const srcLinks = await page.evaluate(() => [...document.querySelectorAll('.ft a')]
+    .filter(a => a.getAttribute('href') !== 'https://hrcak.srce.hr/349820')
+    .map(a => ({ href: a.getAttribute('href'), rel: a.getAttribute('rel') || '',
+      text: a.textContent.trim(), name: a.getAttribute('aria-label') || '' })));
+  ck('the footer links every upstream source it names, not only the study',
+    ['podaci.dzs.hr', 'doi.org/10.1186', 'openstreetmap.org/copyright', 'geoboundaries.org']
+      .every(h => srcLinks.some(a => a.href.includes(h)))
+    && srcLinks.every(a => /noopener/.test(a.rel))
+    /* 2.5.3 Label in Name: each opens in a new tab and says so, and the
+       accessible name contains the visible text — "DZS" is what a speech-input
+       user can see, so "Državni zavod za statistiku …" alone would miss it */
+    && srcLinks.every(a => a.name.includes(a.text) && /novoj kartici/.test(a.name)),
+    JSON.stringify(srcLinks.map(a => a.href)));
+  /* The always-visible surface is where "non-commercial" belongs, and it had to
+     cost the map nothing — one word inside a sentence already there. */
+  const ncFoot = await page.evaluate(() => ({
+    txt: document.querySelector('.ft').textContent,
+    h: document.querySelector('.ft').getBoundingClientRect().height,
+  }));
+  ck('the footer states the project is non-commercial without gaining a line',
+    /nekomercijalan/.test(ncFoot.txt) && ncFoot.h <= 78, JSON.stringify({ h: ncFoot.h }));
+  const glLic = await page.evaluate(async () => {
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 300));
+    const c = document.querySelector('#helpCard');
+    return {
+      heads: [...c.querySelectorAll('.help-h')].map(h => h.textContent.trim()),
+      body: c.textContent,
+      srcs: [...c.querySelectorAll('.help-src a')].map(a => a.getAttribute('href')),
+      font: !!c.querySelector('a[href$="OFL-IBMPlex.txt"]'),
+    };
+  });
+  ck('the glossary lists each source with its terms, and links the font licence',
+    glLic.heads.includes('Licencije i izvori') && glLic.srcs.length === 4 && glLic.font
+    && /CC BY 4\.0/.test(glLic.body) && /MIT/.test(glLic.body)
+    && /ne prosljeđujte ih/.test(glLic.body),
+    JSON.stringify({ srcs: glLic.srcs.length, font: glLic.font }));
+  /* The exported figure is the one artifact with no link to click, so its terms
+     go on it as text — and unlike the study line, they apply to every view. */
+  const licK = await expNote('#v=klas');
+  const licS = await expNote('');
+  ck('every exported figure carries its own licence, study view or not',
+    /Slika: CC BY 4\.0/.test(licK.svg) && /Slika: CC BY 4\.0/.test(licS.svg),
+    JSON.stringify({ klas: /Slika: CC BY 4\.0/.test(licK.svg), saldo: /Slika: CC BY 4\.0/.test(licS.svg) }));
+  /* A non-study export carries the licence and the source and nothing else —
+     it must not imply it disagrees with a study it takes nothing from. */
+  const sRows = [...licS.svg.matchAll(/<text x="20" y="(\d+(?:\.\d+)?)"[^>]*font-size="8\.5"/g)]
+    .map(m => +m[1]).sort((a, b) => a - b);
+  ck('and a non-study export draws only its own two credits',
+    sRows.length >= 2 && sRows.every((y, i) => i === 0 || y - sRows[i - 1] === 14)
+    && !/revidira serije|Klasifikacija i regije prema/.test(licS.svg),
+    JSON.stringify(sRows));
+
+  /* ── the export fits inside itself, at every width ──
+     Reported by a user: at a narrow map the title ran straight through the
+     right-aligned period ("NETO TOKOVI: … · KUMULATIVNA PROCJENA" over
+     "2011.–2025."), and the licence and source rows ran off the right edge
+     entirely. Both were drawn without ever being fitted. Measured directly —
+     the exported SVG is put in the document and every band <text> is asked for
+     its own advance width, which is the only way to catch this: the strings are
+     built from data and no amount of reading the source shows the overflow. */
+  const fitAt = async (wpx, hash) => {
+    await page.setViewport({ width: wpx, height: 900 });
+    await fresh(hash);
+    const r = await page.evaluate(() => {
+      const doc = window.__exportSVG(false);
+      const host = document.createElement('div');
+      host.style.cssText = 'position:absolute;left:-99999px;top:0';
+      host.innerHTML = doc;
+      document.body.appendChild(host);
+      const root = host.querySelector('svg');
+      const W = +root.getAttribute('width');
+      /* band text only: direct children of the root. The nested <svg> is the
+         baked map, whose own <text> lives in map coordinates. */
+      const band = [...root.children].filter(el => el.tagName === 'text');
+      const box = t => {
+        const len = t.getComputedTextLength();
+        const x = +t.getAttribute('x');
+        const base = { y: +t.getAttribute('y'), fs: +t.getAttribute('font-size') };
+        return t.getAttribute('text-anchor') === 'end'
+          ? { ...base, l: x - len, r: x }
+          : { ...base, l: x, r: x + len };
+      };
+      const boxes = band.map(t => ({ ...box(t), s: t.textContent.slice(0, 44) }));
+      const over = boxes.filter(b => b.r > W - 19 || b.l < 19);
+      /* title vs the right-aligned period, same baseline */
+      const byY = {};
+      for (const b of boxes) (byY[b.y] = byY[b.y] || []).push(b);
+      const clash = [];
+      for (const y of Object.keys(byY)) {
+        const row = byY[y].sort((a, b) => a.l - b.l);
+        for (let i = 1; i < row.length; i++) if (row[i].l < row[i - 1].r - 0.5) clash.push(y + ': ' + row[i - 1].s + ' | ' + row[i].s);
+      }
+      document.body.removeChild(host);
+      /* the title is the only run above 11 px at x=20; the eyebrow above it is
+         10 px and every credit row below is 8,5 px */
+      const title = boxes.filter(b => b.l === 20 && b.fs > 11);
+      return { W, n: boxes.length, titleLines: title.length,
+        titleFs: title.length ? title[0].fs : 0,
+        over: over.map(b => `${b.s}@${Math.round(b.r)}>${W}`), clash };
+    });
+    return r;
+  };
+  const FLOW = '#v=flow&s=HR-03&d=net&c=1&y=2025';
+  const fits = [await fitAt(1440, FLOW), await fitAt(1024, FLOW), await fitAt(1024, '#v=klas'),
+    /* 390 is where the title hits its 12 px floor and has to wrap instead of
+       shrinking further, and where the legend caveat drops from x=222 to its own
+       line — both paths are only exercised down here */
+    await fitAt(390, FLOW), await fitAt(390, '#v=klas')];
+  ck('no exported band text runs past the canvas edge, 1440 down to 390',
+    fits.every(f => f.over.length === 0),
+    JSON.stringify(fits.map(f => f.over)).slice(0, 300));
+  ck('and no two runs on the same baseline overlap — the title clears the period',
+    fits.every(f => f.clash.length === 0),
+    JSON.stringify(fits.map(f => f.clash)).slice(0, 300));
+  ck('the title wraps at the narrow end rather than shrinking out of legibility',
+    fits[3].titleLines === 2 && fits[3].titleFs >= 12 && fits[0].titleLines === 1,
+    JSON.stringify({ mobile: fits[3].titleLines, fs: fits[3].titleFs, wide: fits[0].titleLines }));
+  ck('the measurement actually inspected the band it claims to have checked',
+    fits.every(f => f.n >= 6), JSON.stringify(fits.map(f => f.n)));
+  await page.setViewport({ width: 1440, height: 900 });
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

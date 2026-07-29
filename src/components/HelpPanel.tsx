@@ -4,6 +4,9 @@ import {
   paperCheckNote, paperHelpIntro, paperPending, paperTerm,
 } from '../lib/credits.ts';
 import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
+import {
+  CODE_LICENCE, FONT_LICENCE, FONT_LICENCE_HREF, IMG_LICENCE, SOURCES,
+} from '../lib/licences.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 const PW = `${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.`;
@@ -180,6 +183,33 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
       <div className="help-p">
         {NO_AFFIL} Autori rada ovaj prikaz nisu pregledali, odobrili niti ga podupiru,
         a za svaku pogrešku u njemu odgovoran je isključivo autor atlasa.
+      </div>
+
+      {/* The footer names these four and now links them; this is where each one
+          gets to say what it covers and under what terms. Kept out of the footer
+          because that lane is fixed height above the map — every wrapped line it
+          gains the map loses. */}
+      <h3 className="help-h">Licencije i izvori</h3>
+      <dl className="help-dl">
+        {SOURCES.map(s => (
+          <div key={s.href} className="help-src">
+            <a className="paper-link" href={s.href} target="_blank" rel="noopener noreferrer"
+              aria-label={`${s.label} — ${s.note} Otvara se u novoj kartici.`}>{s.label}</a>
+            <span className="help-srcnote"> — {s.note}</span>
+          </div>
+        ))}
+      </dl>
+      <div className="help-p">
+        {/* A rendered map is a Produced Work under ODbL §4.3, not a derived
+            database, so share-alike does not reach it and the figure can carry
+            its own terms — provided the attribution travels with it, which the
+            export band does. CC BY so the next researcher can just use it. */}
+        Izvezene slike (PNG i SVG) objavljene su pod <b>{IMG_LICENCE}</b> — slobodno ih
+        upotrijebite uz navođenje izvora, koji je već otisnut na samoj slici. Kod atlasa je
+        pod <b>{CODE_LICENCE}</b>, a fontovi (Oswald, IBM Plex) pod{' '}
+        <a className="paper-link" href={FONT_LICENCE_HREF} target="_blank" rel="noopener noreferrer">{FONT_LICENCE}</a>.
+        IPF procjene su izračun ovog atlasa, a ne objavljena statistika — ne prosljeđujte ih
+        kao DZS-ove brojke.
       </div>
 
       <div className="help-note">
