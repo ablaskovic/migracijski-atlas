@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 260;
+const EXPECTED_CHECKS = 266;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -85,20 +85,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   browser = await puppeteer.launch({ args: ['--no-sandbox', '--force-device-scale-factor=1'] });
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
-  /* index.html loads Oswald + IBM Plex from fonts.googleapis.com, and
+  /* index.html used to load Oswald + IBM Plex from fonts.googleapis.com, and
      `waitUntil: 'networkidle0'` waited on it — so the suite depended on the
      network, and at least four checks are font-metric-dependent (header
      height, scrubber tick clipping, the exported-SVG title fit, PNG dims). A
-     box with no egress silently measured the Arial Narrow fallback instead.
-     Stub the host so every run measures the same fallback, deterministically. */
+     box with no egress silently measured the Arial Narrow fallback instead,
+     and stubbing the host made every run measure that fallback deterministically
+     — deterministic, but not what a visitor sees.
+     The fonts are self-hosted now (src/fonts, faces in src/index.css), so those
+     four checks measure the real faces and the interception has the opposite
+     job: prove the page reaches **no** third-party origin at all. Anything
+     off-origin is recorded and the run asserts the list is empty. */
   await page.setRequestInterception(true);
-  let fontReqs = 0;
+  const thirdParty = [];
+  const ORIGIN = new URL(url).origin;
   /* one handler only — a second `page.on('request')` makes both call continue()
      on the same request and puppeteer throws "Request is already handled" */
   let blockGeoChunk = false;
   page.on('request', r => {
     const u = r.url();
-    if (/fonts\.(googleapis|gstatic)\.com/.test(u)) { fontReqs++; return r.respond({ status: 200, contentType: 'text/css', body: '' }); }
+    if (/^https?:/.test(u) && new URL(u).origin !== ORIGIN) thirdParty.push(u);
     if (blockGeoChunk && /geo_jls/.test(u)) return r.abort();
     return r.continue();
   });
@@ -742,7 +748,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* every preset must survive a round trip through its own permalink, or the
      stricter guard would silently stop shipping captions at all */
   const trip = [];
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 13; i++) {
     await fresh('');
     await page.select('#story', String(i));
     await settle(260);
@@ -751,7 +757,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const kept = await page.evaluate(() => !!document.querySelector('#storyCap'));
     if (!kept) trip.push((i + 1) + ':' + h);
   }
-  ck('all 7 Nalazi round-trip through their own permalink', trip.length === 0, trip.join(' | '));
+  ck('all 13 Nalazi round-trip through their own permalink', trip.length === 0, trip.join(' | '));
 
   /* Nalaz 4's claim is about the Državljanstvo panel, so closing it must kill
      the caption — the app used to emit `…&st=4` with `cz=1` already dropped */
@@ -1832,8 +1838,36 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* the aborted request above is a deliberate console error — drop exactly it,
      so the error check that follows still means something */
   for (let i = errors.length - 1; i >= 0; i--) if (/ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
-  ck('the font host was stubbed, so no check depended on the network',
-    fontReqs > 0, String(fontReqs));
+  /* Privacy and determinism are the same property here: a page that reaches no
+     third-party origin cannot leak a visitor's IP on first paint and cannot
+     have a check quietly depend on someone else's uptime. */
+  ck('the page reaches no third-party origin — fonts included',
+    thirdParty.length === 0, thirdParty.slice(0, 4).join(' , ') || 'none');
+  /* Self-hosting only helps if the faces actually resolve; a wrong emitted URL
+     would fall back to Arial Narrow and still render "fine". */
+  /* `document.fonts.check()` answers "would this exact shorthand resolve to a
+     loaded face", which is a different question: IBM Plex Sans reported false at
+     600 simply because no visible run of text asks for that weight in latin, so
+     that face was never fetched. What matters is that each family resolved from
+     this origin at all, so count loaded faces per family instead. */
+  const faces = await page.evaluate(async () => {
+    await document.fonts.ready;
+    const want = ['IBM Plex Sans', 'IBM Plex Mono', 'Oswald'];
+    return want.map(f => ({
+      f, ok: [...document.fonts].some(x => x.family === f && x.status === 'loaded'),
+    }));
+  });
+  ck('all three self-hosted families load from same-origin',
+    faces.every(f => f.ok), JSON.stringify(faces));
+  /* The subset that carries č ć š ž đ. Dropping latin-ext would render Croatian
+     in the fallback face and look almost right. */
+  const extLoaded = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return [...document.fonts].filter(f => f.status === 'loaded'
+      && /U\+100|U\+0100/i.test(f.unicodeRange || '')).length;
+  });
+  ck('the latin-ext subset is among the loaded faces (č ć š ž đ)',
+    extLoaded > 0, String(extLoaded));
 
   /* ══════════ v2.0.6 — the companion study is unpublished ══════════
      The paper this atlas is a companion to is not published yet, so three
@@ -1906,10 +1940,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('as of this build the study is published, and the subtitle cites it by year',
     !pending.hd && !pending.ft && /Maras/.test(attr.sub) && /\(2026\.\)/.test(attr.sub),
     attr.sub);
-  /* the disclosure is always visible, and it cost the map 11 px — pin both, so
-     neither the footer nor the map can drift on the next copy edit */
+  /* The disclosure is always visible and it costs the map real height — pin
+     both, so neither the footer nor the map can drift on the next copy edit.
+     Re-measured at 75 px / 572 px once the fonts became self-hosted: the old
+     72 px bound was taken against the Arial Narrow fallback, because the suite
+     stubbed the font host. IBM Plex Sans sets wider, so the footer takes one
+     more wrapped line than the fallback suggested — the number moved because
+     the measurement got honest, not because the copy grew. */
   ck('the always-visible disclosure stays inside its lane at 1440',
-    attr.ftH <= 72 && attr.boxH >= 560, JSON.stringify({ ftH: attr.ftH, boxH: attr.boxH }));
+    attr.ftH <= 78 && attr.boxH >= 560, JSON.stringify({ ftH: attr.ftH, boxH: attr.boxH }));
 
   /* the legend and the rail say "iz rada" in three places; the glossary is the
      only surface that can tell a reader what "rad" refers to */
@@ -2447,6 +2486,53 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('Nalaz 2 states the number of growing counties the rail beneath it lists',
     /pet županija/.test(nalaz2.cap) && nalaz2.pos === 5 && !/samo tri/.test(nalaz2.cap),
     JSON.stringify(nalaz2));
+
+  /* The six v2.0.9 presets exist because the first seven covered the atlas's
+     apparatus and not the study's argument. Same rule as every other caption:
+     the numbers it cites are the numbers its own view renders. */
+  const railOf = async ix => {
+    await fresh('');
+    return page.evaluate(async i => {
+      const s = document.querySelector('#story');
+      s.value = String(i); s.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 280));
+      const rows = [...document.querySelectorAll('#railList .rrow')].map(e => ({
+        n: (e.querySelector('.rname') || {}).textContent || '',
+        v: (e.querySelector('.rval') || {}).textContent || '',
+      }));
+      return { cap: (document.querySelector('#storyCap') || {}).textContent || '', rows };
+    }, ix);
+  };
+  const nInt = await railOf(7);          /* Dva motora rasta — unutarnji, kum 2024 */
+  const zag = nInt.rows.find(r => /Zagrebačka/.test(r.n) && !/Grad/.test(r.n));
+  ck('the internal/external Nalaz cites the internal saldo its own rail renders',
+    /\+15\.287/.test(nInt.cap) && zag && /15\.287/.test(zag.v),
+    JSON.stringify({ zag, cited: /\+15\.287/.test(nInt.cap) }));
+  const nRel = await railOf(8);          /* Relativno gleda drukčije — % popisa 2011. */
+  ck('the relative-lens Nalaz puts Istarska on top of the rail, ahead of Grad Zagreb',
+    /Istarska/.test(nRel.rows[0].n) && /10,8/.test(nRel.rows[0].v)
+    && /Grad Zagreb/.test(nRel.rows[2].n), JSON.stringify(nRel.rows.slice(0, 3)));
+  const nNat = await railOf(10);         /* Prirodni pad nema iznimke */
+  ck('the natural-change Nalaz renders 21 negative counties, no exceptions',
+    nNat.rows.length === 21 && nNat.rows.every(r => r.v.includes('−')),
+    JSON.stringify({ rows: nNat.rows.length, top: nNat.rows[0] }));
+  /* The Matrica had no story at all; this one opens a corridor in the grid
+     rather than switching views, which is the v2.0.7 contract. */
+  await fresh('');
+  const nMx = await page.evaluate(async () => {
+    const s = document.querySelector('#story');
+    s.value = '12'; s.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return {
+      cells: document.querySelectorAll('.mxc').length,
+      selMark: !!document.querySelector('.mxsel'),
+      docked: !!document.querySelector('.rail .paircard'),
+      cap: (document.querySelector('#storyCap') || {}).textContent || '',
+    };
+  });
+  ck('the Matrica Nalaz opens its corridor inside the grid, card docked in the rail',
+    nMx.cells === 420 && nMx.selMark && nMx.docked && /4\.288/.test(nMx.cap) && /−517/.test(nMx.cap),
+    JSON.stringify(nMx));
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

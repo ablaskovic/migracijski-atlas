@@ -64,6 +64,46 @@ export const STORIES: Story[] = [
     cap: 'Na izmjerenoj JLS razini (2018., samo unutarnje selidbe) najveći je gubitnik Split (−691), a odmah do njega raste Solin (+229). Grad Zagreb dobiva +3.413 — suburbanizacija je vidljiva tek ispod razine županija.',
     patch: { view: 'jmap', dir: 'net', cum: false, yi: IX2018, sel: null, jls: false, citz: false, age: false },
   },
+
+  /* ── v2.0.9 additions ───────────────────────────────────────────────────────
+     The first seven covered the atlas's own apparatus well (corridors, the JLS
+     layer, the citizenship panel) and the study's argument badly. Measured
+     against the paper: no preset used the internal/external split, which is its
+     central analytic move; none used the "% popisa 2011." lens, which is half
+     its own keyword list; none said anything about *when* the turn happened;
+     none reproduced its Osijek conclusion; and the Matrica — a whole view — had
+     no story at all. These six are those gaps, and every number in them is
+     recomputed from src/data/*.json, not carried over from the paper. */
+  {
+    label: 'Dva motora rasta',
+    cap: 'Zagrebačka i Splitsko-dalmatinska obje rastu, ali iz suprotnih izvora: Zagrebačka +15.287 unutarnjim i −1.992 vanjskim migracijama, Splitsko-dalmatinska −2.745 unutarnjim i +12.429 vanjskim. Jedna prima iz Hrvatske, druga iz inozemstva.',
+    patch: { view: 'saldo', flow: 'int', den: 'abs', cum: true, yi: Y24, sel: null },
+  },
+  {
+    label: 'Relativno gleda drukčije',
+    cap: 'Apsolutno vodi Grad Zagreb (+41.986), relativno Istarska: +10,8 % stanovništva iz 2011., dvostruko više od Zagreba (+5,3 %). I Zadarska (+5,7 %) ga pretječe. Veličina županije odlučuje koliko isti broj ljudi znači.',
+    patch: { view: 'saldo', flow: 'tot', den: 'rel11', cum: true, yi: Y24, sel: null },
+  },
+  {
+    label: '2022.: prvi plus prema inozemstvu',
+    cap: 'Do 2017. samo je jedna županija imala pozitivan saldo s inozemstvom. Godine 2022. ima ih 12, a nacionalni saldo prvi put je pozitivan (+11.685); do 2024. u plusu ih je 19 od 21. Preokret je stvaran i nagao.',
+    patch: { view: 'saldo', flow: 'ext', den: 'abs', cum: false, yi: YEARS.indexOf(2022), sel: null },
+  },
+  {
+    label: 'Prirodni pad nema iznimke',
+    cap: 'Nijedna županija 2011.–2024. nema pozitivan prirodni prirast — sve 21 su u minusu. Relativno najteže prolazi Ličko-senjska (−13,7 %), najlakše Međimurska (−1,6 %). Migracije preraspodjeljuju, prirodno kretanje oduzima svima.',
+    patch: { view: 'saldo', flow: 'nat', den: 'rel11', cum: true, yi: Y24, sel: null },
+  },
+  {
+    label: 'Osijeku istok ide najmanje loše',
+    cap: 'Među pet istočnih županija Osječko-baranjska gubi najmanje unutarnjim migracijama: −2,6 % naspram −6,1 % (Vukovarsko-srijemska) i −5,6 % (Brodsko-posavska). To je argument rada da Osijek ostaje nositelj istoka.',
+    patch: { view: 'saldo', flow: 'int', den: 'rel11', cum: true, yi: Y24, sel: null },
+  },
+  {
+    label: 'Najprometniji koridor nije najneravnoteženiji',
+    cap: 'Izmjereno 2018.: Grad Zagreb ↔ Zagrebačka premjesti 4.288 ljudi, a neto tek −334 (8 %). Osječko-baranjska ↔ Grad Zagreb premjesti 819, a neto −517 — 63 %. Velik promet ne znači i velik gubitak.',
+    patch: { view: 'mx', dir: 'net', cum: false, yi: IX2018, sel: 'HR-14', pair: 'HR-21', jls: false },
+  },
 ];
 
 /* The one definition of "this caption still describes what is on screen", read by

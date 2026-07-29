@@ -58,6 +58,22 @@ under ODbL 1.0 and must carry the same attribution.
   Državni zavod za statistiku, tables 7.4.1.–7.4.3. and STAN-2026-2-1
   (podaci.dzs.hr). Reused under DZS terms of use; attribute DZS.
 
+## 4. Fonts — SIL Open Font License 1.1
+
+`src/fonts/*.woff2` are the latin and latin-ext subsets Google Fonts serves for:
+
+- **Oswald** — Copyright 2016 The Oswald Project Authors
+  (https://github.com/googlefonts/OswaldFont)
+- **IBM Plex Sans** and **IBM Plex Mono** — Copyright © 2017 IBM Corp. with
+  Reserved Font Name "Plex"
+
+Both are licensed under the **SIL Open Font License, Version 1.1**. OFL §2
+requires the licence to travel with any copy of the font software, so the full
+text ships in `public/fonts/OFL-Oswald.txt` and `public/fonts/OFL-IBMPlex.txt`
+and is served by the built site at `./fonts/`. The fonts are self-hosted rather
+than loaded from Google's CDN so that no visitor's IP reaches a third party on
+first paint.
+
 ## Note on the estimates
 
 The IPF layers are generated output, not published statistics. Do not

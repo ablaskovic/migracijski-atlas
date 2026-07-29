@@ -13,11 +13,11 @@
 <meta property="og:locale" content="hr_HR">
 <meta name="twitter:card" content="summary">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<!-- fonts are a third-party dependency on the critical path; preconnect at least
-     removes the DNS+TLS round trip from it -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Fonts are self-hosted (src/fonts, declared in src/index.css). They used to
+     load from a third-party CDN, which put every visitor's IP in front of it on
+     first paint and left the suite measuring the fallback face. No preconnect
+     here because there is no longer another origin to connect to: the page
+     makes zero third-party requests, and verify.cjs asserts exactly that. -->
 </head>
 <body>
 <div id="root"></div>

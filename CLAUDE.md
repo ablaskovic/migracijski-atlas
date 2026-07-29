@@ -70,7 +70,7 @@ export cited the study by DOI while dropping the one sentence explaining why its
 numbers differ. All three now answer for themselves, the divergence is **derived**
 from the published classification rather than written out, the glossary carries the
 study's *own* five data caveats (it carried only the atlas's), and Nalaz 2 stopped
-saying "samo tri županije" over a rail listing five — **260 checks**.
+saying "samo tri županije" over a rail listing five. It also **self-hosts the fonts** (they were on a third-party CDN, so every visitor's IP went there on first paint and the suite measured the *fallback* face) and adds **six Nalazi** for the study's argument, which the first seven barely touched — **266 checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -81,7 +81,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 260-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 266-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
@@ -282,7 +282,7 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (260 checks; the
+scripts/verify.cjs       the executable verification protocol (266 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)
@@ -520,3 +520,16 @@ Two more, on the keyboard and the screen reader:
 | "Nijedna brojka nije preuzeta iz rada" **exempts the threshold** | −4.500 *is* a number from the study, named in the sentence before. The intent (no migration figure is copied) was right and is kept; the exception is stated instead of contradicted |
 | Both denominators are defined, and the estimate's **clamp** is stated | `pe` covers 2001–2024, so `peAt` divides 2025 by the 2024 estimate and 1998–2000 by the 2001 one while the label says only "% tek. procjene". Neither denominator appeared in the glossary, and nothing said `rel11` is the study's like-for-like measure |
 | A Nalaz states the count the rail beneath it lists | Nalaz 2 said "samo tri županije" grow on mig+prirodno 2011–2024. Five do — Zagrebačka +2.240 and Dubrovačko-neretvanska +125 as well — and the rail the preset opens listed all five directly under the caption denying two of them |
+
+### v2.0.9 invariants (self-hosted fonts, and Nalazi for the study's argument)
+
+| Invariant | Why |
+|---|---|
+| The page reaches **no third-party origin** | fonts came from a CDN on the critical path: every visitor's IP reached it before first paint, for a public Croatian-hosted site, and nothing here needed it. The suite no longer *stubs* the font host — it records every off-origin request and asserts the list is empty, so privacy and determinism are one check |
+| Font-metric checks now measure the **real** face | stubbing the host made four checks (header height, scrubber tick clipping, exported-SVG title fit, PNG dims) deterministic against Arial Narrow — deterministic, but not what a visitor sees. Consequence, measured on the first honest run: the footer is **75 px**, not the 72 px the fallback suggested, and `.map-box` 572. IBM Plex Sans sets wider; the number moved because the measurement got honest, not because the copy grew |
+| 14 declarations, **8 files**, 169,6 kB | Oswald and IBM Plex Sans ship as variable fonts — the CDN returns one file for every weight requested (verified by hash), so deduping costs nothing and saves 189 kB. Only latin + latin-ext: latin-ext is **not** optional for Croatian, č ć š ž đ live at U+0107–017E, and the suite asserts a latin-ext face is among the loaded ones |
+| Fonts are emitted **by Vite from `src/`**, not served from `public/` | `base: './'` is what makes the build work from any subpath; a `public/` path with a leading slash would 404 there. The licence texts are the opposite case — they must be *served*, so they live in `public/fonts/` and reach `dist/fonts/`, because OFL §2 requires the licence to travel with any copy of the font software |
+| `document.fonts.check()` is the wrong question | it asks "would this exact shorthand resolve to a **loaded** face", and IBM Plex Sans answered false at 600 simply because no visible run of text requests that weight in latin. The check counts loaded faces per family instead |
+| Every Nalaz cites numbers **its own view renders** | unchanged rule, newly enforced on the six additions: the rail is read back and compared against the caption (Zagrebačka +15.287 internal, Istarska top at +10,8 %, 21 negative rows on prirodno, the corridor's 4.288 / −517) |
+| The Nalazi cover the **study's** argument, not only the atlas's apparatus | measured against the paper, the first seven used no internal/external split (its central analytic move), no "% popisa 2011." lens (half its own keyword list), nothing about *when* the turn happened, nothing of its Osijek conclusion — and the Matrica, an entire view, had no story at all. Six presets, one per gap |
+| The Matrica Nalaz opens its corridor **in the grid** | it would have been trivial to write it as `{view:'flow', …}`; that is exactly the v2.0.7 defect. The check asserts 420 cells survive, the corridor is marked, and the card docks in the rail |
