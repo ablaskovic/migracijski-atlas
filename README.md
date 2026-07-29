@@ -25,7 +25,7 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
 npm i -D puppeteer   # once, for verification
-npm run verify       # typecheck + lint + build + 243-check suite (must pass)
+npm run verify       # typecheck + lint + build + 244-check suite (must pass)
 ```
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
@@ -57,11 +57,14 @@ Before touching code, read `CLAUDE.md` — it carries the project's hard rules
 - **IPF layers** — generated here, not published statistics. Labelled as
   estimates throughout the UI; do not redistribute them as DZS figures.
 - **Companion study** — the classification threshold and the five-region
-  grouping come from a manuscript that is **not published yet**, so the atlas
-  does not identify it: an unpublished manuscript is its authors' to release,
-  and a citation nobody can retrieve is not a citation. Every surface says the
-  reference is *pending* instead — see below. No figure in the atlas comes from
-  it; every number is DZS or computed here.
+  grouping come from Maras, M. i Vinovrški, L. (2026), *Unutarnje i vanjske
+  migracije stanovništva županija kao kriterij regionalizacije Hrvatske*,
+  Elektronički zbornik radova Veleučilišta u Šibeniku, 20(1–2), 59–76 —
+  [hrcak.srce.hr/349820](https://hrcak.srce.hr/349820),
+  [doi:10.51650/ezrvs.20.1-2.4](https://doi.org/10.51650/ezrvs.20.1-2.4),
+  **CC BY-NC**. Cited and linked from the header, the footer, the glossary and
+  the exports of the two views that use its method. No figure in the atlas comes
+  from it; every number is DZS or computed here.
 - **Independence** — the atlas is an unaffiliated, unofficial project. Its
   author has no connection to the study's authors or their institutions, and
   they have neither reviewed nor endorsed it. Stated in the footer, the
@@ -69,13 +72,15 @@ Before touching code, read `CLAUDE.md` — it carries the project's hard rules
 
 See [LICENSE](LICENSE) for the full terms of all three.
 
-### When the study is published
+### Where the citation lives
 
-[`src/lib/credits.ts`](src/lib/credits.ts) is the switch: set `published: true`,
-fill `citation` (and `url`), and the header subtitle, footer, glossary section,
-the `rad` term entry and both export formats all start citing it. Two copies
-live outside that module and must change in the same commit — the `<noscript>`
-block in [index.html](index.html), which cannot import it, and the one pinned
-check in `scripts/verify.cjs` that records the study as unpublished. The suite
-compares the three, so a half-done publication fails rather than shipping a page
-that cites the paper in one place and calls it unpublished in another.
+[`src/lib/credits.ts`](src/lib/credits.ts) is the single source: authors, year,
+title, journal, URL, DOI and licence are composed there, and the header
+subtitle, footer, glossary section, the `rad` term entry and both export formats
+derive from it. Two copies live outside that module and must move with it — the
+`<noscript>` block in [index.html](index.html), which cannot import anything,
+and one pinned check in `scripts/verify.cjs`. The suite compares the three, so a
+half-done edit fails rather than shipping a page that cites the paper in one
+place and calls it pending in another. It was written for the reverse case: the
+paper was unpublished until 27 July 2026 and the atlas deliberately did not name
+it, which is the state `paperPending()` still describes.

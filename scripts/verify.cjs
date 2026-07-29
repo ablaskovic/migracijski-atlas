@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 243;
+const EXPECTED_CHECKS = 244;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1844,10 +1844,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      a reader can look up is an unlabelled claim. src/lib/credits.ts is the one
      switch; these checks are what stops half a publication from shipping. */
   await fresh('');
-  /* The names must not be in the *bundle*, not merely off-screen: a comment, an
-     aria-label or a dead string would all ship. Fetched from the page so this
-     works against a served dist and against a URL alike, and the scanned count
-     is asserted so a fetch failure cannot pass as "no hits". */
+  /* Until 27 July 2026 this asserted the opposite: the authors' names must not
+     appear anywhere in the *bundle*, because the manuscript was unpublished. It
+     is published now, so the same scan proves the attribution actually shipped —
+     names, journal and the link, in the built files rather than only in a
+     component that might not render. The scanned count is asserted either way,
+     so a failed fetch cannot pass as a result. */
   const bundleScan = await page.evaluate(async () => {
     /* same-origin only: the font stylesheet is stubbed, and fetching it logs a
        CORS error that the zero-console-errors check would then blame on the app */
@@ -1861,13 +1863,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       const t = await fetch(u).then(r => r.text()).catch(() => null);
       if (t == null) continue;
       scanned++;
-      const m = t.match(/maras|vinovr/i);
-      if (m) hits.push(u.split('/').pop() + ':' + m[0]);
+      if (/maras/i.test(t)) hits.push('maras');
+      if (/vinovr/i.test(t)) hits.push('vinovrski');
+      if (t.includes('hrcak.srce.hr/349820')) hits.push('url');
+      if (t.includes('10.51650/ezrvs')) hits.push('doi');
     }
-    return { scanned, hits };
+    return { scanned, hits: [...new Set(hits)] };
   });
-  ck('no identifying detail of the unpublished study ships in the built app',
-    bundleScan.scanned >= 2 && bundleScan.hits.length === 0, JSON.stringify(bundleScan));
+  ck('the published citation ships in the built app — authors, link and DOI',
+    bundleScan.scanned >= 2 && ['maras', 'vinovrski', 'url', 'doi'].every(h => bundleScan.hits.includes(h)),
+    JSON.stringify(bundleScan));
 
   const attr = await page.evaluate(() => ({
     sub: document.querySelector('.hd-sub').textContent.trim(),
@@ -1893,13 +1898,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the footer always carries a reference clause and the non-affiliation statement',
     /nije javno objavljen|preuzeti su iz rada:/.test(attr.ft) && /nije povezan/.test(attr.ft),
     attr.ft.slice(-220));
-  /* The one deliberately state-dependent check in the block: today the paper is
-     unpublished, and that is a fact about this vintage of the atlas the same way
-     the ground-truth table is a fact about this vintage of the DZS series.
-     Publication updates credits.ts, index.html's <noscript> and this line — in
-     one commit, per CLAUDE.md. */
-  ck('as of this build the study is unpublished, and the subtitle cites no year',
-    pending.hd && pending.ft && !/\(\d{4}\.\)/.test(attr.sub), attr.sub);
+  /* The one deliberately state-dependent check in the block: the paper was
+     published on 27 July 2026, and that is a fact about this vintage of the
+     atlas the same way the ground-truth table is a fact about this vintage of
+     the DZS series. It moved with credits.ts and index.html's <noscript>, in one
+     commit, per CLAUDE.md — which is exactly what this line is here to force. */
+  ck('as of this build the study is published, and the subtitle cites it by year',
+    !pending.hd && !pending.ft && /Maras/.test(attr.sub) && /\(2026\.\)/.test(attr.sub),
+    attr.sub);
   /* the disclosure is always visible, and it cost the map 11 px — pin both, so
      neither the footer nor the map can drift on the next copy edit */
   ck('the always-visible disclosure stays inside its lane at 1440',
@@ -1926,6 +1932,22 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /Rad i atribucija/.test(attrGloss.term)
     && /nije javno objavljen/.test(attrGloss.term) === pending.ft,
     JSON.stringify({ legend: attrGloss.legend, term: attrGloss.term }));
+  const links = await page.evaluate(() => {
+    const a = s => [...document.querySelectorAll(s)].map(e => ({
+      href: e.getAttribute('href'), rel: e.getAttribute('rel') || '',
+      text: e.textContent.trim(), name: e.getAttribute('aria-label') || '' }));
+    return { hd: a('.hd-sub a.paper-link'), ft: a('.ft a.paper-link'), gl: a('.help-cite a.paper-link') };
+  });
+  /* Prominence is the point: the first line under the title, the always-visible
+     footer and the glossary each name the paper and reach it in one click. The
+     accessible name carries the full citation and *contains* the visible text,
+     so 2.5.3 Label in Name holds. */
+  ck('header, footer and glossary each link to the published record',
+    ['hd', 'ft', 'gl'].every(k => links[k].length === 1
+      && links[k][0].href === 'https://hrcak.srce.hr/349820'
+      && /noopener/.test(links[k][0].rel)
+      && links[k][0].name.includes(links[k][0].text)),
+    JSON.stringify(links));
   ck('and states independence, non-endorsement and what is not taken from the study',
     attrGloss.section && /nije povezan/.test(attrGloss.body) && /nisu pregledali/.test(attrGloss.body)
     && /Nijedna brojka nije preuzeta iz rada/.test(attrGloss.body),
@@ -1939,7 +1961,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     return page.evaluate(() => {
       const s = window.__exportSVG(false);
       return { svg: s,
-        has: /neobjavljenom znanstvenom radu|Klasifikacija i regije prema:/.test(s) && /nije povezan/.test(s) };
+        has: /nije povezan/.test(s) && (/neobjavljenom znanstvenom radu/.test(s)
+          /* published: the artifact leaves the app, so it carries a citable DOI
+             rather than a name a reader would have to search for */
+          || (/Klasifikacija i regije prema:/.test(s) && /10\.51650\/ezrvs/.test(s))) };
     });
   };
   const eKlas = await expNote('#v=klas');

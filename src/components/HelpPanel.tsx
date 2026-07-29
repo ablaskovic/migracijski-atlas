@@ -1,5 +1,5 @@
 import { focusSoon } from '../lib/state.ts';
-import { NO_AFFIL, paperCheckNote, paperHelpIntro, paperTerm } from '../lib/credits.ts';
+import { NO_AFFIL, PAPER, paperCheckNote, paperHelpIntro, paperPending, paperTerm } from '../lib/credits.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* "Kako čitati" — the one stable place the vocabulary lives. Every other
@@ -82,11 +82,18 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
           copy comes from lib/credits.ts — see the header of that file. */}
       <h3 className="help-h">Rad i atribucija</h3>
       <div className="help-p">
-        {/* the subject, not the title: the manuscript is unpublished, so even a
-            paraphrase close to its own wording identifies it */}
         Atlas je interaktivna nadopuna znanstvenog rada koji migracije županija razmatra
         kao kriterij regionalizacije Hrvatske. {paperHelpIntro()}
       </div>
+      {/* The full citation, once, where there is room for it — the header and the
+          footer carry the short form and the same link. */}
+      {!paperPending() && (
+        <div className="help-cite">
+          <a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
+            aria-label={`${PAPER.citation} Otvara se u novoj kartici.`}>{PAPER.citation}</a>
+          <div className="help-doi">{PAPER.doi}</div>
+        </div>
+      )}
       <div className="help-p">
         Iz rada dolazi samo ono što je u sučelju označeno s „iz rada”: prag klasifikacije
         i pripadnost županija u prikazu Regije. Nijedna brojka nije preuzeta iz rada — sve

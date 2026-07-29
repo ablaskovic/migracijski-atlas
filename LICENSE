@@ -66,17 +66,21 @@ document how they are produced.
 
 ## Note on the companion study
 
-The atlas was built as an interactive companion to a manuscript on county
-migration as a criterion for regionalisation that is **not published yet**. It
-is therefore not identified anywhere in the application or in this repository's
-shipped files: an unpublished manuscript is its authors' to release, and a
-citation a reader cannot retrieve is not a citation. Nothing from the manuscript
-is reproduced here — no text, no table, no figure. Two methodological choices
-follow it, the classification threshold and the five-region grouping, and both
-are marked "iz rada" in the interface; every number in the atlas comes from the
-DZS series or is computed here.
+The atlas was built as an interactive companion to:
+
+> Maras, M. i Vinovrški, L. (2026). Unutarnje i vanjske migracije stanovništva
+> županija kao kriterij regionalizacije Hrvatske. *Elektronički zbornik radova
+> Veleučilišta u Šibeniku*, 20(1–2), 59–76.
+> <https://hrcak.srce.hr/349820> · <https://doi.org/10.51650/ezrvs.20.1-2.4>
+
+The paper is open access under **CC BY-NC**. Nothing from it is reproduced here —
+no text, no table, no figure. Two methodological choices follow it, the
+classification threshold and the five-region grouping, and both are marked
+"iz rada" in the interface and credited to it; every number in the atlas comes
+from the DZS series or is computed here, so the atlas is not a derivative of the
+paper's content and the NC clause is not engaged by anything it displays.
 
 This project is unaffiliated and unofficial. Its author has no connection to the
 study's authors or their institutions, and they have neither reviewed nor
-endorsed it. A full reference and attribution will be added once the study is
-publicly available — `src/lib/credits.ts` is the single place that changes.
+endorsed it. The citation lives in `src/lib/credits.ts`, which is what every
+surface derives from.

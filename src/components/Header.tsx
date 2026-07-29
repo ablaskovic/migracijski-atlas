@@ -3,7 +3,7 @@ import { fmtI, fmtR, Y0, YEND } from '../lib/metrics.ts';
 import { exportPNG, exportSVG } from '../lib/exportPng.ts';
 import { StorySelect } from './StoryBar.tsx';
 import { focusSoon } from '../lib/state.ts';
-import { paperSub } from '../lib/credits.ts';
+import { PAPER, paperPending, paperSub } from '../lib/credits.ts';
 import type { Patch, State, View } from '../lib/types.ts';
 
 function Seg<T extends string>({ id, opts, value, onPick, off, title, labId, aria }: {
@@ -69,10 +69,20 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
       <div>
         <div className="hd-eyebrow">{`DZS 7.4.2. ${Y0}.–${YEND}. · tokovi: 2018. izmjereno · ostale godine IPF procjena`}</div>
         <h1 className="hd-title">Migracijski atlas županija</h1>
-        {/* The study is unpublished, so the subtitle describes the reference
-            instead of naming it — see lib/credits.ts. The footer and the
-            glossary carry why, and the non-affiliation statement. */}
-        <div className="hd-sub">Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz {paperSub()}</div>
+        {/* The study is published, so the subtitle names it and links to the
+            record — the most prominent surface in the app, and the first thing
+            a reader meets. All copy comes from lib/credits.ts; the footer and
+            the glossary carry the full citation and the non-affiliation note.
+            The accessible name is the short form *followed by* the full
+            citation, because 2.5.3 Label in Name requires the visible text to be
+            contained in it — "Rad: Maras, M. i Vinovrški, L. …" does not contain
+            "Maras i Vinovrški (2026.)", and a speech-input user saying what they
+            can see would have missed the link. */}
+        <div className="hd-sub">Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz{' '}
+          {paperPending() ? paperSub() : (
+            <a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
+              aria-label={`${PAPER.short} — ${PAPER.citation} Otvara se u novoj kartici.`}>{paperSub()}</a>
+          )}</div>
       </div>
       <div className="ctrls">
         <StorySelect S={S} applyStory={applyStory} resetAll={resetAll} />

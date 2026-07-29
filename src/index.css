@@ -339,6 +339,16 @@ svg :focus,#spark:focus{outline:none}
 .help-dl dt{font-weight:600;white-space:nowrap}
 .help-dl dd{color:var(--mut)}
 .help-note{margin-top:9px;border-top:1px solid var(--line);padding-top:6px;font-size:9.5px;color:var(--mut)}
+/* the full citation block in "Rad i atribucija" */
+.help-cite{margin-top:6px;padding:6px 8px;border-left:2px solid var(--acc);background:var(--bg)}
+.help-doi{font-family:var(--mono);font-size:9px;color:var(--mut);margin-top:3px;word-break:break-all}
+/* Links to the paper. Ink, not teal: teal on --bg computes to 4.43:1 and these
+   run at 9,5–11,5 px, under the 4.5:1 that size owes. Underlined so the link is
+   not colour-alone (1.4.1), and thickened rather than recoloured on hover, which
+   would trade the contrast back away. */
+.paper-link{color:var(--ink);text-decoration:underline;text-underline-offset:2px;
+  text-decoration-thickness:1px}
+.paper-link:hover{text-decoration-thickness:2px}
 
 /* screen-reader status line: year and view change with no focus move at all */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;

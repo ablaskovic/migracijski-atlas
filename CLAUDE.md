@@ -54,7 +54,13 @@ grid, with its card docked in the rail; and every stroke in the map scaled with
 the zoom, so at k=6,55 the county outlines drew 6,55 px and the focus ring 29,5 px
 of white under 13,1 px of dashed ink, which is the "thick border on some parts" it
 was reported as. Strokes are now non-scaling and the ring is keyboard-only —
-**243 checks**.
+**243 checks**. **v2.0.8** is the publication the attribution pass was built
+for: the companion study appeared on 27 July 2026, so `credits.ts` flipped and
+the atlas now names, cites and **links** it on every surface that used to say
+"pending" — subtitle, footer, glossary (full citation + DOI, `CC BY-NC`) and
+both export formats, which carry the DOI because an exported image has no link
+to click. The non-affiliation statement is unchanged, by design — **244
+checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -65,7 +71,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 243-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 244-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
@@ -107,6 +113,11 @@ just failed and could never have helped.
    glossary `.help-h` (the "Rad i atribucija" heading) and the `.help-dl dt`
    whose text is exactly `rad` — the check reads the `dd` at the *same index*,
    so reordering the definition list is fine but dropping the term is not.
+   v2.0.8 adds `a.paper-link` (one in `.hd-sub`, one in `.ft`, one in
+   `.help-cite`) — asserted on `href`, on `rel=noopener`, and on the accessible
+   name *containing* the visible text (2.5.3), which is how the first cut was
+   caught naming the link "Rad: Maras, M. i Vinovrški, L. …" over visible text
+   reading "Maras i Vinovrški (2026.)".
    v2.0.7 adds the corridor-selection and stroke surfaces: `.mxsel` (+ its
    `.mxsel-halo/.mxsel-ink` rects), `.rrow.selrow`, `.mxc[aria-expanded]`,
    `.rrow[aria-expanded]`, `.rail .paircard` (the card's Matrica mount — the
@@ -151,17 +162,19 @@ just failed and could never have helped.
    scrubber does not change them. "Mig. + prirodno" is the identity sum of two
    published components, not DZS total population change. The relative
    klasifikacija threshold states it is % popisa 2011. Never weaken these.
-   **The companion study is the same rule applied to a reference.** It is not
-   published, so the atlas does not name it, and a bare "iz rada" pointing at
-   nothing a reader can retrieve is an unlabelled claim exactly like an
-   unbadged estimate. So: the reference is stated as *pending* (never implied
-   to exist), the project is stated to be **unaffiliated** and unendorsed, and
-   the glossary says what the study contributes (the klas threshold, the Regije
-   grouping) and what it does not (no figure — every number is DZS or computed
-   here). All of it comes from `src/lib/credits.ts`; `index.html`'s `<noscript>`
-   is the one copy that cannot import it and is compared against the footer.
-   The subject may be described; the title may not be paraphrased closely
-   enough to identify it.
+   **The companion study is the same rule applied to a reference.** A bare
+   "iz rada" pointing at nothing a reader can retrieve is an unlabelled claim
+   exactly like an unbadged estimate. The paper was unpublished until 27 July
+   2026 and the atlas therefore did not name it, stating the reference as
+   *pending* instead; it is published now, so every surface names it, cites it
+   and links to it — and the glossary still says what the study contributes (the
+   klas threshold, the Regije grouping) and what it does not (no figure — every
+   number is DZS or computed here). What did **not** change with publication:
+   the project is **unaffiliated** and unendorsed, and says so. All of it comes
+   from `src/lib/credits.ts`; `index.html`'s `<noscript>` is the one copy that
+   cannot import it and is compared against the footer. `paperPending()` still
+   exists and still drives every string — the unpublished wording is one edit
+   away, not deleted.
 4. **Generated data stays generated.** Never hand-edit `src/data/*.json`.
    Five of the eight are regenerable here — `odm.json` (`ipf.py`), `citizen.json`
    (`parse_cit.py`), `demo.json` (`parse_demo.py`), `jls_drill.json`
@@ -259,7 +272,7 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (243 checks; the
+scripts/verify.cjs       the executable verification protocol (244 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)
@@ -457,13 +470,14 @@ Two more, on the keyboard and the screen reader:
 
 | Invariant | Why |
 |---|---|
-| The study's authors appear **nowhere in the built app** | it is unpublished: naming it circulates it before they do. Asserted against the *bundle* (index.html + every same-origin script and stylesheet, fetched and scanned), not against the rendered text — a comment, an `aria-label` or a dead string all ship. The scanned count is asserted too, so a failed fetch cannot pass as "no hits" |
+| ~~The study's authors appear **nowhere in the built app**~~ → **the citation ships in the built app** | while it was unpublished, naming it would have circulated it before its authors did; since 27 July 2026 the same scan runs inverted and requires the names, the Hrčak URL and the DOI to be *present*. Asserted against the *bundle* (index.html + every same-origin script and stylesheet, fetched and scanned), because a component that never renders proves nothing. The scanned count is asserted either way, so a failed fetch cannot pass as a result |
+| Every surface that names the study **links** to it | prominence was the ask: the first line under the `<h1>`, the always-visible footer and the glossary each reach the record in one click, and the exports carry the DOI as text because an image has nothing to click. All from `credits.ts`, so the four cannot drift |
 | Header, footer and `<noscript>` **agree** on whether it is published | `index.html` is static markup and cannot import `credits.ts`, so it is the copy that gets left behind. The invariant is agreement, not any one wording — that check survives publication instead of silently pinning today's state. One further check *is* pinned to "unpublished"; publication updates `credits.ts`, the `<noscript>` and that line, in one commit |
 | The footer always carries a reference clause **and** the non-affiliation statement | it is the only always-visible surface. A disclosure reachable only through a panel is one most readers never meet — the glossary is where it gets room, not where it lives |
 | The disclosure costs the map ≤ 11 px | measured: the footer went 56 → 67 px at 1440 and `.map-box` 593 → 582. Three separate `<span>`s cost 23 px because each flex item wraps on its own; one merged span costs 11. Both numbers are pinned, so the next copy edit cannot quietly eat the map |
 | `rad` is a glossary term | the legend and the rail say "iz rada" in three places (`Klasifikacija iz rada`, `prijedlog iz rada`, `Regije — prijedlog iz rada`). Once the names are gone, the shorthand resolves to nothing unless the glossary defines it, and the entry points at the section that explains it |
 | The export carries it for **klas and reg only**, on its own line | those two reproduce the study's threshold and its grouping; the other four take nothing from it and must not imply otherwise. Own line because `srcLine` already runs ~950 px at 8,5 px mono — appended, the disclaimer is the half the canvas edge clips. Asserted by parsing the two 8,5 px `x="20"` rows out of the SVG and checking the 14 px gap and ≥ 12 px clearance from the legend |
-| The subject may be described, the title may not | the glossary once opened with a near-verbatim paraphrase of the manuscript's title, which identifies it as surely as the names do |
+| ~~The subject may be described, the title may not~~ | that held while the manuscript was unpublished — the glossary once opened with a near-verbatim paraphrase of its title, which identifies it as surely as the names do. Published, the title is simply cited |
 
 ### v2.0.7 invariants (a corridor opens where it was picked; strokes)
 

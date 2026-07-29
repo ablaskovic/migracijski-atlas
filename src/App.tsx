@@ -4,7 +4,7 @@ import { decodeHash, encodeHash } from './lib/hash.ts';
 import { BASE, focusSoon } from './lib/state.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
-import { NO_AFFIL, paperRefNote } from './lib/credits.ts';
+import { NO_AFFIL, PAPER, paperPending, paperRefNote, paperRefTail } from './lib/credits.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
@@ -359,7 +359,12 @@ export default function App() {
             the glossary and the export read — one edit publishes all of them.
             Always visible, because a disclaimer behind a panel is a disclaimer
             most readers never meet. */}
-        <span>{paperRefNote()} {NO_AFFIL} DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.</span>
+        <span>{paperRefNote()}{' '}
+          {!paperPending() && (
+            <><a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
+              aria-label={`${PAPER.short} — ${PAPER.citation} Otvara se u novoj kartici.`}>{PAPER.short}</a>{paperRefTail()} </>
+          )}
+          {NO_AFFIL} DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.</span>
       </footer>
       <Tooltip S={S} />
     </>
