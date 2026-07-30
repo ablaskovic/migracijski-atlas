@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { YEARS, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { decodeHash, encodeHash } from './lib/hash.ts';
 import { BASE, focusSoon } from './lib/state.ts';
@@ -386,6 +388,16 @@ export default function App() {
           {NO_AFFIL} DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.</span>
       </footer>
       <Tooltip S={S} />
+      {/* Vercel Analytics + Speed Insights. Both render nothing; each injects one
+          script tag. In a production build with no `dsn` they resolve to
+          SAME-ORIGIN paths — /_vercel/insights/script.js and
+          /_vercel/speed-insights/script.js — which Vercel's edge proxies, so the
+          "page reaches no third-party origin" invariant still holds for a
+          deployed visitor. Only `npm run dev` loads them from
+          va.vercel-scripts.com (the .debug.js builds), which is why the check
+          runs against `dist`. See CLAUDE.md. */}
+      <Analytics />
+      <SpeedInsights />
     </>
   );
 }
