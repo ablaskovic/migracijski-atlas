@@ -120,7 +120,11 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
   /* Regije and JLS rows have nothing to open — there is no region selection and
      no JLS drill — so they must not claim role=button. They stayed focusable:
      that is what makes the map highlight reachable without a pointer. */
-  const canActivate = (d: Row) => !d.reg && d.jls == null;
+  /* Godine ranks the *marked column*, so its rows are the same quantity Saldo's
+     are and fall through to the same branch — but there is nothing to open in
+     that view (no county card; the grid row is already the county's series), so
+     they must not claim role=button. Same rule Regije and JLS rows follow. */
+  const canActivate = (d: Row) => !d.reg && d.jls == null && S.view !== 'yrs';
   const activate = (d: Row) => {
     if (!canActivate(d)) return;
     /* Used to jump to Tokovi, which unmounted every row (the key changes from
@@ -166,6 +170,9 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
   const railLab = S.view === 'jmap' ? (S.dir === 'net' ? 'JLS — 10 najvećih dobitaka i gubitaka' : 'JLS — 20 najvećih')
     : S.view === 'mx' ? 'Najveći koridori — cijela mreža'
     : S.view === 'reg' ? 'Regije — prijedlog iz rada'
+    /* naming the column keeps the rail from reading as a ranking of the whole
+       grid, which is sorted by the window total and generally differs */
+    : S.view === 'yrs' ? 'Poredak — označena godina'
     : S.view === 'flow' ? 'Partneri · ' + (D[S.sel!]?.n || '') : 'Poredak županija';
 
   return (

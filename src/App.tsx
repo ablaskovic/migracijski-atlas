@@ -66,7 +66,7 @@ export default function App() {
        inoz., the lot — sitting on top of the 556-municipality JLS map, because
        the tip's visibility test was view-agnostic. Reached by keyboard alone: a
        focused county never gets the pointerleave that would have cleared it. */
-    const p: Patch = { view: v, playing: false, hl: null, pairHl: null, jlsHl: null, regHl: null };
+    const p: Patch = { view: v, playing: false, hl: null, pairHl: null, yrHl: null, jlsHl: null, regHl: null };
     const mem = vmem.current[v];
     if (v === 'flow' || v === 'mx') {
       if (v === 'flow' && !s.sel) p.sel = 'HR-21';
@@ -90,7 +90,10 @@ export default function App() {
        grid and the 556-municipality map, and its × then aimed `focusSoon` at a
        `.cnt` that does not exist there, dropping focus to <body>. In Matrica it
        survives only as one half of a corridor, which the grid can point at. */
-    if (v === 'jmap') { p.sel = null; p.pair = null; }
+    /* Godine has no county card and no corridor either — its rows already are
+       the per-county series a card would draw, and a floating card over a grid
+       covers live cells (the argument PairCard settled for Matrica). */
+    if (v === 'jmap' || v === 'yrs') { p.sel = null; p.pair = null; }
     if (v === 'mx' && !(s.sel && s.pair)) { p.sel = null; p.pair = null; }
     if (v === 'jmap') { p.yi = IX2018; p.cum = false; }
     if ((v === 'klas' || (p.cum ?? s.cum)) && (p.yi ?? s.yi) < IX2011) p.yi = IX2011;
@@ -223,9 +226,9 @@ export default function App() {
   useEffect(() => {
     const onDown = (ev: PointerEvent) => {
       const t = ev.target as Element | null;
-      if (t && t.closest && t.closest('.cnt,.mxc,.jl,.mxhit')) return;
+      if (t && t.closest && t.closest('.cnt,.mxc,.jl,.mxhit,.yrc,.yrhit')) return;
       const s = ref.current;
-      if (s.hl || s.pairHl || s.jlsHl != null) up({ hl: null, pairHl: null, jlsHl: null });
+      if (s.hl || s.pairHl || s.yrHl || s.jlsHl != null) up({ hl: null, pairHl: null, yrHl: null, jlsHl: null });
     };
     window.addEventListener('pointerdown', onDown, true);
     return () => window.removeEventListener('pointerdown', onDown, true);
@@ -274,7 +277,7 @@ export default function App() {
            magnifier user is trying to compare. Clearing the highlight hides it
            and leaves focus exactly where it was. Runs after every real surface
            so Escape still closes panels first. */
-        if (s.hl || s.pairHl || s.jlsHl != null) up({ hl: null, pairHl: null, jlsHl: null });
+        if (s.hl || s.pairHl || s.yrHl || s.jlsHl != null) up({ hl: null, pairHl: null, yrHl: null, jlsHl: null });
         return;
       }
       if (typing) return;

@@ -43,6 +43,10 @@ function tipHTML(S: State): string {
       '<tr class="tip-net"><td>neto (' + D[a].n + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
       tag(S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum));
   }
+  /* Godine hovers a cell whose year is generally NOT the selected one, so its
+     readout has to be computed for that cell's year — `countyBlock` below takes
+     the year explicitly for exactly this reason. */
+  if (S.view === 'yrs') return S.yrHl ? countyBlock(S, S.yrHl[0], S.yrHl[1]) : '';
   const iso = S.hl!, c = D[iso], y = YEARS[S.yi];
   if (S.view === 'flow') {
     if (iso === S.sel) return '<div class="tip-name">' + c.n + '</div>odabrana županija — klik na drugu za promjenu';
@@ -54,12 +58,22 @@ function tipHTML(S: State): string {
       '<tr class="tip-net"><td>neto (' + D[S.sel!].n + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
       tag(S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum));
   }
+  return countyBlock(S, iso, S.yi);
+}
+
+/* The county decomposition for an explicit (county, year). It used to read
+   S.hl/S.yi directly, which is the same thing everywhere except Godine, where
+   the hovered cell carries its own year — printing S.yi's numbers under that
+   cell's county would have been the tooltip lying about which column it is on,
+   the exact failure the matrix's `a → b` labels were fixed for. */
+function countyBlock(S: State, iso: string, yi: number): string {
+  const c = D[iso], y = YEARS[yi];
   const cum = S.cum || S.view === 'klas';
   let ii = 0, oi = 0, ie = 0, oe = 0;
-  if (cum) { for (let i = IX2011; i <= Math.max(S.yi, IX2011); i++) { ii += c.ii[i]; oi += c.oi[i]; ie += c.ie[i]; oe += c.oe[i]; } }
-  else { ii = c.ii[S.yi]; oi = c.oi[S.yi]; ie = c.ie[S.yi]; oe = c.oe[S.yi]; }
+  if (cum) { for (let i = IX2011; i <= Math.max(yi, IX2011); i++) { ii += c.ii[i]; oi += c.oi[i]; ie += c.ie[i]; oe += c.oe[i]; } }
+  else { ii = c.ii[yi]; oi = c.oi[yi]; ie = c.ie[yi]; oe = c.oe[yi]; }
   const vi = ii - oi, ve = ie - oe, vt = vi + ve, rt = vt / c.p * 100;
-  let nt = 0; if (cum) { for (let i = IX2011; i <= Math.max(S.yi, IX2011); i++) nt += natAt(iso, i); } else nt = natAt(iso, S.yi);
+  let nt = 0; if (cum) { for (let i = IX2011; i <= Math.max(yi, IX2011); i++) nt += natAt(iso, i); } else nt = natAt(iso, yi);
   const per = cum ? '2011.–' + y + '.' : y + '.';
   let h = '<div class="tip-name">' + c.n + (S.view === 'reg' ? ' · ' + REG[REGOF[iso]].name : '') + '</div><table>' +
     '<tr><td>doseljeni iz žup.</td><td>+' + fmtI.format(ii) + '</td></tr>' +
@@ -75,7 +89,7 @@ function tipHTML(S: State): string {
     '<tr class="tip-net"><td>mig. + prirodno</td><td class="' + ((vt + nt) < 0 ? 'neg' : 'pos') + '">' + sgn(vt + nt, fmtI) + '</td></tr></table>' +
     (S.flow === 'all' ? '<div class="tip-hint">zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika</div>' : '');
   if (S.view === 'klas') {
-    const k = klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct);
+    const k = klasOf(iso, yi, S.thr, S.thrRel, S.thrPct);
     h += '<span class="cls-tag" style="color:' + (k === 'neu' ? '#20262B' : '#fff') + ';background:' + KCOL[k] + '">' + KLAB[k] + '</span>';
   }
   return h;
@@ -95,14 +109,18 @@ export default function Tooltip({ S }: { S: State }) {
      county focused in Saldo carried its saldo tooltip — doseljeni iz inoz. and all
      — straight onto the 556-municipality JLS map when the view changed. (App also
      clears the highlight on a view change now; both halves are cheap.) */
-  const county = !!S.hl && !COARSE && S.view !== 'mx' && S.view !== 'jmap';
-  const show = county || (S.view === 'mx' && !!S.pairHl) || (S.view === 'jmap' && S.jlsHl != null);
+  /* Godine is excluded from the county branch on purpose: `hl` is set there by a
+     rail row, which names a county for a whole *column* — the grid's own readout
+     is the cell, and that is what `yrHl` carries. */
+  const county = !!S.hl && !COARSE && S.view !== 'mx' && S.view !== 'jmap' && S.view !== 'yrs';
+  const show = county || (S.view === 'mx' && !!S.pairHl) || (S.view === 'yrs' && !!S.yrHl)
+    || (S.view === 'jmap' && S.jlsHl != null);
   /* the .show class lands this render — position now, before the browser paints.
      Content also changes with the pointer standing still (autoplay, arrow-key
      scrubbing, focus moves), and the edge clamp lives in moveTip — so re-place
      on the inputs that rewrite the markup, not only when visibility flips. */
   useLayoutEffect(() => { if (show) placeTip(); },
-    [show, S.yi, S.hl, S.pairHl, S.jlsHl, S.cum, S.dir, S.flow, S.den, S.view]);
+    [show, S.yi, S.hl, S.pairHl, S.yrHl, S.jlsHl, S.cum, S.dir, S.flow, S.den, S.view]);
   return (
     /* aria-hidden: the same numbers now live in each feature's own aria-label
        (metrics.countyAria / the .jl labels), so exposing this cursor-follower

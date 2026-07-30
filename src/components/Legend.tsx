@@ -1,6 +1,6 @@
 import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
-  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, fmtI, fmtR,
+  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, fmtI, fmtR,
 } from '../lib/metrics.ts';
 import { PAPER_THR, PAPER_WINDOW } from '../lib/credits.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
@@ -56,6 +56,12 @@ function markPct(S: State, m: number): number | null {
     if (!S.pairHl || S.pairHl[0] === S.pairHl[1]) return null;
     const v = mxCell(S.pairHl[0], S.pairHl[1], S.dir, S.yi, S.cum);
     return clamp(S.dir === 'net' ? (v + m) / (2 * m) * 100 : Math.abs(v) / m * 100);
+  }
+  /* the hovered cell names its own year, which is generally not S.yi — reading
+     the county highlight here would mark the scale at a different column's value */
+  if (S.view === 'yrs') {
+    if (!S.yrHl) return null;
+    return clamp((val(S.yrHl[0], S.yrHl[1], S.flow, S.den, S.cum) + m) / (2 * m) * 100);
   }
   if (!iso) return null;
   if (S.view === 'flow') {
@@ -121,6 +127,26 @@ export default function Legend({ S }: { S: State }) {
           ))}
         </div>
         <div className="legend-note">{klasNote(S)}</div>
+      </div>
+    );
+  }
+  /* Godine shares Saldo's ramp and its exact domain, so the two views are
+     colour-comparable by construction — this legend therefore differs from
+     Saldo's only in saying what the axes are and what the teal column means. */
+  if (S.view === 'yrs') {
+    const m = DOM[S.flow + S.den + S.cum];
+    const cs = yrsCols(S.cum);
+    const span = YEARS[cs[0]] + '.–' + YEARS[cs[cs.length - 1]] + '.';
+    return (
+      <div className="legend" id="legend">
+        <div className="legend-title">Županije × godine · {flowName}{denName} · {span}</div>
+        <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
+        <div className="legend-note">
+          Redak je županija, stupac godina; redci su poredani po zbroju razdoblja.
+          Tirkizni stupac je odabrana godina — klik na ćeliju je postavlja.
+          {S.flow === 'all' && ' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.'}
+          {!S.cum && ' Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju — v. „Kako čitati”.'}
+        </div>
       </div>
     );
   }

@@ -12,8 +12,11 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
      in Matrica — neither is a county the county card can describe. Rendering it
      in Matrica put a 1998–2025 county card beside the 21×21 grid for a county the
      user never picked (they picked a *pair*), which is the same defect the
-     v2.0.5 "sel dies entering Matrica" rule fixed, arriving by a new route. */
-  if (!sel || S.view === 'flow' || S.view === 'mx') return <div className="card" id="card" />;
+     v2.0.5 "sel dies entering Matrica" rule fixed, arriving by a new route.
+     Godine is excluded on a different argument: `sel` never survives into it
+     (setView and decodeHash both drop it), and the card would be redundant even
+     if it did — a row of that grid *is* this chart, for every county at once. */
+  if (!sel || S.view === 'flow' || S.view === 'mx' || S.view === 'yrs') return <div className="card" id="card" />;
 
   const w = 284, h = 128, mL = 4, mR = 4, mT = 8, mB = 14;
   const ints = YEARS.map((_, i) => netAt(sel, i, 'int'));

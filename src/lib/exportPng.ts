@@ -110,6 +110,9 @@ function legendSpec(S: State): Leg {
     const m = S.view === 'mx' ? mxMax(S.dir, S.cum) : flowMax(S.sel!, S.dir, S.cum);
     return { kind: 'seq', m, badge };
   }
+  /* Godine shares Saldo's domain exactly — DOM is already the max over every
+     county and every rendered year — so the exported key is the same key, and a
+     figure of the grid and a figure of the map are colour-comparable. */
   const m = S.view === 'reg' ? RDOM[S.flow + S.den + S.cum]
     : S.view === 'mx' ? mxMax('net', S.cum)
     : S.view === 'flow' ? flowMax(S.sel!, 'net', S.cum) : DOM[S.flow + S.den + S.cum];
@@ -123,9 +126,17 @@ function legendSpec(S: State): Leg {
    were both on screen and in neither exported format (measured: the string
    "strukturna" appeared nowhere in the exported document). */
 function legendNote(S: State): string {
+  const all = 'Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.';
   if (S.view === 'jmap') return 'Samo preseljenja unutar RH (JLS↔JLS), bez inozemstva.';
   if ((S.view === 'flow' || S.view === 'mx') && S.dir === 'net') return 'Neto parova je strukturna procjena.';
-  if (S.view !== 'klas' && S.flow === 'all') return 'Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.';
+  /* Godine is the only view that renders 1998–2006 beside the rest, so it is the
+     only one whose *image* can carry those columns off into a slide — the hatch
+     that marks them on screen has no caption of its own, so the words go here. */
+  if (S.view === 'yrs' && !S.cum) {
+    return 'Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju.'
+      + (S.flow === 'all' ? ' ' + all : '');
+  }
+  if (S.view !== 'klas' && S.flow === 'all') return all;
   return '';
 }
 

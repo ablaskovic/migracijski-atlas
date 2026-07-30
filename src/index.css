@@ -75,7 +75,14 @@ svg :focus,#spark:focus{outline:none}
 .ctrl{display:flex;flex-direction:column;gap:4px}
 .ctrl-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
 .seg{display:flex;border:1px solid var(--line);background:var(--panel);border-radius:3px;overflow:hidden}
-.seg button{padding:5px 7px;font-size:12px;color:var(--mut);border-right:1px solid var(--line);white-space:nowrap}
+/* 5px horizontal, not 7: the seventh view button (Godine) pushed .ctrls from
+   three rows to four at 1440, taking the header 138 → 192 px and the map box
+   572 → 518. Tightening every segment button by 2 px a side buys back ~76 px
+   across the 19 visible buttons, more than the new one costs, so the header
+   budget holds without shortening a label — and "JLS 2018." in particular is an
+   honesty marker, not just a name. Touch is unaffected: the coarse-pointer rule
+   below re-pads to its own 44 px target. */
+.seg button{padding:5px 5px;font-size:12px;color:var(--mut);border-right:1px solid var(--line);white-space:nowrap}
 .seg button:last-child{border-right:none}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:500}
 .seg button:disabled{cursor:default}
@@ -420,6 +427,15 @@ svg :focus,#spark:focus{outline:none}
 /* trace lines: bolding the two axis labels is not enough to locate one pair
    among 420 cells, so the active row and column are outlined back to the axes */
 .mxband rect{fill:none;stroke:var(--ink);stroke-width:1.1;opacity:.5}
+/* Godine cells (county × year). Same shape of surface as .mxc, so the same
+   rules: a cursor, a :focus-visible stroke under the two-tone overlay, and no
+   UA outline (svg :focus is handled by the blanket rule near the top of this
+   file). The trace band and the selected-year column take fill/stroke from
+   ATTRIBUTES in YearsView, not from here — unlike .mxband, which exported as a
+   solid black bar precisely because it leaned on a stylesheet the standalone
+   document does not ship with. */
+.yrc{cursor:pointer}
+.yrc:focus-visible{stroke:var(--ink);stroke-width:2}
 /* arrowheads carry arc direction — colour alone read the wrong way for dolasci */
 .arch{pointer-events:none;opacity:.9}
 /* hovering a region row in the rail lights that region's counties */

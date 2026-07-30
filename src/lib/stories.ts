@@ -51,7 +51,11 @@ export const STORIES: Story[] = [
   },
   {
     label: 'Prag odlučuje tko je gubitnica',
-    cap: 'Na revidiranoj DZS seriji prag −4.500 iz rada prebacuje Karlovačku i Koprivničko-križevačku među gubitnice — ista metoda, druga berba podataka. Pomakni prag i prati klase.',
+    /* This used to name Karlovačka and Koprivničko-križevačka outright — the one
+       surface still writing out a pair that PAPER_KLAS_DIFF exists to derive, and
+       so the one that would keep asserting the difference after a DZS revision
+       closed it. The legend below the caption names them, from the data. */
+    cap: 'Prag −4.500 iz rada, primijenjen na noviju DZS seriju, ne razvrstava županije isto kao rad — legenda imenuje one koje se razlikuju. Pomakni prag i prati kako se klase mijenjaju.',
     patch: { view: 'klas', thr: 4500, thrRel: false, cum: true, yi: Y24, sel: null },
   },
   {
@@ -98,6 +102,21 @@ export const STORIES: Story[] = [
     label: 'Osijeku istok ide najmanje loše',
     cap: 'Među pet istočnih županija Osječko-baranjska gubi najmanje unutarnjim migracijama: −2,6 % naspram −6,1 % (Vukovarsko-srijemska) i −5,6 % (Brodsko-posavska). To je argument rada da Osijek ostaje nositelj istoka.',
     patch: { view: 'saldo', flow: 'int', den: 'rel11', cum: true, yi: Y24, sel: null },
+  },
+  /* ── Godine ───────────────────────────────────────────────────────────────
+     Two findings that are only *visible* as a grid: both are statements about
+     when a sign changed, and answering them on the map meant scrubbing 28 times
+     while holding 21 colours in your head. Every number recomputed from
+     src/data/atlas_data2.json. */
+  {
+    label: 'Zagreb je prestao dobivati iz Hrvatske',
+    cap: 'Unutarnjim migracijama Grad Zagreb dobiva sve do 2019. (vrh +4.420 u 2015.), a od 2021. gubi — 2022. −622. Zagrebačka istodobno ubrzava: +1.047 (2019.) → +2.238 (2022.). Redak grada mijenja boju, redak prstena tamni.',
+    patch: { view: 'yrs', flow: 'int', den: 'abs', cum: false, yi: YEARS.indexOf(2022), sel: null },
+  },
+  {
+    label: 'Prirodni prirast: devet godina bez iznimke',
+    cap: 'Posljednja županija-godina s više rođenih nego umrlih je 2016. Od 2017. do 2025. nijedna županija nijedne godine nije pozitivna — 21 redak, devet stupaca, bez ijedne iznimke.',
+    patch: { view: 'yrs', flow: 'nat', den: 'abs', cum: false, yi: YEARS.indexOf(2017), sel: null },
   },
   {
     label: 'Najprometniji koridor nije najneravnoteženiji',

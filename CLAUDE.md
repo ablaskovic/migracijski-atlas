@@ -71,6 +71,26 @@ numbers differ. All three now answer for themselves, the divergence is **derived
 from the published classification rather than written out, the glossary carries the
 study's *own* five data caveats (it carried only the atlas's), and Nalaz 2 stopped
 saying "samo tri županije" over a rail listing five. It also **self-hosts the fonts** (they were on a third-party CDN, so every visitor's IP went there on first paint and the suite measured the *fallback* face) and adds **six Nalazi** for the study's argument, which the first seven barely touched. It links every upstream source it names (CC BY §3(a) asks for one), states the terms of the exported figure, and **fixes an export that did not fit inside itself** — a user reported a title running through the period and the credit rows running off the right edge — **275 checks**.
+**v2.1.0** adds the view the atlas was missing: **Godine**, a 21-county × 28-year
+grid. Six views could show every county for one year (the map) or every year for
+one county (the detail card, one at a time) and *nothing* showed both, so "when
+did this turn" was a question you answered by scrubbing 28 times and holding 21
+colours in your head. It reuses Saldo's ramp on Saldo's own `DOM` domain, so a
+cell and the map at that year are the same colour by construction (asserted by
+measuring the same county twice); the grid doubles as the year picker every other
+view reads; and godišnje mode is the first surface that renders 1998–2006 beside
+the rest, so it is the first that can hatch them. The four-placement search that
+steers a grid around the legend and the chip dock moved to `lib/gridfit.ts`
+because two views now need it. It also **fixes two accuracy defects in the atlas's
+own copy**: the glossary said the klas divergence was "a few hundred people",
+which is true of the distance to the threshold (606 and 302, now derived) and
+false of the distance to the study's figures (1.593 and 583); and Nalaz 5 wrote
+out the two divergent county names, the one surface still hardcoding what
+`PAPER_KLAS_DIFF` exists to derive. Two Nalazi were added for findings only a grid
+can show. The seventh segment button cost the header its budget — measured, 138 →
+192 px and the map box 572 → 518 — and desktop segment padding went 7 → 5 px
+rather than shortening a label, because "JLS 2018." is an honesty marker and not
+just a name — **295 checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -81,7 +101,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 275-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 295-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
@@ -146,8 +166,18 @@ just failed and could never have helped.
    `#railLab/#railYear`, `#bigYearSub`, `#realMark`, `#scrubBox`, `.scrub.inert`,
    `.arc[stroke-dasharray="7 4"]`, `.clab`, `.mxhit`, `body.panel-open` — before
    renaming anything, grep `scripts/verify.cjs` for it.
-   Roving tabindex is asserted by count: exactly one `.mxc[tabindex="0"]` of 420
-   and one `.jl[tabindex="0"]` of 556 — a change to plain `tabIndex={0}` fails.
+   v2.1.0 adds the Godine grid: `#map .yrc[data-iso][data-y]` (the cell — matched
+   on **both** attributes, since the pair is its identity), `.yrsel`, `.yrband
+   rect`, `.yrpre` (the pre-2007 hatch), `.yrhit` (the coarse-pointer overlay),
+   and the seventh `#segView button[data-v="yrs"]`. The cell reuses `.mxnum` for
+   its in-cell number **on purpose** — that is the class `bakeMapClone` bakes the
+   white halo onto, so reusing it is what makes the export legible; a new class
+   name would silently ship ink-on-indigo at ~2,5:1. `.yrband`/`.yrsel` take
+   fill/stroke from **attributes**, not from `index.css`, so unlike `.mxband` they
+   need no baking at all.
+   Roving tabindex is asserted by count: exactly one `.mxc[tabindex="0"]` of 420,
+   one `.jl[tabindex="0"]` of 556, one `.yrc[tabindex="0"]` of 315 — a change to
+   plain `tabIndex={0}` fails.
    `role` is asserted on rail rows both ways: `button` exactly when activating does
    something, `img` otherwise — never absent. A focusable element with an
    `aria-label` and no role is a name ARIA does not guarantee AT will expose, so
@@ -225,8 +255,14 @@ src/lib/stories.ts       Nalazi presets (State patch + Croatian caption per find
                          storyKeys/storyHolds are the single definition of "this
                          caption still describes the screen", read by App and by
                          both halves of the codec
+src/lib/gridfit.ts       fitGrid() — the four-placement search that steers a
+                         full-bleed grid around the floating legend and chip dock.
+                         Shared by MatrixView (21×21) and YearsView (21×28); the
+                         objective is min(cellW, cellH), which for a square grid
+                         is the ordering MatrixView was verified with, so the
+                         extraction is behaviour-preserving there
 src/lib/geoAsync.ts      on-demand geo_jls.json (475 KB) + geo_regions5.json (68 KB),
-                         which served two of six views and were 53 % of the bundle.
+                         which served two of seven views and were 53 % of the bundle.
                          Sync accessors for the render path; App subscribes once via
                          useGeo() and its re-render feeds Rail/Legend/Tooltip too
 src/lib/state.ts (cont.)  `isKeyFocus(el)` — `:focus-visible` behind a try/catch.
@@ -266,6 +302,10 @@ src/components/          Header (segments + PNG/SVG + reset), MapView (projectio
                          covers live corridors, measured ~12×9 cells at 960 px,
                          and steering the grid around it crushes the cell to
                          ~10 px), JlsCard,
+                         YearsView (Godine: 21 counties × the rendered years;
+                         cells are rectangles, not squares, so rows and columns
+                         get their own floors — 10 px and 7 px — and the shared
+                         zoom recovers anything tighter),
                          CitzPanel (+ zemlje tab), AgePanel, HelpPanel
                          ("Kako čitati" glossary + the "Rad i atribucija"
                          disclosure), StoryBar, MatrixView, Scrubber,
@@ -282,7 +322,7 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (275 checks; the
+scripts/verify.cjs       the executable verification protocol (295 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)
@@ -393,6 +433,11 @@ Two measured guardrails on those tokens:
 | JLS-2018 map (measured, internal only) | 556 polygons; net top Grad Zagreb +3.413, bottom Split −691; Split tip +1.693 / −2.384 / −691; max JLS bbox ≤ 5 % |
 | dob/spol 2025 (STAN I T3/II T2) | vanjska +56.665 / −37.485, 66 % M doseljeni, vrh 25–29; unutarnja 73.838, 54 % žene |
 | zemlje 2025 (STAN I T4) | Njemačka +9.628/−6.238, Nepal +6.264; total +56.665 |
+| Godine grid | 21 rows; 315 cells cumulative (15 years from 2011), 588 godišnje (28 from 1998) |
+| GZ internal saldo, godišnje | peak +4.420 (2015), +3.309 (2019), turns negative 2021 (−145), −622 (2022) |
+| Zagrebačka internal saldo | +1.047 (2019) → +2.238 (2022), still +1.937 in 2025 |
+| prirodno, godišnje | last positive county-year is 2016; 21 × 2017–2025 = 189 cells, all negative |
+| klas divergence margins | Karlovačka −5.106 and Koprivničko-križevačka −4.802 sit 606 / 302 past −4.500 |
 
 If a data refresh legitimately changes these (DZS revises series), recompute the
 constants from the raw sources (see `tools/pipeline/README.md`), update verify.cjs
@@ -429,7 +474,7 @@ without a browser:
 | Below 900 px `.helpcard` is `position:fixed` and reserves the scrubber's lane | anchored inside `.map-box` with `max-height:70vh` it ran to y 1152 in an 844 px viewport and sat on the fixed bar: `elementFromPoint` over the **play button** returned the glossary |
 | Page `scrollWidth ≤ clientWidth` at 390 | `.seg` is `overflow:hidden`, so anything too wide is clipped, not scrolled |
 | `.chip-hd` / segment / rail row ≥ 44 px on coarse pointers | these open and dismiss every panel on touch |
-| The entry chunk stays under 600 KB | `geo_jls.json` (475 KB) + `geo_regions5.json` (68 KB) were static imports in `metrics.ts` — 53 % of the bundle, parsed before the default view could paint, for two of six views |
+| The entry chunk stays under 600 KB | `geo_jls.json` (475 KB) + `geo_regions5.json` (68 KB) were static imports in `metrics.ts` — 53 % of the bundle, parsed before the default view could paint, for two of seven views |
 
 The 390 px geometry block runs before the v2.0.4 block in `verify.cjs` and re-boots the app under
 `isMobile + hasTouch`, so `(pointer:coarse)` and the `COARSE` flag in `tip.ts`
@@ -541,9 +586,26 @@ Two more, on the keyboard and the screen reader:
 | Every upstream source the footer **names**, it **links** | the atlas named four and linked none. For the 2018 flows that is closer to an obligation than a courtesy: they are Pitoski et al. under **CC BY 4.0**, whose §3(a) asks for a URI or hyperlink to the material "to the extent reasonably practicable" — on a web page it is — and OSM's own attribution guidance asks for a link to its copyright page. `src/lib/licences.ts` is the one list; the footer and the glossary are two renderings of it |
 | The **legend** keeps plain text on purpose | `.legend` is `pointer-events:none`, so a link inside it could never be clicked. Attribution there stays wording, and the reachable copy lives in the footer and the glossary |
 | The links cost the map **nothing** | threaded into the sentence already there rather than appended to it, and "nekomercijalan" is one word inside `NO_AFFIL` rather than its own clause — a separate sentence costs the footer a wrapped line, and the footer is a fixed lane above the map (~13 px at 1440). Pinned at ≤ 78 px |
-| Exported figures carry **their own licence**, every view | an exported map is a **Produced Work** under ODbL §4.3, not a derived database, so §4.4 share-alike does not reach it and its terms are ours to set: **CC BY 4.0**, so the next researcher can use it without asking. Unconditional, unlike the study line — the terms apply to all six views, the study reference only to the two that reproduce its method |
+| Exported figures carry **their own licence**, every view | an exported map is a **Produced Work** under ODbL §4.3, not a derived database, so §4.4 share-alike does not reach it and its terms are ours to set: **CC BY 4.0**, so the next researcher can use it without asking. Unconditional, unlike the study line — the terms apply to all seven views, the study reference only to the two that reproduce its method |
 | The band grew again rather than the rows tightening | `BOT` 88 → 102 → 116. Bottom-up at a 14 px rhythm: source credit, figure licence, study reference, revision caveat. The top row still owes the legend 12 px, and the suite asserts the rhythm and the clearance in both directions — four rows for a study view, two for the others, one page geometry either way |
 | The IPF caveat travels with the licence | granting CC BY on the figure must not read as granting it on the estimates. The glossary says so in the same paragraph: the IPF layers are this atlas's computation, not published statistics, and must not be passed on as DZS figures |
+
+### v2.1.0 invariants (Godine, and two accuracy fixes)
+
+| Invariant | Why |
+|---|---|
+| A cell's readout is computed for **its own year**, never `S.yi` | the hovered cell names a year that is generally not the selected one, so `yrHl` is `[county, yearIndex]` and `countyBlock()` takes the year explicitly. Reading `S.yi` would have printed a different column's numbers under that cell's county — the same class of defect as the matrix labelling a cell `a → b` over `b → a`'s number, and `#tip` being `aria-hidden` means the cell's own `aria-label` is the only other copy |
+| Godine and Saldo are **colour-comparable by construction** | both read `DOM[flow+den+cum]`, which is already the max over every county and every rendered year, and both use `divScale`. Asserted by measuring the computed `fill` of the same county-year in both views rather than by inspecting the code — that is the only way the claim is falsifiable |
+| Cumulative mode starts the columns at **2011**, not 1998 | `val()` returns 0 before `IX2011` when `cum` is set, because that is where the accumulation starts, not because anything was measured. Nine columns of zeros is the same lie `#v=saldo&y=2005` told on the map |
+| The grid **is** the year picker | activating a cell writes the same `S.yi` the scrubber, the map and every other view read, and it lands in the permalink. That is what makes the view a control rather than a poster — and why cells are `gridcell`s that do something, while the rail rows here are `role="img"` (there is no county card to open; the row already *is* the county's series) |
+| No county card in Godine, and a carried `sel` dies on the way in | enforced in `setView` **and** `decodeHash`, like `jmap`. A floating 1998–2025 card over a grid both covers live cells and duplicates the row beneath it — the fifth and sixth routes to the v2.0.5 defect |
+| Arrow keys `stopPropagation`; Home/End/PageUp/PageDown exist | 21×28 is ~47 presses corner to corner, and App scopes its own Home/End to `#spark`. Without the stop, one arrow press moves the roving cell *and* steps the year |
+| The pre-2007 hatch appears only in the mode that renders those years | godišnje renders 1998–2006, cumulative does not — measured, Σ(ii) − Σ(oi) is −550…−490 for 2002–06 and exactly 0 from 2007. Same hatch pattern the scrubber uses, so the idiom is one a reader has already met, and the **export carries the words** because the hatch has no caption of its own |
+| In-cell numbers reuse `.mxnum`, deliberately | that is the class `bakeMapClone` bakes the white halo onto. A new class name would look identical on screen and export at ~2,5:1 on the dark end of the ramp. `.yrband`/`.yrsel` take the opposite route — fill/stroke as attributes — so they need no baking at all |
+| A seventh segment button is a **header-budget** change | measured: `.ctrls` went three rows → four at 1440, the header 138 → 192 px and `.map-box` 572 → 518. Desktop segment padding went 7 → 5 px (≈76 px back across 19 buttons) rather than shortening a label — "JLS 2018." carries the view's 2018-only scope, so it is an honesty marker, not just a name. Touch is untouched: the coarse rule re-pads to its own 44 px |
+| `fitGrid` is one function, and its objective is the **cell** | two views need the four-placement search now. `min(cellW, cellH)` rather than `min(w, h)`, because a 21×28 grid and a 21×21 grid want different boxes out of the same four candidates — and for the square case the two orderings are identical, so Matrica keeps the geometry it was verified with |
+| The klas divergence states the distance it can **recompute** | the glossary said "a few hundred people", which is true of the distance to the threshold (606 and 302) and false of the distance to the study's own figures (1.593 and 583). Only the first is derivable here, so `PAPER_KLAS_DIFF` carries `v` and the sentence computes `|v| − thr`; the ambiguous claim is gone rather than re-worded |
+| No Nalaz writes out a county the data can name | Nalaz 5 hardcoded "Karlovačku i Koprivničko-križevačku" — the one surface still asserting a pair `PAPER_KLAS_DIFF` exists to derive, and so the one that would keep asserting the difference after a revision closed it. It now points at the legend, which derives them |
 
 ### v2.0.9 invariants (the export fits inside itself)
 

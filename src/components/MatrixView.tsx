@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI, sgn } from '../lib/metrics.ts';
+import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
@@ -25,36 +26,16 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
   legend: { w: number; h: number }; panel: { w: number; h: number }; zoom: ReturnType<typeof useZoom>;
 }) {
   const n = MXORD.length;
-  /* PADB is the plain bottom margin when the legend is not in the way */
+  /* PADB is the plain bottom margin when the legend is not in the way. The
+     four-placement search that steers the grid around the legend and the chip
+     dock now lives in lib/gridfit.ts, because Godine needs exactly the same
+     search over a differently-shaped grid — its objective is the resulting cell,
+     which for a square grid is the same ordering this used to compute. */
   const LBL = 108, TOPL = 90, PADR = 14, PADB = 40;
-  /* The legend sits at left:16/bottom:12 of the map box. The grid must clear it
-     either horizontally or vertically — a floating caption over a heatmap hides
-     data, unlike over a map. Take whichever placement leaves the larger cell:
-       right  — grid starts past the legend (plus LBL, since row labels hang left)
-       above  — grid keeps the full width but stops short of the legend band
-     Falls back to the old geometry until the legend has been measured. */
-  const GAP = 10;
-  const legRight = legend.w ? 16 + legend.w + GAP : 0;
-  const legBand = legend.h ? legend.h + 12 + GAP : PADB;
-  /* The citizenship / dob panels float bottom-RIGHT over the same box and can be
-     open in any view, so stepping right of the legend walks straight into them.
-     Four placements, pick the one that leaves the largest cell: the panel can be
-     cleared vertically (shorter grid) or horizontally (narrower grid), and which
-     one wins depends on how tall the open panel happens to be. */
-  const panBand = panel.h ? panel.h + 12 + GAP : 0;
-  const panRight = panel.w ? panel.w + 16 + GAP : 0;
-  const leftRight = Math.max(LBL, legRight + LBL);
-  const cands = [
-    { left: leftRight, w: size.w - leftRight - PADR, h: size.h - TOPL - Math.max(PADB, panBand) },
-    { left: LBL, w: size.w - LBL - PADR, h: size.h - TOPL - Math.max(legBand, panBand) },
-    { left: LBL, w: size.w - LBL - PADR - panRight, h: size.h - TOPL - legBand },
-    { left: leftRight, w: size.w - leftRight - PADR - panRight, h: size.h - TOPL - PADB },
-  ];
-  const best = cands.reduce((a, c) => (Math.min(c.w, c.h) > Math.min(a.w, a.h) ? c : a));
-  const left = best.left;
-  const cell = Math.max(8, Math.min(best.w, best.h) / n);
+  const box = fitGrid({ size, legend, panel, cols: n, rows: n, lbl: LBL, top: TOPL, padR: PADR, padB: PADB });
+  const cell = Math.max(8, Math.min(box.cw, box.ch));
   /* center in the leftover width so the grid does not hug the labels */
-  const x0 = left + Math.max(0, (best.w - n * cell) / 2), y0 = TOPL;
+  const x0 = box.left + Math.max(0, (box.w - n * cell) / 2), y0 = TOPL;
   const m = mxMax(S.dir, S.cum);
   const col = S.dir === 'net' ? divScale(m) : seqScale(m, S.dir);
   const showNum = cell >= 22;

@@ -6,7 +6,7 @@ import { STORIES, storyHolds } from './stories.ts';
 import { BASE } from './state.ts';
 import type { Patch, State } from './types.ts';
 
-const VIEWS = ['saldo', 'klas', 'reg', 'flow', 'mx', 'jmap'] as const;
+const VIEWS = ['saldo', 'klas', 'reg', 'flow', 'mx', 'jmap', 'yrs'] as const;
 const FLOWS = ['tot', 'int', 'ext', 'nat', 'all'] as const;
 const DENS = ['abs', 'rel11', 'relest'] as const;
 const DIRS = ['out', 'in', 'net'] as const;
@@ -94,8 +94,11 @@ export function decodeHash(hash: string): Patch {
      hub/partner), so `pp` is legal in both and nowhere else. */
   if (at('view') !== 'flow' && at('view') !== 'mx') o.pair = null;
   /* The JLS map has no county detail card either, so a carried `sel` is a card
-     painted over a grid it cannot describe (see App.setView). */
-  if (at('view') === 'jmap') o.sel = null;
+     painted over a grid it cannot describe (see App.setView). Godine is the same
+     shape of surface for the same reason: it is a grid, its rows already *are*
+     each county's whole series, and a floating 1998–2025 card over it would both
+     cover live cells and duplicate the row underneath it. */
+  if (at('view') === 'jmap' || at('view') === 'yrs') o.sel = null;
   /* In Matrica `sel` is legible only as a corridor's row — there is no county
      card there — so a lone half of a corridor is dropped, whichever half it is:
      `#v=mx&s=HR-18` would otherwise mark a row with no card, and `#v=mx&pp=HR-13`

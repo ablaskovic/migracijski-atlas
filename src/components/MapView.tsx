@@ -13,6 +13,7 @@ import JlsCard from './JlsCard.tsx';
 import CitzPanel from './CitzPanel.tsx';
 import AgePanel from './AgePanel.tsx';
 import MatrixView from './MatrixView.tsx';
+import YearsView from './YearsView.tsx';
 import HelpPanel from './HelpPanel.tsx';
 import StoryBar from './StoryBar.tsx';
 import { moveTip, COARSE } from '../lib/tip.ts';
@@ -74,7 +75,10 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [S.view, S.dir, S.cum]);
+    /* flow/den belong here too: the legend note gains a sentence for
+       "mig. + prirodno" and Godine states its own window, so both change the
+       measured height the two grid views lay themselves out around. */
+  }, [S.view, S.dir, S.cum, S.flow, S.den]);
 
   /* Same argument as the legend, for the chip panels: they float bottom-right
      over the map box and can be open in any view, so in the matrix they would
@@ -224,6 +228,8 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
       <div className="map-box" ref={wrapRef}>
       {S.view === 'mx' ? (
         <MatrixView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} />
+      ) : S.view === 'yrs' ? (
+        <YearsView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} />
       ) : S.view === 'jmap' ? (
         /* role=img would declare this a single leaf graphic and hide the
            focusable features inside it from assistive tech */

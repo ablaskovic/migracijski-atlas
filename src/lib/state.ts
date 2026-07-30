@@ -9,7 +9,7 @@ import type { State } from './types.ts';
 export const BASE: State = {
   view: 'saldo', flow: 'tot', den: 'abs', cum: true, yi: YEARS.indexOf(2024),
   thr: 4500, thrRel: false, thrPct: 1.5, playing: false, hl: null, sel: null,
-  pair: null, pairHl: null, jlsHl: null, regHl: null, dir: 'net', flowSeen: false,
+  pair: null, pairHl: null, yrHl: null, jlsHl: null, regHl: null, dir: 'net', flowSeen: false,
   labels: false, citz: false, jls: false, age: false, help: false,
   jlsTab: 'inter', citzTab: 'grp', ageTab: 'ext', story: null,
 };

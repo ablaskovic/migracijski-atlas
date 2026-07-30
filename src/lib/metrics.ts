@@ -59,7 +59,7 @@ export const FLOWN: Record<Flow, string> = {
 /* spoken view names for the screen-reader status line */
 export const VLAB: Record<string, string> = {
   saldo: 'saldo', klas: 'klasifikacija', reg: 'regije',
-  flow: 'tokovi', mx: 'matrica', jmap: 'JLS 2018.',
+  flow: 'tokovi', mx: 'matrica', jmap: 'JLS 2018.', yrs: 'godine',
 };
 export const SHORTN: Record<string, string> = {
   'HR-01': 'Zagrebačka', 'HR-02': 'Krapinsko-zag.', 'HR-03': 'Sisačko-mosl.', 'HR-04': 'Karlovačka',
@@ -149,11 +149,19 @@ export function klasOf(iso: string, yi: number, thr: number, thrRel = false, thr
    exists to prevent. Evaluated once, at the study's own settings — absolute
    threshold, its endpoint — because that is the only state in which the two are
    answering the same question. */
-export const PAPER_KLAS_DIFF: { iso: string; here: Klas; paper: Klas }[] = (() => {
+/* `v` travels with each entry so the glossary can say *how far* past the line a
+   county fell without any surface hardcoding a number. The distance that matters
+   is the one to the threshold on this series (|v| − thr = 606 and 302 today), not
+   the gap to the study's own figure: only the first is recomputable here, and the
+   glossary used to blur the two into "a few hundred people", which measured true
+   of one reading and false of the other. */
+export const PAPER_KLAS_DIFF: { iso: string; here: Klas; paper: Klas; v: number }[] = (() => {
   const yi = YEARS.indexOf(PAPER_WINDOW.to);
   if (yi < 0) return [];
-  return ISOS.map(iso => ({ iso, here: klasOf(iso, yi, PAPER_THR), paper: PAPER_KLAS_OF[iso] }))
-    .filter(d => d.paper && d.here !== d.paper);
+  return ISOS.map(iso => ({
+    iso, here: klasOf(iso, yi, PAPER_THR), paper: PAPER_KLAS_OF[iso],
+    v: val(iso, yi, 'tot', 'abs', true),
+  })).filter(d => d.paper && d.here !== d.paper);
 })();
 /* Is the current state comparable with what the study published? Off its
    threshold, off its endpoint or in relative mode the two measure different
@@ -209,6 +217,43 @@ export function mxMax(dir: Dir, cum: boolean): number {
       if (a !== b) m = Math.max(m, Math.abs(mxCell(a, b, dir, yi, cum)));
   m = m || 1; MXC.set(key, m); return m;
 }
+
+/* ── Godine: 21 counties × the whole series, one cell per county-year ────────
+   The atlas could show any single year on the map and any single county over
+   time in the detail card, but never all 21 series at once — so "when did this
+   turn" was a question you answered by scrubbing 28 times and remembering. This
+   is that panel: rows are counties, columns are years, colour is the same
+   diverging ramp and the same fixed per-(flow×den×cum) domain the map uses, so a
+   cell here and the map cell for that year are the same colour by construction.
+
+   Cumulative mode starts the columns at 2011 rather than painting nine columns
+   of zeros: `val()` returns 0 before IX2011 when cum is set, which is a rendering
+   artefact of where the accumulation starts, not a measurement. */
+export function yrsCols(cum: boolean): number[] {
+  const out: number[] = [];
+  for (let i = cum ? IX2011 : 0; i < YEARS.length; i++) out.push(i);
+  return out;
+}
+/* Row order: the window total in the current denominator, descending — the
+   ranking Saldo's rail already shows, so the two agree about who is at the top.
+   Deliberately keyed to the *window*, not to `S.yi`: ordering by the selected
+   year would reshuffle all 21 rows on every arrow press, which is the one thing
+   a small-multiples grid exists to avoid. */
+export function yrsTotal(iso: string, flow: Flow, den: Den, cols: number[]): number {
+  let v = 0;
+  for (const yi of cols) v += netAt(iso, yi, flow);
+  return den === 'abs' ? v : v / denom(iso, cols[cols.length - 1], den) * 100;
+}
+export function yrsOrder(flow: Flow, den: Den, cols: number[]): string[] {
+  return [...ISOS].sort((a, b) => yrsTotal(b, flow, den, cols) - yrsTotal(a, flow, den, cols));
+}
+/* Where the inter-county margins start closing. Measured on atlas_data2.json:
+   Σ(doseljeni among counties) − Σ(odseljeni) is −550/−519/−464/−489/−490 for
+   2002–06 and exactly 0 from 2007, i.e. before 2007 the county rows do not
+   balance against each other. Godine is the first view that renders those years
+   next to the rest instead of one at a time, so it is the first that can mark
+   where they stop — see the rule the grid draws at this column. */
+export const IX2007 = YEARS.indexOf(2007);
 
 /* ── JLS map (measured 2018, internal moves only) ── */
 export function jlsVal(p: JlsProps, dir: Dir): number {
@@ -274,6 +319,14 @@ export function exportDesc(S: State): [string, string] {
   if (S.view === 'mx') {
     const d = { out: 'odlasci (redak → stupac)', in: 'dolasci (stupac → redak)', net: 'neto (redak prema stupcu)' }[S.dir];
     return ['Matrica tokova: ' + d + ' · ' + (S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum)), per];
+  }
+  /* The whole grid is on the image, so its period is the rendered window rather
+     than the selected year — the year marker is one column of many, and titling
+     the figure with it would name the one thing the image is *not* about. */
+  if (S.view === 'yrs') {
+    const cols = yrsCols(S.cum);
+    return ['Županije kroz godine · ' + FLOWN[S.flow] + den + (S.cum ? ' · kumulativno' : ' · godišnje'),
+      YEARS[cols[0]] + '.–' + YEARS[cols[cols.length - 1]] + '.'];
   }
   if (S.view === 'reg') return ['Regije (5) · ' + FLOWN[S.flow] + den, per];
   if (S.view === 'flow') {

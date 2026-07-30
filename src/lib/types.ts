@@ -1,7 +1,7 @@
 /* Shared types. The State literal unions mirror the v4 single-file control
    values; scripts/verify.cjs exercises the transitions over them. */
 
-export type View = 'saldo' | 'klas' | 'reg' | 'flow' | 'mx' | 'jmap';
+export type View = 'saldo' | 'klas' | 'reg' | 'flow' | 'mx' | 'jmap' | 'yrs';
 export type Flow = 'tot' | 'int' | 'ext' | 'nat' | 'all';
 export type Den = 'abs' | 'rel11' | 'relest';
 export type Dir = 'out' | 'in' | 'net';
@@ -24,6 +24,11 @@ export interface State {
   sel: string | null;   /* non-null whenever view === 'flow' (autoselect invariant) */
   pair: string | null;  /* corridor card partner in flow view */
   pairHl: [string, string] | null;  /* hovered matrix cell (origin, destination) */
+  /* hovered cell in the Godine grid, as (county, year index). Its own field
+     rather than reusing `hl` + `yi`: the cell names a year that is not the
+     selected one, and pointing `hl` at it while the tooltip read `S.yi` would
+     have reported a different column's numbers under the hovered county's name. */
+  yrHl: [string, number] | null;
   jlsHl: number | null; /* hovered JLS feature index (j) in jmap view */
   regHl: string | null; /* hovered region key in reg view — lights its counties */
   dir: Dir;

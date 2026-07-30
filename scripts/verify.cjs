@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 275;
+const EXPECTED_CHECKS = 295;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -754,7 +754,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* every preset must survive a round trip through its own permalink, or the
      stricter guard would silently stop shipping captions at all */
   const trip = [];
-  for (let i = 0; i < 13; i++) {
+  for (let i = 0; i < 15; i++) {
     await fresh('');
     await page.select('#story', String(i));
     await settle(260);
@@ -763,7 +763,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const kept = await page.evaluate(() => !!document.querySelector('#storyCap'));
     if (!kept) trip.push((i + 1) + ':' + h);
   }
-  ck('all 13 Nalazi round-trip through their own permalink', trip.length === 0, trip.join(' | '));
+  ck('all 15 Nalazi round-trip through their own permalink', trip.length === 0, trip.join(' | '));
 
   /* Nalaz 4's claim is about the Državljanstvo panel, so closing it must kill
      the caption — the app used to emit `…&st=4` with `cz=1` already dropped */
@@ -1075,7 +1075,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('390: page never scrolls sideways', m390.overflow <= 0, String(m390.overflow));
   ck('390: emulated device reports a coarse pointer', m390.coarse);
   ck('390: every segment button stays inside its group and is not clipped',
-    m390.segBad.length === 0 && m390.viewBtns === 6, m390.segBad.join(' | '));
+    m390.segBad.length === 0 && m390.viewBtns === 7, m390.segBad.join(' | '));
 
   const tap390 = await page.evaluate(() => {
     const r = {};
@@ -2531,7 +2531,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await fresh('');
   const nMx = await page.evaluate(async () => {
     const s = document.querySelector('#story');
-    s.value = '12'; s.dispatchEvent(new Event('change', { bubbles: true }));
+    s.value = '14'; s.dispatchEvent(new Event('change', { bubbles: true }));
     await new Promise(r => setTimeout(r, 300));
     return {
       cells: document.querySelectorAll('.mxc').length,
@@ -2659,7 +2659,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* 390 is where the title hits its 12 px floor and has to wrap instead of
        shrinking further, and where the legend caveat drops from x=222 to its own
        line — both paths are only exercised down here */
-    await fitAt(390, FLOW), await fitAt(390, '#v=klas')];
+    await fitAt(390, FLOW), await fitAt(390, '#v=klas'),
+    /* Godine is the widest content in the app and its title carries the window
+       plus the mode, so it exercises the band at a length the other views do
+       not — appended rather than given its own check, so the existing overflow
+       and overlap assertions simply cover one more view */
+    await fitAt(1024, '#v=yrs&c=0&f=nat&y=2017'), await fitAt(390, '#v=yrs&c=1&y=2024')];
   ck('no exported band text runs past the canvas edge, 1440 down to 390',
     fits.every(f => f.over.length === 0),
     JSON.stringify(fits.map(f => f.over)).slice(0, 300));
@@ -2671,6 +2676,266 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     JSON.stringify({ mobile: fits[3].titleLines, fs: fits[3].titleFs, wide: fits[0].titleLines }));
   ck('the measurement actually inspected the band it claims to have checked',
     fits.every(f => f.n >= 6), JSON.stringify(fits.map(f => f.n)));
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ══════════ v2.1.0 — Godine (21 counties × the series, as a grid) ══════════
+     The atlas could show every county for one year (the map) and every year for
+     one county (the detail card), and nothing showed both — so "when did this
+     turn" was answered by scrubbing 28 times from memory. This block pins the
+     grid itself, the two properties that make it honest (the tooltip is on the
+     hovered cell's year, not the selected one; the colour domain is shared with
+     Saldo so the two views are comparable), and the geometry rules the Matrica
+     already had to obey. */
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('#v=yrs&c=1&y=2024');
+  const yg = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll('#map .yrc')];
+    const grid = document.querySelector('#map[role="grid"]');
+    const leg = document.querySelector('#legend').getBoundingClientRect();
+    const b0 = cells[0].getBoundingClientRect();
+    return {
+      cells: cells.length,
+      rows: document.querySelectorAll('#map [role="row"]').length,
+      tab0: document.querySelectorAll('#map .yrc[tabindex="0"]').length,
+      rowcount: grid.getAttribute('aria-rowcount'), colcount: grid.getAttribute('aria-colcount'),
+      aria0: cells[0].getAttribute('aria-label'),
+      gridcells: cells.filter(c => c.getAttribute('role') === 'gridcell').length,
+      overLegend: cells.filter(c => {
+        const r = c.getBoundingClientRect();
+        return r.left < leg.right && r.right > leg.left && r.top < leg.bottom && r.bottom > leg.top;
+      }).length,
+      cw: b0.width, ch: b0.height,
+      sel: document.querySelectorAll('#map .yrsel').length,
+      pre: document.querySelectorAll('#map .yrpre').length,
+      railRole: document.querySelector('#railList .rrow').getAttribute('role'),
+      card: !!document.querySelector('#card.show'),
+    };
+  });
+  /* cumulative starts the columns at 2011 rather than painting nine columns of
+     zeros — `val()` returns 0 before then, which is where the sum starts, not a
+     measurement (the same trap `#v=saldo&y=2005` fell into) */
+  ck('Godine draws 21 county rows × 15 cumulative years, every cell a gridcell',
+    yg.cells === 315 && yg.rows === 21 && yg.gridcells === 315
+    && yg.rowcount === '21' && yg.colcount === '15', JSON.stringify(yg).slice(0, 200));
+  ck('roving tabindex: exactly one of the 315 cells is a tab stop',
+    yg.tab0 === 1, String(yg.tab0));
+  ck('a cell states its own county, year and value (#tip is aria-hidden)',
+    /^Grad Zagreb, 2011\.: \+2\.139$/.test(yg.aria0), yg.aria0);
+  ck('no cell sits under the legend, and the grid keeps a usable cell',
+    yg.overLegend === 0 && yg.cw >= 12 && yg.ch >= 12,
+    JSON.stringify({ over: yg.overLegend, cw: yg.cw, ch: yg.ch }));
+  ck('the selected year is marked and no pre-2007 hatch appears in cumulative mode',
+    yg.sel === 1 && yg.pre === 0, JSON.stringify({ sel: yg.sel, pre: yg.pre }));
+  /* nothing to open here — the row IS the county's series, so a rail row must not
+     claim role=button, and no county card may be painted over the grid */
+  ck('Godine rail rows are role=img and no county card covers the grid',
+    yg.railRole === 'img' && !yg.card, yg.railRole + ' card=' + yg.card);
+
+  /* The property the whole view turns on: the hovered cell names a year that is
+     generally NOT the selected one, so reading S.yi would have printed a
+     different column's numbers under that cell's county — the same class of
+     defect as the matrix labelling a cell `a → b` over `b → a`'s number. */
+  const at = await page.evaluate(() => {
+    const b = document.querySelector('#map .yrc[data-iso="HR-21"][data-y="2015"]').getBoundingClientRect();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  });
+  await page.mouse.move(at.x, at.y);
+  await settle(220);
+  const ytip = await page.evaluate(() => ({
+    tip: document.querySelector('#tip').textContent,
+    shown: document.querySelector('#tip').classList.contains('show'),
+    bigYear: document.querySelector('#bigYear').textContent,
+    band: document.querySelectorAll('#map .yrband rect').length,
+  }));
+  ck('the tooltip reports the hovered cell’s year, not the selected one',
+    ytip.shown && /2015\./.test(ytip.tip) && ytip.bigYear === '2024.' && ytip.band === 2,
+    JSON.stringify({ big: ytip.bigYear, band: ytip.band, tip: ytip.tip.slice(0, 120) }));
+
+  /* Saldo and Godine share DOM[flow+den+cum] exactly, so the same county-year is
+     the same fill in both — that is what lets a reader carry a colour from the
+     map to the grid. Compared by measuring the same cell twice. */
+  const fillYrs = await page.evaluate(() =>
+    getComputedStyle(document.querySelector('#map .yrc[data-iso="HR-18"][data-y="2024"]')).fill);
+  await fresh('#v=saldo&c=1&y=2024');
+  const fillMap = await page.evaluate(() =>
+    getComputedStyle(document.querySelector('#map .cnt[data-iso="HR-18"]')).fill);
+  ck('a county-year is the same colour in Godine as on the Saldo map',
+    fillYrs === fillMap && /^rgb/.test(fillYrs), fillYrs + ' vs ' + fillMap);
+
+  /* annual mode renders 1998–2006 beside the rest — the first view that does —
+     so it is the first that can mark where the inter-county margins start
+     closing (measured: Σ(ii) − Σ(oi) is −550…−490 to 2006, exactly 0 from 2007) */
+  await fresh('#v=yrs&c=0&y=2024');
+  const yann = await page.evaluate(() => ({
+    cells: document.querySelectorAll('#map .yrc').length,
+    pre: document.querySelectorAll('#map .yrpre').length,
+    note: document.querySelector('#legend .legend-note').textContent,
+    first: document.querySelector('#map .yrc').getAttribute('data-y'),
+  }));
+  ck('godišnje mode renders all 28 years and hatches the pre-2007 span',
+    yann.cells === 588 && yann.pre === 1 && yann.first === '1998'
+    && /Šrafirano do 2007/.test(yann.note), JSON.stringify(yann).slice(0, 160));
+
+  /* clicking a cell is how the grid doubles as a year picker: it drives the same
+     S.yi the scrubber and every other view read */
+  const yclick = await page.evaluate(async () => {
+    document.querySelector('#map .yrc[data-iso="HR-21"][data-y="2003"]')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+    return { big: document.querySelector('#bigYear').textContent, hash: location.hash };
+  });
+  ck('activating a cell sets the year everywhere, and it lands in the permalink',
+    yclick.big === '2003.' && /y=2003/.test(yclick.hash), JSON.stringify(yclick));
+
+  /* arrows walk the grid; without stopPropagation App's window handler also
+     steps the year, so one press would move two things */
+  const yarrow = await page.evaluate(async () => {
+    const c = document.querySelector('#map .yrc[tabindex="0"]');
+    c.focus();
+    const before = document.querySelector('#bigYear').textContent;
+    const wasCell = c.getAttribute('aria-label');
+    c.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+    const now = document.querySelector('#map .yrc[tabindex="0"]');
+    return { yearHeld: before === document.querySelector('#bigYear').textContent,
+      moved: wasCell !== now.getAttribute('aria-label'), focused: document.activeElement === now };
+  });
+  ck('arrow keys walk the grid without also stepping the year',
+    yarrow.yearHeld && yarrow.moved && yarrow.focused, JSON.stringify(yarrow));
+
+  /* the two-tone ring is a keyboard affordance — a real mouse click must not
+     paint it (the check that caught this on the map drives CDP, not dispatch) */
+  await fresh('#v=yrs&c=0&y=2024');
+  const yb = await page.evaluate(() => {
+    const b = document.querySelector('#map .yrc[data-iso="HR-21"][data-y="2015"]').getBoundingClientRect();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  });
+  await page.mouse.click(yb.x, yb.y);
+  await settle(160);
+  const ringMouse = await page.evaluate(() => document.querySelectorAll('#map .focusring').length);
+  await page.keyboard.press('ArrowRight');
+  await settle(160);
+  const ringKey = await page.evaluate(() => document.querySelectorAll('#map .focusring').length);
+  ck('a mouse click leaves no keyboard ring on a cell; an arrow key brings it',
+    ringMouse === 0 && ringKey === 1, `mouse=${ringMouse} key=${ringKey}`);
+
+  /* the grid steers around the chip dock, exactly as the matrix has to — clearing
+     it vertically alone crushes the cell, which is why the search tries four
+     placements rather than one */
+  await fresh('#v=yrs&c=1&y=2024&cz=1');
+  const ydock = await page.evaluate(() => {
+    const d = document.querySelector('.chipdock');
+    if (!d || getComputedStyle(d).position !== 'absolute') return { skip: true };
+    const b = d.getBoundingClientRect(), c0 = document.querySelector('#map .yrc').getBoundingClientRect();
+    return {
+      under: [...document.querySelectorAll('#map .yrc')].filter(c => {
+        const r = c.getBoundingClientRect();
+        return r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top;
+      }).length,
+      cw: c0.width, ch: c0.height,
+    };
+  });
+  ck('an open chip panel covers no cell, and the grid keeps a usable cell',
+    ydock.skip || (ydock.under === 0 && ydock.cw >= 12 && ydock.ch >= 12), JSON.stringify(ydock));
+
+  /* a carried `sel` has no card to open here, so it must die on the way in —
+     the v2.0.5 rule, reached by a seventh view */
+  await fresh('#v=yrs&s=HR-18&c=1&y=2024');
+  const ysel = await page.evaluate(() => ({ hash: location.hash, card: !!document.querySelector('#card.show') }));
+  ck('a permalink into Godine drops a county selection it cannot render',
+    !/s=HR-18/.test(ysel.hash) && !ysel.card, JSON.stringify(ysel));
+
+  /* the export is the artifact that leaves the app: it must carry the grid, its
+     own title, the pre-2007 words the hatch has no caption for, and none of the
+     UI state that would turn a figure into a screenshot */
+  await fresh('#v=yrs&c=0&y=2024');
+  const yexp = await page.evaluate(async () => {
+    document.querySelector('#map .yrc[tabindex="0"]').focus();
+    await new Promise(r => setTimeout(r, 120));
+    const svg = window.__exportSVG(false);
+    return {
+      cells: (svg.match(/class="yrc"/g) || []).length,
+      title: /ŽUPANIJE KROZ GODINE/i.test(svg),
+      period: /1998\.–2025\./.test(svg),
+      pre: /Šrafirano do 2007/.test(svg),
+      noRing: !svg.includes('focusring'),
+      png: await window.__exportPNG(false),
+    };
+  });
+  ck('the exported figure carries all 588 cells, its own title and period',
+    yexp.cells === 588 && yexp.title && yexp.period && yexp.png.bytes > 20000,
+    JSON.stringify({ cells: yexp.cells, title: yexp.title, period: yexp.period }));
+  ck('it carries the pre-2007 caveat the hatch has no room to word, and no focus ring',
+    yexp.pre && yexp.noRing, JSON.stringify({ pre: yexp.pre, noRing: yexp.noRing }));
+  /* The two formats must stay twins for this view too — the band heights are
+     computed from measured text, so a view whose title is longer than any other
+     is exactly where the PNG and the SVG could drift apart. */
+  const ytwin = await page.evaluate(async () => {
+    const doc = window.__exportSVG(false);
+    const m = /<svg[^>]*width="(\d+(?:\.\d+)?)" height="(\d+(?:\.\d+)?)"/.exec(doc);
+    const png = await window.__exportPNG(false);
+    return { svgW: +m[1], svgH: +m[2], pngW: png.w, pngH: png.h };
+  });
+  ck('the Godine PNG is exactly 2× the SVG the same state emits',
+    ytwin.pngW === ytwin.svgW * 2 && ytwin.pngH === ytwin.svgH * 2,
+    `${ytwin.pngW}x${ytwin.pngH} vs 2×${ytwin.svgW}x${ytwin.svgH}`);
+
+  /* the two Godine presets: each cites a sign change only this view can show */
+  const yst = async ix => {
+    await fresh('');
+    return page.evaluate(async i => {
+      const s = document.querySelector('#story');
+      s.value = String(i); s.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 320));
+      const cell = (iso, y) => {
+        const e = document.querySelector(`#map .yrc[data-iso="${iso}"][data-y="${y}"]`);
+        return e ? e.getAttribute('aria-label') : null;
+      };
+      return {
+        cap: (document.querySelector('#storyCap') || {}).textContent || '',
+        view: document.querySelector('#segView button[aria-pressed="true"]').dataset.v,
+        gz22: cell('HR-21', 2022), gz15: cell('HR-21', 2015), zg22: cell('HR-01', 2022),
+      };
+    }, ix);
+  };
+  const nZg = await yst(12);
+  ck('the Zagreb-reversal Nalaz renders the sign change its caption cites',
+    nZg.view === 'yrs' && /−622/.test(nZg.gz22) && /\+4\.420/.test(nZg.gz15)
+    && /\+2\.238/.test(nZg.zg22) && /−622/.test(nZg.cap),
+    JSON.stringify(nZg).slice(0, 220));
+  const nNatY = await page.evaluate(async () => {
+    const s = document.querySelector('#story');
+    s.value = '13'; s.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 320));
+    const cells = [...document.querySelectorAll('#map .yrc')];
+    const from2017 = cells.filter(c => +c.getAttribute('data-y') >= 2017);
+    return {
+      cap: (document.querySelector('#storyCap') || {}).textContent || '',
+      total: from2017.length,
+      positive: from2017.filter(c => /: \+/.test(c.getAttribute('aria-label'))).length,
+    };
+  });
+  /* 21 counties × 2017–2025 = 189 cells, and the caption says every one of them
+     is negative — a claim the grid either shows or does not */
+  ck('the natural-change Nalaz: no county is positive in any year from 2017 on',
+    nNatY.total === 189 && nNatY.positive === 0 && /2016/.test(nNatY.cap),
+    JSON.stringify({ total: nNatY.total, pos: nNatY.positive }));
+
+  /* 390: the densest grid in the app on the narrowest layout */
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
+  await fresh('#v=yrs&c=1&y=2024');
+  const y390 = await page.evaluate(() => {
+    const de = document.documentElement;
+    return {
+      overflow: de.scrollWidth - de.clientWidth,
+      cells: document.querySelectorAll('#map .yrc').length,
+      hit: document.querySelectorAll('#map .yrhit').length,
+      tab0: document.querySelectorAll('#map .yrc[tabindex="0"]').length,
+    };
+  });
+  ck('390: Godine never scrolls the page sideways and keeps its touch hit layer',
+    y390.overflow <= 0 && y390.cells === 315 && y390.hit === 1 && y390.tab0 === 1,
+    JSON.stringify(y390));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── errors, again, after the v2.0.5 block ── */

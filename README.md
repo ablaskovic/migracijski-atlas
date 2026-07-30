@@ -9,11 +9,18 @@ all honesty-labeled in the UI.
 
 ## Views & features
 
-Six views — **Saldo**, **Klasifikacija** (absolute or % threshold), **Regije**,
-**Tokovi** (arcs + corridor pair card), **Matrica** (21×21 OD heatmap), **JLS 2018.**
-(measured municipal map) — plus a **Nalazi** guided-findings menu, dob/spol and
-citizenship/zemlje panels, county labels, shareable permalinks (`location.hash`),
-and PNG **and** SVG export.
+Seven views — **Saldo**, **Klasifikacija** (absolute or % threshold), **Regije**,
+**Godine** (21 counties × the whole series as a grid), **Tokovi** (arcs + corridor
+pair card), **Matrica** (21×21 OD heatmap), **JLS 2018.** (measured municipal map)
+— plus a **Nalazi** guided-findings menu, dob/spol and citizenship/zemlje panels,
+county labels, shareable permalinks (`location.hash`), and PNG **and** SVG export.
+
+**Godine** is the small-multiples view: rows are counties, columns are years,
+colour is Saldo's own ramp on Saldo's own domain, so a cell and the map at that
+year are the same colour by construction. It answers "*when* did this turn",
+which previously meant scrubbing 28 times and remembering 21 colours. Clicking a
+cell sets the year for every other view; godišnje mode renders 1998–2025 and
+hatches the pre-2007 span, where the inter-county margins do not yet close.
 
 ## Quickstart
 
@@ -25,13 +32,13 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
 npm i -D puppeteer   # once, for verification
-npm run verify       # typecheck + lint + build + 275-check suite (must pass)
+npm run verify       # typecheck + lint + build + 295-check suite (must pass)
 ```
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
 are their own chunks: the view that needs one fetches it on entry, and the other is
 warmed on a 1,5 s timer, so neither is ever on the first-paint path. The entry chunk
-is ~492 kB / 164 kB gzip rather than ~1.019 kB / 295 kB (decimal kB throughout).
+is ~521 kB / 170 kB gzip rather than ~1.048 kB / 301 kB (decimal kB throughout).
 
 Requires Node ≥ 20.19 (vite 8).
 

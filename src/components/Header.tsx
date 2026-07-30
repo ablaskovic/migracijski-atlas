@@ -88,7 +88,10 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
         <StorySelect S={S} applyStory={applyStory} resetAll={resetAll} />
         <div className="ctrl"><span className="ctrl-lab" id="segViewLab">Prikaz</span>
           <Seg id="segView" labId="segViewLab" value={S.view} onPick={setView}
-            opts={[['saldo', 'Saldo'], ['klas', 'Klasifikacija'], ['reg', 'Regije'], ['flow', 'Tokovi'], ['mx', 'Matrica'], ['jmap', 'JLS 2018.']]} />
+            /* "Godine" sits with the county-level views it shares a colour scale
+               with (Saldo/Klasifikacija/Regije) rather than beside the two flow
+               views, which answer a different question entirely. */
+            opts={[['saldo', 'Saldo'], ['klas', 'Klasifikacija'], ['reg', 'Regije'], ['yrs', 'Godine'], ['flow', 'Tokovi'], ['mx', 'Matrica'], ['jmap', 'JLS 2018.']]} />
         </div>
         <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">Sastavnica</span>
           <Seg id="segFlow" labId="segFlowLab" value={S.flow} off={lockFD} title={OFF_TIP} onPick={v => setS({ flow: v })}

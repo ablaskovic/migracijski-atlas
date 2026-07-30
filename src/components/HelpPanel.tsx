@@ -18,16 +18,27 @@ const PW = `${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.`;
    instead of leaving it asserting a difference that is no longer there. */
 function klasDiffSentence(): string {
   if (!PAPER_KLAS_DIFF.length) return 'Na seriji koju atlas prikazuje razredi se poklapaju s objavljenima.';
-  const by = new Map<string, string[]>();
+  const by = new Map<string, typeof PAPER_KLAS_DIFF>();
   for (const d of PAPER_KLAS_DIFF) {
     const k = `${d.paper}|${d.here}`;
-    by.set(k, [...(by.get(k) ?? []), D[d.iso]?.n ?? d.iso]);
+    by.set(k, [...(by.get(k) ?? []), d]);
   }
-  const parts = [...by.entries()].map(([k, names]) => {
+  const parts = [...by.entries()].map(([k, ds]) => {
     const [paper, here] = k.split('|') as [keyof typeof KLAB, keyof typeof KLAB];
-    return `${names.join(' i ')} (u radu ${KLAB[paper]}, ovdje ${KLAB[here]})`;
+    const names = ds.map(d => D[d.iso]?.n ?? d.iso).join(' i ');
+    return `${names} (u radu ${KLAB[paper]}, ovdje ${KLAB[here]})`;
   });
-  return `Razlikuju se: ${parts.join('; ')}.`;
+  /* How far past the line, derived — the sentence this replaced said the gap was
+     "a few hundred people", which is true of the distance to the threshold and
+     false of the distance to the study's own figures (measured: 606 and 302
+     against the threshold, 1.593 and 583 against the paper). Only the first is
+     recomputable here, so it is the only one stated. */
+  const over = PAPER_KLAS_DIFF.filter(d => d.here === 'loss')
+    .map(d => fmtI.format(Math.abs(Math.round(d.v)) - PAPER_THR));
+  const tail = over.length === PAPER_KLAS_DIFF.length
+    ? ` Na ovoj seriji prelaze prag od −${fmtI.format(PAPER_THR)} za ${over.join(' odnosno ')} ${over.length > 1 ? 'osoba' : 'osobu'}.`
+    : '';
+  return `Razlikuju se: ${parts.join('; ')}.${tail}`;
 }
 
 /* "Kako čitati" — the one stable place the vocabulary lives. Every other
@@ -78,6 +89,9 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <dt>koridor</dt><dd>jedan par županija i selidbe među njima</dd>
         <dt>klasifikacija</dt><dd>podjela na pobjednice / neutralne / gubitnice prema pragu koji sami pomičete</dd>
         <dt>kumulativno</dt><dd>zbroj svih godina od 2011. do odabrane, umjesto jedne godine</dd>
+        {/* the shorthand the segment button uses; without this the view's name is
+            the one control in the header that explains itself nowhere */}
+        <dt>godine</dt><dd>prikaz u kojem je redak županija, a stupac godina — cijela serija svih 21 županije odjednom, u istim bojama kao karta</dd>
         {/* Both denominators were undefined in the one surface that assumes
             nothing, and nothing said which of the two is the study's measure.
             The second also clamps: pe covers 2001.–2024., so 2025 divides by the
@@ -106,7 +120,8 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         a <b>Shift</b> + strelice pomiču zumirani prikaz; isto radi kotačić miša,
         odnosno povlačenje mišem.
         Na karti i u matrici <b>Enter</b> ili <b>razmaknica</b> otvaraju odabrano —
-        karticu županije, odnosno koridor. U matrici i na JLS karti
+        karticu županije, odnosno koridor; u prikazu Godine postavljaju odabranu godinu.
+        U matrici, u prikazu Godine i na JLS karti
         <b> Home</b> / <b>End</b> i <b>PageUp</b> / <b>PageDown</b> skaču kroz mrežu.
       </div>
 
@@ -165,9 +180,9 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <b>Zašto se razredi razlikuju od objavljenih.</b> Klasifikacija ovdje primjenjuje
         prag iz rada, ali na novijoj DZS seriji, pa rezultat nije istovjetan objavljenome.
         Rad za {PW} objavljuje sedam pobjednica, sedam neutralnih i sedam gubitnica.
-        {' ' + klasDiffSentence()} Metoda je ista; razlikuje se berba podataka, a razlika
-        je nekoliko stotina osoba oko praga. Rad računa {PW} — pomaknete li vremensku vrpcu
-        dalje, prikaz više ne odgovara razdoblju koje je rad analizirao.
+        {' ' + klasDiffSentence()} Metoda je ista; razlikuje se berba podataka. Rad računa {PW}
+        — pomaknete li vremensku vrpcu dalje, prikaz više ne odgovara razdoblju koje je rad
+        analizirao.
       </div>
       <div className="help-p">
         <b>Kako je nastala podjela na regije.</b> Rad predlaže pet regija sa središtima u
