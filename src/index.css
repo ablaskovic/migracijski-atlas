@@ -44,6 +44,12 @@
   --mono:'IBM Plex Mono',ui-monospace,monospace;
   --sans:'IBM Plex Sans',system-ui,sans-serif;
   --disp:'Oswald','Arial Narrow',sans-serif;
+  /* The "?" button's side. .zoomrst is parked immediately left of it, so the two
+     positions are one measurement, not two — the coarse-pointer rule grew the
+     button 22 → 44 px and left .zoomrst anchored to clear a 22 px button, which
+     put "⤢ 1,6×" straight through the "?" on every touch device, at both
+     breakpoints. Deriving .zoomrst's offset from this makes that unrepresentable. */
+  --hbw:22px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -339,7 +345,8 @@ svg :focus,#spark:focus{outline:none}
    Top-left is spoken for by the detail card and the JLS chip, and top:44/right:16
    is where .paircard lands — which is exactly where the zoom reset used to sit,
    under a card with a higher z-index. */
-.zoomrst{position:absolute;top:14px;right:138px;z-index:6;font-family:var(--mono);font-size:9.5px;
+/* right = the "?" anchor + its own side + an 8 px gap, so the pair cannot drift */
+.zoomrst{position:absolute;top:14px;right:calc(108px + var(--hbw) + 8px);z-index:6;font-family:var(--mono);font-size:9.5px;
   letter-spacing:.08em;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
 .zoomrst:hover{color:var(--ink)}
@@ -359,7 +366,7 @@ svg :focus,#spark:focus{outline:none}
 /* "Kako čitati" — the only place the vocabulary is explained */
 .helpbtn{position:absolute;top:14px;right:108px;z-index:6;font-family:var(--mono);font-size:11px;
   line-height:1;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
-  border:1px solid var(--line);border-radius:3px;width:22px;height:22px}
+  border:1px solid var(--line);border-radius:3px;width:var(--hbw);height:var(--hbw)}
 .helpbtn:hover{color:var(--ink)}
 .helpbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 /* top:14 (not 44) and wider than .card — the glossary takes over the whole
@@ -525,7 +532,7 @@ svg :focus,#spark:focus{outline:none}
      so help and zoom reset slide over into the space it frees */
   .labbtn{display:none}
   .helpbtn{right:16px}
-  .zoomrst{right:46px}
+  .zoomrst{right:calc(16px + var(--hbw) + 8px)}
   .storysel select{width:100%}
 }
 
@@ -542,11 +549,22 @@ svg :focus,#spark:focus{outline:none}
   .ctrl{grid-column:span 2;min-width:0;gap:3px}
   #cMode,#dirBox,.ctrls>.ctrl:last-child{grid-column:span 1}
   /* .seg is overflow:hidden, so buttons that do not fit were clipped away
-     rather than scrolled — at 360 px the six-button Prikaz group needs ~405 px
+     rather than scrolled — at 360 px the seven-button Prikaz group needs ~470 px
      and "JLS 2018." became unreachable. Wrap instead of clip: every button
-     stays visible, fully labelled and tappable. */
-  .seg{width:100%;flex-wrap:wrap}
-  .seg button{flex:1 1 auto;min-width:33.333%;text-align:center;padding:8px 4px;font-size:11.5px}
+     stays visible, fully labelled and tappable.
+     Wrapping brought its own defect, though: the only divider was border-right,
+     which separates neighbours *along* a row and nothing between rows — so
+     Godine/Tokovi/Matrica ran straight into Saldo/Klasifikacija/Regije above
+     them with no line at all, and the group read as one block of text. A 1 px
+     gap over the container's line colour divides every neighbour in both
+     directions, however the flex happens to wrap, so no rule has to know which
+     button ends a row. The buttons need their own background for that (they
+     were transparent over .seg's), and border-right comes off to avoid doubling
+     it. min-width subtracts the gap it now has to share the row with, or three
+     per row would no longer fit and the group would take four rows. */
+  .seg{width:100%;flex-wrap:wrap;gap:1px;background:var(--line)}
+  .seg button{flex:1 1 auto;min-width:calc(33.333% - 1px);text-align:center;
+    padding:8px 4px;font-size:11.5px;background:var(--panel);border-right:none}
   .ft{padding:6px 12px;font-size:9px}
   /* keep the 18px top padding from the ≤900 block — it is the handle's lane.
      Shrinking it here would put the handle on top of the chart, which then
@@ -581,7 +599,13 @@ svg :focus,#spark:focus{outline:none}
   .rstbtn{min-width:44px;min-height:44px}
   .card-x{padding:9px 10px;margin:-4px -4px 0 0;
     display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px}
-  .helpbtn{width:44px;height:44px;font-size:14px}
+  /* The "?" grows to a thumb target; --hbw is what .zoomrst reads to stay clear
+     of it, so the two move together instead of the badge landing on the button. */
+  :root{--hbw:44px}
+  .helpbtn{font-size:14px}
+  /* and the zoom reset is a control too — it was the one map button the coarse
+     pass skipped, at 9,5 px type in 4/8 px of padding */
+  .zoomrst{min-height:44px;padding:4px 10px;font-size:10.5px}
   .play{width:48px}
 }
 

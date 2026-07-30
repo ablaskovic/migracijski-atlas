@@ -81,16 +81,23 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
   }, [S.view, S.dir, S.cum, S.flow, S.den]);
 
   /* Same argument as the legend, for the chip panels: they float bottom-right
-     over the map box and can be open in any view, so in the matrix they would
-     sit on top of live corridors. Measured on the dock rather than the open
-     panel, so the collapsed sibling chip stacked above it is inside the box the
-     grid steers around. Only when the dock actually overlays (on mobile it drops
-     into normal flow below the map and covers nothing). */
+     over the map box, so over a grid they sit on live data. Measured on the dock
+     rather than on the open panel, so the collapsed sibling chip stacked above it
+     is inside the box the grid steers around. Only when the dock actually
+     overlays (on mobile it drops into normal flow below the map, covering
+     nothing).
+
+     It used to require an *open* panel (`.citz.open,.agec.open`) before
+     reporting a box at all, which meant the collapsed dock — 247 × 62 px of
+     opaque chip headers — was never steered around. Measured at the default
+     state, with nothing open: 8 unreachable `.mxc` at 1440 and 24 at 1150, and
+     20 / 34 `.yrc` in Godine, every one of them returning `.chipdock` from
+     `elementFromPoint`. A collapsed chip is exactly as opaque as an open one;
+     "is it open" was never the right question, "does it overlay" is. */
   const [panel, setPanel] = useState({ w: 0, h: 0 });
   useEffect(() => {
     const el = wrapRef.current?.parentElement?.querySelector<HTMLElement>('.chipdock');
-    if (!el || !el.querySelector('.citz.open,.agec.open')
-      || getComputedStyle(el).position !== 'absolute') { setPanel({ w: 0, h: 0 }); return; }
+    if (!el || getComputedStyle(el).position !== 'absolute') { setPanel({ w: 0, h: 0 }); return; }
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
       setPanel(p => (p.w === r.width && p.h === r.height ? p : { w: r.width, h: r.height }));

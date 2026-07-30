@@ -57,7 +57,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 295;
+const EXPECTED_CHECKS = 296;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2837,6 +2837,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('an open chip panel covers no cell, and the grid keeps a usable cell',
     ydock.skip || (ydock.under === 0 && ydock.cw >= 12 && ydock.ch >= 12), JSON.stringify(ydock));
+
+  /* The dock covers cells when it is CLOSED too — the case nothing was watching.
+     `panel` used to be reported only while a chip was open, so the collapsed
+     dock (247 × 62 px of opaque headers) was never steered around: measured at
+     the default state, 8 unreachable `.mxc` at 1440 and 24 at 1150, plus 20 / 34
+     `.yrc` in Godine. Probed with `elementFromPoint`, because rect overlap is not
+     the same as reachable — and asserted for BOTH grid views, since this was
+     never a Godine bug, only a Godine-visible one. */
+  const dockClosed = [];
+  for (const W of [1600, 1440, 1150, 960]) {
+    await page.setViewport({ width: W, height: 900 });
+    for (const [h, sel] of [['#v=yrs&c=1&y=2024', '.yrc'], ['#v=yrs&c=0&y=2024', '.yrc'],
+      ['#v=mx&y=2018&c=0', '.mxc']]) {
+      await fresh(h);
+      const bad = await page.evaluate(s => {
+        const d = document.querySelector('.chipdock');
+        if (!d || getComputedStyle(d).position !== 'absolute') return 0;
+        const b = d.getBoundingClientRect();
+        return [...document.querySelectorAll('#map ' + s)].filter(c => {
+          const r = c.getBoundingClientRect();
+          if (!(r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top)) return false;
+          const el = document.elementFromPoint(
+            (Math.max(r.left, b.left) + Math.min(r.right, b.right)) / 2,
+            (Math.max(r.top, b.top) + Math.min(r.bottom, b.bottom)) / 2);
+          return !!(el && el.closest('.chipdock'));
+        }).length;
+      }, sel);
+      if (bad) dockClosed.push(`${W}${h.slice(0, 8)}${sel}:${bad}`);
+    }
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('a CLOSED chip dock covers no grid cell either, in Matrica or Godine',
+    dockClosed.length === 0, dockClosed.join(' | '));
 
   /* a carried `sel` has no card to open here, so it must die on the way in —
      the v2.0.5 rule, reached by a seventh view */

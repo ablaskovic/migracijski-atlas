@@ -118,14 +118,25 @@ export default function Scrubber({ S, setYi, togglePlay }: {
           {x && (
             <g>
               <defs>
+                {/* The pre-2011 band marks years the cumulative window does not
+                    include, which is a real exclusion and was drawn like a
+                    watermark: #c8cdc6 hairlines at 0,55 barely separated from the
+                    #F4F5F2 background, with no edge at all where the band ends.
+                    Darker, slightly thicker, and far more opaque — see #preShade
+                    and the boundary rule at 2011 below. */}
                 <pattern id="hatch" width={5} height={5} patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-                  <line y2={5} stroke="#c8cdc6" strokeWidth={1} />
+                  <line y2={5} stroke="#aab2a9" strokeWidth={1.3} />
                 </pattern>
                 <clipPath id="spkp"><rect width={sw} height={sy!(0)} /></clipPath>
                 <clipPath id="spkn"><rect y={sy!(0)} width={sw} height={sh - sy!(0)} /></clipPath>
               </defs>
-              <rect id="preShade" x={x(Y0)} y={mT - 6} width={Math.max(0, x(2011) - x(Y0))} height={sh - mB - mT + 12}
-                fill="url(#hatch)" opacity={S.cum || S.view === 'klas' ? 0.55 : 0} />
+              {/* Top starts at mT, not mT−6: the caption sits at mT−3 and at the
+                  old height the band ran straight under it. Measured, the caption
+                  is #5F6A72 on the #aab2a9 hatch = 2,55:1 wherever a line crosses
+                  a glyph — fine as texture at 0,55, not fine at 0,9. Dropping the
+                  top 6 px clears the text and costs the band nothing that reads. */}
+              <rect id="preShade" x={x(Y0)} y={mT} width={Math.max(0, x(2011) - x(Y0))} height={sh - mB - mT + 6}
+                fill="url(#hatch)" opacity={S.cum || S.view === 'klas' ? 0.9 : 0} />
               <path d={dExt} fill="#1D4E89" opacity={0.55} clipPath="url(#spkp)" />
               <path d={dExt} fill="#B5341F" opacity={0.55} clipPath="url(#spkn)" />
               <line x1={x(Y0)} x2={x(YEND)} y1={sy!(0)} y2={sy!(0)} stroke="var(--line)" />
@@ -142,6 +153,15 @@ export default function Scrubber({ S, setYi, togglePlay }: {
                 <text key={t} x={x(t)} y={sh - 4} textAnchor={t === YEND ? 'end' : 'middle'}
                   fontSize={9} fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
               ))}
+              {/* Where the band ends. Drawn after the data, like the EU rule, so
+                  it is not half-hidden behind the two filled areas — a shaded
+                  region whose edge you cannot see reads as a gradient in the
+                  background rather than as a boundary. Solid, to stay distinct
+                  from the dotted EU marker three years to its right. */}
+              {(S.cum || S.view === 'klas') && (
+                <line id="preEdge" x1={x(2011)} x2={x(2011)} y1={mT} y2={sh - mB + 6}
+                  stroke="#8d968f" strokeWidth={1} />
+              )}
               <line x1={x(2013)} x2={x(2013)} y1={mT} y2={sh - mB} stroke="#8d968f" strokeWidth={0.7} strokeDasharray="1 3" />
               <text x={x(2013) + 3} y={mT + 7} fontSize={8} fontFamily="var(--mono)" fill="var(--mut)">EU</text>
               {/* Matrica is anchored on the same measured 2018 matrix as Tokovi,
