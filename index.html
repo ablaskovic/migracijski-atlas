@@ -13,6 +13,35 @@
 <meta property="og:locale" content="hr_HR">
 <meta name="twitter:card" content="summary">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<!-- First-paint placeholder. #root is empty until React mounts, and on the
+     mobile profile that measured 2.054 ms of "render delay" — 76 % of LCP —
+     spent looking at the background colour. The markup for it lives in <body>;
+     these are its styles, inline so the placeholder is self-contained and
+     cannot be broken by a change to the CSS bundle.
+     Colours come from the design tokens when index.css has arrived and from a
+     literal fallback when it has not — the two must stay in step, which is why
+     each is written next to the token it copies. -->
+<style>
+.boot{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  background:var(--bg,#F4F5F2);color:var(--ink,#20262B)}
+.boot-eyebrow{display:block;text-align:center;margin-bottom:7px;
+  font-family:var(--mono,'IBM Plex Mono',ui-monospace,monospace);
+  font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut,#5F6A72)}
+.boot-title{display:block;text-align:center;
+  font-family:var(--disp,'Oswald','Arial Narrow',sans-serif);
+  font-weight:600;font-size:23px;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
+.boot-bar{width:180px;max-width:60vw;height:2px;background:var(--line,#D9DDD6);overflow:hidden}
+.boot-bar i{display:block;width:40%;height:100%;background:var(--acc,#0F7D8C);
+  animation:bootslide 1.1s ease-in-out infinite}
+@keyframes bootslide{from{transform:translateX(-110%)}to{transform:translateX(260%)}}
+/* the app honours prefers-reduced-motion everywhere else; so does its front door */
+@media (prefers-reduced-motion:reduce){.boot-bar i{animation:none;width:100%;opacity:.45}}
+</style>
+<!-- Without JavaScript React never runs, so the placeholder would sit there
+     claiming to load something forever, above a <noscript> explaining that it
+     cannot. A <noscript> in <head> may carry a <style>, and this is what it is
+     for: no JS, no placeholder. -->
+<noscript><style>.boot{display:none}</style></noscript>
 <!-- Fonts are self-hosted (src/fonts, declared in src/index.css). They used to
      load from a third-party CDN, which put every visitor's IP in front of it on
      first paint and left the suite measuring the fallback face. No preconnect
@@ -20,7 +49,20 @@
      makes zero third-party requests, and verify.cjs asserts exactly that. -->
 </head>
 <body>
-<div id="root"></div>
+<!-- Inside #root on purpose: createRoot() replaces whatever it finds in its
+     container on the first render, so the placeholder is removed by the same
+     act that makes it unnecessary. Nothing has to remember to clear it, and
+     there is no window in which both are on screen. (#root is
+     display:contents, so .boot is a flex child of <body>, like the app.) -->
+<div id="root">
+  <div class="boot" role="status" aria-label="Učitavanje atlasa">
+    <div>
+      <span class="boot-eyebrow">DZS · 1998.–2025.</span>
+      <span class="boot-title">Migracijski atlas županija</span>
+    </div>
+    <div class="boot-bar"><i></i></div>
+  </div>
+</div>
 <!-- The attribution sentence below duplicates src/lib/credits.ts, which this
      static fallback cannot import. Publication changes both, in one commit —
      verify.cjs asserts the two agree on whether the study is published. -->

@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 306;
+const EXPECTED_CHECKS = 308;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1935,7 +1935,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const attr = await page.evaluate(() => ({
     sub: document.querySelector('.hd-sub').textContent.trim(),
     ft: document.querySelector('.ft').textContent.trim(),
-    ns: document.querySelector('noscript').textContent.trim(),
+    /* `body > noscript`, not `noscript`: there are two now. The one in <head>
+       carries the stylesheet that hides the first-paint placeholder when there
+       is no JS to clear it, and it is markup, not copy. This one is the
+       attribution fallback, and it is the only one that says anything. */
+    ns: document.querySelector('body > noscript').textContent.trim(),
     ftH: Math.round(document.querySelector('.ft').getBoundingClientRect().height),
     boxH: Math.round(document.querySelector('.map-box').getBoundingClientRect().height),
   }));
@@ -3045,6 +3049,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && sitemap.locs.length === 1 && /^https:\/\//.test(sitemap.locs[0])
     && smPath.startsWith(new URL(sitemap.locs[0]).origin),
     JSON.stringify({ smPath, ...sitemap }));
+
+  /* The first-paint placeholder. #root was empty until React mounted, which on
+     the mobile profile meant 2.054 ms of "render delay" — 76 % of LCP — spent
+     looking at the background colour. Measured A/B on 4× CPU / 1,6 Mbps with
+     the cache off: FCP 4.244 → 768 ms, and CLS 0,0035 → 0 (the app replacing
+     the placeholder shifts nothing, because nothing that was on screen moves).
+     The wall-clock number is reported, not pinned — it is machine-dependent.
+     What is pinned is the structure it depends on. */
+  const bootHtml = await page.evaluate(async u => await (await fetch(u)).text(), url);
+  const rootBlock = (bootHtml.match(/<div id="root">([\s\S]*?)<\/div>\s*<!--/) || [])[1] || '';
+  ck('a first-paint placeholder ships inside #root, and JS-off hides it',
+    /class="boot"/.test(rootBlock)
+    /* inside #root is what makes it self-clearing — see below */
+    && /<noscript><style>[^<]*\.boot\{display:none\}/.test(bootHtml),
+    JSON.stringify({ inRoot: /class="boot"/.test(rootBlock), noscript: /\.boot\{display:none\}/.test(bootHtml) }));
+
+  /* createRoot() replaces whatever it finds in its container, so the placeholder
+     is removed by the same act that makes it unnecessary — nothing has to
+     remember to clear it, and there is no window with both on screen. Verified
+     rather than assumed: React's container behaviour is the whole reason this
+     needs no teardown code, and if it ever changed the placeholder would sit
+     on top of the app forever. */
+  await fresh('');
+  const bootGone = await page.evaluate(() => ({
+    left: document.querySelectorAll('.boot').length,
+    kids: document.getElementById('root').children.length,
+    first: (document.getElementById('root').children[0] || {}).className,
+  }));
+  ck('and mounting the app removes it, with no teardown code to forget',
+    bootGone.left === 0 && bootGone.kids > 1 && bootGone.first === 'skip',
+    JSON.stringify(bootGone));
 
   /* Source maps are fetched over HTTP rather than read off disk, so this check
      means the same thing when the suite is pointed at a running server. */
