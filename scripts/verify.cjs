@@ -29,7 +29,7 @@ catch {
   }
 }
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain', '.map': 'application/json' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain', '.map': 'application/json', '.xml': 'application/xml' };
 /* Vercel serves these two from its own platform layer, so they exist on the
    deployed site and not in dist/. Unstubbed, every page load 404s twice and both
    "zero page/console errors" checks fail — which is what has happened on every
@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 305;
+const EXPECTED_CHECKS = 306;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3013,8 +3013,38 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('robots.txt is a real file, and every directive in it parses',
     robots.status === 200 && !/^\s*</.test(robots.body)
     && robotLines.length > 0 && robotLines.every(l => /^[A-Za-z-]+:\s*\S*$/.test(l))
-    && robotLines.some(l => /^user-agent:/i.test(l)),
+    /* Every crawler is allowed, and it has to stay that way by construction:
+       exactly one User-agent group, and it is the wildcard. A named group
+       *replaces* the wildcard for that agent, so a single `User-agent: GPTBot`
+       block would quietly exempt it from the Allow below — which is the one way
+       "allow everything" regresses without anyone editing the Allow line. */
+    && robotLines.filter(l => /^user-agent:/i.test(l)).length === 1
+    && robotLines.some(l => /^user-agent:\s*\*$/i.test(l))
+    && robotLines.some(l => /^allow:\s*\/$/i.test(l))
+    /* and nothing is hidden from a renderer: a JS-rendered atlas whose assets
+       are disallowed is an atlas a search engine cannot see */
+    && !robotLines.some(l => /^disallow:\s*\S/i.test(l)),
     JSON.stringify({ status: robots.status, type: robots.type, lines: robotLines }));
+
+  /* the Sitemap line must lead somewhere. Its URL is absolute by protocol and
+     names the production origin, so the *path* is what is checked here — the
+     suite runs offline and against whatever host it was pointed at. */
+  const smPath = (robotLines.find(l => /^sitemap:/i.test(l)) || '').replace(/^sitemap:\s*/i, '');
+  const sitemap = await page.evaluate(async (u) => {
+    const r = await fetch(u + 'sitemap.xml');
+    const t = await r.text();
+    const d = new DOMParser().parseFromString(t, 'application/xml');
+    return { status: r.status, err: !!d.querySelector('parsererror'),
+      root: d.documentElement.nodeName,
+      ns: d.documentElement.namespaceURI,
+      locs: [...d.querySelectorAll('url > loc')].map(e => e.textContent.trim()) };
+  }, url);
+  ck('and its Sitemap line names a sitemap that parses and lists the site',
+    /^https:\/\/\S+\/sitemap\.xml$/.test(smPath) && sitemap.status === 200 && !sitemap.err
+    && sitemap.root === 'urlset' && sitemap.ns === 'http://www.sitemaps.org/schemas/sitemap/0.9'
+    && sitemap.locs.length === 1 && /^https:\/\//.test(sitemap.locs[0])
+    && smPath.startsWith(new URL(sitemap.locs[0]).origin),
+    JSON.stringify({ smPath, ...sitemap }));
 
   /* Source maps are fetched over HTTP rather than read off disk, so this check
      means the same thing when the suite is pointed at a running server. */

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  One page, one entry. Every view of the atlas (Saldo, Klasifikacija, Regije,
+  Tokovi, Matrica, JLS 2018., Godine) is fragment state on this same document,
+  and a fragment is never sent to a server, so listing them here would be
+  listing this URL seven times.
+
+  No <lastmod>: it would have to be edited by hand on every data or copy
+  change and would otherwise sit here quietly lying. The sitemap protocol
+  makes it optional, and a crawler that finds it untrustworthy ignores it.
+
+  The origin is hardcoded because the protocol requires absolute URLs. It is
+  reachable only via robots.txt, which is itself origin-root-only, so a
+  deployment on another host never advertises this file.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://migracijski-atlas.hr/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
