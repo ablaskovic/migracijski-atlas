@@ -29,17 +29,35 @@ catch {
   }
 }
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain', '.map': 'application/json' };
+/* Vercel serves these two from its own platform layer, so they exist on the
+   deployed site and not in dist/. Unstubbed, every page load 404s twice and both
+   "zero page/console errors" checks fail — which is what has happened on every
+   run since the analytics commit, because the suite was not re-run with them.
+   Stubbing keeps those two checks meaningful (a *new* 404 still fails them) and
+   costs nothing else: the paths are same-origin, so the no-third-party-origin
+   check is measuring the same thing it was. Recorded, and asserted below to have
+   actually been requested — a stub nothing asks for would mean the analytics
+   never loaded at all. */
+const VERCEL_STUB = ['/_vercel/insights/script.js', '/_vercel/speed-insights/script.js'];
+const stubHits = new Set();
+const notFound = [];
 function serve(dir) {
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
       let p = decodeURIComponent(req.url.split('?')[0]);
+      if (VERCEL_STUB.includes(p)) {
+        stubHits.add(p);
+        res.writeHead(200, { 'content-type': 'text/javascript' });
+        res.end('/* Vercel platform route, stubbed by scripts/verify.cjs */');
+        return;
+      }
       if (p.endsWith('/')) p += 'index.html';
       const f = path.resolve(dir, '.' + path.posix.normalize('/' + p));
       /* localhost-only and test-scoped, but `..%2f..%2f` still read outside dist */
       if (f !== dir && !f.startsWith(dir + path.sep)) { res.writeHead(403); res.end('no'); return; }
       fs.readFile(f, (err, data) => {
-        if (err) { res.writeHead(404); res.end('nope'); return; }
+        if (err) { notFound.push(p); res.writeHead(404); res.end('nope'); return; }
         res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' });
         res.end(data);
       });
@@ -57,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 296;
+const EXPECTED_CHECKS = 305;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2971,10 +2989,221 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     JSON.stringify(y390));
   await page.setViewport({ width: 1440, height: 900 });
 
+  /* ══ v2.1.1 — what a PageSpeed run found ══════════════════════════════════
+     Six defects, each measured here rather than trusted to a score: an invalid
+     robots.txt, 21 rail rows whose spoken name did not contain their visible
+     one, a 64×18 touch target, the whole page shifting when the fonts swapped,
+     3,68 % legible text on a phone, and no source maps. */
+
+  /* The SPA rewrite in vercel.json answers /(.*) with index.html, so before this
+     file existed /robots.txt served `<!DOCTYPE html>` with a 200 and a crawler
+     read 31 invalid directives out of it. Static files are matched first, so the
+     file alone is the fix — but only if it *is* a file, which is what this asks. */
+  const robots = await page.evaluate(async u => {
+    const r = await fetch(u + 'robots.txt');
+    const t = await r.text();
+    return { status: r.status, type: r.headers.get('content-type') || '', body: t };
+  }, url);
+  const robotLines = robots.body.split('\n').map(s => s.trim())
+    .filter(s => s && !s.startsWith('#'));
+  /* The guard is on the *directives*, not the whole file: a `#` comment may say
+     anything, including — as this one's does — the words `<!DOCTYPE html>` it
+     exists to explain. What must not appear is markup a crawler would try to
+     read as a rule, which is exactly what the rewrite used to serve. */
+  ck('robots.txt is a real file, and every directive in it parses',
+    robots.status === 200 && !/^\s*</.test(robots.body)
+    && robotLines.length > 0 && robotLines.every(l => /^[A-Za-z-]+:\s*\S*$/.test(l))
+    && robotLines.some(l => /^user-agent:/i.test(l)),
+    JSON.stringify({ status: robots.status, type: robots.type, lines: robotLines }));
+
+  /* Source maps are fetched over HTTP rather than read off disk, so this check
+     means the same thing when the suite is pointed at a running server. */
+  const smap = await page.evaluate(async u => {
+    const html = await (await fetch(u)).text();
+    const src = (html.match(/src="([^"]*index-[^"]*\.js)"/) || [])[1];
+    if (!src) return { err: 'no entry chunk in index.html' };
+    const js = await (await fetch(new URL(src, u))).text();
+    const m = js.match(/sourceMappingURL=(\S+)/);
+    if (!m) return { err: 'no sourceMappingURL on the entry chunk' };
+    const r = await fetch(new URL(m[1], new URL(src, u)));
+    if (!r.ok) return { err: 'map ' + r.status };
+    const j = await r.json();
+    return { sources: (j.sources || []).length, hasMappings: !!j.mappings,
+      names: (j.sources || []).filter(s => /App\.tsx|metrics\.ts/.test(s)).length };
+  }, url);
+  ck('the entry chunk ships a source map that resolves to real sources',
+    !smap.err && smap.hasMappings && smap.sources > 50 && smap.names >= 2,
+    JSON.stringify(smap));
+
+  /* WCAG 2.5.3, and the reason it failed: the visible label of a row is its text
+     children joined with NO separator, so `Grad Zagreb` + `+41.986` reads
+     `Grad Zagreb+41.986`, which `Grad Zagreb +41.986` does not contain. axe's
+     label-content-name-mismatch, reimplemented rather than depended on — the
+     suite takes no new package and no network. Run over every row shape there
+     is: county, corridor (which leads with a rank), region, JLS (which appends
+     a county tag) and Godine. */
+  const nameSan = `(s => s.replace(/\\s+/g, ' ').trim().toLowerCase())`;
+  const nameProbe = `(() => {
+    const san = ${nameSan};
+    const vis = el => san([...el.childNodes].map(nd =>
+      nd.nodeType === 3 ? nd.nodeValue : (nd.nodeType === 1 ? vis(nd) : '')).join(''));
+    const rows = [...document.querySelectorAll('#railList .rrow')];
+    const bad = rows.filter(r => {
+      const lab = san(r.getAttribute('aria-label') || '');
+      return !lab || !lab.includes(vis(r));
+    });
+    return { n: rows.length, nbad: bad.length,
+      worst: bad.slice(0, 2).map(r => vis(r) + ' !< ' + r.getAttribute('aria-label')) };
+  })()`;
+  const nameViews = [];
+  for (const h of ['', '#v=flow&s=HR-21&y=2018&c=0', '#v=mx&y=2018&c=0', '#v=reg&c=1&y=2024', '#v=jmap&y=2018&c=0', '#v=yrs&c=1&y=2024']) {
+    await fresh(h);
+    if (h.startsWith('#v=jmap')) await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 20000 });
+    nameViews.push({ h: h || '(saldo)', ...(await page.evaluate(nameProbe)) });
+  }
+  ck('every rail row’s accessible name contains its visible label, in every view',
+    nameViews.every(v => v.n > 0 && v.nbad === 0),
+    JSON.stringify(nameViews.filter(v => v.nbad).slice(0, 2)) || JSON.stringify(nameViews.map(v => v.n)));
+
+  /* 64×18 was reported at "should be at least 24px by 24px". The ::before hit
+     extension does not count — axe and WCAG 2.5.8 measure the element's own box —
+     so the box itself grew upwards, into the page rather than into the chart. The
+     visible handle must stay 18 px, which is why the chrome moved to ::after. */
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
+  await fresh('');
+  const tog = await page.evaluate(() => {
+    const e = document.querySelector('#scrubTog');
+    const r = e.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    const chart = document.querySelector('.scrub-chart').getBoundingClientRect();
+    return { w: +r.width.toFixed(1), h: +r.height.toFixed(1),
+      hit: hit ? hit.id : null, overChart: +(r.bottom - chart.top).toFixed(1) };
+  });
+  ck('the scrubber toggle is a ≥24 px target that still keeps off the chart',
+    tog.w >= 24 && tog.h >= 24 && tog.hit === 'scrubTog' && tog.overChart <= 0,
+    JSON.stringify(tog));
+
+  /* Lighthouse's legible-text bar is >60 % of rendered characters at ≥12 px; the
+     phone layout measured 3,68 %, with `.ft` alone 50,97 % of all text on the
+     page. Its own heuristic, reimplemented: weight every visible text node by
+     its length against the computed font-size of its parent. */
+  const legible = await page.evaluate(() => {
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let total = 0, big = 0;
+    for (let nd = w.nextNode(); nd; nd = w.nextNode()) {
+      const t = nd.nodeValue.trim(); if (!t) continue;
+      const p = nd.parentElement; if (!p || !p.getClientRects().length) continue;
+      const cs = getComputedStyle(p);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      total += t.length;
+      if (parseFloat(cs.fontSize) >= 12) big += t.length;
+    }
+    const clipped = [...document.querySelectorAll('#railList .rname, #railList .rval')]
+      .filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent);
+    return { pct: +(big / total * 100).toFixed(2), total, clipped };
+  });
+  ck('a phone reads mostly ≥12 px text, and no rail cell is clipped to fit',
+    legible.pct > 60 && legible.total > 500 && legible.clipped.length === 0,
+    JSON.stringify(legible).slice(0, 200));
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* The other half of 2.5.8, and the one that failed at *every* desktop width:
+     21 rail rows at 291×19, with 14 px of safe clickable space between
+     neighbours. Checked only in the views whose rows actually activate — a
+     role=img row is not a target — and across the width band the overlap sweeps
+     already use. The cost is a rail that scrolls sooner; see index.css. */
+  const rowTargets = [];
+  for (const w of [960, 1200, 1440, 1600]) {
+    await page.setViewport({ width: w, height: 900 });
+    for (const h of ['', '#v=flow&s=HR-21&y=2018&c=0', '#v=mx&y=2018&c=0']) {
+      await fresh(h);
+      rowTargets.push({ w, h: h || '(saldo)', ...(await page.evaluate(() => {
+        const rows = [...document.querySelectorAll('#railList .rrow')]
+          .filter(e => e.getAttribute('role') === 'button');
+        const hs = rows.map(e => +e.getBoundingClientRect().height.toFixed(1));
+        return { n: rows.length, min: hs.length ? Math.min(...hs) : 0 };
+      })) });
+    }
+  }
+  ck('every rail row that activates is a ≥24 px target, 960–1600 px',
+    rowTargets.length === 12 && rowTargets.every(r => r.n > 0 && r.min >= 24),
+    JSON.stringify(rowTargets.filter(r => !r.n || r.min < 24)));
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* The whole of the measured CLS was one shift at the font swap (0,1038 of
+     0,1038 — Lighthouse desktop scored 0,105 and named "Web font loaded" as the
+     cause). This is that shift, measured directly and without a metric in the
+     way: lay the page out with the woff2 blocked, lay it out again with them
+     allowed, and diff the boxes that moved. It has to be zero, not small — the
+     fallback faces exist to make the swap dimensionally invisible.
+     Loading twice is also the only way to test them: with the real faces present
+     the fallback is never used, so nothing else in this suite can see it. */
+  const swapBox = `(() => { const b = s => { const e = document.querySelector(s);
+      const r = e.getBoundingClientRect();
+      return [+r.top.toFixed(1), +r.height.toFixed(1)]; };
+    return { hd: b('header.hd'), main: b('main.main'), ft: b('.ft'), scrub: b('#scrubBox') }; })()`;
+  const swap = {};
+  for (const mode of ['fallback', 'real']) {
+    const p2 = await browser.newPage();
+    await p2.setViewport({ width: 1350, height: 940 });
+    if (mode === 'fallback') {
+      await p2.setRequestInterception(true);
+      p2.on('request', r => (r.url().endsWith('.woff2') ? r.abort() : r.continue()));
+    }
+    await p2.goto(url, { waitUntil: 'networkidle0' });
+    await settle(600);
+    swap[mode] = await p2.evaluate(swapBox);
+    if (mode === 'real') {
+      /* and the faces themselves, on strings the app actually sets in each of
+         them. Asserted against the *unadjusted* system font rather than against
+         a fixed tolerance: "closer than doing nothing" is the claim these faces
+         make, and it cannot be satisfied by fitting the check to the fit. It is
+         not a formality — Oswald fitted on caps+digits was 3,83 % out on the
+         title where raw Arial Narrow was 1,88 %, i.e. the adjustment was making
+         that string worse, and only this comparison says so. */
+      swap.widths = await p2.evaluate(() => {
+        const el = document.createElement('div');
+        el.style.cssText = 'position:absolute;left:-99999px;white-space:nowrap;line-height:normal';
+        document.body.appendChild(el);
+        const w = (f, wt, s) => { el.style.font = wt + ' 100px "' + f + '"'; el.textContent = s; return el.getBoundingClientRect().width; };
+        const cases = [
+          ['IBM Plex Sans', 'Arial', 400, 'Unutarnje i vanjske migracije + međužupanijski tokovi'],
+          ['IBM Plex Sans', 'Arial', 600, 'Saldo Klasifikacija Regije'],
+          ['IBM Plex Mono', 'Courier New', 400, 'DZS tab. 7.4.1.–7.4.3. · OpenStreetMap ODbL · CC BY 4.0'],
+          ['Oswald', 'Arial Narrow', 600, 'MIGRACIJSKI ATLAS ŽUPANIJA'],
+        ];
+        const out = cases.map(([real, loc, wt, s]) => ({
+          f: real + ' ' + wt,
+          fb: +Math.abs(w(real + ' Fallback', wt, s) / w(real, wt, s) - 1).toFixed(4),
+          raw: +Math.abs(w(loc, wt, s) / w(real, wt, s) - 1).toFixed(4),
+        }));
+        el.remove();
+        return out;
+      });
+    }
+    await p2.close();
+  }
+  const swapMoved = ['hd', 'main', 'ft', 'scrub'].map(k => ({ k,
+    dTop: +(swap.real[k][0] - swap.fallback[k][0]).toFixed(1),
+    dH: +(swap.real[k][1] - swap.fallback[k][1]).toFixed(1) }));
+  ck('the font swap moves nothing: header, main, footer and scrubber are identical',
+    swapMoved.length === 4 && swapMoved.every(m => m.dTop === 0 && m.dH === 0),
+    JSON.stringify(swapMoved));
+  ck('and each fallback face is closer to its webfont’s width than doing nothing',
+    swap.widths.length === 4 && swap.widths.every(x => x.fb <= x.raw && x.fb < 0.02),
+    JSON.stringify(swap.widths));
+
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');
   ck('still zero page/console errors after the pass-3 surfaces',
     errors.length === 0, errors.join(' ; ').slice(0, 300));
+
+  /* The two Vercel platform routes are stubbed (see VERCEL_STUB); this asserts
+     they were actually asked for — a silent analytics regression would otherwise
+     read as green — and that nothing *else* went missing behind the stub. */
+  ck('the only paths dist cannot answer are the two Vercel platform routes',
+    stubHits.size === 2 && notFound.length === 0,
+    JSON.stringify({ stubbed: [...stubHits], missing: notFound.slice(0, 5) }));
 
   /* The suite is a fixed protocol, so its size is itself an invariant: three
      documents once claimed three different check counts and none was right.

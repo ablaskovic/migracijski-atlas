@@ -91,6 +91,26 @@ can show. The seventh segment button cost the header its budget — measured, 13
 192 px and the map box 572 → 518 — and desktop segment padding went 7 → 5 px
 rather than shortening a label, because "JLS 2018." is an honesty marker and not
 just a name — **295 checks**.
+**v2.1.1** is a PageSpeed pass — the first review driven by an external
+measurement rather than a reading. Six defects, all reproduced locally before
+being touched. `/robots.txt` did not exist, so `vercel.json`'s catch-all rewrite
+answered it with the app's HTML and a crawler read **31 invalid directives** out
+of `<!DOCTYPE html>`. All 21 rail rows failed WCAG 2.5.3: the visible label of a
+grid row is its text children joined with **no separator**, so `Grad Zagreb` +
+`+41.986` reads `Grad Zagreb+41.986`, which the label `Grad Zagreb +41.986` does
+not contain — and the other two row shapes failed it worse, a JLS row saying
+`, ` where it showed ` ` and a corridor row dropping the rank it leads with. The
+scrubber's collapse toggle was a **64×18** target; its `::before` hit extension
+is invisible to axe and to WCAG 2.5.8, which measure the element's own box. The
+**entire** measured CLS was one shift at the font swap (0,1038 of 0,1038), moving
+`main`, the fixed scrubber, the footer and the citizenship chip together — fixed
+with metric-matched fallback faces, so the fallback lays out at the webfont's
+advance widths and line box and only the glyph shapes change. On a phone
+**3,68 %** of rendered text was ≥ 12 px, with `.ft` alone 50,97 % of all text on
+the page. And the build shipped no source maps. It also found that
+`npm run verify` had been **red since the analytics commit** — two Vercel
+platform routes 404 on any non-Vercel host — **305 checks** (the suite's own pin
+said 296 while this file said 295; the suite was right).
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting, and green verify before "done".
 
@@ -101,8 +121,12 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 295-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 305-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
+                   #   Serves dist itself and STUBS /_vercel/{insights,speed-
+                   #   insights}/script.js — Vercel serves those from its own
+                   #   platform layer, so they 404 on any other host and both
+                   #   "zero console errors" checks fail without the stub.
 npm run lint       # oxlint
 npm run typecheck  # tsc --noEmit (strict)
 ```
@@ -322,7 +346,11 @@ src/index.css            design system from single-file v4 + v2 additions; class
 src/data/                generated payloads (see tools/pipeline/). Only what the
                          app imports lives here — od2018.json is a pipeline input,
                          so it sits in tools/pipeline/ref/
-scripts/verify.cjs       the executable verification protocol (295 checks; the
+public/robots.txt        served, not rewritten — see the v2.1.1 invariants. The
+                         only file in public/ besides the favicon and the two OFL
+                         licence texts, and for the same reason: it must exist at
+                         a fixed URL rather than be emitted with a hashed name
+scripts/verify.cjs       the executable verification protocol (305 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)
@@ -616,3 +644,23 @@ Two more, on the keyboard and the screen reader:
 | The band heights are **computed, not pinned** | `bandLayout()` measures every string and returns `top`/`bot`; `BOT` had been a constant three times over (88 → 102 → 116) and each value was only ever right at one viewport width. The suite therefore stopped pinning a height and now asserts the PNG is exactly 2× the SVG the same state emits — the two formats are twins, which is the invariant that actually matters |
 | The legend caveat is fitted too | it sits beside the gradient bar at `x=222`, which leaves 148 px on a 390 px canvas — measured, "Neto parova je strukturna procjena." ran to 401 there. It wraps, and below a 140 px floor it drops to `x=20` on its own line under the scale labels rather than being squeezed; `bot` is sized from where the legend actually ended up |
 | Fit is asserted by **measuring the document**, not by reading the source | the strings are built from data at runtime, so no amount of inspecting the code shows the overflow. The check inserts the exported SVG into the page and asks every band `<text>` for its own `getComputedTextLength()`, at 1440 / 1024 / 390 across two views, and fails on any run past the canvas edge or any two runs overlapping on one baseline. It also asserts it inspected ≥ 6 runs, so a selector change cannot pass by comparing nothing |
+
+### v2.1.1 invariants (what an external audit found)
+
+| Invariant | Why |
+|---|---|
+| `/robots.txt` is a **file**, and every directive in it parses | `vercel.json` rewrites `/(.*)` to `/index.html`, so without a real file that path served the app's HTML with a 200 and Lighthouse read **31 syntax errors** out of it. Static files are matched before rewrites — verified against the deployed site, not assumed — so the file alone is the fix. No `Sitemap:` line: a sitemap must state absolute URLs and this build is deliberately host-agnostic (`base: './'`, "works from any subpath"), so it would be the one place that stops being true. The check tests the **directives**, not the whole file, because a `#` comment may legitimately contain the words `<!DOCTYPE html>` |
+| A rail row's accessible name **contains** its visible one | WCAG 2.5.3, and the reason it failed is not obvious: the visible label of an element is its text children joined with **no separator at all**, so `Grad Zagreb` + `+41.986` is `Grad Zagreb+41.986` and the label `Grad Zagreb +41.986` does not contain it. All 21 rows failed in Saldo alone. `rowName()` is now the single source for both — `.rname` renders it and `rowAria()` extends it — and the separator the label claims is a real space text node in `.rrow` (white-space-only text in a grid container generates no grid item, so it costs no layout). Asserted across all six row shapes by reimplementing axe's rule, so the suite takes no new package and stays off the network |
+| `.jc` survives as its own element | the county tag is a test selector (`jRow.county`), so the JLS row renders `name`, a bare `, `, then `<span class="jc">` — the comma outside the span, which keeps `.jc` the county and nothing else while putting the separator in the visible text where 2.5.3 needs it |
+| A rail row that activates is a **24 px** target | the other half of 2.5.8, and the half that failed at *every* desktop width, not just on a phone: 21 rows at **291×19**, with 14 px of safe clickable space between neighbours. `min-height`, not padding, because padding would push the `1fr` bar column around and the bar is a comparison aid with its own rhythm. Checked only where rows activate — a `role="img"` row is not a target — which is the same distinction the role rule already makes |
+| …and the rail scrolls sooner for it | measured and not free: 21 rows need **508 px** where they needed 411. Still fits at 1440×900, 1600×1000 and 1920×1080; scrolls 4 px at 1350×940 and **26 px at 1536×864**, a 1920×1080 laptop at 125 % that fit before. Taken anyway: the rail is an `overflow-y:auto` scroller by construction and already scrolled at 1280×800 and below — "all 21 at once" was a property of tall windows, never of the layout — while 19 px was a failure at every window. `.rail-list` padding went 6 → 2 px to give back what it could. WCAG 2.5.8's **"Equivalent"** exception was available (a county row does what clicking the county does, and the map target is huge) and was **not** claimed, because it does not cover the Matrica corridor rows, whose equivalent is a matrix cell already near its own 12 px floor |
+| A touch target's **own box** is what gets measured | `#scrubTog` was 64×18 with a `::before` extending the hit area, and that is not the same thing: axe and WCAG 2.5.8 measure the element, so it was reported at "should be at least 24px by 24px". The box grew to 24 px **upwards**, into the page, never down into the chart — the 18 px of `.scrub` padding above the chart is the handle's lane and a handle that grew into the chart would swallow taps meant for the year. The chrome moved to `::after` so the visible handle stays 18 px. Not 44 px like `.chip-hd`: those grow inside their own panels, this one can only grow over the live map, and 26 px of invisible tap-eater is worse than the defect |
+| **The font swap moves nothing** | the whole measured CLS was one shift, at t=988 ms, worth 0,1038 of 0,1038 — Lighthouse scored 0,105 on desktop and named "Web font loaded" as the cause. It moved `main`, the fixed scrubber, the footer (67 → 75 px, one wrapped line of 9,5 px mono) and the citizenship chip at once, which is why a 3–8 px nudge scores that high: the union of what moves is most of the viewport. Metric-matched fallback faces make the swap dimensionally invisible. Preloading the woff2 would have hidden it on a fast connection only, at 82 kB of critical-path bandwidth against the entry chunk on the profile that is already the weak one |
+| That is asserted by **laying the page out twice** | with the woff2 blocked and with them allowed, diffing `header`, `main`, `.ft` and `#scrubBox`. It must be **0**, not small. This is also the only way to test the fallback faces at all: with the real faces present the fallback is never used, so nothing else in the suite can see it. Measured: 0,0 on all four at 1350×940, CLS 0,1038 → 0,001 |
+| The fallback numbers are **fitted and re-measured**, never copied | `scratchpad/font-metrics.cjs` takes size-adjust as a width ratio and ascent/descent from the real face's `fontBoundingBox` divided by it, then re-measures the declared face and corrects. The correction is not optional: at weight 600 the raw probe gets Arial Bold while `local('Arial')` inside `@font-face` gets Arial Regular, so the analytic ratio was 6,5 % wrong. Residuals ≤ 0,16 % |
+| Oswald is fitted on **caps alone** | one scalar cannot match a condensed display face's caps and its figures — they differ by ~11 % against Arial Narrow. Fitted on both together it left the title 3,83 % out where the *unadjusted* fallback was 1,88 %, i.e. the adjustment made that string worse. The caps are the only Oswald run long enough to wrap; the figures sit in fixed-width boxes. The suite therefore asserts each fallback is **closer than doing nothing**, comparing against the raw system font rather than against a tolerance — a fixed tolerance can always be satisfied by fitting the check to the fit, and only this comparison caught the regression |
+| The generic families stay **behind** the fallback faces in the stack | `local()` resolves to nothing on plenty of systems — Arial Narrow is frequently absent on Linux — and then the face is skipped and the stack behaves exactly as it did before |
+| A phone reads mostly ≥ 12 px text | measured **3,68 %** of rendered characters, against Lighthouse's > 60 % bar, with `.ft` alone 50,97 % of all text on the page — the longest prose there is (sources, licences, the citation, the non-affiliation statement), i.e. the surfaces the house rules call load-bearing, at 9 px. `.ft` and the rail's `.rname`/`.rval` go to 12 px below 560 px and clear the bar at **67,13 %**. It costs scroll, not map: below 900 px the body scrolls and the footer is its last element. The desktop footer stays 9,5 px and ≤ 78 px, because there it is a fixed lane over `.map-box` |
+| The rail's name column widened with the type | 120 px was already a pixel short of the longest county names at 11 px (Dubrovačko-neretvanska wanted 123,8) and 12 px wants 135, so three of 21 reached the ellipsis. 140 px, taken from the bar — a comparison aid with 168 px to spare — never from the number. Asserted directly: no `.rname`/`.rval` may have `scrollWidth > clientWidth` |
+| The build ships **source maps** | `build.sourcemap: true`. ~2 MB of `.map` files no visitor fetches unless devtools is open, in exchange for stack traces that name a line in `src/`. The source is MIT and public, so they disclose nothing the repo does not. Asserted over HTTP — fetch the entry chunk, follow its `sourceMappingURL`, parse the map and require real `sources` — so the check means the same thing when the suite is pointed at a running server |
+| The suite **stubs** the two Vercel platform routes, and asserts they were asked for | `/_vercel/insights/script.js` and `/_vercel/speed-insights/script.js` exist only on Vercel, so a local run 404s twice on every page load and both "zero page/console errors" checks fail — which is what had been happening on every run since the analytics commit, undetected because the suite was not re-run with it. The stub keeps those checks meaningful (a *new* 404 still fails them), the paths are same-origin so the no-third-party-origin check is unaffected, and a further check asserts both were actually requested — a silent analytics regression must not read as green |

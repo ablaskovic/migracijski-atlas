@@ -36,14 +36,64 @@
 @font-face{font-family:'Oswald';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/oswald-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
 @font-face{font-family:'Oswald';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/oswald-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 
+/* ── Metric-matched fallbacks ──────────────────────────────────────────────────
+   font-display:swap above means text paints in a fallback face and is re-laid
+   out when the real one arrives. That re-layout was the *entire* measured CLS:
+   one shift, at t=988 ms, worth 0,1038 — Lighthouse desktop scored 0,105 and
+   named "Web font loaded" as the cause of all of it. It moved <main>, the fixed
+   scrubber, the footer (67 → 75 px, one wrapped line of 9,5 px mono) and the
+   citizenship chip at once, which is why a 3–8 px nudge scores as much as it
+   does: the union of what moves is most of the viewport.
+
+   These faces make the swap dimensionally invisible. Each one wraps a local
+   system font and overrides its metrics to the webfont's, so the fallback lays
+   out at the *real* face's advance widths and line box and only the glyph shapes
+   change when the swap fires. Preloading the woff2 would also have hidden it on
+   a fast connection, at the cost of 82 kB of critical-path bandwidth competing
+   with the entry chunk on the mobile profile that is already the weak one —
+   these cost nothing and work on a slow connection too, which is the case that
+   actually shifts.
+
+   Every number below is measured, not copied: scratchpad font-metrics.cjs renders
+   a Croatian sample string in the real face and in the local one at 100 px, takes
+   size-adjust as the width ratio, takes ascent/descent from the real face's
+   fontBoundingBox (divided by size-adjust, which the overrides are relative to),
+   then *re-measures the declared face and corrects*. That correction is not
+   optional: at weight 600 the raw probe gets Arial Bold while local('Arial')
+   inside @font-face gets Arial Regular, so the analytic ratio was 6,5 % wrong
+   (−249 px on a 3.947 px string). Residuals after fitting are ≤ 0,16 px at a
+   100 px em, i.e. ≤ 0,16 %.
+   Regenerate if a font file or a family in the stack changes.
+
+   The generic families stay behind these in the stack: if local() resolves to
+   nothing — Arial Narrow is frequently absent on Linux — the face is skipped and
+   the stack behaves exactly as it did before. */
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:400;src:local('Arial');size-adjust:100.68%;ascent-override:102.304%;descent-override:27.811%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:500;src:local('Arial');size-adjust:102.841%;ascent-override:100.155%;descent-override:27.226%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:600;src:local('Arial');size-adjust:104.26%;ascent-override:98.791%;descent-override:26.856%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Mono Fallback';font-style:normal;font-weight:400;src:local('Courier New');size-adjust:99.984%;ascent-override:103.017%;descent-override:28.005%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Mono Fallback';font-style:normal;font-weight:500;src:local('Courier New');size-adjust:99.984%;ascent-override:103.017%;descent-override:28.005%;line-gap-override:0%}
+/* Oswald is fitted on CAPS alone, unlike the other two. It is the display face
+   and only ever sets short runs — the uppercase title, the rail's period, the
+   big year — and one scalar cannot match both its caps and its figures, whose
+   widths relative to Arial Narrow's differ by ~11 %. Fitted on caps+digits
+   together it left the title 3,83 % wide, which is *worse* than the unadjusted
+   fallback's 1,88 %; the caps are the only Oswald run long enough to wrap, so
+   they are what it is matched to. The figures sit in fixed-width boxes
+   (.big-year is 70 px) where their width moves nothing. */
+@font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:500;src:local('Arial Narrow');size-adjust:95.277%;ascent-override:124.899%;descent-override:30.438%;line-gap-override:0%}
+@font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:600;src:local('Arial Narrow');size-adjust:98.151%;ascent-override:121.242%;descent-override:29.546%;line-gap-override:0%}
+
 /* Verbatim from the verified single-file v4 (reference/). Class names are the
    test API — scripts/verify.cjs selects on them. Change with care. */
 :root{
   --bg:#F4F5F2; --panel:#FCFCFA; --ink:#20262B; --mut:#5F6A72;
   --line:#D9DDD6; --acc:#0F7D8C; --loss:#B5341F; --gain:#1D4E89; --neu:#C6CCC4;
-  --mono:'IBM Plex Mono',ui-monospace,monospace;
-  --sans:'IBM Plex Sans',system-ui,sans-serif;
-  --disp:'Oswald','Arial Narrow',sans-serif;
+  /* the *Fallback faces sit between the webfont and the generic family: they are
+     the same system fonts as before, re-declared at the webfont's metrics */
+  --mono:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
+  --sans:'IBM Plex Sans','IBM Plex Sans Fallback',system-ui,sans-serif;
+  --disp:'Oswald','Oswald Fallback','Arial Narrow',sans-serif;
   /* The "?" button's side. .zoomrst is parked immediately left of it, so the two
      positions are one measurement, not two — the coarse-pointer rule grew the
      button 22 → 44 px and left .zoomrst anchored to clear a 22 px button, which
@@ -188,9 +238,30 @@ svg :focus,#spark:focus{outline:none}
 .rail{width:292px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
 .rail-hd{padding:10px 14px 8px;border-bottom:1px solid var(--line)}
 .rail-year{font-family:var(--disp);font-weight:500;font-size:15px;letter-spacing:.04em}
-.rail-list{flex:1;overflow-y:auto;padding:6px 0}
+/* 2px, not 6: the list is 21 rows of a fixed ranking and the rows below just
+   grew to a 24px target, so the four pixels a side are worth more spent on
+   fitting the ranking than on breathing room the row padding already gives. */
+.rail-list{flex:1;overflow-y:auto;padding:2px 0}
+/* min-height is the WCAG 2.5.8 target, not a look: the row was 291×19 and all
+   21 of them failed the audit at every desktop width (19 px of content box, and
+   14 px of "safe clickable space" between neighbours where 24 is asked for).
+   It is min-height rather than padding because padding would also push the
+   1fr bar column around, and the row is a grid whose middle cell is a
+   comparison aid that should keep its own rhythm.
+   The cost is measured and real, and it is not nothing: the list needs 508 px
+   for 21 rows where it needed 411. It still fits at 1440×900, 1600×1000 and
+   1920×1080; it scrolls 4 px at 1350×940 and **26 px at 1536×864**, which is a
+   1920×1080 laptop at 125 % and fit before this change. That trade was taken
+   rather than the other way round because the rail is an `overflow-y:auto`
+   scroller by construction and already scrolled at 1280×800 and below — "all 21
+   at once" was never a property this layout had, only one it had at tall
+   windows — while a 19 px pointer target was a failure at every window.
+   WCAG 2.5.8's "Equivalent" exception could arguably have been claimed instead,
+   since a county row does what clicking the county on the map does and the map
+   target is huge; it was not, because it does not cover the Matrica corridor
+   rows, whose equivalent is a matrix cell that is itself near the floor. */
 .rrow{display:grid;grid-template-columns:120px 1fr 60px;align-items:center;gap:8px;
-  padding:2.5px 14px;cursor:pointer;border-left:3px solid transparent}
+  min-height:24px;padding:2.5px 14px;cursor:pointer;border-left:3px solid transparent}
 .rrow:hover,.rrow.hl{background:#EEF0EA;border-left-color:var(--acc)}
 .rrow.big{padding:6px 14px}
 .rname{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -519,13 +590,32 @@ svg :focus,#spark:focus{outline:none}
   body{padding-bottom:136px}
   body.scrub-collapsed{padding-bottom:78px}
   .scrub.collapsed .scrub-chart{display:none}
+  /* The visible handle stays 18 px so it does not eat the chart's lane — the
+     chart is what the 18 px of .scrub padding above it is for, and a handle that
+     grew downwards would sit on the chart and swallow taps meant for the year.
+     The *target*, though, is 24 px: the extra 6 px is transparent and grows
+     upwards, over the page that scrolls under the fixed bar.
+     This used to be one 64×18 box with a ::before extending the hit area, and
+     that is not the same thing — axe/WCAG 2.5.8 measure the element's own box,
+     so the extension is invisible to them and the control was reported at
+     "64px by 18px, should be at least 24px by 24px" (Lighthouse a11y,
+     target-size, the only failure in that audit). It is also not the same thing
+     for a user: 18 px of *visible* affordance is what a thumb aims at.
+     Not 44 px, unlike .chip-hd and the rail rows: those grow into their own
+     panels, while this one can only grow into the map above it, and 26 px of
+     invisible tap-eater over live content is a worse defect than the one being
+     fixed. 24 px is the WCAG 2.5.8 minimum; the ::before still gives the thumb
+     112×34 of real hit area on top of it.
+     The chrome moves to ::after (behind the icon, drawn over the handle's own
+     18 px) so the button box itself can be taller than what it looks like. */
   .scrub-tog{display:flex;align-items:center;justify-content:center;
-    position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:2;
-    width:64px;height:18px;color:var(--mut);border-radius:0 0 4px 4px;
-    border:1px solid var(--line);border-top:none;background:var(--panel)}
-  /* the visible handle stays 18 px so it does not eat the chart's lane, but a
-     64×18 tap target is below any usable minimum — extend the hit area only */
-  .scrub-tog::before{content:'';position:absolute;left:-24px;right:-24px;top:-4px;bottom:-10px}
+    position:absolute;top:-6px;left:50%;transform:translateX(-50%);z-index:2;
+    width:64px;height:24px;padding-top:6px;color:var(--mut);
+    background:none;border:none}
+  .scrub-tog::after{content:'';position:absolute;left:0;right:0;top:6px;bottom:0;
+    border:1px solid var(--line);border-top:none;border-radius:0 0 4px 4px;
+    background:var(--panel);z-index:-1}
+  .scrub-tog::before{content:'';position:absolute;left:-24px;right:-24px;top:0;bottom:-10px}
   .scrub-tog:hover{color:var(--ink)}
   .scrub-tog svg{width:16px;height:16px;fill:currentColor}
   /* top strip at 390: jcard chip left, Nalazi right; labels are desktop/export-only,
@@ -565,7 +655,33 @@ svg :focus,#spark:focus{outline:none}
   .seg{width:100%;flex-wrap:wrap;gap:1px;background:var(--line)}
   .seg button{flex:1 1 auto;min-width:calc(33.333% - 1px);text-align:center;
     padding:8px 4px;font-size:11.5px;background:var(--panel);border-right:none}
-  .ft{padding:6px 12px;font-size:9px}
+  /* 9 px is not a size prose gets read at on a phone, and this is the longest
+     prose on the page: sources, licences, the study citation and the
+     non-affiliation statement — the surfaces the house rules call load-bearing.
+     Lighthouse measured the consequence and put a number on it: 3,68 % of the
+     rendered text was ≥ 12 px, and `.ft` alone was 50,97 % of all text on the
+     page. So this one rule is over half the "illegible" mass, and it is the half
+     that is sentences rather than labels.
+     It costs scroll, not map: below 900 px the body scrolls (see the block
+     above) and the footer is its last element, so a taller footer pushes nothing
+     off screen — unlike the desktop footer, which is a fixed lane over .map-box
+     and stays 9,5 px for exactly that reason.
+     The letterspaced mono micro-labels (.ctrl-lab, .hd-eyebrow, .legend-title)
+     stay where they are: they are labels, not prose, and they are what the
+     header's height budget is spent on. */
+  .ft{padding:8px 12px;font-size:12px;line-height:1.45}
+  /* the county names are the rail's primary data labels — 11 px with a 10,5 px
+     mono number beside it is the one place a reader is asked to *compare* values
+     on a phone. Both go to 12 px together; the rail is a 34vh scroller here, so
+     this changes what fits in it, not what it covers. */
+  .rname{font-size:12px}
+  .rval{font-size:12px}
+  /* and the name column widens to hold them. 120 px was already one pixel short
+     of the longest names at 11 px (measured: Dubrovačko-neretvanska wanted
+     123,8) and 12 px wants 135, so three of 21 counties were reaching the
+     ellipsis. The 20 px comes off the bar, which is a comparison aid with 168 px
+     to spare here, not off the number, which is the value itself. */
+  .rrow{grid-template-columns:140px 1fr 60px}
   /* keep the 18px top padding from the ≤900 block — it is the handle's lane.
      Shrinking it here would put the handle on top of the chart, which then
      swallows the tap and scrubs the year instead of collapsing. */

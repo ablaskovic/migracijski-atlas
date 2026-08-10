@@ -1,0 +1,15 @@
+# Everything here is one page. State lives in the fragment (#v=…&y=…), which is
+# never sent to the server and never crawled, so there is nothing to disallow.
+#
+# This file exists because vercel.json rewrites /(.*) to /index.html: without a
+# real file at this path the rewrite answered /robots.txt with the app's HTML,
+# and a crawler reading <!DOCTYPE html> as a directive gets 31 syntax errors
+# (measured — Lighthouse SEO, "robots.txt is not valid"). Static files are
+# matched before rewrites, so the file alone is the fix.
+#
+# No Sitemap: line on purpose. A sitemap has to state absolute URLs, and this
+# build is deliberately host-agnostic (vite base './', "works from any
+# subpath"); naming one canonical origin here would be the one place that stops
+# being true when it does.
+User-agent: *
+Allow: /

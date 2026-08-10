@@ -150,10 +150,25 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     if (d.jls != null) return JNAME?.get(d.jls) || '';
     return D[d.iso].n;
   };
-  /* the county tag is a visible part of a JLS row's identity (two municipalities
-     share a name across counties), so it belongs in the spoken label too */
-  const rowAria = (d: Row) =>
-    (d.jls != null && name(d) !== SHORTN[d.iso] ? name(d) + ', ' + SHORTN[d.iso] : name(d)) + ' ' + fmt(d);
+  /* The label is built from exactly the strings the row renders, in the order it
+     renders them — and `.rname` below is built from this. That is not tidiness:
+     WCAG 2.5.3 requires the accessible name to *contain* the visible label, and
+     the visible label of a grid row is its text children concatenated with no
+     separator at all. So `Grad Zagreb` + `+41.986` reads `Grad Zagreb+41.986`,
+     which the old label (`Grad Zagreb +41.986`) did not contain: measured, 21 of
+     21 rows failed axe `label-content-name-mismatch` in Saldo alone, and the
+     other two row shapes failed it worse — a JLS row said `, ` where it showed
+     ` `, and a corridor row dropped the rank the row leads with.
+     The single space in `.rrow` below is the other half of this: it puts that
+     separator in the DOM, where the visible label is computed, at no layout cost
+     (a white-space-only text run in a grid container generates no grid item).
+     The county tag is a visible part of a JLS row's identity — two municipalities
+     share a name across counties — so it stays in both. */
+  const rowName = (d: Row, i: number) =>
+    d.pair ? i + 1 + '. ' + name(d)
+      : d.jls != null && name(d) !== SHORTN[d.iso] ? name(d) + ', ' + SHORTN[d.iso]
+        : name(d);
+  const rowAria = (d: Row, i: number) => rowName(d, i) + ' ' + fmt(d);
   /* hover and focus drive the same highlight — see the row handlers below */
   const lightOn = (d: Row) => {
     if (d.jls != null) setJlsHl(d.jls);
@@ -203,7 +218,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
                number is one small graphic, and it collapses to exactly the one
                string we want announced. */
             role={canActivate(d) ? 'button' : 'img'} tabIndex={0}
-            aria-label={rowAria(d)}
+            aria-label={rowAria(d, i)}
             aria-expanded={owns(d) ? isOpen(d) : undefined}
             /* the rail is the natural index into the map and the 420-cell grid,
                so hovering a row lights up whatever it names: a region's counties,
@@ -219,9 +234,13 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
               if (!canActivate(d)) return;
               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(d); }
             }}>
+            {/* renders exactly rowName(d, i), in pieces, because .jc is a test
+                selector and the county tag is styled apart from the name */}
             <div className="rname">{d.pair ? <>{i + 1}. {name(d)}</>
-              : d.jls != null ? <>{name(d)}{name(d) !== SHORTN[d.iso] && <span className="jc"> {SHORTN[d.iso]}</span>}</>
+              : d.jls != null ? <>{name(d)}{name(d) !== SHORTN[d.iso] && <>, <span className="jc">{SHORTN[d.iso]}</span></>}</>
               : name(d)}</div>
+            {/* the separator the accessible name claims — see rowAria */}
+            {' '}
             <div className="rbar-track">
               <div className="rbar-zero" style={{ display: gross ? 'none' : undefined }} />
               <div className="rbar" style={{
