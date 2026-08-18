@@ -47,7 +47,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
       <div className="chip-hd" id="citzHd" role="button" tabIndex={0} aria-expanded={open}
         onClick={toggleCitz} onKeyDown={onKey}>
         <span className="chip-arr" aria-hidden="true">▸</span>
-        <span>{L('Državljanstvo', 'Citizenship')}<span className="chip-more">{` · RH · ${yy[0]}.–${yy[yy.length - 1]}.`}</span></span>
+        <span>{L('Državljanstvo', 'Citizenship')}<span className="chip-more">{L(` · RH · ${yy[0]}.–${yy[yy.length - 1]}.`, ` · Croatia · ${yy[0]}–${yy[yy.length - 1]}`)}</span></span>
       </div>
       {open && (
         <div className="chip-body">

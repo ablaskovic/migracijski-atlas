@@ -186,13 +186,16 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     else if (d.pair) setS({ pairHl: null });
     else setHL(null);
   };
-  const railLab = S.view === 'jmap' ? (S.dir === 'net' ? 'JLS — 10 najvećih dobitaka i gubitaka' : 'JLS — 20 najvećih')
-    : S.view === 'mx' ? 'Najveći koridori — cijela mreža'
-    : S.view === 'reg' ? 'Regije — prijedlog iz rada'
+  const railLab = S.view === 'jmap' ? (S.dir === 'net'
+    ? L('JLS — 10 najvećih dobitaka i gubitaka', 'LAU — 10 largest gains and losses')
+    : L('JLS — 20 najvećih', 'LAU — 20 largest'))
+    : S.view === 'mx' ? L('Najveći koridori — cijela mreža', 'Largest corridors — the whole network')
+    : S.view === 'reg' ? L('Regije — prijedlog iz rada', 'Regions — the paper’s proposal')
     /* naming the column keeps the rail from reading as a ranking of the whole
        grid, which is sorted by the window total and generally differs */
-    : S.view === 'yrs' ? 'Poredak — označena godina'
-    : S.view === 'flow' ? 'Partneri · ' + (D[S.sel!]?.n || '') : 'Poredak županija';
+    : S.view === 'yrs' ? L('Poredak — označena godina', 'Ranking — the marked year')
+    : S.view === 'flow' ? L('Partneri · ', 'Partners · ') + (D[S.sel!]?.n || '')
+      : L('Poredak županija', 'County ranking');
 
   return (
     /* the complementary landmark was unnamed while its whole content changes per

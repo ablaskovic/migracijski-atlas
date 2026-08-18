@@ -4,7 +4,7 @@ import { area, line, curveMonotoneX } from 'd3-shape';
 import { max } from 'd3-array';
 import { YEARS, Y0, YEND, natExt, natVol, flowBadge } from '../lib/metrics.ts';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { L, t, yrSpan } from '../lib/i18n.ts';
+import { L, t, yr as yrL, yrSpan } from '../lib/i18n.ts';
 import type { State } from '../lib/types.ts';
 
 export default function Scrubber({ S, setYi, togglePlay }: {
@@ -114,7 +114,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
         <svg id="spark" role="slider" tabIndex={inert ? -1 : 0}
           aria-label="Godina prikaza" aria-disabled={inert || undefined}
           aria-valuemin={S.cum || S.view === 'klas' ? 2011 : Y0} aria-valuemax={YEND}
-          aria-valuenow={yr} aria-valuetext={yr + '.'}
+          aria-valuenow={yr} aria-valuetext={yrL(yr)}
           onPointerDown={inert ? undefined : onDown} onPointerMove={inert ? undefined : onMove}
           onPointerUp={inert ? undefined : onUp} onPointerCancel={inert ? undefined : onUp}>
           {x && (
@@ -149,11 +149,11 @@ export default function Scrubber({ S, setYi, togglePlay }: {
               {/* the arrow/space shortcuts existed but nothing said so */}
               {sw >= 560 && (
                 <text id="kbdHint" x={x(YEND)} y={mT - 3} textAnchor="end" fontSize={8.5}
-                  fontFamily="var(--mono)" fill="var(--mut)">← → godina · razmaknica reprodukcija</text>
+                  fontFamily="var(--mono)" fill="var(--mut)">{L('← → godina · razmaknica reprodukcija', '← → year · space plays')}</text>
               )}
               {ticks.map(t => (
                 <text key={t} x={x(t)} y={sh - 4} textAnchor={t === YEND ? 'end' : 'middle'}
-                  fontSize={9} fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
+                  fontSize={9} fontFamily="var(--mono)" fill="var(--mut)">{yrL(t)}</text>
               ))}
               {/* Where the band ends. Drawn after the data, like the EU rule, so
                   it is not half-hidden behind the two filled areas — a shaded
@@ -177,7 +177,9 @@ export default function Scrubber({ S, setYi, togglePlay }: {
         </svg>
       </div>
       <div className="big-year">
-        <div className="big-year-n" id="bigYear">{yr}.</div>
+        {/* yrL(), not `{yr}.` — the trailing dot is a Croatian ordinal and reads as
+            a full stop in English */}
+        <div className="big-year-n" id="bigYear">{yrL(yr)}</div>
         <div className="big-year-s" id="bigYearSub">{sub}</div>
       </div>
     </div>
