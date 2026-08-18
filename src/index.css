@@ -126,6 +126,15 @@ svg :focus,#spark:focus{outline:none}
   padding:12px 20px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .hd-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase}
 .hd-title{font-family:var(--disp);font-weight:600;font-size:23px;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
+/* Same ghost as the segment buttons, for the same reason and a bigger number:
+   the language switch is the next flex item in .hd-titlerow, so the <h1>'s width
+   is what positions it — and the two titles differ, which meant pressing EN slid
+   the button that had just been pressed out from under the pointer (measured
+   33,3 px before the English title named the country, more after). The <h1>
+   reserves whichever of the two is wider, in both languages, and the switch
+   holds still. `data-alt` comes from i18n.ts titleAlt(). */
+.hd-title::after{content:attr(data-alt);display:block;height:0;overflow:hidden;
+  visibility:hidden}
 .hd-sub{font-size:11.5px;color:var(--mut);margin-top:2px}
 /* The language switch lives in the identity block: .ctrls has no room for an
    eighth group (measured, it costs the header 54 px and the map the same), and
@@ -154,6 +163,20 @@ svg :focus,#spark:focus{outline:none}
 .seg button{padding:5px 5px;font-size:12px;color:var(--mut);border-right:1px solid var(--line);white-space:nowrap}
 .seg button:last-child{border-right:none}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:500}
+/* Pressing a button must not resize it. `aria-pressed` adds font-weight:500,
+   which is 0,4–2,3 px wider per label (measured, per label, at 12 px): the
+   pressed button grew, every button to its right in the group slid along, the
+   group's own width changed, and every control after it moved too — measured
+   1,6 px across the four groups after Prikaz on a single view change, and 1,2 px
+   under the pointer on a plain click. Each button therefore reserves its own
+   label at the *pressed* weight, so its box is the same in both states.
+   `data-t` carries the string (for the export buttons, the widest state rather
+   than the label — PNG / … / greška). height:0 + overflow:hidden costs no
+   vertical space; `visibility:hidden` is what keeps the duplicate out of the
+   accessibility tree, which `opacity:0` would not do — the label would be
+   announced twice. */
+.seg button::after{content:attr(data-t);display:block;height:0;overflow:hidden;
+  visibility:hidden;font-weight:500;pointer-events:none}
 .seg button:disabled{cursor:default}
 /* `off` groups: the buttons carry `disabled` (so they leave the tab order and
    cannot be Enter-activated while looking dead), and this overlay takes the
@@ -645,12 +668,19 @@ svg :focus,#spark:focus{outline:none}
   .hd-sub{font-size:10.5px;line-height:1.35}
   .ctrl-lab{font-size:9px}
   /* 2-col grid: wide groups span both columns, the 2–3 button ones take one.
-     `dense` backfills the leftover cell with a later narrow group, so Vrijeme
-     pairs with Izvoz even when the Prag/Smjer row sits between them. */
+     `dense` backfills a leftover cell with a later narrow group — which is what
+     made Izvoz *relocate* on a view change here, because which group was
+     available to backfill with depended on whether Prag or Smjer was mounted.
+     Measured at 390: Saldo put Izvoz beside Vrijeme, Klasifikacija moved it to a
+     row of its own. Vrijeme and Izvoz are adjacent in the DOM now and the two
+     optional groups come after both, so the pairing is fixed by source order and
+     `dense` has nothing left to rearrange.
+     `#cExp` rather than `.ctrls>.ctrl:last-child`, which stopped meaning Izvoz
+     the moment Prag and Smjer moved behind it. */
   .ctrls{display:grid;grid-template-columns:1fr 1fr;gap:7px 8px;
     grid-auto-flow:row dense;align-items:start;width:100%}
   .ctrl{grid-column:span 2;min-width:0;gap:3px}
-  #cMode,#dirBox,.ctrls>.ctrl:last-child{grid-column:span 1}
+  #cMode,#dirBox,#cExp{grid-column:span 1}
   /* .seg is overflow:hidden, so buttons that do not fit were clipped away
      rather than scrolled — at 360 px the seven-button Prikaz group needs ~470 px
      and "JLS 2018." became unreachable. Wrap instead of clip: every button

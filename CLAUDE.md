@@ -163,6 +163,33 @@ forty-one. The precedence is unchanged where it matters: `l=` beats a stored
 choice beats both signals, an explicit act always beating an inference, and a
 region-decided default still carries **no `l=`** so the link stays neutral.
 Measured across 21 language × region × storage × permalink combinations.
+The third: **the controls hold still**. Reported as "the buttons jump around
+when you click them, and as they change"; measured, that was three separate
+causes. `aria-pressed` adds `font-weight:500`, which is **0,4–2,3 px wider per
+label** — so the pressed button grew, its neighbours slid, the group's own width
+changed and every control after it moved (1,2 px under the pointer on a plain
+click, 1,6 px across four groups on a view change). **Prag and Smjer** sat
+mid-row and exist only in some views, so appearing pushed everything after them
+along: **Izvoz moved 255 px sideways at 1280 and 1024, and at 1440 wrapped onto
+a new row** — 1.024 px left, 54 px down; on a phone the two-column grid's
+`row dense` relocated it too, because which group was available to backfill with
+depended on whether Prag or Smjer was mounted. And the **two titles are
+different widths** with the language switch as the next flex item, so pressing EN
+moved the button that had just been pressed by 33 px. Fixed by reserving width
+rather than by removing the affordances: every `.seg button` carries `data-t`
+and draws its own label as a zero-height ghost at the pressed weight, the `<h1>`
+carries `data-alt` and reserves the other language's title, the export buttons
+reserve their widest *state* (PNG / … / greška), and the two optional groups moved
+**after** Izvoz in the DOM — the DOM, not CSS `order`, so the tab sequence still
+agrees with the page. Measured after: **nothing moves** on a press at 1600, 1440,
+1280, 1150, 1024, 960 or 390, a view change moves no control that survives it,
+and the header budget and map box are unchanged (140 px / 570 px at 1440, both
+languages) — **330 checks**.
+One case is deliberately left: the bottom-anchored `.chipdock` still moves its
+own headers when a panel opens, because that is a disclosure growing against a
+pinned bottom edge, and the fixes for it (a `column-reverse` card, or floating
+the body out of flow) either put a trigger below its content or break the
+measurement MatrixView uses to steer the grid around the dock.
 
 ## Commands
 
@@ -249,6 +276,14 @@ just failed and could never have helped.
    name would silently ship ink-on-indigo at ~2,5:1. `.yrband`/`.yrsel` take
    fill/stroke from **attributes**, not from `index.css`, so unlike `.mxband` they
    need no baking at all.
+   v2.3.0 adds the width reservations, which are part of the contract because
+   they are attributes the stylesheet reads: `.ctrls .seg button[data-t]` (drawn
+   by `.seg button::after` as a zero-height ghost at the pressed weight) and
+   `.hd-title[data-alt]` (the other language's title, from `i18n.ts titleAlt()`).
+   Dropping either attribute silently restores the jump. `#cExp` is the Izvoz
+   group's new id — the narrow-width grid used to single it out as
+   `.ctrls>.ctrl:last-child`, which stopped meaning Izvoz the moment Prag and
+   Smjer moved behind it.
    Roving tabindex is asserted by count: exactly one `.mxc[tabindex="0"]` of 420,
    one `.jl[tabindex="0"]` of 556, one `.yrc[tabindex="0"]` of 315 — a change to
    plain `tabIndex={0}` fails.
@@ -417,7 +452,7 @@ public/robots.txt        served, not rewritten — see the v2.1.1 invariants. Th
                          only file in public/ besides the favicon and the two OFL
                          licence texts, and for the same reason: it must exist at
                          a fixed URL rather than be emitted with a hashed name
-scripts/verify.cjs       the executable verification protocol (318 checks; the
+scripts/verify.cjs       the executable verification protocol (330 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)

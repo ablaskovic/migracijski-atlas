@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 318;
+const EXPECTED_CHECKS = 330;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3516,6 +3516,129 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));
+
+  /* ══ v2.3.0 — the controls hold still ══════════════════════════════════
+     Reported by a user as "the buttons jump around when you click them, and as
+     they change — when some are removed or appear, or get narrower or wider".
+     Three separate causes, each measured before being touched:
+
+       1. `aria-pressed` adds font-weight:500, which is 0,4–2,3 px wider per
+          label. The pressed button grew, its neighbours in the group slid, the
+          group's own width changed and every control after it moved — 1,2 px
+          under the pointer on a plain click, 1,6 px across four groups on a view
+          change.
+       2. Prag and Smjer sat mid-row and only exist in some views, so appearing
+          pushed everything after them along: Izvoz moved 255 px sideways at 1280
+          and 1024, and at 1440 wrapped onto a new row — 1.024 px left, 54 px
+          down.
+       3. The two titles are different widths and the language switch is the next
+          flex item, so pressing EN moved the button that had just been pressed
+          by 33 px.
+
+     All three are asserted as *outcomes* — nothing may move — rather than by
+     looking for the ghosts that fix them, so a different fix would pass and a
+     regression could not. */
+  const CTRL_SNAP = `(() => {
+    const out = {};
+    /* document coordinates, not viewport ones: below 900 px the body scrolls and
+       page.click() scrolls its target into view, which would move every rect in
+       the "after" snapshot and read as a layout shift that never happened */
+    /* getBoundingClientRect() on a display:none element returns all zeros rather
+       than nothing, so a group that APPEARS would read as one that moved from
+       the origin. getClientRects().length is the same is-this-rendered-at-all
+       test focusSoon uses. (No backticks in here: this whole snapshot is itself
+       a template literal.) */
+    const rec = (k, el) => { if (!el || !el.getClientRects().length) return; const r = el.getBoundingClientRect();
+      out[k] = [Math.round((r.x + scrollX) * 10) / 10, Math.round((r.y + scrollY) * 10) / 10,
+        Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10].join(','); };
+    document.querySelectorAll('.ctrls .seg button').forEach(b =>
+      rec('btn:' + b.closest('.seg').id + '/' + (b.dataset.v || b.dataset.l || b.id), b));
+    document.querySelectorAll('.ctrls .ctrl').forEach(c => {
+      if (c.offsetParent) rec('ctrl:' + (c.id || c.querySelector('.ctrl-lab').textContent), c); });
+    rec('h1', document.querySelector('.hd-title'));
+    rec('segLang', document.querySelector('#segLang'));
+    return out;
+  })()`;
+  /* only what is on screen in BOTH states: a group that appears is the thing
+     being allowed, a group that moves is the thing being forbidden */
+  const movedBetween = (a, b) => Object.keys(a).filter(k => k in b && a[k] !== b[k]).map(k => k + ' ' + a[k] + ' -> ' + b[k]);
+
+  const pressMoves = [], viewMoves = [];
+  /* 390 is in the sweep because the narrow layout is a different mechanism, not
+     a narrower version of the same one: below 560 px .ctrls is a two-column grid
+     with `grid-auto-flow: row dense`, and `dense` backfilled the leftover cell
+     with whichever narrow group happened to be available — which depended on
+     whether Prag or Smjer was mounted. Measured: Izvoz sat beside Vrijeme in
+     Saldo and moved to a row of its own in Klasifikacija. */
+  for (const W of [1440, 1280, 1024, 960, 390]) {
+    await page.setViewport(W === 390
+      ? { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 }
+      : { width: W, height: 900 });
+    /* (1) a press inside a live group, which changes nothing but the press */
+    for (const [grp, v, hash] of [['segFlow', 'int', ''], ['segDen', 'rel11', ''], ['segMode', 'yr', ''],
+      ['segDir', 'out', '#v=flow&s=HR-21']]) {
+      await fresh(hash);
+      const before = await page.evaluate(CTRL_SNAP);
+      await click(`#${grp} button[data-v="${v}"]`);
+      const moved = movedBetween(before, await page.evaluate(CTRL_SNAP));
+      if (moved.length) pressMoves.push(`${W}px ${grp}=${v}: ` + moved.join(' | '));
+    }
+    /* (2) a view change, which adds or removes a whole group */
+    for (const v of ['klas', 'reg', 'yrs', 'flow', 'mx']) {
+      await fresh('');
+      const before = await page.evaluate(CTRL_SNAP);
+      await click(`#segView button[data-v="${v}"]`);
+      await settle(150);
+      const moved = movedBetween(before, await page.evaluate(CTRL_SNAP));
+      if (moved.length) viewMoves.push(`${W}px saldo→${v}: ` + moved.join(' | '));
+    }
+  }
+  ck('pressing a control moves nothing, 1440 down to 960',
+    pressMoves.length === 0, pressMoves.slice(0, 3).join('  ;  ').slice(0, 300));
+  ck('and a view change moves no control that survives it — the optional group only appears',
+    viewMoves.length === 0, viewMoves.slice(0, 3).join('  ;  ').slice(0, 300));
+
+  /* The switch must not move out from under the pointer that just pressed it.
+     Measured against the *other* language's layout, not against a tolerance. */
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('');
+  const hrHd = await page.evaluate(CTRL_SNAP);
+  await fresh('#l=en');
+  const enHd = await page.evaluate(CTRL_SNAP);
+  ck('the language switch and the title occupy the same box in both languages',
+    hrHd.h1 === enHd.h1 && hrHd.segLang === enHd.segLang,
+    JSON.stringify({ hr: [hrHd.h1, hrHd.segLang], en: [enHd.h1, enHd.segLang] }));
+
+  /* The export button reads PNG, then "…", then "greška": three strings in one
+     box, and the box used to be sized by whichever was showing. Measured by
+     substituting each string, because that is exactly the question — the width
+     is the stylesheet's job, not the component's. */
+  await fresh('');
+  const expStates = await page.evaluate(() => {
+    const g = document.querySelector('#segExp'), b = document.querySelector('#pngBtn');
+    const probe = t => { const old = b.textContent; b.textContent = t;
+      const r = [g.getBoundingClientRect().width, b.getBoundingClientRect().width].join(',');
+      b.textContent = old; return r; };
+    return { PNG: probe('PNG'), busy: probe('…'), err: probe('greška') };
+  });
+  ck('the export group holds its width through PNG, “…” and “greška”',
+    expStates.PNG === expStates.busy && expStates.busy === expStates.err,
+    JSON.stringify(expStates));
+
+  /* The reservation is a duplicate of the label, so the one way it could go
+     wrong is by being announced: "Saldo Saldo". visibility:hidden is what keeps
+     it out of the accessibility tree, and opacity:0 would not have. */
+  const axNames = await (async () => {
+    const snap = await page.accessibility.snapshot();
+    const out = [];
+    (function walk(n) { if (!n) return; if (n.role === 'button') out.push(n.name); (n.children || []).forEach(walk); })(snap);
+    return out;
+  })();
+  const labels = await page.evaluate(() => [...document.querySelectorAll('#segView button')].map(b => b.textContent));
+  ck('the reserved width is not announced: every segment button keeps its own name',
+    labels.length === 7 && labels.every(l => axNames.includes(l))
+    && !axNames.some(n => n && /^(.+)\1$/.test(n)),
+    JSON.stringify({ missing: labels.filter(l => !axNames.includes(l)), doubled: axNames.filter(n => n && /^(.+)\1$/.test(n)) }));
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

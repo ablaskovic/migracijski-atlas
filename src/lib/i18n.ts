@@ -246,3 +246,10 @@ export type Key = keyof typeof dict;
 export function t(key: Key): string {
   return dict[key][LANG] as string;
 }
+
+/* The title in the *other* language. The language switch sits beside the <h1> in
+   the same flex row, so the <h1>'s own width is what positions it — and the two
+   titles differ by tens of pixels, which means pressing EN moved the button that
+   had just been pressed, out from under the pointer. The <h1> reserves the wider
+   of the two (index.css, .hd-title::after) and the switch stops moving. */
+export const titleAlt = (): string => dict['hd.title'][LANG === 'hr' ? 'en' : 'hr'];
