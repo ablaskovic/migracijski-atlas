@@ -4,6 +4,7 @@ import { area, line, curveMonotoneX } from 'd3-shape';
 import { max } from 'd3-array';
 import { YEARS, Y0, YEND, natExt, natVol, flowBadge } from '../lib/metrics.ts';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { L, t, yrSpan } from '../lib/i18n.ts';
 import type { State } from '../lib/types.ts';
 
 export default function Scrubber({ S, setYi, togglePlay }: {
@@ -69,8 +70,9 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     : sw >= 200 ? [2000, 2010, 2020, YEND]
     : [2000, YEND];
   const cap = sw >= 380
-    ? 'RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)'
-    : 'RH · vanjski saldo · preseljeni';
+    ? L('RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)',
+      'Croatia · net external migration (area) · moves between counties (dashed)')
+    : L('RH · vanjski saldo · preseljeni', 'Croatia · net external · moves');
 
   /* The JLS view has one measured year, so the chart is inert there. It used to be
      dimmed with opacity + pointer-events:none — the pattern the house rules ban,
@@ -79,10 +81,10 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      operable-looking role=slider with aria-valuenow="2018" and no way to work it. */
   const inert = S.view === 'jmap';
   const yr = YEARS[S.yi];
-  const sub = S.view === 'jmap' ? 'JLS · samo 2018. · izmjereno'
+  const sub = S.view === 'jmap' ? L('JLS · samo 2018. · izmjereno', 'LAU · 2018 only · measured')
     : S.view === 'flow' || S.view === 'mx'
-    ? 'tokovi · ' + (S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum))
-    : (S.view === 'klas' || S.cum ? '2011.–' + yr + '.' : 'godišnje');
+      ? L('tokovi · ', 'flows · ') + (S.cum ? t('badge.cum') : flowBadge(S.yi, S.cum))
+      : (S.view === 'klas' || S.cum ? yrSpan(2011, yr) : L('godišnje', 'annual'));
 
   return (
     <div className={'scrub' + (inert ? ' inert' : '') + (collapsed ? ' collapsed' : '')} id="scrubBox">

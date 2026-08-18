@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 308;
+const EXPECTED_CHECKS = 318;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -100,8 +100,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     ({ srv, url } = await serve(dir));
   }
 
-  browser = await puppeteer.launch({ args: ['--no-sandbox', '--force-device-scale-factor=1'] });
+  /* --lang pins the UI language of the browser itself; the override below pins
+     what the app actually reads. Both, because they are different things and
+     only the second is what `detectLang()` consults.
+     Without this the whole suite silently flipped: headless Chrome reports
+     en-US, so the atlas booted in ENGLISH and every check matching Croatian
+     text — around fifty of them — failed at once. Pinning it here keeps the
+     existing checks meaning what they meant, and the English surface gets its
+     own block at the end rather than being tested by accident. */
+  browser = await puppeteer.launch({ args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR'] });
   const page = await browser.newPage();
+  const pinHr = pg => pg.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });
+    Object.defineProperty(navigator, 'language', { get: () => 'hr-HR', configurable: true });
+    /* a stored choice outranks the browser, so it has to be cleared too or a
+       previous run's toggle would decide this one */
+    try { localStorage.removeItem('atlas-lang'); } catch { /* private mode */ }
+  });
+  await pinHr(page);
   await page.setViewport({ width: 1440, height: 900 });
   /* index.html used to load Oswald + IBM Plex from fonts.googleapis.com, and
      `waitUntil: 'networkidle0'` waited on it — so the suite depended on the
@@ -3210,6 +3226,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const swap = {};
   for (const mode of ['fallback', 'real']) {
     const p2 = await browser.newPage();
+    await pinHr(p2);
     await p2.setViewport({ width: 1350, height: 940 });
     if (mode === 'fallback') {
       await p2.setRequestInterception(true);
@@ -3257,6 +3274,116 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('and each fallback face is closer to its webfont’s width than doing nothing',
     swap.widths.length === 4 && swap.widths.every(x => x.fb <= x.raw && x.fb < 0.02),
     JSON.stringify(swap.widths));
+
+  /* ══ v2.2.0 — the second language ═══════════════════════════════════════
+     The atlas is Croatian and stays Croatian by default; English exists so it
+     can be shown to people who do not read Croatian. What is checked here is
+     not "the words changed" but the three things that could quietly go wrong:
+     the numbers, the honesty labels, and which reader gets which language. */
+
+  /* Numbers are part of the translation, not decoration around it. Croatian
+     writes 41.986 where English writes 41,986 — read as English, the Croatian
+     form is wrong by three orders of magnitude, which is the single most
+     dangerous thing an untranslated atlas can do. */
+  await fresh('#l=en&v=saldo&c=1&y=2024');
+  const en1 = await page.evaluate(() => ({
+    lang: document.documentElement.lang,
+    top: document.querySelector('#railList .rrow .rname').textContent,
+    val: document.querySelector('#railList .rrow .rval').textContent,
+    label: document.querySelector('#railList .rrow').getAttribute('aria-label'),
+    view0: document.querySelector('#segView button').textContent,
+    pressed: document.querySelector('#segLang button[data-l="en"]').getAttribute('aria-pressed'),
+  }));
+  ck('English renders English separators, and says so in <html lang>',
+    en1.lang === 'en' && en1.val === '+41,986' && en1.top === 'Grad Zagreb'
+    && en1.view0 === 'Net' && en1.pressed === 'true',
+    JSON.stringify(en1));
+  /* 2.5.3 again, in the other language: rowName() feeds both halves, so if the
+     separator rule survived translation this holds without further work. */
+  ck('and the rail row label still contains its visible text',
+    en1.label === 'Grad Zagreb +41,986', String(en1.label));
+
+  /* County names are identifiers — they are what a reader checks against a DZS
+     table — so they are NOT translated, in either direction. */
+  ck('county names are left in Croatian, because they are identifiers',
+    en1.top === 'Grad Zagreb', en1.top);
+
+  /* The honesty labels are the load-bearing ones. A badge nobody can read is
+     not a label — and the measured/estimate distinction has to keep its
+     *visual* form too (solid vs dashed), which is keyed off the badge text. */
+  await fresh('#l=en&v=mx&y=2018&c=0');
+  await page.hover('.mxc[data-a="HR-21"][data-b="HR-01"]');
+  await settle(220);
+  const enBadge = await page.evaluate(() => {
+    const tag = document.querySelector('#tip .cls-tag');
+    return { txt: tag ? tag.textContent : null, cls: tag ? tag.className : null,
+      border: tag ? getComputedStyle(tag).borderStyle : null,
+      legend: document.querySelector('#legend .legend-note').textContent };
+  });
+  ck('the measured badge is in English and still solid, not dashed',
+    enBadge.txt === 'measured' && /meas/.test(enBadge.cls) && enBadge.border === 'solid',
+    JSON.stringify(enBadge));
+  ck('and the English legend still names the source and the licence',
+    /Measured/.test(enBadge.legend) && /Pitoski/.test(enBadge.legend) && /CC BY/.test(enBadge.legend),
+    enBadge.legend.slice(0, 120));
+
+  await fresh('#l=en&v=mx&y=2024&c=1');
+  await page.hover('.mxc[data-a="HR-21"][data-b="HR-01"]');
+  await settle(220);
+  const enEst2 = await page.evaluate(() => {
+    const tag = document.querySelector('#tip .cls-tag');
+    return { txt: tag ? tag.textContent : null, border: tag ? getComputedStyle(tag).borderStyle : null };
+  });
+  ck('the cumulative estimate badge is English and still dashed',
+    enEst2.txt === 'cumulative estimate' && enEst2.border === 'dashed',
+    JSON.stringify(enEst2));
+
+  /* The exported figure is the artifact that leaves the app: it must carry the
+     honesty label, the source credit and the licence in the reader's language,
+     because there is no footnote to click through to. */
+  const enSvg = await page.evaluate(() => window.__exportSVG(false));
+  ck('the English export carries its badge, sources and licence in English',
+    /CUMULATIVE ESTIMATE/i.test(enSvg) && /Sources:/.test(enSvg)
+    && /Figure: CC BY 4\.0/.test(enSvg) && !/Izvori:/.test(enSvg),
+    (enSvg.match(/>[^<]{20,90}</g) || []).slice(0, 3).join(' | '));
+
+  /* Who gets which language. Croatian is the default for the languages that
+     read it — a Serbian or Bosnian reader is far better served by Croatian than
+     by English — and English is the fallback for everyone else. */
+  const detect = [];
+  for (const tags of [['hr-HR', 'hr'], ['sr-Latn-RS', 'sr'], ['bs-BA'], ['de-DE', 'de'], ['en-GB']]) {
+    const pg = await browser.newPage();
+    await pg.evaluateOnNewDocument(t => {
+      Object.defineProperty(navigator, 'languages', { get: () => t, configurable: true });
+      Object.defineProperty(navigator, 'language', { get: () => t[0], configurable: true });
+    }, tags);
+    await pg.goto(url, { waitUntil: 'networkidle0' });
+    await settle(250);
+    detect.push({ t: tags[0], l: await pg.evaluate(() => document.documentElement.lang) });
+    await pg.close();
+  }
+  ck('hr/sr/bs readers get Croatian, everyone else English, with no l= in the link',
+    detect[0].l === 'hr' && detect[1].l === 'hr' && detect[2].l === 'hr'
+    && detect[3].l === 'en' && detect[4].l === 'en',
+    JSON.stringify(detect));
+
+  /* A shared link outranks both the browser and the stored choice: a link sent
+     in English has to arrive in English, or the sender cannot show anyone
+     anything. And a link with no l= stays language-neutral, so the same URL
+     serves both readers. */
+  await page.goto(url + '#v=saldo&c=1&y=2024&l=en', { waitUntil: 'networkidle0' });
+  await settle(300);
+  const sharedEn = await page.evaluate(() => ({
+    lang: document.documentElement.lang,
+    val: document.querySelector('#railList .rrow .rval').textContent,
+  }));
+  ck('a link carrying l=en opens in English on a Croatian browser',
+    sharedEn.lang === 'en' && sharedEn.val === '+41,986',
+    JSON.stringify(sharedEn));
+  await fresh('');
+  const neutral = await page.evaluate(() => location.hash);
+  ck('and a link at the reader’s own default carries no l= at all',
+    !/l=/.test(neutral), neutral);
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

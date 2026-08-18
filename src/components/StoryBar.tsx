@@ -1,5 +1,6 @@
 import { STORIES } from '../lib/stories.ts';
 import { focusSoon } from '../lib/state.ts';
+import { L, t } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Nalazi — curated findings. The picker is a header control (left of Prikaz);
@@ -13,15 +14,15 @@ export function StorySelect({ S, applyStory, resetAll }: {
      away from a Nalaz there is no way back to it. The banner is what reports
      which preset is live. */
   return (
-    <div className="ctrl storysel"><span className="ctrl-lab">Nalazi</span>
+    <div className="ctrl storysel"><span className="ctrl-lab">{t('ctrl.story')}</span>
       <div className="storysel-row">
-        <select id="story" aria-label="Odabir nalaza" value={-1}
+        <select id="story" aria-label={L('Odabir nalaza', 'Choose a finding')} value={-1}
           onChange={e => { const i = +e.target.value; if (i >= 0) applyStory(i); }}>
-          <option value={-1}>{S.story != null ? (S.story + 1) + '. nalaz…' : 'odaberi…'}</option>
+          <option value={-1}>{S.story != null ? (S.story + 1) + L('. nalaz…', '. finding…') : L('odaberi…', 'choose…')}</option>
           {STORIES.map((st, i) => <option key={i} value={i}>{(i + 1) + '. ' + st.label}</option>)}
         </select>
         <button className="rstbtn" id="resetBtn" onClick={resetAll}
-          title="Vrati na početni prikaz" aria-label="Vrati na početni prikaz">⟲</button>
+          title={t('ctrl.resetTitle')} aria-label={t('ctrl.resetTitle')}>⟲</button>
       </div>
     </div>
   );

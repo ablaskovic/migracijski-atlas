@@ -4,6 +4,7 @@ import {
 } from './metrics.ts';
 import { paperCaveatLine, paperExportLine } from './credits.ts';
 import { exportLicenceLine } from './licences.ts';
+import { L, t } from './i18n.ts';
 import type { Klas, State } from './types.ts';
 
 const VARS: Record<string, string> = {
@@ -126,14 +127,19 @@ function legendSpec(S: State): Leg {
    were both on screen and in neither exported format (measured: the string
    "strukturna" appeared nowhere in the exported document). */
 function legendNote(S: State): string {
-  const all = 'Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.';
-  if (S.view === 'jmap') return 'Samo preseljenja unutar RH (JLS↔JLS), bez inozemstva.';
-  if ((S.view === 'flow' || S.view === 'mx') && S.dir === 'net') return 'Neto parova je strukturna procjena.';
+  const all = L('Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
+    'The sum of two published components — not total population change.');
+  if (S.view === 'jmap') {
+    return L('Samo preseljenja unutar RH (JLS↔JLS), bez inozemstva.',
+      'Internal moves within Croatia only (LAU↔LAU), no international migration.');
+  }
+  if ((S.view === 'flow' || S.view === 'mx') && S.dir === 'net') return t('note.pairEst');
   /* Godine is the only view that renders 1998–2006 beside the rest, so it is the
      only one whose *image* can carry those columns off into a slide — the hatch
      that marks them on screen has no caption of its own, so the words go here. */
   if (S.view === 'yrs' && !S.cum) {
-    return 'Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju.'
+    return L('Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju.',
+      'Hatched before 2007: the inter-county margins do not close before then.')
       + (S.flow === 'all' ? ' ' + all : '');
   }
   if (S.view !== 'klas' && S.flow === 'all') return all;
@@ -259,10 +265,12 @@ function gradBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number,
    OpenStreetMap directly — so a JLS export used to carry an attribution that
    was both wrong *and* licence-free. ODbL requires the licence to be named, and
    this is the artifact that leaves the app: there is no footnote to click. */
-const SRC_BASE = 'Izvori: DZS 7.4.1.–7.4.3., STAN-2026-2-1 · tokovi 2018.: Pitoski i sur. 2021. (CC BY) · ostale godine: IPF procjena';
-const srcLine = (S: State): string => SRC_BASE + (S.view === 'jmap'
-  ? ' · granice JLS: OpenStreetMap suradnici (ODbL)'
-  : ' · granice županija: geoBoundaries/OSM (ODbL)');
+const SRC_BASE = (): string => L(
+  'Izvori: DZS 7.4.1.–7.4.3., STAN-2026-2-1 · tokovi 2018.: Pitoski i sur. 2021. (CC BY) · ostale godine: IPF procjena',
+  'Sources: CBS 7.4.1.–7.4.3., STAN-2026-2-1 · 2018 flows: Pitoski et al. 2021 (CC BY) · other years: IPF estimate');
+const srcLine = (S: State): string => SRC_BASE() + (S.view === 'jmap'
+  ? L(' · granice JLS: OpenStreetMap suradnici (ODbL)', ' · LAU boundaries: OpenStreetMap contributors (ODbL)')
+  : L(' · granice županija: geoBoundaries/OSM (ODbL)', ' · county boundaries: geoBoundaries/OSM (ODbL)'));
 
 /* Klasifikacija reproduces the study's threshold and Regije its grouping, and
    the on-screen legend says so ("Klasifikacija iz rada", "prijedlog iz rada").

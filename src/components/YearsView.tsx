@@ -7,6 +7,7 @@ import { moveTip, COARSE } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import { L } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Godine — 21 counties × the whole series, one cell per county-year.
@@ -193,7 +194,8 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
 
   return (
     <svg id="map" role="grid" aria-rowcount={nR} aria-colcount={nC}
-      aria-label="Županije kroz godine — strelice pomiču odabir, Enter postavlja godinu prikaza"
+      aria-label={L('Županije kroz godine — strelice pomiču odabir, Enter postavlja godinu prikaza',
+        'Counties over time — arrow keys move the selection, Enter sets the displayed year')}
       {...zoom.bind} style={zoom.style}>
       <defs>
         <pattern id="yrhatch" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">

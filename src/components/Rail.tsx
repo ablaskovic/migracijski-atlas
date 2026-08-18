@@ -4,6 +4,7 @@ import {
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
+import { L, yr, yrSpan } from '../lib/i18n.ts';
 import PairCard from './PairCard.tsx';
 import type { Patch, State } from '../lib/types.ts';
 
@@ -15,23 +16,26 @@ import type { Patch, State } from '../lib/types.ts';
 type Row = { iso: string; v: number; reg?: boolean; pair?: [string, string]; nm?: [string, string]; jls?: number };
 
 function railTitle(S: State): string {
-  if (S.view === 'jmap') return { out: 'odlasci', in: 'dolasci', net: 'neto' }[S.dir] + ' · 2018.';
+  if (S.view === 'jmap') {
+    return { out: L('odlasci', 'out'), in: L('dolasci', 'in'), net: L('neto', 'net') }[S.dir] + ' · ' + yr(2018);
+  }
   if (S.view === 'mx') {
-    const per = S.cum ? '2011.–' + YEARS[S.yi] + '.' : YEARS[S.yi] + '.';
+    const per = S.cum ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi]);
     /* Odlasci and Dolasci produce the same 20 rows and always will: every
        directed corridor is one county's departure and another's arrival, so the
        network's top 20 is one list seen from two sides. Naming a direction here
        made switching Smjer look broken. Only neto reorders — it pairs counties
        up — so only neto names itself. */
-    return (S.dir === 'net' ? 'neto · ' : 'koridori · ') + per;
+    return (S.dir === 'net' ? L('neto · ', 'net · ') : L('koridori · ', 'corridors · ')) + per;
   }
   if (S.view === 'flow') {
-    const per = S.cum ? '2011.–' + YEARS[S.yi] + '.' : YEARS[S.yi] + '.';
-    return { out: 'odlasci · ', in: 'dolasci · ', net: 'neto · ' }[S.dir] + per;
+    const per = S.cum ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi]);
+    return { out: L('odlasci · ', 'out · '), in: L('dolasci · ', 'in · '), net: L('neto · ', 'net · ') }[S.dir] + per;
   }
   const y = YEARS[S.yi];
-  if (S.view === 'klas') return 'kumulativno 2011.–' + y + '.';
-  return S.cum ? 'kumulativno 2011.–' + y + '.' : 'godina ' + y + '.';
+  const kum = L('kumulativno ', 'cumulative ') + yrSpan(2011, y);
+  if (S.view === 'klas') return kum;
+  return S.cum ? kum : L('godina ' + yr(y), 'year ' + yr(y));
 }
 
 /* top-20 corridors nationally for the matrix view; for net, unordered pairs

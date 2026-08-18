@@ -4,10 +4,11 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { YEARS, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { decodeHash, encodeHash } from './lib/hash.ts';
 import { BASE, focusSoon } from './lib/state.ts';
+import { L, NEWTAB, setLang, storeLang, yr } from './lib/i18n.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperPending, paperRefNote, paperRefTail } from './lib/credits.ts';
-import { SOURCES } from './lib/licences.ts';
+import { sources } from './lib/licences.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
@@ -29,6 +30,12 @@ declare global {
    always lands on godišnje 2018 — lead with the measured matrix, not the IPF
    cumulative estimate. */
 const INITIAL: State = { ...BASE, ...decodeHash(location.hash) };
+/* Before the first render, not in an effect: every string and every number in
+   the tree below is formatted against this, so it has to be true by the time
+   anything reads it. An effect runs *after* the first paint, which would render
+   one frame of Croatian to an English reader — and, worse, one frame of
+   `41.986` meaning forty-one thousand to someone reading it as forty-one. */
+setLang(INITIAL.lang);
 
 export default function App() {
   const [S, setS] = useState(INITIAL);
@@ -43,6 +50,10 @@ export default function App() {
      "Dob i spol" killed Nalaz 7 alone, for no reason its caption could explain. */
   const up = (patch: Patch) => setS(s => {
     const n: State = { ...s, ...patch };
+    /* Synchronously with the state that caused it, for the reason above: the
+       render that follows must already be in the new language. `up` is the only
+       writer, so this is the only place it can be done once. */
+    if (patch.lang && patch.lang !== s.lang) { setLang(patch.lang); storeLang(patch.lang); }
     /* One predicate, not two. This used to walk `storyKeys(i)` against the patch
        directly, which invalidated on any STORY_KEYS field — while `storyHolds`,
        which both halves of the permalink codec use, skips the keys a preset
@@ -210,7 +221,13 @@ export default function App() {
       /* `help` and `flowSeen` are deliberately not in the permalink, so folding
          BASE back in would close the glossary and re-arm the first-entry 2018
          jump as a side effect of pressing Back. Carry them across instead. */
-      setS(s => ({ ...s, ...BASE, help: s.help, flowSeen: s.flowSeen, ...decodeHash(location.hash) }));
+      const back: State = { ...ref.current, ...BASE, help: ref.current.help, flowSeen: ref.current.flowSeen, ...decodeHash(location.hash) };
+      /* Back can cross a language change like any other control, and the module
+         mirror has to move with it — otherwise the tree re-renders in the old
+         language against the new state. Not stored: stepping through history is
+         not choosing. */
+      setLang(back.lang);
+      setS(back);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -339,14 +356,14 @@ export default function App() {
      both change without any focus moving (scrub, arrows, autoplay), so without
      this the whole app mutates silently. Held constant while the loop runs so
      it announces once at start and once at the end, not 28 times. */
-  const live = S.playing ? 'Reprodukcija kroz godine u tijeku.'
-    : `${YEARS[S.yi]}. · ${VLAB[S.view]} · ${S.cum || S.view === 'klas' ? 'kumulativno' : 'godišnje'}`;
+  const live = S.playing ? L('Reprodukcija kroz godine u tijeku.', 'Playback through the years is running.')
+    : `${yr(YEARS[S.yi])} · ${VLAB[S.view]} · ${S.cum || S.view === 'klas' ? L('kumulativno', 'cumulative') : L('godišnje', 'annual')}`;
 
   return (
     <>
       {/* ~28 header controls sit between the page top and the map; landmarks
           serve AT but a sighted keyboard-only user had no bypass at all (2.4.1) */}
-      <a className="skip" href="#map">Prijeđi na kartu</a>
+      <a className="skip" href="#map">{L('Prijeđi na kartu', 'Skip to the map')}</a>
       <Header S={S} setS={up} setView={setView} setMode={setMode} applyStory={applyStory} resetAll={resetAll} />
       <main className="main">
         <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL} resetSeq={resetSeq}
@@ -364,16 +381,17 @@ export default function App() {
             to it, so the lane costs the map exactly what it did before — the
             legend keeps the plain-text wording because `.legend` is
             `pointer-events:none` and a link in it could never be clicked. */}
-        <span>Izvori: <a className="paper-link" href={SOURCES[0].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`DZS — ${SOURCES[0].note}. Otvara se u novoj kartici.`}>DZS</a>{' '}
-          tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (
-          <a className="paper-link" href={SOURCES[1].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`Pitoski i sur. 2021 — ${SOURCES[1].note}. Otvara se u novoj kartici.`}>Pitoski i sur. 2021</a>, CC BY) ·
-          ostale godine: IPF procjena na DZS marginama · granice županija:{' '}
-          <a className="paper-link" href={SOURCES[3].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`geoBoundaries — ${SOURCES[3].note}. Otvara se u novoj kartici.`}>geoBoundaries</a>/OSM, granice JLS:{' '}
-          <a className="paper-link" href={SOURCES[2].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`OpenStreetMap — ${SOURCES[2].note}. Otvara se u novoj kartici.`}>OpenStreetMap</a> suradnici — oboje ODbL.</span>
+        <span>{L('Izvori: ', 'Sources: ')}<a className="paper-link" href={sources()[0].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`${L('DZS', 'CBS')} — ${sources()[0].note}. ${NEWTAB()}`}>{L('DZS', 'CBS')}</a>{' '}
+          {L('tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (',
+            'tab. 7.4.1.–7.4.3. (July 2026) · citizenship, age, countries: CBS STAN-2026-2-1 · 2018 flows: CBS special processing, counties and LAUs (')}
+          <a className="paper-link" href={sources()[1].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`${L('Pitoski i sur. 2021', 'Pitoski et al. 2021')} — ${sources()[1].note}. ${NEWTAB()}`}>{L('Pitoski i sur. 2021', 'Pitoski et al. 2021')}</a>, CC BY) ·
+          {L('ostale godine: IPF procjena na DZS marginama · granice županija:', 'other years: IPF estimate on CBS margins · county boundaries:')}{' '}
+          <a className="paper-link" href={sources()[3].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`geoBoundaries — ${sources()[3].note}. ${NEWTAB()}`}>geoBoundaries</a>{L('/OSM, granice JLS:', '/OSM, LAU boundaries:')}{' '}
+          <a className="paper-link" href={sources()[2].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`OpenStreetMap — ${sources()[2].note}. ${NEWTAB()}`}>OpenStreetMap</a>{L(' suradnici — oboje ODbL.', ' contributors — both ODbL.')}</span>
         {/* The study the atlas is a companion to is unpublished: the reference is
             pending, not missing, and the atlas is not affiliated with it. Both
             sentences come from lib/credits.ts, which is also what the header,
@@ -385,7 +403,7 @@ export default function App() {
             <><a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
               aria-label={`${PAPER.short} — ${PAPER.citation} Otvara se u novoj kartici.`}>{PAPER.short}</a>{paperRefTail()} </>
           )}
-          {NO_AFFIL} DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.</span>
+          {NO_AFFIL()}{L(" DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.", " CBS revises its series afterwards, so some values differ from those in the paper.")}</span>
       </footer>
       <Tooltip S={S} />
       {/* Vercel Analytics + Speed Insights. Both render nothing; each injects one

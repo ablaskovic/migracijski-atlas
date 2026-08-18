@@ -3,6 +3,7 @@ import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI, sgn } f
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
+import { L } from '../lib/i18n.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { Patch, State } from '../lib/types.ts';
@@ -248,7 +249,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
 
   return (
     <svg id="map" role="grid" aria-rowcount={n} aria-colcount={n}
-      aria-label="Matrica međužupanijskih tokova — strelice pomiču odabir, Enter otvara koridor"
+      aria-label={L('Matrica međužupanijskih tokova — strelice pomiču odabir, Enter otvara koridor',
+        'Inter-county flow matrix — arrow keys move the selection, Enter opens the corridor')}
       {...zoom.bind} style={zoom.style}>
       <defs>
         <pattern id="mxhatch" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">

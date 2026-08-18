@@ -55,7 +55,9 @@
      there is no window in which both are on screen. (#root is
      display:contents, so .boot is a flex child of <body>, like the app.) -->
 <div id="root">
-  <div class="boot" role="status" aria-label="Učitavanje atlasa">
+  <!-- Bilingual, because this renders before any JavaScript has run and so
+       before the language is known. Two words is the whole cost. -->
+  <div class="boot" role="status" aria-label="Učitavanje atlasa / Loading the atlas">
     <div>
       <span class="boot-eyebrow">DZS · 1998.–2025.</span>
       <span class="boot-title">Migracijski atlas županija</span>

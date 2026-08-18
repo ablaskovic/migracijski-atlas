@@ -1,6 +1,9 @@
 /* Shared types. The State literal unions mirror the v4 single-file control
    values; scripts/verify.cjs exercises the transitions over them. */
 
+import type { Lang } from './i18n.ts';
+export type { Lang };
+
 export type View = 'saldo' | 'klas' | 'reg' | 'flow' | 'mx' | 'jmap' | 'yrs';
 export type Flow = 'tot' | 'int' | 'ext' | 'nat' | 'all';
 export type Den = 'abs' | 'rel11' | 'relest';
@@ -11,6 +14,10 @@ export type CitzTab = 'grp' | 'zem';
 export type AgeTab = 'ext' | 'int';
 
 export interface State {
+  /* Not part of STORY_KEYS: a Nalaz caption cites numbers, and the numbers are
+     the same in both languages — only their separators change, and the caption
+     is re-rendered in the new language along with the rail it describes. */
+  lang: Lang;
   view: View;
   flow: Flow;
   den: Den;

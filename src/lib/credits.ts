@@ -1,3 +1,4 @@
+import { L } from './i18n.ts';
 /* ── The companion study ────────────────────────────────────────────────────
    This atlas was built as an interactive companion to a paper on county
    migration as a criterion for regionalisation. Until 27 July 2026 it was an
@@ -67,7 +68,7 @@ for (const k of ['gain', 'neu', 'loss'] as const)
 
 /** Header subtitle tail — link text, not the whole citation (an 11,5 px line). */
 export const paperSub = (): string =>
-  paperPending() ? 'još neobjavljen znanstveni rad' : PAPER.short;
+  paperPending() ? L('još neobjavljen znanstveni rad', 'a paper not yet published') : PAPER.short;
 
 /* Footer: what came from the study, and enough of the reference to find it. The
    footer is a fixed-height lane above the map and every wrapped line it gains
@@ -76,8 +77,9 @@ export const paperSub = (): string =>
    "nije javno objavljen" is the pending marker the <noscript> is checked
    against. */
 export const paperRefNote = (): string => paperPending()
-  ? 'Klasifikacija i prijedlog regija preuzeti su iz znanstvenog rada koji još nije javno objavljen; potpuna referenca i atribucija slijede po objavi.'
-  : 'Klasifikacija i prijedlog regija preuzeti su iz rada:';
+  ? L('Klasifikacija i prijedlog regija preuzeti su iz znanstvenog rada koji još nije javno objavljen; potpuna referenca i atribucija slijede po objavi.',
+    'The classification and the proposed regions come from a paper that is not yet publicly available; the full reference and attribution follow on publication.')
+  : L('Klasifikacija i prijedlog regija preuzeti su iz rada:', 'The classification and the proposed regions come from:');
 
 /** What follows the link in the footer, so the credit reads as a reference. */
 export const paperRefTail = (): string => paperPending() ? '' : ', ' + PAPER.journal + '.';
@@ -93,16 +95,22 @@ export const paperRefTail = (): string => paperPending() ? '' : ', ' + PAPER.jou
    surface because the study is CC BY-NC — nothing the atlas displays is derived
    from the study's expression, so the NC clause is not engaged either way (see
    LICENSE), but a reader should not have to work that out to be reassured. */
-export const NO_AFFIL = 'Atlas je neovisan, neslužben i nekomercijalan projekt: autor atlasa nije povezan s autorima rada ni s njihovim ustanovama.';
+/* A function, not a const: this module's body runs at import time, before
+   App.tsx's module scope calls setLang, so a const would be frozen in the
+   default language and would never follow the toggle. */
+export const NO_AFFIL = (): string => L(
+  'Atlas je neovisan, neslužben i nekomercijalan projekt: autor atlasa nije povezan s autorima rada ni s njihovim ustanovama.',
+  'The atlas is an independent, unofficial and non-commercial project: its author is not affiliated with the paper’s authors or their institutions.');
 
 /* The exported image is the artifact that leaves the app — there is no footnote
    to click through to and no link either, so it carries the DOI as text. Only
    the two views that reproduce the study's method (klasifikacija: the threshold;
    regije: the grouping) say anything; the other four take nothing from it. */
 export const paperExportLine = (): string => (paperPending()
-  ? 'Klasifikacija i regije prema još neobjavljenom znanstvenom radu (referenca po objavi)'
-  : 'Klasifikacija i regije prema: ' + PAPER.short + ', ' + PAPER.doi)
-  + ' · atlas nije povezan s njegovim autorima';
+  ? L('Klasifikacija i regije prema još neobjavljenom znanstvenom radu (referenca po objavi)',
+    'Classification and regions after a paper not yet published (reference on publication)')
+  : L('Klasifikacija i regije prema: ', 'Classification and regions after: ') + PAPER.short + ', ' + PAPER.doi)
+  + L(' · atlas nije povezan s njegovim autorima', ' · the atlas is not affiliated with its authors');
 
 /* The screen says this in the footer; the export has to carry its own copy. An
    exported PNG ends up in a slide or a report with no footer to scroll to and
@@ -113,19 +121,26 @@ export const paperExportLine = (): string => (paperPending()
    canvas edge clips. Same two-view scoping — the other four take nothing from
    the study and must not imply they disagree with it either. */
 export const paperCaveatLine = (): string =>
-  'DZS naknadno revidira serije, pa se pojedine vrijednosti i razredi razlikuju od objavljenih u radu';
+  L('DZS naknadno revidira serije, pa se pojedine vrijednosti i razredi razlikuju od objavljenih u radu',
+    'CBS revises its series afterwards, so some values and classes differ from those published in the paper');
 
 /** Glossary, first paragraph: the sentence the full citation follows. */
 export const paperHelpIntro = (): string => paperPending()
-  ? 'Rukopis je autor atlasa dobio izravno od autora rada, a rad još nije javno objavljen — zato se ovdje ne navodi: ni autori, ni naslov, ni godina. Potpuna referenca i atribucija dodat će se čim rad postane javno dostupan.'
-  : `Rad je objavljen i slobodno dostupan (${PAPER.licence}):`;
+  ? L('Rukopis je autor atlasa dobio izravno od autora rada, a rad još nije javno objavljen — zato se ovdje ne navodi: ni autori, ni naslov, ni godina. Potpuna referenca i atribucija dodat će se čim rad postane javno dostupan.',
+    'The author of the atlas received the manuscript directly from the paper’s authors, and it is not yet publicly available — so it is not named here: not the authors, not the title, not the year. The full reference and attribution will be added as soon as it is public.')
+  : L(`Rad je objavljen i slobodno dostupan (${PAPER.licence}):`,
+    `The paper is published and freely available (${PAPER.licence}):`);
 
 /** Glossary: what a reader can and cannot check against the source. */
 export const paperCheckNote = (): string => paperPending()
-  ? 'Dok rad nije javno dostupan, tvrdnje pripisane radu ne možete provjeriti u izvoru; sve ostalo možete.'
-  : 'Sve što je ovdje pripisano radu možete provjeriti u izvoru — poveznica je gore.';
+  ? L('Dok rad nije javno dostupan, tvrdnje pripisane radu ne možete provjeriti u izvoru; sve ostalo možete.',
+    'While the paper is not publicly available you cannot check claims attributed to it against the source; everything else you can.')
+  : L('Sve što je ovdje pripisano radu možete provjeriti u izvoru — poveznica je gore.',
+    'Everything attributed here to the paper can be checked against the source — the link is above.');
 
 /** The `rad` shorthand the legend and the rail use, defined in one place. */
 export const paperTerm = (): string => paperPending()
-  ? 'znanstveni rad kojemu je atlas nadopuna; još nije javno objavljen — v. „Rad i atribucija” niže'
-  : `${PAPER.short}, ${PAPER.journal} — v. „Rad i atribucija” niže`;
+  ? L('znanstveni rad kojemu je atlas nadopuna; još nije javno objavljen — v. „Rad i atribucija” niže',
+    'the paper this atlas is a companion to; not yet published — see “The paper and attribution” below')
+  : L(`${PAPER.short}, ${PAPER.journal} — v. „Rad i atribucija” niže`,
+    `${PAPER.short}, ${PAPER.journal} — see “The paper and attribution” below`);

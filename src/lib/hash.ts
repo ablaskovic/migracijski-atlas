@@ -10,9 +10,16 @@ const VIEWS = ['saldo', 'klas', 'reg', 'flow', 'mx', 'jmap', 'yrs'] as const;
 const FLOWS = ['tot', 'int', 'ext', 'nat', 'all'] as const;
 const DENS = ['abs', 'rel11', 'relest'] as const;
 const DIRS = ['out', 'in', 'net'] as const;
+const LANGS = ['hr', 'en'] as const;
 
 export function encodeHash(S: State): string {
   const p = new URLSearchParams();
+  /* Omitted when it matches the reader's own default (BASE resolves that from
+     the stored choice, then the browser), which is what keeps a plain link
+     language-neutral: shared without `l=`, it opens in whatever the recipient
+     reads. Present the moment the language was *chosen*, so a link shared from
+     the English view arrives in English. */
+  if (S.lang !== BASE.lang) p.set('l', S.lang);
   p.set('v', S.view);
   /* "same as BASE" is the omission rule, and decodeHash's story guard reads it
      back the same way — so both sides must consult BASE, not a literal copy */
@@ -40,6 +47,8 @@ function oneOf<T extends string>(v: string | null, all: readonly T[]): T | undef
 export function decodeHash(hash: string): Patch {
   const p = new URLSearchParams(hash.replace(/^#/, ''));
   const o: Patch = {};
+  const lang = oneOf(p.get('l'), LANGS);
+  if (lang) o.lang = lang;
   const view = oneOf(p.get('v'), VIEWS);
   if (view) o.view = view;
   const flow = oneOf(p.get('f'), FLOWS);

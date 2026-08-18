@@ -17,6 +17,7 @@ import YearsView from './YearsView.tsx';
 import HelpPanel from './HelpPanel.tsx';
 import StoryBar from './StoryBar.tsx';
 import { moveTip, COARSE } from '../lib/tip.ts';
+import { L } from '../lib/i18n.ts';
 import { focusSoon, isKeyFocus } from '../lib/state.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -240,7 +241,8 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
       ) : S.view === 'jmap' ? (
         /* role=img would declare this a single leaf graphic and hide the
            focusable features inside it from assistive tech */
-        <svg id="map" role="group" aria-label="Karta gradova i općina — unutarnja migracija 2018. Strelice pomiču odabir."
+        <svg id="map" role="group" aria-label={L('Karta gradova i općina — unutarnja migracija 2018. Strelice pomiču odabir.',
+        'Map of towns and municipalities — internal migration 2018. Arrow keys move the selection.')}
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
           <g ref={jgRef}>
@@ -314,7 +316,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           </g>
         </svg>
       ) : (
-        <svg id="map" role="group" aria-label="Karta županija Hrvatske"
+        <svg id="map" role="group" aria-label={L('Karta županija Hrvatske', 'Map of Croatian counties')}
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
           <g>
@@ -380,10 +382,10 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
         </svg>
       )}
       <button className={'helpbtn' + (S.help ? ' on' : '')} id="helpBtn" aria-pressed={S.help}
-        title="Kako čitati atlas" aria-label="Kako čitati atlas" onClick={toggleHelp}>?</button>
+        title={L('Kako čitati atlas', 'How to read the atlas')} aria-label={L('Kako čitati atlas', 'How to read the atlas')} onClick={toggleHelp}>?</button>
       {S.view !== 'mx' && (
         <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
-          onClick={() => setS({ labels: !S.labels })}>Aa oznake</button>
+          onClick={() => setS({ labels: !S.labels })}>{L('Aa oznake', 'Aa labels')}</button>
       )}
       {zoom.zoomed && (
         /* Resetting the zoom unmounts this button, so focus had nowhere to go;
@@ -391,7 +393,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
            also used to say two different things to two different users. */
         <button className="zoomrst" id="zoomRst"
           onClick={() => { zoom.reset(); focusSoon('#labBtn, #helpBtn'); }}
-          title="Vrati zumiranje na početno"
+          title={L('Vrati zumiranje na početno', 'Reset zoom')}
           aria-label={`Vrati zumiranje na početno, trenutačno ${Math.round(zoom.t.k * 10) / 10}×`}>
           ⤢ {Math.round(zoom.t.k * 10) / 10}×
         </button>
@@ -407,10 +409,10 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
         <div className="geostat" id="jstatus" role="status" aria-live="polite">
           {jlsFailed() ? (
             <>
-              <span id="jerror">Geometrija JLS nije učitana.</span>
-              <button id="jretry" onClick={retryGeo}>Pokušaj ponovno</button>
+              <span id="jerror">{L('Geometrija JLS nije učitana.', 'LAU geometry failed to load.')}</span>
+              <button id="jretry" onClick={retryGeo}>{L('Pokušaj ponovno', 'Try again')}</button>
             </>
-          ) : <span id="jloading">Učitavanje geometrije JLS…</span>}
+          ) : <span id="jloading">{L('Učitavanje geometrije JLS…', 'Loading LAU geometry…')}</span>}
         </div>
       )}
       <Legend S={S} />

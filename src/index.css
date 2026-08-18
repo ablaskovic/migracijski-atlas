@@ -127,6 +127,19 @@ svg :focus,#spark:focus{outline:none}
 .hd-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase}
 .hd-title{font-family:var(--disp);font-weight:600;font-size:23px;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
 .hd-sub{font-size:11.5px;color:var(--mut);margin-top:2px}
+/* The language switch lives in the identity block: .ctrls has no room for an
+   eighth group (measured, it costs the header 54 px and the map the same), and
+   this block has vertical slack. Narrow and quiet — it is chrome, not a data
+   control, so it does not take the teal that Prikaz/Smjer use. */
+/* On the title's own line, not under the subtitle. The identity block is what
+   sets the header's height here (.ctrls wraps beneath it at 1440 and is only
+   44 px tall), so a third line in that block cost the header 33 px and the map
+   the same — measured 138 → 171. The <h1> line is already 25 px, so a 24 px
+   control beside it is free, and 24 px is the WCAG 2.5.8 minimum this pass
+   spent two other fixes on. */
+.hd-titlerow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hd-lang{width:max-content;flex:none}
+.hd-lang button{padding:0 8px;min-height:24px;font-size:10px;font-family:var(--mono);letter-spacing:.06em}
 .ctrls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .ctrl{display:flex;flex-direction:column;gap:4px}
 .ctrl-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}

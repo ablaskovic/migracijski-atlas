@@ -3,6 +3,7 @@ import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
 import { YEARS, Y0, YEND, IX2018, SHORTN, getOD, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
+import { L } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Corridor card: the annual series of one directed pair (sel ⇄ pair) from ODM.
@@ -83,7 +84,8 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
         <span>{YEARS[S.yi]}. · → {fmtI.format(outs[S.yi])} · ← {fmtI.format(ins[S.yi])} · neto {sgn(nets[S.yi], fmtI)}</span>
         <span className={'cls-tag ' + (flowBadge(S.yi, false) === 'izmjereno' ? 'meas' : 'est')}>{flowBadge(S.yi, false)}</span>
       </div>
-      <div className="pair-note">{S.yi === IX2018 ? 'Jedina godina s izmjerenom matricom tokova.' : 'Točka 2018. je izmjerena; ostale su godine IPF procjena na DZS marginama.'}</div>
+      <div className="pair-note">{S.yi === IX2018 ? 'Jedina godina s izmjerenom matricom tokova.' : L('Točka 2018. je izmjerena; ostale su godine IPF procjena na DZS marginama.',
+    'The 2018 point is measured; the other years are IPF estimates on CBS margins.')}</div>
     </div>
   );
 }

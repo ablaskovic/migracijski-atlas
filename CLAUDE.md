@@ -111,8 +111,28 @@ the page. And the build shipped no source maps. It also found that
 `npm run verify` had been **red since the analytics commit** — two Vercel
 platform routes 404 on any non-Vercel host — **305 checks** (the suite's own pin
 said 296 while this file said 295; the suite was right).
+**v2.2.0** adds the second language. The atlas is Croatian and stays Croatian
+by default; English exists so it can be shown to people who do not read
+Croatian. Three things make it more than a word swap. **Numbers are part of the
+translation**: Croatian writes `41.986` where English writes `41,986`, so an
+untranslated figure is not merely foreign to an English reader, it is wrong by
+three orders of magnitude — `fmtI`/`fmtR` became locale-aware proxies, which
+left all 112 of their call sites untouched. **The sources are not translated**:
+county and municipality names, DZS table numbers and the study's citation are
+identifiers a reader checks against the source, so they stay put, while
+everything the atlas says *about* them moves — including every honesty label,
+because a badge nobody can read is not a label. And **who gets which language**
+is decided by the reader: `hr`/`bs`/`sr`/`sh`/`me`/`cnr` (any region) get
+Croatian, everyone else English, a chosen language is stored, and `l=` in the
+permalink outranks both so a link shared in English arrives in English — while
+a link at the reader's own default carries no `l=` at all and stays
+language-neutral. The suite had to pin its own language first: headless Chrome
+reports `en-US`, so without `--lang=hr-HR` plus a `navigator.languages`
+override the atlas booted in English and ~50 Croatian-matching checks failed at
+once — **318 checks**.
 New surfaces obey the same rules: honesty labels,
-generated-data-stays-generated, hr-HR formatting, and green verify before "done".
+generated-data-stays-generated, hr-HR formatting **in Croatian and en-GB in
+English**, and green verify before "done".
 
 ## Commands
 
@@ -121,7 +141,7 @@ npm run dev        # vite dev server
 npm run build      # production build -> dist/ (base './', works from any subpath;
                    #   NOT from file:// — the entry is an ES module, CORS-blocked
                    #   from a null origin. Measured: blank page.)
-npm run verify     # typecheck + lint + build + the 305-check puppeteer suite
+npm run verify     # typecheck + lint + build + the 318-check puppeteer suite
                    #   (960–1600 px + 390 px; asserts its own check count)
                    #   Serves dist itself and STUBS /_vercel/{insights,speed-
                    #   insights}/script.js — Vercel serves those from its own
@@ -249,9 +269,18 @@ just failed and could never have helped.
    recorded only in `reference/HANDOFF-v4-singlefile.md` §provenance). A DZS
    revision of sheet 7.4.2 therefore cannot be absorbed by "rerun the pipeline" —
    the parser does not live in this repo. See `tools/pipeline/README.md`.
-5. **hr-HR formatting** everywhere (`Intl 'hr-HR'`), display minus is U+2212 `−`
-   (verify.cjs matches on it), UI copy is Croatian, declension avoided via arrow
-   phrasing ("X → ostale županije").
+5. **Locale-correct formatting**, which since v2.2.0 means two locales, not one.
+   Croatian formats through `Intl 'hr-HR'` and English through `'en-GB'`; the
+   display minus is U+2212 `−` in **both**, because that is a glyph choice this
+   project pins rather than a locale convention (verify.cjs matches on it).
+   Nothing constructs an `Intl.NumberFormat` outside `lib/i18n.ts` — `fmtI` and
+   `fmtR` are proxies over its two instances, so a call site cannot pick a
+   locale by accident. Croatian ordinals keep their trailing dot (`2024.`,
+   `2011.–2024.`) and English does not, which is why every year that reaches the
+   screen goes through `yr()`/`yrSpan()` rather than being interpolated.
+   UI copy exists in both languages; declension is still avoided via arrow
+   phrasing ("X → ostale županije"), which is also what keeps one string correct
+   for all 21 counties in each language.
 
 ## Architecture
 
@@ -263,6 +292,14 @@ src/lib/metrics.ts       pure computation layer: series, domains (DOM/RDOM),
                          VLAB, countyAria, exportDesc. No DOM and no React *in
                          this file* — it does import geoAsync, which imports
                          React, so the graph is not React-free. Most logic here.
+src/lib/i18n.ts          the language: `Lang`, `detectLang()` (hr/bs/sr/sh/me/cnr
+                         → Croatian, else English), `storedLang`/`storeLang`,
+                         `setLang`, the `L(hr, en)` inline pair, the `t()`
+                         dictionary of shared enumerated labels, `numI`/`numR`
+                         and `yr`/`yrSpan`. `LANG` is a module mirror of
+                         `S.lang`, set by App *before* it renders — an effect
+                         would paint one frame of the wrong language, and one
+                         frame of `41.986` meaning something else entirely
 src/lib/state.ts         BASE (the boot state) + STORY_KEYS + focusSoon; shared by
                          App and the codec so "omitted from the hash" and
                          "still at its default" cannot drift apart. focusSoon walks
@@ -350,7 +387,7 @@ public/robots.txt        served, not rewritten — see the v2.1.1 invariants. Th
                          only file in public/ besides the favicon and the two OFL
                          licence texts, and for the same reason: it must exist at
                          a fixed URL rather than be emitted with a hashed name
-scripts/verify.cjs       the executable verification protocol (305 checks; the
+scripts/verify.cjs       the executable verification protocol (318 checks; the
                          390 px block re-runs geometry with hasTouch, the
                          v2.0.4 block after it pins the review-pass-2 findings,
                          and the v2.0.6 block pins the attribution surfaces)

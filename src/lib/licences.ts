@@ -1,3 +1,4 @@
+import { L } from './i18n.ts';
 /* ── Sources and licences, in one place ─────────────────────────────────────
    Same reasoning as credits.ts, applied to everything that is not the companion
    study. Three surfaces name these — the footer, the glossary and both export
@@ -26,28 +27,39 @@
 export interface SourceLink { label: string; href: string; note: string }
 
 /** The four upstream sources, in the order the footer already names them. */
-export const SOURCES: SourceLink[] = [
+/* A function, not a const array. `note` is language-dependent, and this module's
+   body runs at import time — before App.tsx's own module scope calls setLang —
+   so a const would have frozen every note in whatever language happened to be
+   the default, and would never have followed the toggle afterwards. `label` and
+   `href` are identifiers and stay put. */
+const SRC = (): SourceLink[] => [
   {
     label: 'Državni zavod za statistiku',
     href: 'https://podaci.dzs.hr/',
-    note: 'tablice 7.4.1.–7.4.3. i STAN-2026-2-1 — uvjeti korištenja DZS-a',
+    note: L('tablice 7.4.1.–7.4.3. i STAN-2026-2-1 — uvjeti korištenja DZS-a',
+      'tables 7.4.1.–7.4.3. and STAN-2026-2-1 — CBS terms of use'),
   },
   {
     label: 'Pitoski i sur. (2021.)',
     href: 'https://doi.org/10.1186/s40649-021-00093-0',
-    note: 'izmjereni tokovi 2018. (županije i JLS), CC BY 4.0',
+    note: L('izmjereni tokovi 2018. (županije i JLS), CC BY 4.0',
+      'measured 2018 flows (counties and LAUs), CC BY 4.0'),
   },
   {
     label: 'OpenStreetMap',
     href: 'https://www.openstreetmap.org/copyright',
-    note: 'granice JLS (Overpass admin_level=7), ODbL 1.0',
+    note: L('granice JLS (Overpass admin_level=7), ODbL 1.0',
+      'LAU boundaries (Overpass admin_level=7), ODbL 1.0'),
   },
   {
     label: 'geoBoundaries',
     href: 'https://www.geoboundaries.org/',
-    note: 'granice županija (ADM1, izvedeno iz OSM-a), ODbL 1.0',
+    note: L('granice županija (ADM1, izvedeno iz OSM-a), ODbL 1.0',
+      'county boundaries (ADM1, derived from OSM), ODbL 1.0'),
   },
 ];
+/** The four upstream sources, in the order the footer already names them. */
+export const sources = SRC;
 
 /* What the exported PNG/SVG may be used for. A rendered map is a Produced Work,
    so this is ours to set; CC BY 4.0 keeps it reusable in a paper or a slide
@@ -64,4 +76,5 @@ export const FONT_LICENCE_HREF = './fonts/OFL-IBMPlex.txt';
    same licence, unlike the study line, which only the two views that reproduce
    the study's method may claim. */
 export const exportLicenceLine = (): string =>
-  `Slika: ${IMG_LICENCE} · kod: ${CODE_LICENCE} · podaci pod uvjetima izvora (DZS · Pitoski i sur. 2021. CC BY · granice ODbL)`;
+  L(`Slika: ${IMG_LICENCE} · kod: ${CODE_LICENCE} · podaci pod uvjetima izvora (DZS · Pitoski i sur. 2021. CC BY · granice ODbL)`,
+    `Figure: ${IMG_LICENCE} · code: ${CODE_LICENCE} · data under its sources' terms (CBS · Pitoski et al. 2021 CC BY · boundaries ODbL)`);

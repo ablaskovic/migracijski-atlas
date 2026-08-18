@@ -3,6 +3,7 @@ import {
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, fmtI, fmtR,
 } from '../lib/metrics.ts';
 import { PAPER_THR, PAPER_WINDOW } from '../lib/credits.ts';
+import { L, t, yr, yrSpan } from '../lib/i18n.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import type { CSSProperties } from 'react';
 import type { Klas, State } from '../lib/types.ts';
@@ -92,16 +93,29 @@ const PW = `${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.`;
    anyway — so in godišnje mode, the only mode where 1998–2006 actually renders
    values, there was no marking at all. */
 const preNote = (S: State): string =>
-  !S.cum && YEARS[S.yi] < 2007 ? ' Prije 2007. međužupanijske margine ne zatvaraju se točno — v. „Kako čitati”.' : '';
+  !S.cum && YEARS[S.yi] < 2007
+    ? L(' Prije 2007. međužupanijske margine ne zatvaraju se točno — v. „Kako čitati”.',
+      ' Before 2007 the inter-county margins do not close exactly — see “How to read”.') : '';
 function klasNote(S: State): string {
   if (paperKlasComparable(S)) {
-    if (!PAPER_KLAS_DIFF.length) return `Podjela odgovara objavljenoj u radu za ${PW}`;
+    if (!PAPER_KLAS_DIFF.length) {
+      return L(`Podjela odgovara objavljenoj u radu za ${PW}`,
+        `The split matches the one published in the paper for ${PW}`);
+    }
     const who = PAPER_KLAS_DIFF.map(d => SHORTN[d.iso]).join(', ');
-    return `Rad za ${PW} objavljuje 7 / 7 / 7. Na novijoj DZS seriji drukčije `
-      + `${PAPER_KLAS_DIFF.length > 1 ? 'su razvrstane' : 'je razvrstana'}: ${who} — v. „Kako čitati”.`;
+    /* Croatian needs the verb to agree with the count; English does not, so the
+       plural branch exists only on the Croatian side. */
+    return L(`Rad za ${PW} objavljuje 7 / 7 / 7. Na novijoj DZS seriji drukčije `
+      + `${PAPER_KLAS_DIFF.length > 1 ? 'su razvrstane' : 'je razvrstana'}: ${who} — v. „Kako čitati”.`,
+    `The paper publishes 7 / 7 / 7 for ${PW}. On the newer CBS series `
+      + `${PAPER_KLAS_DIFF.length > 1 ? 'these fall' : 'this falls'} differently: ${who} — see “How to read”.`);
   }
-  if (S.thrRel) return `Prag u % popisa 2011. — rad koristi apsolutni prag (${fmtI.format(PAPER_THR)}, ${PW}), a argumentira relativno.`;
-  return `Prag i tri razreda iz rada; rad ih računa za ${PW} pragom ${fmtI.format(PAPER_THR)}.`;
+  if (S.thrRel) {
+    return L(`Prag u % popisa 2011. — rad koristi apsolutni prag (${fmtI.format(PAPER_THR)}, ${PW}), a argumentira relativno.`,
+      `Threshold as % of the 2011 census — the paper uses an absolute threshold (${fmtI.format(PAPER_THR)}, ${PW}) but argues in relative terms.`);
+  }
+  return L(`Prag i tri razreda iz rada; rad ih računa za ${PW} pragom ${fmtI.format(PAPER_THR)}.`,
+    `Threshold and the three classes are the paper's; it computes them for ${PW} at a threshold of ${fmtI.format(PAPER_THR)}.`);
 }
 
 export default function Legend({ S }: { S: State }) {
@@ -109,16 +123,17 @@ export default function Legend({ S }: { S: State }) {
   const flowName = FLOWN[S.flow];
   /* one wording for one denominator — the control, the legend and the export
      caption used to say this three different ways */
-  const denName = S.den === 'rel11' ? ' · % popisa 2011.' : S.den === 'relest' ? ' · % tek. procjene' : '';
-  const per = S.cum ? '2011.–' + YEARS[S.yi] + '.' : YEARS[S.yi] + '.';
+  const denName = S.den === 'rel11' ? L(' · % popisa 2011.', ' · % of 2011 census')
+    : S.den === 'relest' ? L(' · % tek. procjene', ' · % of current estimate') : '';
+  const per = S.cum ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi]);
 
   if (S.view === 'klas') {
     const counts: Record<Klas, number> = { gain: 0, neu: 0, loss: 0 };
     ISOS.forEach(iso => counts[klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct)]++);
-    const prag = S.thrRel ? fmtR.format(S.thrPct) + ' % popisa 2011.' : fmtI.format(S.thr);
+    const prag = S.thrRel ? fmtR.format(S.thrPct) + L(' % popisa 2011.', ' % of 2011 census') : fmtI.format(S.thr);
     return (
       <div className="legend" id="legend">
-        <div className="legend-title">Klasifikacija iz rada · prag {prag}</div>
+        <div className="legend-title">{L('Klasifikacija iz rada · prag ', 'Classification from the paper · threshold ')}{prag}</div>
         <div className="legend-cats">
           {(['gain', 'neu', 'loss'] as const).map(k => (
             <div className="legend-cat" key={k}>
@@ -136,16 +151,18 @@ export default function Legend({ S }: { S: State }) {
   if (S.view === 'yrs') {
     const m = DOM[S.flow + S.den + S.cum];
     const cs = yrsCols(S.cum);
-    const span = YEARS[cs[0]] + '.–' + YEARS[cs[cs.length - 1]] + '.';
+    const span = yrSpan(YEARS[cs[0]], YEARS[cs[cs.length - 1]]);
     return (
       <div className="legend" id="legend">
-        <div className="legend-title">Županije × godine · {flowName}{denName} · {span}</div>
+        <div className="legend-title">{L('Županije × godine · ', 'Counties × years · ')}{flowName}{denName} · {span}</div>
         <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
         <div className="legend-note">
-          Redak je županija, stupac godina; redci su poredani po zbroju razdoblja.
-          Tirkizni stupac je odabrana godina — klik na ćeliju je postavlja.
-          {S.flow === 'all' && ' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.'}
-          {!S.cum && ' Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju — v. „Kako čitati”.'}
+          {L('Redak je županija, stupac godina; redci su poredani po zbroju razdoblja. Tirkizni stupac je odabrana godina — klik na ćeliju je postavlja.',
+            'A row is a county, a column a year; rows are ordered by the period total. The teal column is the selected year — clicking a cell sets it.')}
+          {S.flow === 'all' && L(' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
+            ' The sum of two published components — not total population change.')}
+          {!S.cum && L(' Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju — v. „Kako čitati”.',
+            ' Hatched before 2007: the inter-county margins do not close before then — see “How to read”.')}
         </div>
       </div>
     );
@@ -154,7 +171,7 @@ export default function Legend({ S }: { S: State }) {
     const m = RDOM[S.flow + S.den + S.cum];
     return (
       <div className="legend" id="legend">
-        <div className="legend-title">Regije (5) · {flowName}{denName}</div>
+        <div className="legend-title">{L('Regije (5) · ', 'Regions (5) · ')}{flowName}{denName}</div>
         <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
         {/* The note used to say Lika was "u radu neodređeno". Now that the study
             is retrievable that is checkable and not quite true — its nine-region
@@ -163,21 +180,27 @@ export default function Legend({ S }: { S: State }) {
             list at all, so the whole 21→5 partition is the atlas's reading, not
             one footnote's worth of it. The per-county detail is in the glossary;
             this line has to fit above the map. */}
-        <div className="legend-note">Plavo: regija dobiva stanovnike · crveno: gubi ih. Rad predlaže pet regija i njihova središta, ali ne objavljuje popis županija — raspored po županijama je tumačenje atlasa; v. „Kako čitati”.{preNote(S)}</div>
+        <div className="legend-note">{L('Plavo: regija dobiva stanovnike · crveno: gubi ih. Rad predlaže pet regija i njihova središta, ali ne objavljuje popis županija — raspored po županijama je tumačenje atlasa; v. „Kako čitati”.',
+          'Blue: the region gains people · red: it loses them. The paper proposes five regions and their centres but publishes no county list — assigning counties to them is the atlas’s reading; see “How to read”.')}{preNote(S)}</div>
       </div>
     );
   }
   if (S.view === 'jmap') {
     const { m, scale } = jmapScale(S.dir);
     const mark = markPct(S, m);
-    const ttl = { out: 'odlasci iz JLS', in: 'dolasci u JLS', net: 'neto po JLS' }[S.dir];
+    const ttl = {
+      out: L('odlasci iz JLS', 'moves out of the LAU'),
+      in: L('dolasci u JLS', 'moves into the LAU'),
+      net: L('neto po JLS', 'net per LAU'),
+    }[S.dir];
     return (
       <div className="legend" id="legend">
-        <div className="legend-title">Gradovi i općine · {ttl} · 2018.</div>
+        <div className="legend-title">{L('Gradovi i općine · ', 'Towns and municipalities · ')}{ttl} · {yr(2018)}</div>
         {S.dir === 'net'
           ? <GradBar scale={scale} m={m} rel={false} mark={mark} />
           : <SeqBar scale={scale} m={m} mark={mark} />}
-        <div className="legend-note">Boja po korijenskoj (√) skali. Samo preseljenja unutar RH (selidbe između JLS, bez inozemstva). Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY). Granice: OSM/ODbL.</div>
+        <div className="legend-note">{L('Boja po korijenskoj (√) skali. Samo preseljenja unutar RH (selidbe između JLS, bez inozemstva). Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY). Granice: OSM/ODbL.',
+          'Colour on a square-root (√) scale. Internal moves only (between LAUs within Croatia, no international migration). Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY). Boundaries: OSM/ODbL.')}</div>
       </div>
     );
   }
@@ -185,16 +208,24 @@ export default function Legend({ S }: { S: State }) {
     const m = mxMax(S.dir, S.cum);
     const mark = markPct(S, m);
     const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
-      ? 'Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).'
-      : 'Procjena (IPF): struktura 2018. skalirana na DZS margine.' + (S.dir === 'net' ? ' Neto parova je strukturna procjena.' : '');
-    const ttl = { out: 'odlasci (redak → stupac)', in: 'dolasci (stupac → redak)', net: 'neto za redak' }[S.dir];
+      ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).',
+        'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
+      : L('Procjena (IPF): struktura 2018. skalirana na DZS margine.',
+        'Estimate (IPF): the 2018 structure scaled to CBS margins.')
+        + (S.dir === 'net' ? ' ' + t('note.pairEst') : '');
+    const ttl = {
+      out: L('odlasci (redak → stupac)', 'out (row → column)'),
+      in: L('dolasci (stupac → redak)', 'in (column → row)'),
+      net: L('neto za redak', 'net for the row'),
+    }[S.dir];
     return (
       <div className="legend" id="legend">
-        <div className="legend-title">Matrica tokova · {ttl} · {per}</div>
+        <div className="legend-title">{L('Matrica tokova · ', 'Flow matrix · ')}{ttl} · {per}</div>
         {S.dir === 'net'
           ? <GradBar scale={divScale(m)} m={m} rel={false} mark={mark} />
           : <SeqBar scale={seqScale(m, S.dir)} m={m} mark={mark} />}
-        <div className="legend-note">Dijagonala (selidbe unutar županije) nije dio međužupanijske matrice. {src}</div>
+        <div className="legend-note">{L('Dijagonala (selidbe unutar županije) nije dio međužupanijske matrice. ',
+          'The diagonal (moves within a county) is not part of the inter-county matrix. ')}{src}</div>
       </div>
     );
   }
@@ -202,14 +233,18 @@ export default function Legend({ S }: { S: State }) {
     const m = flowMax(S.sel!, S.dir, S.cum);
     const mark = markPct(S, m);
     const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
-      ? 'Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).'
-      : 'Procjena (IPF): struktura 2018. skalirana na DZS margine razdoblja.' + (S.dir === 'net' ? ' Neto parova je strukturna procjena.' : '');
+      ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).',
+        'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
+      : L('Procjena (IPF): struktura 2018. skalirana na DZS margine razdoblja.',
+        'Estimate (IPF): the 2018 structure scaled to the period’s CBS margins.')
+        + (S.dir === 'net' ? ' ' + t('note.pairEst') : '');
     if (S.dir === 'net') {
       return (
         <div className="legend" id="legend">
-          <div className="legend-title">Neto tokovi: {D[S.sel!]?.n || ''} ↔ partneri · {per}</div>
+          <div className="legend-title">{L('Neto tokovi: ', 'Net flows: ')}{D[S.sel!]?.n || ''}{L(' ↔ partneri · ', ' ↔ partners · ')}{per}</div>
           <GradBar scale={divScale(m)} m={m} rel={false} mark={mark} />
-          <div className="legend-note">Plavo: odabrana županija dobiva od partnera. Strelica pokazuje smjer selidbe. {src}</div>
+          <div className="legend-note">{L('Plavo: odabrana županija dobiva od partnera. Strelica pokazuje smjer selidbe. ',
+            'Blue: the selected county gains from the partner. The arrowhead shows the direction of the move. ')}{src}</div>
         </div>
       );
     }
@@ -217,10 +252,12 @@ export default function Legend({ S }: { S: State }) {
     return (
       <div className="legend" id="legend">
         <div className="legend-title">
-          {S.dir === 'out' ? (D[S.sel!]?.n || '') + ' → ostale županije' : 'ostale županije → ' + (D[S.sel!]?.n || '')} · {per}
+          {S.dir === 'out' ? (D[S.sel!]?.n || '') + L(' → ostale županije', ' → other counties')
+            : L('ostale županije → ', 'other counties → ') + (D[S.sel!]?.n || '')} · {per}
         </div>
         <SeqBar scale={sq} m={m} mark={mark} />
-        <div className="legend-note">Debljina luka ∝ broju osoba, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. {src}</div>
+        <div className="legend-note">{L('Debljina luka ∝ broju osoba, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. ',
+          'Arc width ∝ number of people, relative to the selected county (not comparable between counties). The arrowhead shows the direction of the move. ')}{src}</div>
       </div>
     );
   }
@@ -233,8 +270,10 @@ export default function Legend({ S }: { S: State }) {
       <div className="legend-title">{flowName}{denName}</div>
       <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
       <div className="legend-note">
-        Plavo: županija dobiva stanovnike · crveno: gubi ih · 0 = ravnoteža.
-        {S.flow === 'all' && ' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.'}
+        {L('Plavo: županija dobiva stanovnike · crveno: gubi ih · 0 = ravnoteža.',
+          'Blue: the county gains people · red: it loses them · 0 = balance.')}
+        {S.flow === 'all' && L(' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
+          ' The sum of two published components — not total population change.')}
         {preNote(S)}
       </div>
     </div>

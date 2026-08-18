@@ -1,5 +1,6 @@
 import { DEMO, fmtI } from '../lib/metrics.ts';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { L } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Dob i spol — who is actually moving. National, 2025 only (I T3 / II T2 are
@@ -25,7 +26,7 @@ export default function AgePanel({ S, setS, toggleAge }: {
       <div className="chip-hd" id="ageHd" role="button" tabIndex={0} aria-expanded={open}
         onClick={toggleAge} onKeyDown={onKey}>
         <span className="chip-arr" aria-hidden="true">▸</span>
-        <span>Dob i spol<span className="chip-more">{` · RH · ${DEMO.year}.`}</span></span>
+        <span>{L('Dob i spol', 'Age and sex')}<span className="chip-more">{` · RH · ${DEMO.year}.`}</span></span>
       </div>
       {open && (
         <div className="chip-body">
@@ -34,8 +35,8 @@ export default function AgePanel({ S, setS, toggleAge }: {
               : 'preseljeni unutar RH po starosti (sve razine)'}
           </div>
           <div className="jtabs" id="ageTabs">
-            <button data-v="ext" aria-pressed={ext} onClick={() => setS({ ageTab: 'ext' })}>Vanjska</button>
-            <button data-v="int" aria-pressed={!ext} onClick={() => setS({ ageTab: 'int' })}>Unutarnja</button>
+            <button data-v="ext" aria-pressed={ext} onClick={() => setS({ ageTab: 'ext' })}>{L('Vanjska', 'External')}</button>
+            <button data-v="int" aria-pressed={!ext} onClick={() => setS({ ageTab: 'int' })}>{L('Unutarnja', 'Internal')}</button>
           </div>
           <svg id="ageSvg" viewBox={`0 0 ${w} ${h}`} role="img"
             aria-label={ext ? 'Vanjska migracija prema starosti' : 'Unutarnja migracija prema starosti'}>
@@ -77,13 +78,13 @@ export default function AgePanel({ S, setS, toggleAge }: {
           <div className="age-rows" id="ageRows">
             {ext ? (
               <>
-                <span>doseljeni <b>{'+' + fmtI.format(DEMO.cTot[0])}</b> · {Math.round(100 * DEMO.extM.d / DEMO.cTot[0])} % muškarci</span>
-                <span>odseljeni <b>{'−' + fmtI.format(DEMO.cTot[1])}</b> · {Math.round(100 * DEMO.extM.o / DEMO.cTot[1])} % muškarci</span>
+                <span>{L('doseljeni ', 'arrivals ')}<b>{'+' + fmtI.format(DEMO.cTot[0])}</b> · {Math.round(100 * DEMO.extM.d / DEMO.cTot[0])} % muškarci</span>
+                <span>{L('odseljeni ', 'departures ')}<b>{'−' + fmtI.format(DEMO.cTot[1])}</b> · {Math.round(100 * DEMO.extM.o / DEMO.cTot[1])} % muškarci</span>
                 <span>vrh: <b>{DEMO.ages[peakIx]}</b> ({fmtI.format(DEMO.ext.d[peakIx])} doseljenih)</span>
               </>
             ) : (
               <>
-                <span>preseljeno <b>{fmtI.format(DEMO.intTot)}</b> · {Math.round(100 * (1 - DEMO.intM / DEMO.intTot))} % žene</span>
+                <span>{L('preseljeno ', 'moves ')}<b>{fmtI.format(DEMO.intTot)}</b> · {Math.round(100 * (1 - DEMO.intM / DEMO.intTot))} % žene</span>
                 <span>vrh: <b>{DEMO.ages[peakIx]}</b> ({fmtI.format(DEMO.intm[peakIx])} preseljenih)</span>
               </>
             )}

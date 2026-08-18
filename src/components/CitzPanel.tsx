@@ -1,8 +1,9 @@
 import { scaleBand, scaleLinear } from 'd3-scale';
 import { max } from 'd3-array';
-import { CIT, CGROUPS, DEMO, YEARS, fmtI, sgn } from '../lib/metrics.ts';
+import { CIT, cgroups, DEMO, YEARS, fmtI, sgn } from '../lib/metrics.ts';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react';
 import type { Patch, State } from '../lib/types.ts';
+import { L } from '../lib/i18n.ts';
 
 export default function CitzPanel({ S, setS, toggleCitz }: {
   S: State; setS: (p: Patch) => void; toggleCitz: () => void;
@@ -28,7 +29,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
   const bars: ReactElement[] = [];
   yy.forEach((yr, i) => {
     let up = 0, dn = 0;
-    for (const [k, , col] of CGROUPS) {
+    for (const [k, , col] of cgroups()) {
       const dv = CIT.g[k].d[i], ov = CIT.g[k].o[i];
       if (dv > 0) bars.push(<rect key={`${yr}${k}d`} x={x(yr)} width={x.bandwidth()}
         y={sD(up + dv)} height={sD(up) - sD(up + dv)} fill={col} opacity={yr === y ? 1 : 0.45} />);
@@ -46,17 +47,19 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
       <div className="chip-hd" id="citzHd" role="button" tabIndex={0} aria-expanded={open}
         onClick={toggleCitz} onKeyDown={onKey}>
         <span className="chip-arr" aria-hidden="true">▸</span>
-        <span>Državljanstvo<span className="chip-more">{` · RH · ${yy[0]}.–${yy[yy.length - 1]}.`}</span></span>
+        <span>{L('Državljanstvo', 'Citizenship')}<span className="chip-more">{` · RH · ${yy[0]}.–${yy[yy.length - 1]}.`}</span></span>
       </div>
       {open && (
         <div className="chip-body">
           <div className="jcard-cap">
-            {zem ? `zemlja podrijetla/odredišta · samo ${DEMO.year}. · najvećih 12 po doseljenima`
-              : 'vanjska migracija prema zemlji državljanstva · doseljeni (gore) / odseljeni (dolje)'}
+            {zem ? L(`zemlja podrijetla/odredišta · samo ${DEMO.year}. · najvećih 12 po doseljenima`,
+              `country of origin/destination · ${DEMO.year} only · top 12 by arrivals`)
+              : L('vanjska migracija prema zemlji državljanstva · doseljeni (gore) / odseljeni (dolje)',
+                'external migration by country of citizenship · arrivals (above) / departures (below)')}
           </div>
           <div className="jtabs" id="citzTabs">
-            <button data-v="grp" aria-pressed={!zem} onClick={() => setS({ citzTab: 'grp' })}>Skupine</button>
-            <button data-v="zem" aria-pressed={zem} onClick={() => setS({ citzTab: 'zem' })}>{`Zemlje ${DEMO.year}.`}</button>
+            <button data-v="grp" aria-pressed={!zem} onClick={() => setS({ citzTab: 'grp' })}>{L('Skupine', 'Groups')}</button>
+            <button data-v="zem" aria-pressed={zem} onClick={() => setS({ citzTab: 'zem' })}>{L(`Zemlje ${DEMO.year}.`, `Countries ${DEMO.year}`)}</button>
           </div>
           {/* one panel, two time behaviours: Skupine follows the scrubber,
               Zemlje is frozen — make the frozen one say so up front */}
@@ -83,7 +86,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
             </>
           ) : (
             <>
-              <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Doseljeni i odseljeni prema državljanstvu">
+              <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={L('Doseljeni i odseljeni prema državljanstvu', 'Arrivals and departures by citizenship')}>
                 {bars}
                 {yy.map(yr => (
                   <text key={yr} x={x(yr)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize={9}
@@ -93,7 +96,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                 <line x1={mL} x2={w - mR} y1={y0} y2={y0} stroke="var(--ink)" strokeWidth={0.8} />
               </svg>
               <div className="citz-rows" id="citzRows">
-                {CGROUPS.map(([k, lab, col]) => (
+                {cgroups().map(([k, lab, col]) => (
                   <FragmentRow key={k} col={col} lab={lab} d={CIT.g[k].d[ci]} o={CIT.g[k].o[ci]} />
                 ))}
                 <span />

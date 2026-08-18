@@ -3,6 +3,7 @@ import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
 import { YEARS, Y0, YEND, D, netAt, natAt, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
+import { L } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => void }) {
@@ -66,13 +67,13 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
       </svg>
       <div className="card-row" id="cardRow">
         <span className="cy">{YEARS[S.yi]}.</span>
-        <span>unut. <b>{sgn(ints[S.yi], fmtI)}</b></span>
-        <span>vanj. <b>{sgn(exts[S.yi], fmtI)}</b></span>
-        <span>prir. <b>{sgn(nats[S.yi], fmtI)}</b></span>
+        <span>{L('unut. ', 'internal ')}<b>{sgn(ints[S.yi], fmtI)}</b></span>
+        <span>{L('vanj. ', 'external ')}<b>{sgn(exts[S.yi], fmtI)}</b></span>
+        <span>{L('prir. ', 'natural ')}<b>{sgn(nats[S.yi], fmtI)}</b></span>
         {/* "uk." reads as ukupna promjena broja stanovnika — the one reading the
             tooltip, the legend and the glossary are all careful to deny. Name the
             two components instead, and carry the same caveat they carry. */}
-        <span>mig.+prir. <b>{sgn(ints[S.yi] + exts[S.yi] + nats[S.yi], fmtI)}</b></span>
+        <span>{L('mig.+prir. ', 'mig.+nat. ')}<b>{sgn(ints[S.yi] + exts[S.yi] + nats[S.yi], fmtI)}</b></span>
       </div>
       <div className="card-note" id="cardNote">
         Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.

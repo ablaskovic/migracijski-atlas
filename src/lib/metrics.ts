@@ -11,6 +11,7 @@ import type {
 
 /* JSON payloads are cast to the shapes in types.ts (via unknown: the inferred
    literal types don't overlap with GeoJSON's/our discriminated interfaces). */
+import { L, numI, numR, t, yr, yrSpan } from './i18n.ts';
 import GEOjson from '../data/geo_counties.json';
 import RAWjson from '../data/atlas_data2.json';
 import ODMjson from '../data/odm.json';
@@ -37,30 +38,76 @@ export const IX2011 = YEARS.indexOf(2011);
 export const IX2018 = YEARS.indexOf(2018);
 export const ISOS = Object.keys(D);
 
-export const fmtI = new Intl.NumberFormat('hr-HR');
-export const fmtR = new Intl.NumberFormat('hr-HR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-export const sgn = (v: number, f: Intl.NumberFormat) =>
+/* Locale-aware, but shaped exactly like the `Intl.NumberFormat` instances these
+   used to be, because ~90 call sites across fifteen components say
+   `fmtI.format(x)` and none of them should have to know what language the page
+   is in. The delegation is to i18n's pair of real instances — nothing is
+   constructed per call.
+
+   This is not cosmetic. Croatian writes `41.986` where English writes `41,986`,
+   so an untranslated number is not merely foreign, it is wrong by three orders
+   of magnitude to the reader it is shown to. The display minus is U+2212 in both
+   languages: that is a glyph choice the house rules pin, not a locale one. */
+export const fmtI: Pick<Intl.NumberFormat, 'format'> = { format: n => numI().format(n) };
+export const fmtR: Pick<Intl.NumberFormat, 'format'> = { format: n => numR().format(n) };
+export const sgn = (v: number, f: Pick<Intl.NumberFormat, 'format'>) =>
   (v > 0 ? '+' : v < 0 ? '−' : '') + f.format(Math.abs(v));
 
-export const REG: Record<string, { name: string; c: string[] }> = {
-  zg: { name: 'Zagrebačka regija', c: ['HR-21', 'HR-01'] },
-  sr: { name: 'Središnja Hrvatska', c: ['HR-02', 'HR-05', 'HR-20', 'HR-06', 'HR-07', 'HR-03', 'HR-04'] },
-  sj: { name: 'Sjevernojadranska', c: ['HR-08', 'HR-18', 'HR-09'] },
-  da: { name: 'Dalmatinska', c: ['HR-13', 'HR-15', 'HR-17', 'HR-19'] },
-  is: { name: 'Istočna', c: ['HR-14', 'HR-16', 'HR-12', 'HR-11', 'HR-10'] },
+/* The five regions the study proposes. Membership is data and does not move with
+   the language; the names are descriptions of place and do — `name` is therefore
+   a getter, so every existing `REG[k].name` call site keeps working and reads
+   the current language. The English names are translations, not the study's own:
+   it is published in Croatian and prints no English forms, so these are the
+   atlas's rendering of them, like the membership itself (see the Regije note). */
+const REGN: Record<string, [hr: string, en: string]> = {
+  zg: ['Zagrebačka regija', 'Zagreb region'],
+  sr: ['Središnja Hrvatska', 'Central Croatia'],
+  sj: ['Sjevernojadranska', 'North Adriatic'],
+  da: ['Dalmatinska', 'Dalmatian'],
+  is: ['Istočna', 'Eastern'],
 };
+const REGC: Record<string, string[]> = {
+  zg: ['HR-21', 'HR-01'],
+  sr: ['HR-02', 'HR-05', 'HR-20', 'HR-06', 'HR-07', 'HR-03', 'HR-04'],
+  sj: ['HR-08', 'HR-18', 'HR-09'],
+  da: ['HR-13', 'HR-15', 'HR-17', 'HR-19'],
+  is: ['HR-14', 'HR-16', 'HR-12', 'HR-11', 'HR-10'],
+};
+export const REG: Record<string, { name: string; c: string[] }> = Object.fromEntries(
+  Object.keys(REGC).map(k => [k, {
+    c: REGC[k],
+    get name() { return L(REGN[k][0], REGN[k][1]); },
+  }]),
+);
 export const REGOF: Record<string, string> = {};
 for (const k in REG) REG[k].c.forEach(i => { REGOF[i] = k; });
 
-export const FLOWN: Record<Flow, string> = {
-  tot: 'migracijski saldo', int: 'unutarnji saldo', ext: 'vanjski saldo',
-  nat: 'prirodni prirast', all: 'migracije + prirodni prirast',
+/* Named quantities. Getters for the same reason REG.name is one: they are read
+   from the tooltip, the legend, the rail, every aria-label and both export
+   formats, and all of those must be in the language the reader chose. */
+const FLOWN_: Record<Flow, [string, string]> = {
+  tot: ['migracijski saldo', 'net migration'],
+  int: ['unutarnji saldo', 'net internal migration'],
+  ext: ['vanjski saldo', 'net external migration'],
+  nat: ['prirodni prirast', 'natural change'],
+  all: ['migracije + prirodni prirast', 'migration + natural change'],
 };
+export const FLOWN = {} as Record<Flow, string>;
+for (const k of Object.keys(FLOWN_) as Flow[]) {
+  Object.defineProperty(FLOWN, k, { get: () => L(FLOWN_[k][0], FLOWN_[k][1]), enumerable: true });
+}
 /* spoken view names for the screen-reader status line */
-export const VLAB: Record<string, string> = {
-  saldo: 'saldo', klas: 'klasifikacija', reg: 'regije',
-  flow: 'tokovi', mx: 'matrica', jmap: 'JLS 2018.', yrs: 'godine',
+const VLAB_: Record<string, [string, string]> = {
+  saldo: ['saldo', 'net migration'], klas: ['klasifikacija', 'classification'],
+  reg: ['regije', 'regions'], flow: ['tokovi', 'flows'], mx: ['matrica', 'matrix'],
+  /* "JLS 2018." keeps its scope marker in both: LAU is the EU's own name for
+     this tier, and the year is the honesty label, not decoration */
+  jmap: ['JLS 2018.', 'LAU 2018'], yrs: ['godine', 'years'],
 };
+export const VLAB: Record<string, string> = {};
+for (const k of Object.keys(VLAB_)) {
+  Object.defineProperty(VLAB, k, { get: () => L(VLAB_[k][0], VLAB_[k][1]), enumerable: true });
+}
 export const SHORTN: Record<string, string> = {
   'HR-01': 'Zagrebačka', 'HR-02': 'Krapinsko-zag.', 'HR-03': 'Sisačko-mosl.', 'HR-04': 'Karlovačka',
   'HR-05': 'Varaždinska', 'HR-06': 'Koprivničko-kr.', 'HR-07': 'Bjelovarsko-bil.', 'HR-08': 'Primorsko-gor.',
@@ -68,16 +115,30 @@ export const SHORTN: Record<string, string> = {
   'HR-13': 'Zadarska', 'HR-14': 'Osječko-bar.', 'HR-15': 'Šibensko-kn.', 'HR-16': 'Vukovarsko-srij.',
   'HR-17': 'Splitsko-dalm.', 'HR-18': 'Istarska', 'HR-19': 'Dubrovačko-ner.', 'HR-20': 'Međimurska', 'HR-21': 'Grad Zagreb',
 };
-export const CGROUPS: [key: string, label: string, color: string][] = [
-  ['hr', 'Hrvatska', '#20262B'],
-  ['sus', 'Susjedstvo (BiH·SRB·XK·MK·AL·CG)', '#A08C6A'],
-  ['ukr', 'Ukrajina', '#6B5E86'],
-  ['eu', 'EU (bez HR)', '#1D4E89'],
-  ['az', 'Azija', '#0F7D8C'],
-  ['ost', 'Ostalo', '#C6CCC4'],
+/* Citizenship groups. The ISO country codes inside the neighbourhood label are
+   left alone — they are identifiers, and they are what the DZS table lists. */
+const CG_: [string, string, string, string][] = [
+  ['hr', 'Hrvatska', 'Croatia', '#20262B'],
+  ['sus', 'Susjedstvo (BiH·SRB·XK·MK·AL·CG)', 'Neighbourhood (BiH·SRB·XK·MK·AL·ME)', '#A08C6A'],
+  ['ukr', 'Ukrajina', 'Ukraine', '#6B5E86'],
+  ['eu', 'EU (bez HR)', 'EU (excl. HR)', '#1D4E89'],
+  ['az', 'Azija', 'Asia', '#0F7D8C'],
+  ['ost', 'Ostalo', 'Other', '#C6CCC4'],
 ];
+/* a getter would not survive destructuring — every call site reads this as a
+   list, so it is rebuilt per read instead */
+export const cgroups = (): [key: string, label: string, color: string][] =>
+  CG_.map(([k, hr, en, c]) => [k, L(hr, en), c]);
 export const KCOL: Record<Klas, string> = { gain: '#1D4E89', neu: '#C6CCC4', loss: '#B5341F' };
-export const KLAB: Record<Klas, string> = { gain: 'pobjednice', neu: 'neutralne', loss: 'gubitnice' };
+/* The study's own three classes. "pobjednice/gubitnice" is its vocabulary, and
+   the English is the plain reading of it — these name counties, not contests. */
+const KLAB_: Record<Klas, [string, string]> = {
+  gain: ['pobjednice', 'gaining'], neu: ['neutralne', 'neutral'], loss: ['gubitnice', 'losing'],
+};
+export const KLAB: Record<Klas, string> = {} as Record<Klas, string>;
+for (const k of Object.keys(KLAB_) as Klas[]) {
+  Object.defineProperty(KLAB, k, { get: () => L(KLAB_[k][0], KLAB_[k][1]), enumerable: true });
+}
 
 /* ── metric machinery ── */
 export function natAt(iso: string, yi: number): number {
@@ -196,7 +257,7 @@ export function flowMax(sel: string, dir: Dir, cum: boolean): number {
   m = m || 1; FC.set(key, m); return m;
 }
 export function flowBadge(yi: number, cum: boolean): string {
-  return yi === IX2018 && !cum ? 'izmjereno' : 'procjena (IPF)';
+  return yi === IX2018 && !cum ? t('badge.meas') : t('badge.est');
 }
 
 /* ── matrix view: region-block county order + fixed per-(dir×cum) cell domain ── */
@@ -289,16 +350,19 @@ export const natVol = YEARS.map((_, yi) => ISOS.reduce((a, iso) => a + D[iso].oi
    doseljeno/odseljeno/neto. Same period wording as the legend and the export. */
 export function countyAria(S: State, iso: string): string {
   const n = D[iso].n, y = YEARS[S.yi];
-  const per = (S.cum || S.view === 'klas') ? '2011.–' + y + '.' : y + '.';
+  const per = (S.cum || S.view === 'klas') ? yrSpan(2011, y) : yr(y);
   const num = (v: number) => S.den === 'abs' ? sgn(Math.round(v), fmtI) : sgn(v, fmtR) + ' %';
   if (S.view === 'flow') {
-    if (iso === S.sel) return n + ' — odabrana županija';
+    if (iso === S.sel) return n + L(' — odabrana županija', ' — selected county');
     const o = fsum(S.sel!, iso, S.yi, S.cum), i = fsum(iso, S.sel!, S.yi, S.cum);
-    return `${n}: iz ${D[S.sel!].n} ${fmtI.format(i)}, u ${D[S.sel!].n} ${fmtI.format(o)}, neto ${sgn(i - o, fmtI)} · ${per}`;
+    const h = D[S.sel!].n;
+    return L(`${n}: iz ${h} ${fmtI.format(i)}, u ${h} ${fmtI.format(o)}, neto ${sgn(i - o, fmtI)} · ${per}`,
+      `${n}: ${fmtI.format(i)} from ${h}, ${fmtI.format(o)} to ${h}, net ${sgn(i - o, fmtI)} · ${per}`);
   }
   if (S.view === 'klas') {
     const k = klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct);
-    return `${n}: ${KLAB[k]}, saldo ${sgn(Math.round(val(iso, S.yi, 'tot', 'abs', true)), fmtI)} · ${per}`;
+    const v = sgn(Math.round(val(iso, S.yi, 'tot', 'abs', true)), fmtI);
+    return L(`${n}: ${KLAB[k]}, saldo ${v} · ${per}`, `${n}: ${KLAB[k]}, net ${v} · ${per}`);
   }
   if (S.view === 'reg') {
     const rk = REGOF[iso];
@@ -309,30 +373,48 @@ export function countyAria(S: State, iso: string): string {
 
 /* export caption from state */
 export function exportDesc(S: State): [string, string] {
-  if (S.view === 'jmap') return ['Gradovi i općine: unutarnja migracija (izmjereno)', '2018.'];
-  const per = (S.cum || S.view === 'klas') ? '2011.–' + YEARS[S.yi] + '.' : YEARS[S.yi] + '.';
-  const den = S.den === 'rel11' ? ' · % popisa 2011.' : S.den === 'relest' ? ' · % tek. procjene' : '';
+  if (S.view === 'jmap') {
+    return [L('Gradovi i općine: unutarnja migracija (izmjereno)',
+      'Towns and municipalities: internal migration (measured)'), yr(2018)];
+  }
+  const per = (S.cum || S.view === 'klas') ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi]);
+  const den = S.den === 'rel11' ? L(' · % popisa 2011.', ' · % of 2011 census')
+    : S.den === 'relest' ? L(' · % tek. procjene', ' · % of current estimate') : '';
   if (S.view === 'klas') {
-    const prag = S.thrRel ? fmtR.format(S.thrPct) + ' % popisa 2011.' : fmtI.format(S.thr);
-    return ['Klasifikacija: pobjednice · neutralne · gubitnice (prag −' + prag + ')', per];
+    const prag = S.thrRel ? fmtR.format(S.thrPct) + L(' % popisa 2011.', ' % of 2011 census') : fmtI.format(S.thr);
+    return [L('Klasifikacija: pobjednice · neutralne · gubitnice (prag −' + prag + ')',
+      'Classification: gaining · neutral · losing (threshold −' + prag + ')'), per];
   }
   if (S.view === 'mx') {
-    const d = { out: 'odlasci (redak → stupac)', in: 'dolasci (stupac → redak)', net: 'neto (redak prema stupcu)' }[S.dir];
-    return ['Matrica tokova: ' + d + ' · ' + (S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum)), per];
+    const d = {
+      out: L('odlasci (redak → stupac)', 'out (row → column)'),
+      in: L('dolasci (stupac → redak)', 'in (column → row)'),
+      net: L('neto (redak prema stupcu)', 'net (row against column)'),
+    }[S.dir];
+    return [L('Matrica tokova: ', 'Flow matrix: ') + d + ' · '
+      + (S.cum ? t('badge.cum') : flowBadge(S.yi, S.cum)), per];
   }
   /* The whole grid is on the image, so its period is the rendered window rather
      than the selected year — the year marker is one column of many, and titling
      the figure with it would name the one thing the image is *not* about. */
   if (S.view === 'yrs') {
     const cols = yrsCols(S.cum);
-    return ['Županije kroz godine · ' + FLOWN[S.flow] + den + (S.cum ? ' · kumulativno' : ' · godišnje'),
-      YEARS[cols[0]] + '.–' + YEARS[cols[cols.length - 1]] + '.'];
+    return [L('Županije kroz godine · ', 'Counties over time · ') + FLOWN[S.flow] + den
+      + (S.cum ? L(' · kumulativno', ' · cumulative') : L(' · godišnje', ' · annual')),
+    yrSpan(YEARS[cols[0]], YEARS[cols[cols.length - 1]])];
   }
-  if (S.view === 'reg') return ['Regije (5) · ' + FLOWN[S.flow] + den, per];
+  if (S.view === 'reg') return [L('Regije (5) · ', 'Regions (5) · ') + FLOWN[S.flow] + den, per];
   if (S.view === 'flow') {
     const nm = D[S.sel!]?.n || '';
-    const d = { out: nm + ' → ostale županije', in: 'ostale županije → ' + nm, net: 'Neto tokovi: ' + nm + ' ↔ partneri' }[S.dir];
-    return [d + ' · ' + (S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum)), per];
+    /* arrow phrasing, in both languages, for the same reason: Croatian would
+       otherwise need the county name declined, and the arrow is the one form
+       that is correct for all 21 without a grammar table */
+    const d = {
+      out: nm + L(' → ostale županije', ' → other counties'),
+      in: L('ostale županije → ', 'other counties → ') + nm,
+      net: L('Neto tokovi: ', 'Net flows: ') + nm + L(' ↔ partneri', ' ↔ partners'),
+    }[S.dir];
+    return [d + ' · ' + (S.cum ? t('badge.cum') : flowBadge(S.yi, S.cum)), per];
   }
   return [FLOWN[S.flow] + den, per];
 }

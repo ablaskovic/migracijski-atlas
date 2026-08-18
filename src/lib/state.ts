@@ -4,9 +4,18 @@
    the same object App boots from. Keeping two copies is what let a Nalaz caption
    survive a link that no longer produced its numbers (see hash.ts). */
 import { YEARS } from './metrics.ts';
+import { detectLang, storedLang } from './i18n.ts';
 import type { State } from './types.ts';
 
+/* The one field whose default is not a constant. It has to be resolved here
+   rather than in App, because "omitted from the hash" means "equal to BASE" —
+   so if BASE said `hr` while the reader's default was English, every English
+   visitor would carry `l=en` in their URL forever, and a link they shared would
+   force English on a Croatian reader. Resolved once, at module init:
+   a stored choice beats the browser's, and decodeHash beats both, so an
+   explicitly shared `l=` still wins over everything. */
 export const BASE: State = {
+  lang: storedLang() ?? detectLang(),
   view: 'saldo', flow: 'tot', den: 'abs', cum: true, yi: YEARS.indexOf(2024),
   thr: 4500, thrRel: false, thrPct: 1.5, playing: false, hl: null, sel: null,
   pair: null, pairHl: null, yrHl: null, jlsHl: null, regHl: null, dir: 'net', flowSeen: false,
