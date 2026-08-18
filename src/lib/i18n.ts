@@ -119,7 +119,19 @@ type Entry = string | ((...a: never[]) => string);
 const dict = {
   /* header, controls */
   'hd.eyebrow': { hr: 'DZS · međužupanijske i vanjske migracije', en: 'CBS · inter-county and external migration' },
-  'hd.title': { hr: 'Migracijski atlas županija', en: 'County Migration Atlas' },
+  /* The English title names the country; the Croatian one does not, and does not
+     need to. "Migracijski atlas županija" reaches a reader who already knows
+     whose counties these are — the atlas is in their language, on their subject,
+     and every county name in it is one they can place. "County Migration Atlas"
+     reaches a reader who by construction does not: English exists here so the
+     atlas can be shown to people outside that context, and "county" is a unit
+     forty countries use. So the country is stated, in the one place that travels
+     with every copy of the title — the <h1>, the tab, and the eyebrow of an
+     exported figure, which leaves the app with no page around it to explain
+     itself. Parenthesised and in caps because it is a qualifier on the name, not
+     part of it; the <h1> is uppercased by the stylesheet anyway, and the tab and
+     the export are not. */
+  'hd.title': { hr: 'Migracijski atlas županija', en: 'County Migration Atlas (CROATIA)' },
   'ctrl.view': { hr: 'Prikaz', en: 'View' },
   'ctrl.flow': { hr: 'Sastavnica', en: 'Component' },
   'ctrl.den': { hr: 'Mjera', en: 'Measure' },

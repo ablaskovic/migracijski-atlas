@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { YEARS, IX2011, IX2018, VLAB } from './lib/metrics.ts';
+import { YEARS, Y0, YEND, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { decodeHash, encodeHash } from './lib/hash.ts';
 import { BASE, focusSoon } from './lib/state.ts';
-import { L, NEWTAB, setLang, storeLang, yr } from './lib/i18n.ts';
+import { L, NEWTAB, setLang, storeLang, t, yr, yrSpan } from './lib/i18n.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperPending, paperRefNote, paperRefTail } from './lib/credits.ts';
@@ -238,6 +238,17 @@ export default function App() {
     return () => { delete window.__exportPNG; delete window.__exportSVG; };
   }, []);
   useEffect(() => { document.body.classList.toggle('panel-open', S.citz || S.jls || S.age || S.help); }, [S.citz, S.jls, S.age, S.help]);
+  /* The tab title is the one piece of copy index.html has to guess at: it is
+     static markup, parsed before any of this has run, so it ships Croatian and
+     is corrected here once the language is known. An effect is late enough,
+     unlike setLang: a tab title has no layout to shift and no figure in it that
+     a frame of the wrong locale would misstate by three orders of magnitude —
+     which is the whole reason setLang runs before the first render.
+     Keyed on S.lang, so it follows the toggle and a popstate across a language
+     change as well as the boot. Composed here rather than in i18n.ts because
+     metrics.ts imports i18n.ts, and reaching back for Y0/YEND would close the
+     cycle; `yrSpan` is what keeps the Croatian trailing dots off the English. */
+  useEffect(() => { document.title = `${t('hd.title')} · ${yrSpan(Y0, YEND)}`; }, [S.lang]);
   /* Touch fires pointerenter but never pointerleave, so a tapped feature would
      leave its tooltip on screen forever. Clear the highlight on any pointerdown
      that is not itself a map feature — the tip is the only value readout in the

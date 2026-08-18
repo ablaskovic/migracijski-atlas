@@ -2702,7 +2702,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
        plus the mode, so it exercises the band at a length the other views do
        not — appended rather than given its own check, so the existing overflow
        and overlap assertions simply cover one more view */
-    await fitAt(1024, '#v=yrs&c=0&f=nat&y=2017'), await fitAt(390, '#v=yrs&c=1&y=2024')];
+    await fitAt(1024, '#v=yrs&c=0&f=nat&y=2017'), await fitAt(390, '#v=yrs&c=1&y=2024'),
+    /* and the same band in English, where every run is a different length: the
+       eyebrow states the country and drops the Croatian trailing dots, which is
+       four characters longer and lands within ~1 px of the 390 px edge. Appended
+       rather than given its own check, so the overflow and overlap assertions
+       above simply cover the second language too. */
+    await fitAt(1440, '#l=en&v=flow&s=HR-03&d=net&c=1&y=2025'), await fitAt(390, '#l=en&v=klas'),
+    await fitAt(390, '#l=en&v=flow&s=HR-03&d=net&c=1&y=2025')];
   ck('no exported band text runs past the canvas edge, 1440 down to 390',
     fits.every(f => f.over.length === 0),
     JSON.stringify(fits.map(f => f.over)).slice(0, 300));
@@ -3384,6 +3391,62 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const neutral = await page.evaluate(() => location.hash);
   ck('and a link at the reader’s own default carries no l= at all',
     !/l=/.test(neutral), neutral);
+
+  /* ══ v2.3.0 — the English title names the country ═══════════════════════
+     "Migracijski atlas županija" reaches a reader who already knows whose
+     counties these are. "County Migration Atlas" does not: English exists here
+     so the atlas can be shown to people outside that context, and "county" is a
+     unit forty countries use. The country is therefore stated in English, on
+     every surface the title reaches — and on none of them in Croatian, where it
+     would be noise. */
+  await fresh('#v=saldo&c=1&y=2024');
+  const hrTitle = await page.evaluate(() => ({ h1: document.querySelector('.hd-title').textContent, doc: document.title }));
+  await fresh('#l=en&v=saldo&c=1&y=2024');
+  const enTitle = await page.evaluate(() => ({ h1: document.querySelector('.hd-title').textContent, doc: document.title }));
+  ck('the English title names the country and the Croatian one does not',
+    enTitle.h1 === 'County Migration Atlas (CROATIA)' && hrTitle.h1 === 'Migracijski atlas županija',
+    JSON.stringify({ en: enTitle.h1, hr: hrTitle.h1 }));
+  /* index.html's <title> is static markup, parsed before the language is known,
+     so it ships Croatian and App corrects it. The Croatian half of this is what
+     proves the correction did not simply leave the static string in place. */
+  ck('and the tab title follows the language, keeping the period either way',
+    enTitle.doc === 'County Migration Atlas (CROATIA) · 1998–2025'
+    && hrTitle.doc === 'Migracijski atlas županija · 1998.–2025.',
+    JSON.stringify({ en: enTitle.doc, hr: hrTitle.doc }));
+
+  /* The exported figure is where the country matters most: it leaves the app
+     with no page around it to say which counties these are. The eyebrow was the
+     last run in the band still hardcoded in Croatian — an English export carried
+     "MIGRACIJSKI ATLAS ŽUPANIJA · DZS" over an otherwise English document. */
+  const eyebrowOf = doc => (doc.match(/<text[^>]*y="26"[^>]*>([^<]*)</) || [])[1] || '';
+  const enBand = await page.evaluate(() => window.__exportSVG(false));
+  await fresh('#v=saldo&c=1&y=2024');
+  const hrBand = await page.evaluate(() => window.__exportSVG(false));
+  ck('both export formats carry the atlas name in the reader’s language',
+    eyebrowOf(enBand) === 'COUNTY MIGRATION ATLAS (CROATIA) · CBS · 1998–2025'
+    && eyebrowOf(hrBand) === 'MIGRACIJSKI ATLAS ŽUPANIJA · DZS · 1998.–2025.',
+    JSON.stringify([eyebrowOf(enBand), eyebrowOf(hrBand)]));
+
+  /* …and it is *fitted*, like every other run in the band. It was drawn at a
+     fixed 10 px and never measured, which was invisible only because Croatian
+     happens to fit at every width the suite exercises. English is four
+     characters longer and needs to shrink at 390 px. Asserted in both
+     directions, so a fit that silently stopped firing would fail too. */
+  const eyeFs = async (w, hash) => {
+    await page.setViewport({ width: w, height: 900 });
+    await fresh(hash);
+    return page.evaluate(() => {
+      const m = window.__exportSVG(false).match(/<text[^>]*y="26"[^>]*font-size="([\d.]+)"/);
+      return m ? +m[1] : 0;
+    });
+  };
+  const eyeWide = await eyeFs(1440, '#l=en&v=klas');
+  const eyeNarrow = await eyeFs(390, '#l=en&v=klas');
+  const eyeNarrowHr = await eyeFs(390, '#v=klas');
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
+    eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
+    JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));
 
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');

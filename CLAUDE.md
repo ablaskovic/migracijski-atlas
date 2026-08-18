@@ -133,6 +133,21 @@ once — **318 checks**.
 New surfaces obey the same rules: honesty labels,
 generated-data-stays-generated, hr-HR formatting **in Croatian and en-GB in
 English**, and green verify before "done".
+**v2.3.0** is three things a user asked for in one sitting. The first: the
+English title now **names the country**. `Migracijski atlas županija` reaches a
+reader who already knows whose counties these are; `County Migration Atlas` does
+not, and "county" is a unit some forty countries use — so English reads
+`County Migration Atlas (CROATIA)` and Croatian is untouched, because there the
+qualifier would be noise. It reaches three surfaces, not one: the `<h1>`, the
+**tab title** (which `index.html` ships in Croatian because it is static markup
+parsed before the language is known, and App now corrects), and the **eyebrow of
+an exported figure** — which was still hardcoded Croatian, so an English export
+carried `MIGRACIJSKI ATLAS ŽUPANIJA · DZS` across an otherwise English document.
+That eyebrow was also the last run in the export band drawn **without ever being
+fitted**, which was invisible only because Croatian happens to fit at every width
+the suite exercises: the English string is four characters longer and lands
+within ~1 px of the 390 px canvas edge. It shrinks now, like the title, the
+credits and the legend caveat before it — 10 → 9,5 px at 390.
 
 ## Commands
 

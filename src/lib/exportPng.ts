@@ -4,7 +4,7 @@ import {
 } from './metrics.ts';
 import { paperCaveatLine, paperExportLine } from './credits.ts';
 import { exportLicenceLine } from './licences.ts';
-import { L, t } from './i18n.ts';
+import { L, t, yrSpan } from './i18n.ts';
 import type { Klas, State } from './types.ts';
 
 const VARS: Record<string, string> = {
@@ -163,6 +163,7 @@ function legendNote(S: State): string {
    Both bands are therefore computed, not fixed, and the two formats share this
    one function so they cannot drift apart. */
 const TITLE_MAX = 23, TITLE_MIN = 12, TITLE_LH = 26;
+const EYEBROW_MAX = 10, EYEBROW_MIN = 7;
 const CREDIT_FS = 8.5, CREDIT_LH = 14;
 const BASE_TOP = 86;
 const MONO_CSS = '"IBM Plex Mono",ui-monospace,monospace';
@@ -213,6 +214,15 @@ export interface Band {
      strukturna procjena." ran to 401 there. Below a floor it drops to x=20 on
      its own line under the scale labels instead of being squeezed. */
   noteLines: string[]; noteX: number; legendBottom: number;
+  /* The atlas's own name, above the rule. It was the last run in the band still
+     drawn unfitted at a fixed size — the defect the v2.0.9 pass fixed for the
+     title, the credits and the legend caveat and missed here, because in
+     Croatian it happened to fit at every width the suite exercised. English is
+     four characters longer (the title states the country, and "1998–2025" keeps
+     no trailing dots), which at 390 px lands within ~1 px of the edge. Fitted by
+     shrinking, never by wrapping or truncating: it is one line of identity, and
+     an eyebrow that wraps pushes the whole band down. */
+  eyebrow: string; eyebrowFs: number;
 }
 export function bandLayout(S: State, w: number): Band {
   const [dsc, per] = exportDesc(S);
@@ -229,6 +239,24 @@ export function bandLayout(S: State, w: number): Band {
     titleFs--;
   }
   titleLines = wrapText(title, `600 ${titleFs}px ${DISP_CSS}`, lineW);
+  /* letter-spacing is 1 user unit per character in the SVG and is absolute, not
+     relative to the font size, so it is added to the measurement rather than
+     scaled with it. Budgeted for the last character too: Chrome's
+     getComputedTextLength() includes the trailing gap, and the suite measures
+     exactly that. The budget is w-44 rather than the band's own w-40: the fit is
+     a canvas measureText and the check is an SVG getComputedTextLength, two
+     measurements of the same string that agree to about a pixel, and English
+     lands within one of the edge at 390 px. The 2 px a side is the difference
+     between "fits" and "fits because it happened to". */
+  const eyebrow = `${t('hd.title').toUpperCase()} · ${L('DZS', 'CBS')} · ${yrSpan(Y0, YEND)}`;
+  let eyebrowFs = EYEBROW_MAX;
+  if (ctx) {
+    const eyeFits = (f: number) => {
+      ctx.font = `500 ${f}px ${MONO_CSS}`;
+      return ctx.measureText(eyebrow).width + eyebrow.length <= w - 44;
+    };
+    while (eyebrowFs > EYEBROW_MIN && !eyeFits(eyebrowFs)) eyebrowFs -= 0.5;
+  }
   const credits = [caveatLine(S), paperLine(S), exportLicenceLine(), srcLine(S)]
     .filter(Boolean)
     .flatMap(t => wrapText(t, `400 ${CREDIT_FS}px ${MONO_CSS}`, () => w - 40));
@@ -249,6 +277,7 @@ export function bandLayout(S: State, w: number): Band {
        top row clears whatever the legend actually ended up occupying */
     bot: CREDIT_LH * credits.length + legendBottom + 20,
     titleFs, titleLines, per, credits, noteLines, noteX, legendBottom,
+    eyebrow, eyebrowFs,
   };
 }
 
@@ -301,8 +330,8 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   cv.width = w * SC; cv.height = (h + TOP + BOT) * SC;
   const ctx = cv.getContext('2d')!; ctx.scale(SC, SC);
   ctx.fillStyle = '#F4F5F2'; ctx.fillRect(0, 0, w, h + TOP + BOT);
-  ctx.fillStyle = '#5F6A72'; ctx.font = '500 10px "IBM Plex Mono",ui-monospace,monospace';
-  ctx.fillText(`MIGRACIJSKI ATLAS ŽUPANIJA · DZS · ${Y0}.–${YEND}.`, 20, 26);
+  ctx.fillStyle = '#5F6A72'; ctx.font = '500 ' + B.eyebrowFs + 'px ' + MONO_CSS;
+  ctx.fillText(B.eyebrow, 20, 26);
   const per = B.per;
   ctx.fillStyle = '#20262B';
   ctx.font = '600 ' + B.titleFs + 'px ' + DISP_CSS;
@@ -407,7 +436,7 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h + TOP + BOT}" viewBox="0 0 ${w} ${h + TOP + BOT}">`
     + `<defs>${defs}</defs>`
     + `<rect width="${w}" height="${h + TOP + BOT}" fill="#F4F5F2"/>`
-    + txt(20, 26, `MIGRACIJSKI ATLAS ŽUPANIJA · DZS · ${Y0}.–${YEND}.`, `font-family="${MONO}" font-size="10" font-weight="500" fill="#5F6A72" letter-spacing="1"`)
+    + txt(20, 26, B.eyebrow, `font-family="${MONO}" font-size="${B.eyebrowFs}" font-weight="500" fill="#5F6A72" letter-spacing="1"`)
     + B.titleLines.map((ln, i) => txt(20, 56 + i * TITLE_LH, ln,
       `font-family="${DISP}" font-size="${B.titleFs}" font-weight="600" fill="#20262B"`)).join('')
     + txt(w - 20, 56, per, `font-family="${DISP}" font-size="${TITLE_MAX}" font-weight="600" fill="#20262B" text-anchor="end"`)
