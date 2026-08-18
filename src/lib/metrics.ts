@@ -354,10 +354,21 @@ export function countyAria(S: State, iso: string): string {
   const num = (v: number) => S.den === 'abs' ? sgn(Math.round(v), fmtI) : sgn(v, fmtR) + ' %';
   if (S.view === 'flow') {
     if (iso === S.sel) return n + L(' — odabrana županija', ' — selected county');
+    /* `fsum(a, b)` is ODM[a][b], i.e. a → b — so `o` is the hub's outflow
+       (hub → county, what arrives *from* the hub) and `i` its inflow
+       (county → hub, what leaves *to* it). The two used to be printed the other
+       way round: every partner county told a screen reader both of its flow
+       directions backwards, in both languages, at every Smjer and year. The
+       visible tooltip had it right all along (Tooltip.tsx) — this is the same
+       defect v2.0.4 fixed for matrix cells, arriving on the other surface.
+       `i − o` stays the *hub-centric* net every visible surface uses (map fill,
+       rail row, legend), so it carries the tooltip's subject qualifier rather
+       than a flipped sign: inside a county-perspective sentence an unattributed
+       net reads as the county's own, which is its inverse. */
     const o = fsum(S.sel!, iso, S.yi, S.cum), i = fsum(iso, S.sel!, S.yi, S.cum);
     const h = D[S.sel!].n;
-    return L(`${n}: iz ${h} ${fmtI.format(i)}, u ${h} ${fmtI.format(o)}, neto ${sgn(i - o, fmtI)} · ${per}`,
-      `${n}: ${fmtI.format(i)} from ${h}, ${fmtI.format(o)} to ${h}, net ${sgn(i - o, fmtI)} · ${per}`);
+    return L(`${n}: iz ${h} ${fmtI.format(o)}, u ${h} ${fmtI.format(i)}, neto (${h}) ${sgn(i - o, fmtI)} · ${per}`,
+      `${n}: ${fmtI.format(o)} from ${h}, ${fmtI.format(i)} to ${h}, net (${h}) ${sgn(i - o, fmtI)} · ${per}`);
   }
   if (S.view === 'klas') {
     const k = klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct);

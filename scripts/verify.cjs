@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 330;
+const EXPECTED_CHECKS = 333;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1003,6 +1003,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     cLab.includes('Istarska') && cLab.includes('migracijski saldo') && /[+−]\d/.test(NBSP(cLab)), cLab);
   const tipHidden = await page.evaluate(() => document.querySelector('#tip').getAttribute('aria-hidden'));
   ck('the cursor tooltip is hidden from AT (its numbers are on the features)', tipHidden === 'true', String(tipHidden));
+
+  /* ── Tokovi: the county label states the direction of each of its numbers ──
+     The same contract the matrix cells are held to at :1211, on the surface that
+     had it inverted: `iz {hub}` is the hub → county flow and `u {hub}` the
+     county → hub one. Pinned against the ground-truth pair (GZ → Zagrebačka
+     2.311, Zagrebačka → GZ 1.977) and run at all three Smjer settings, because
+     the label is direction-independent by construction and a regression that
+     made it direction-dependent would be the same class of defect. #tip is
+     aria-hidden, so this string is the only copy of these numbers for AT. */
+  for (const dir of ['out', 'in', 'net']) {
+    await fresh('#v=flow&s=HR-21&dir=' + dir + '&c=0&y=2018');
+    const fLab = await page.evaluate(() => document.querySelector('.cnt[data-iso="HR-01"]').getAttribute('aria-label'));
+    ck(`Tokovi county label reads 2.311 from the hub and 1.977 to it (dir=${dir})`,
+      NBSP(fLab) === 'Zagrebačka: iz Grad Zagreb 2.311, u Grad Zagreb 1.977, neto (Grad Zagreb) −334 · 2018.', fLab);
+  }
 
   /* ══════════ Matrica: rail, cell and tooltip agree on one sign ══════════ */
   await fresh('#v=mx&y=2018&c=0&dir=net');
