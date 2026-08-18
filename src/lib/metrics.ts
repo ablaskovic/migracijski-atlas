@@ -256,8 +256,24 @@ export function flowMax(sel: string, dir: Dir, cum: boolean): number {
     for (const p of ISOS) if (p !== sel) m = Math.max(m, Math.abs(flowOf(sel, dir, p, yi, cum)));
   m = m || 1; FC.set(key, m); return m;
 }
+/* The honesty encoding, as a value rather than as display copy.
+   Two call sites compared `flowBadge()` against the Croatian literal
+   'izmjereno', so in English — where it returns "measured" — both took the
+   false branch unconditionally and the atlas drew its own "this is an estimate"
+   mark over the one year it actually measured: 20 of 20 arcs dashed under a
+   legend reading "Measured", and the corridor badge styled as an estimate, on
+   screen and in both export formats. Comparing against `t('badge.meas')`
+   instead would fix those two sites and leave the trap armed for the next one,
+   so the predicate is what travels now and the words are looked up at the point
+   of display. Nothing compares against copy any more. */
+export type BadgeKind = 'meas' | 'est' | 'cum';
+const BADGE_KEY = { meas: 'badge.meas', est: 'badge.est', cum: 'badge.cum' } as const;
+export const badgeText = (k: BadgeKind): string => t(BADGE_KEY[k]);
+export function flowKind(yi: number, cum: boolean): 'meas' | 'est' {
+  return yi === IX2018 && !cum ? 'meas' : 'est';
+}
 export function flowBadge(yi: number, cum: boolean): string {
-  return yi === IX2018 && !cum ? t('badge.meas') : t('badge.est');
+  return badgeText(flowKind(yi, cum));
 }
 
 /* ── matrix view: region-block county order + fixed per-(dir×cum) cell domain ── */

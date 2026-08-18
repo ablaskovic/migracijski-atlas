@@ -3,7 +3,7 @@ import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { scaleSqrt } from 'd3-scale';
 import {
   GEO, ISOS, DOM, RDOM, REGOF, SHORTN,
-  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowBadge, jlsVal, jmapScale, countyAria, fmtI, sgn,
+  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowKind, jlsVal, jmapScale, countyAria, fmtI, sgn,
 } from '../lib/metrics.ts';
 import { jlsGeo, regGeo, jlsFailed, retryGeo } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
@@ -157,7 +157,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
 
   /* flow arcs — port of renderArcs(); estimated years render dashed (honesty
      encoding: only godišnje 2018 is measured) */
-  const est = S.cum || flowBadge(S.yi, S.cum) !== 'izmjereno';
+  const est = S.cum || flowKind(S.yi, S.cum) !== 'meas';
   const arcs = useMemo(() => {
     if (S.view !== 'flow' || !S.sel || !cent[S.sel]) return null;
     const sel = S.sel;

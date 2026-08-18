@@ -1,22 +1,24 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
   D, ISOS, SHORTN, YEARS, IX2011, REG, REGOF,
-  natAt, fsum, klasOf, KCOL, KLAB, flowBadge, fmtI, fmtR, sgn,
+  natAt, fsum, klasOf, KCOL, KLAB, badgeText, flowKind, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 
 import { setTipNode, placeTip, COARSE } from '../lib/tip.ts';
-import { L, t, yr as yrOf, yrSpan } from '../lib/i18n.ts';
+import { L, yr as yrOf, yrSpan } from '../lib/i18n.ts';
+import type { BadgeKind } from '../lib/metrics.ts';
 import type { State } from '../lib/types.ts';
 
 /* Measured and estimated used to render as the same neutral pill, so the single
    most load-bearing distinction in the atlas was carried by wording alone.
    Solid = measured, dashed outline = estimate. Text is unchanged. */
-function tag(badge: string): string {
-  /* compared against the *current* language's measured badge, not the Croatian
-     literal: with the literal, every English tooltip drew the dashed estimate
-     outline over the word "measured" — the badge contradicting its own text. */
-  return '<span class="cls-tag ' + (badge === t('badge.meas') ? 'meas' : 'est') + '">' + badge + '</span>';
+function tag(kind: BadgeKind): string {
+  /* takes the honesty *predicate*, not its display copy: comparing a rendered
+     badge against a literal is what inverted this encoding in English on two
+     other surfaces (see metrics.flowKind). The cumulative estimate carries the
+     estimate outline, like every other non-measured value. */
+  return '<span class="cls-tag ' + (kind === 'meas' ? 'meas' : 'est') + '">' + badgeText(kind) + '</span>';
 }
 
 function tipHTML(S: State): string {
@@ -29,7 +31,7 @@ function tipHTML(S: State): string {
       '<tr><td>' + L('doselilo iz drugih JLS', 'moved in from other LAUs') + '</td><td>+' + fmtI.format(p.i) + '</td></tr>' +
       '<tr><td>' + L('odselilo u druge JLS', 'moved out to other LAUs') + '</td><td>−' + fmtI.format(p.o) + '</td></tr>' +
       '<tr class="tip-net"><td>' + L('neto · ', 'net · ') + yrOf(2018) + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
-      tag(t('badge.meas'));
+      tag('meas');
   }
   if (S.view === 'mx' && S.pairHl) {
     const [a, b] = S.pairHl, y = YEARS[S.yi];
@@ -46,7 +48,7 @@ function tipHTML(S: State): string {
       '<tr><td>' + D[a].n + ' → ' + D[b].n + '</td><td>' + fmtI.format(ab) + '</td></tr>' +
       '<tr><td>' + D[b].n + ' → ' + D[a].n + '</td><td>' + fmtI.format(ba) + '</td></tr>' +
       '<tr class="tip-net"><td>' + L('neto (', 'net (') + D[a].n + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
-      tag(S.cum ? t('badge.cum') : flowBadge(S.yi, S.cum));
+      tag(S.cum ? 'cum' : flowKind(S.yi, S.cum));
   }
   /* Godine hovers a cell whose year is generally NOT the selected one, so its
      readout has to be computed for that cell's year — `countyBlock` below takes
@@ -61,7 +63,7 @@ function tipHTML(S: State): string {
       '<tr><td>' + D[S.sel!].n + ' → ' + c.n + '</td><td>' + fmtI.format(o) + '</td></tr>' +
       '<tr><td>' + c.n + ' → ' + D[S.sel!].n + '</td><td>' + fmtI.format(i2) + '</td></tr>' +
       '<tr class="tip-net"><td>' + L('neto (', 'net (') + D[S.sel!].n + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
-      tag(S.cum ? t('badge.cum') : flowBadge(S.yi, S.cum));
+      tag(S.cum ? 'cum' : flowKind(S.yi, S.cum));
   }
   return countyBlock(S, iso, S.yi);
 }

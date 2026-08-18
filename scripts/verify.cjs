@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 333;
+const EXPECTED_CHECKS = 336;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3365,6 +3365,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     enEst2.txt === 'cumulative estimate' && enEst2.border === 'dashed',
     JSON.stringify(enEst2));
 
+
   /* The exported figure is the artifact that leaves the app: it must carry the
      honesty label, the source credit and the licence in the reader's language,
      because there is no footnote to click through to. */
@@ -3373,6 +3374,34 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /CUMULATIVE ESTIMATE/i.test(enSvg) && /Sources:/.test(enSvg)
     && /Figure: CC BY 4\.0/.test(enSvg) && !/Izvori:/.test(enSvg),
     (enSvg.match(/>[^<]{20,90}</g) || []).slice(0, 3).join(' | '));
+
+  /* The arc-dash and pair-badge encodings, in the other language. Both used to
+     be keyed off a comparison against the Croatian literal 'izmjereno', so in
+     English the one measured year drew with the atlas's own estimate mark: 20 of
+     20 arcs dashed under a legend saying "Measured", and the corridor badge
+     styled as an estimate. The Croatian twins of these run at :396 and :393. */
+  await fresh('#l=en&v=flow&s=HR-21&dir=out&c=0&y=2018');
+  const enArc = await page.evaluate(() => ({
+    dash: [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')),
+    sub: document.querySelector('#bigYearSub').textContent,
+  }));
+  ck('the English measured year draws solid arcs, not the estimate dash',
+    enArc.dash.length > 0 && enArc.dash.every(d => d === null) && /measured/.test(enArc.sub),
+    JSON.stringify({ n: enArc.dash.length, d: enArc.dash[0], s: enArc.sub }));
+  await click('#railList .rrow');
+  const enPair = await page.evaluate(() => {
+    const tg = document.querySelector('#pairRow .cls-tag');
+    return { txt: tg ? tg.textContent : null, cls: tg ? tg.className : null,
+      border: tg ? getComputedStyle(tg).borderStyle : null };
+  });
+  ck('and the English corridor badge is styled measured, not estimate',
+    enPair.txt === 'measured' && /meas/.test(enPair.cls) && enPair.border === 'solid',
+    JSON.stringify(enPair));
+  await fresh('#l=en&v=flow&s=HR-21&dir=out&c=0&y=2017');
+  const enArc2 = await page.evaluate(() =>
+    [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
+  ck('and an English IPF year still dashes every arc',
+    enArc2.length > 0 && enArc2.every(d => d === '7 4'), String(enArc2.length));
 
   /* Who gets which language, on a fresh visit with nothing shared and nothing
      stored. Two signals — the browser's language list and where the reader is —
