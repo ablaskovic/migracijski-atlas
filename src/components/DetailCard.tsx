@@ -3,7 +3,7 @@ import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
 import { YEARS, Y0, YEND, D, netAt, natAt, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
-import { L } from '../lib/i18n.ts';
+import { L, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => void }) {
@@ -40,14 +40,15 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
         <h2 className="card-name" id="cardName">{D[sel].n}</h2>
         {/* hand focus to the county this card described, else its rail row —
             closing used to drop focus to <body> and restart Tab from the top */}
-        <button className="card-x" id="cardX" aria-label={`Zatvori karticu — ${D[sel].n}`}
+        <button className="card-x" id="cardX" aria-label={L(`Zatvori karticu — ${D[sel].n}`, `Close the card — ${D[sel].n}`)}
           onClick={() => { setS({ sel: null }); focusSoon(`.cnt[data-iso="${sel}"], #railList .rrow[data-iso="${sel}"]`); }}>×</button>
       </div>
       <div className="card-sub" id="cardSub">{`godišnji saldo ${Y0}.–${YEND}. · vanjske (površina) · unutarnje (crta) · prirodni prirast (crtkano)`}</div>
       {/* an unlabelled <svg> exposes its tick <text> children as loose strings in
           the reading order; role=img + a name collapses them into one figure */}
       <svg id="cardSvg" viewBox={`0 0 ${w} ${h}`} role="img"
-        aria-label={`${D[sel].n} — godišnji saldo ${Y0}.–${YEND}., raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`}>
+        aria-label={L(`${D[sel].n} — godišnji saldo ${yrSpan(Y0, YEND)}, raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`,
+          `${D[sel].n} — annual net ${yrSpan(Y0, YEND)}, range ±${fmtI.format(m)}. The selected year's values are below the chart.`)}>
         <defs>
           <clipPath id={uid + 'p'}><rect width={w} height={y(0)} /></clipPath>
           <clipPath id={uid + 'n'}><rect y={y(0)} width={w} height={h - y(0)} /></clipPath>

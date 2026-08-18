@@ -147,7 +147,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
      Neto. `#tip` is aria-hidden, so this string is all AT gets. Same separation of
      "what it points at" from "how it is worded" the rail already makes. */
   const cellAria = (a: string, b: string, v: number): string =>
-    S.dir === 'net' ? `${D[a].n} ↔ ${D[b].n}: neto ${sgn(Math.round(v), fmtI)} za ${D[a].n}`
+    S.dir === 'net' ? L(`${D[a].n} ↔ ${D[b].n}: neto ${sgn(Math.round(v), fmtI)} za ${D[a].n}`,
+      `${D[a].n} ↔ ${D[b].n}: net ${sgn(Math.round(v), fmtI)} for ${D[a].n}`)
       : S.dir === 'in' ? `${D[b].n} → ${D[a].n}: ${fmtI.format(Math.round(v))}`
         : `${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`;
 
@@ -193,7 +194,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
           vectorEffect="non-scaling-stroke"
           x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
           fill="url(#mxhatch)" role="gridcell" tabIndex={-1} aria-colindex={c + 1}
-          aria-label={`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`}
+          aria-label={L(`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`,
+            `${D[a].n} — diagonal: moves within the same county are not part of the inter-county matrix`)}
           onPointerEnter={() => setS({ pairHl: [a, b] })}
           onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
           onPointerMove={moveTip} />);

@@ -3,7 +3,7 @@ import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
 import { YEARS, Y0, YEND, IX2018, SHORTN, getOD, flowBadge, flowKind, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
-import { L } from '../lib/i18n.ts';
+import { L, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Corridor card: the annual series of one directed pair (sel ⇄ pair) from ODM.
@@ -46,7 +46,8 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
       <div className="card-hd">
         <h2 className="card-name" id="pairName">{SHORTN[sel]} ⇄ {SHORTN[pair]}</h2>
         {/* back to whatever opened this corridor — matrix cell or partner row */}
-        <button className="card-x" id="pairX" aria-label={`Zatvori koridor — ${SHORTN[sel]} i ${SHORTN[pair]}`}
+        <button className="card-x" id="pairX"
+          aria-label={L(`Zatvori koridor — ${SHORTN[sel]} i ${SHORTN[pair]}`, `Close the corridor — ${SHORTN[sel]} and ${SHORTN[pair]}`)}
           onClick={close}>×</button>
       </div>
       {/* The two series were separated by hue alone and the caption named them
@@ -61,7 +62,8 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
           endpoints in the direction each series runs. */}
       <div className="card-sub">{`godišnji tok ${Y0}.–${YEND}., samo ovaj koridor · površina: neto za ${SHORTN[sel]} · puna crta: ${SHORTN[sel]} → ${SHORTN[pair]} · crtkano: ${SHORTN[pair]} → ${SHORTN[sel]}`}</div>
       <svg id="pairSvg" viewBox={`0 0 ${w} ${h}`} role="img"
-        aria-label={`Koridor ${SHORTN[sel]} i ${SHORTN[pair]} — samo selidbe između te dvije županije, ne ukupni tokovi županije. Godišnji tok ${Y0}.–${YEND}., raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`}>
+        aria-label={L(`Koridor ${SHORTN[sel]} i ${SHORTN[pair]} — samo selidbe između te dvije županije, ne ukupni tokovi županije. Godišnji tok ${yrSpan(Y0, YEND)}, raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`,
+          `Corridor ${SHORTN[sel]} and ${SHORTN[pair]} — only moves between these two counties, not the county's total flows. Annual flow ${yrSpan(Y0, YEND)}, range ±${fmtI.format(m)}. The selected year's values are below the chart.`)}>
         <defs>
           <clipPath id={uid + 'p'}><rect width={w} height={y(0)} /></clipPath>
           <clipPath id={uid + 'n'}><rect y={y(0)} width={w} height={h - y(0)} /></clipPath>

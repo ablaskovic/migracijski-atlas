@@ -40,7 +40,7 @@ export default function StoryBar({ S, setS }: {
         <div className="storybar" id="storyBar" role="status" aria-live="polite">
           <span className="storybar-k">{(S.story + 1) + '/' + STORIES.length}</span>
           <span className="storybar-t" id="storyCap">{STORIES[S.story].cap}</span>
-          <button className="card-x" id="storyX" aria-label="Zatvori nalaz"
+          <button className="card-x" id="storyX" aria-label={L('Zatvori nalaz', 'Close the finding')}
             onClick={() => { setS({ story: null }); focusSoon('#story'); }}>×</button>
         </div>
       )}

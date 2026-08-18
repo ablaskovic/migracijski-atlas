@@ -39,7 +39,8 @@ export default function AgePanel({ S, setS, toggleAge }: {
             <button data-v="int" aria-pressed={!ext} onClick={() => setS({ ageTab: 'int' })}>{L('Unutarnja', 'Internal')}</button>
           </div>
           <svg id="ageSvg" viewBox={`0 0 ${w} ${h}`} role="img"
-            aria-label={ext ? 'Vanjska migracija prema starosti' : 'Unutarnja migracija prema starosti'}>
+            aria-label={ext ? L('Vanjska migracija prema starosti', 'External migration by age')
+              : L('Unutarnja migracija prema starosti', 'Internal migration by age')}>
             {ext ? (
               <>
                 <text x={cx - gap - 2} y={mT - 5} textAnchor="end" fontSize={8}

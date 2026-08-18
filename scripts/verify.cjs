@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 336;
+const EXPECTED_CHECKS = 339;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3402,6 +3402,51 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
   ck('and an English IPF year still dashes every arc',
     enArc2.length > 0 && enArc2.every(d => d === '7 4'), String(enArc2.length));
+
+  /* ── every data feature's accessible name, in English ──
+     #tip is aria-hidden by design, so these labels are the ONLY copy of their
+     numbers for a screen reader — and 997 of them (556 .jl + 420 .mxc + 21 .mxd)
+     were Croatian whatever the reader had chosen, with en-GB separators inside
+     them. County and municipality names stay Croatian: they are identifiers a
+     reader checks against a DZS table. Everything the atlas *says about* them
+     has to move. One sweep per feature class, so the next surface that forgets
+     is caught by the check rather than by a reader. */
+  const CRO = /\b(doseljeno|odseljeno|neto|doseljeni|odseljeni|dijagonala|selidbe|županij\w*|godišnj\w*|vremensk\w*|prikaza|zumiranje|zatvori|reprodukcij\w*|koridor|nalaz)\b/i;
+  await fresh('#l=en&v=jmap');
+  const enJl = await page.evaluate(() => [...document.querySelectorAll('.jl')].map(p => p.getAttribute('aria-label') || ''));
+  const jlBad = enJl.filter(s => CRO.test(s));
+  ck('all 556 English municipality labels read in English',
+    enJl.length === 556 && jlBad.length === 0 && enJl.every(s => / in, .* out, net /.test(NBSP(s))),
+    JSON.stringify({ n: enJl.length, bad: jlBad.slice(0, 2), first: enJl[0] }));
+
+  await fresh('#l=en&v=mx&c=0&y=2018&dir=net');
+  const enMx = await page.evaluate(() => ({
+    c: [...document.querySelectorAll('.mxc')].map(p => p.getAttribute('aria-label') || ''),
+    d: [...document.querySelectorAll('.mxd')].map(p => p.getAttribute('aria-label') || ''),
+  }));
+  const mxBad = [...enMx.c, ...enMx.d].filter(s => CRO.test(s));
+  ck('all 420 English matrix cells and 21 diagonals read in English',
+    enMx.c.length === 420 && enMx.d.length === 21 && mxBad.length === 0
+    && / ↔ .*: net /.test(NBSP(enMx.c[0])) && / — diagonal: /.test(enMx.d[0]),
+    JSON.stringify({ c: enMx.c.length, d: enMx.d.length, bad: mxBad.slice(0, 2) }));
+
+  /* the primary controls: the year slider, the play button, the mobile handle
+     and the zoom reset — whose title was translated while its accessible name
+     was not, so one control said two things in two languages */
+  await fresh('#l=en&v=saldo&c=1&y=2024');
+  await page.keyboard.press('+');
+  await settle(200);
+  const enCtl = await page.evaluate(() => {
+    const g = (sel, at) => { const e = document.querySelector(sel); return e ? (e.getAttribute(at) || '') : null; };
+    return { spark: g('#spark', 'aria-label'), play: g('#play', 'aria-label'), playT: g('#play', 'title'),
+      tog: g('#scrubTog', 'aria-label'), zoom: g('#zoomRst', 'aria-label'), zoomT: g('#zoomRst', 'title'),
+      zoomTxt: (document.querySelector('#zoomRst') || {}).textContent };
+  });
+  ck('the year slider, play, timeline handle and zoom reset all name themselves in English',
+    !CRO.test(enCtl.spark) && !CRO.test(enCtl.play) && !CRO.test(enCtl.playT)
+    && !CRO.test(enCtl.tog) && !CRO.test(enCtl.zoom) && !CRO.test(enCtl.zoomT)
+    && enCtl.zoom.startsWith(enCtl.zoomT) && /1\.6×/.test(NBSP(enCtl.zoomTxt)),
+    JSON.stringify(enCtl));
 
   /* Who gets which language, on a fresh visit with nothing shared and nothing
      stored. Two signals — the browser's language list and where the reader is —

@@ -86,13 +86,20 @@ export default function Scrubber({ S, setYi, togglePlay }: {
       ? L('tokovi · ', 'flows · ') + (S.cum ? t('badge.cum') : flowBadge(S.yi, S.cum))
       : (S.view === 'klas' || S.cum ? yrSpan(2011, yr) : L('godišnje', 'annual'));
 
+  /* The app's two primary interactions. Both named themselves in Croatian
+     whatever the reader had chosen — the visible `title` as well as the
+     accessible name — on the bar that carries the year for every view. */
+  const togLab = collapsed ? L('Prikaži vremensku traku', 'Show the timeline')
+    : L('Sakrij vremensku traku', 'Hide the timeline');
+  const playLab = S.playing ? L('Zaustavi reprodukciju', 'Stop playback')
+    : L('Pokreni reprodukciju kroz godine', 'Play through the years');
+
   return (
     <div className={'scrub' + (inert ? ' inert' : '') + (collapsed ? ' collapsed' : '')} id="scrubBox">
       {/* mobile-only handle: the bar is pinned to the bottom there, so it needs a
           way to give the map its space back. Play + year stay visible collapsed. */}
       <button className="scrub-tog" id="scrubTog" aria-expanded={!collapsed}
-        aria-controls="spark" title={collapsed ? 'Prikaži vremensku traku' : 'Sakrij vremensku traku'}
-        aria-label={collapsed ? 'Prikaži vremensku traku' : 'Sakrij vremensku traku'}
+        aria-controls="spark" title={togLab} aria-label={togLab}
         onClick={() => setCollapsed(c => !c)}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d={collapsed ? 'M7 14l5-5 5 5z' : 'M7 10l5 5 5-5z'} /></svg>
       </button>
@@ -101,8 +108,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
           a keyboard user tabbing onto a dead control in the JLS view and
           pressing Enter on nothing. */}
       <button className="play" id="play" aria-pressed={S.playing} disabled={inert} onClick={togglePlay}
-        title={S.playing ? 'Zaustavi reprodukciju' : 'Pokreni reprodukciju kroz godine'}
-        aria-label={S.playing ? 'Zaustavi reprodukciju' : 'Pokreni reprodukciju kroz godine'}>
+        title={playLab} aria-label={playLab}>
         <svg viewBox="0 0 24 24" id="playIco" aria-hidden="true">
           <path d={S.playing ? 'M6 5h4v14H6zm8 0h4v14h-4z' : 'M8 5v14l11-7z'} />
         </svg>
@@ -112,7 +118,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
             reachable only by dragging with a mouse. Arrow keys are handled
             globally in App, so focus here just makes that discoverable. */}
         <svg id="spark" role="slider" tabIndex={inert ? -1 : 0}
-          aria-label="Godina prikaza" aria-disabled={inert || undefined}
+          aria-label={L('Godina prikaza', 'Displayed year')} aria-disabled={inert || undefined}
           aria-valuemin={S.cum || S.view === 'klas' ? 2011 : Y0} aria-valuemax={YEND}
           aria-valuenow={yr} aria-valuetext={yrL(yr)}
           onPointerDown={inert ? undefined : onDown} onPointerMove={inert ? undefined : onMove}

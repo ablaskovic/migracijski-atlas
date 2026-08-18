@@ -412,7 +412,7 @@ export default function App() {
         <span>{paperRefNote()}{' '}
           {!paperPending() && (
             <><a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
-              aria-label={`${PAPER.short} — ${PAPER.citation} Otvara se u novoj kartici.`}>{PAPER.short}</a>{paperRefTail()} </>
+              aria-label={`${PAPER.short} — ${PAPER.citation} ${NEWTAB()}`}>{PAPER.short}</a>{paperRefTail()} </>
           )}
           {NO_AFFIL()}{L(" DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.", " CBS revises its series afterwards, so some values differ from those in the paper.")}</span>
       </footer>

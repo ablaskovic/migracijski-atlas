@@ -3,7 +3,7 @@ import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { scaleSqrt } from 'd3-scale';
 import {
   GEO, ISOS, DOM, RDOM, REGOF, SHORTN,
-  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowKind, jlsVal, jmapScale, countyAria, fmtI, sgn,
+  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowKind, jlsVal, jmapScale, countyAria, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 import { jlsGeo, regGeo, jlsFailed, retryGeo } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
@@ -264,7 +264,8 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                        rows make. role=img is what keeps the aria-label exposed
                        on a focusable element that claims no behaviour. */
                     role="img"
-                    aria-label={`${p.n}, ${SHORTN[ISOS[p.c]]}: doseljeno ${fmtI.format(p.i)}, odseljeno ${fmtI.format(p.o)}, neto ${sgn(p.i - p.o, fmtI)}`}
+                    aria-label={L(`${p.n}, ${SHORTN[ISOS[p.c]]}: doseljeno ${fmtI.format(p.i)}, odseljeno ${fmtI.format(p.o)}, neto ${sgn(p.i - p.o, fmtI)}`,
+                      `${p.n}, ${SHORTN[ISOS[p.c]]}: ${fmtI.format(p.i)} in, ${fmtI.format(p.o)} out, net ${sgn(p.i - p.o, fmtI)}`)}
                     onPointerEnter={() => setS({ jlsHl: p.j })}
                     /* touch sends leave the moment the finger lifts, which would
                        flash the readout away; keep it until the next tap instead */
@@ -387,17 +388,21 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
         <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
           onClick={() => setS({ labels: !S.labels })}>{L('Aa oznake', 'Aa labels')}</button>
       )}
-      {zoom.zoomed && (
+      {zoom.zoomed && (() => { const zk = Math.round(zoom.t.k * 10) / 10; return (
         /* Resetting the zoom unmounts this button, so focus had nowhere to go;
            hand it to the neighbouring map control. The title and the aria-label
            also used to say two different things to two different users. */
         <button className="zoomrst" id="zoomRst"
           onClick={() => { zoom.reset(); focusSoon('#labBtn, #helpBtn'); }}
           title={L('Vrati zumiranje na početno', 'Reset zoom')}
-          aria-label={`Vrati zumiranje na početno, trenutačno ${Math.round(zoom.t.k * 10) / 10}×`}>
-          ⤢ {Math.round(zoom.t.k * 10) / 10}×
+          /* the title was translated and the accessible name was not, so this one
+             control said two things in two languages to two different users; the
+             factor is a number and owes the reader's own decimal separator */
+          aria-label={L(`Vrati zumiranje na početno, trenutačno ${fmtR.format(zk)}×`,
+            `Reset zoom, currently ${fmtR.format(zk)}×`)}>
+          ⤢ {fmtR.format(zk)}×
         </button>
-      )}
+      ); })()}
       {/* The 475 KB municipal geometry is its own chunk, so "not here yet" and
           "never arriving" are two different states and the view has to name
           both. It used to name neither: `jlsGeo()` returns null before the
