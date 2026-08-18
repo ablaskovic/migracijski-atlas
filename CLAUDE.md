@@ -148,6 +148,21 @@ fitted**, which was invisible only because Croatian happens to fit at every widt
 the suite exercises: the English string is four characters longer and lands
 within ~1 px of the 390 px canvas edge. It shrinks now, like the title, the
 credits and the legend caveat before it — 10 → 9,5 px at 390.
+The second: **where the reader is** now decides the default language, alongside
+what their browser asks for. A browser set to English or German inside Croatia
+is extremely ordinary, and answering that reader in English because of a setting
+they may never have chosen gets the common case backwards — so Croatian is the
+answer when **either** signal points at it, and English is the fallback for
+readers neither signal reaches. The region is read from the device's IANA
+timezone plus any region subtag the reader's own language tags carry (`en-HR`).
+It is deliberately **not an IP lookup**: that needs either a third-party
+geolocation host — which the "page reaches no third-party origin" invariant
+forbids and the suite asserts against — or a server round trip, and *either
+answer arrives after the first paint*, i.e. one frame in which `41.986` means
+forty-one. The precedence is unchanged where it matters: `l=` beats a stored
+choice beats both signals, an explicit act always beating an inference, and a
+region-decided default still carries **no `l=`** so the link stays neutral.
+Measured across 21 language × region × storage × permalink combinations.
 
 ## Commands
 

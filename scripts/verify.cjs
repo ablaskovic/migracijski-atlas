@@ -118,6 +118,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     try { localStorage.removeItem('atlas-lang'); } catch { /* private mode */ }
   });
   await pinHr(page);
+  /* The default language now reads a region signal as well as a language one,
+     and the machine running this suite has a timezone of its own. Pinned so the
+     rest of the file measures one fixed reader rather than whoever ran it —
+     Zagreb, which agrees with the hr-HR pin above. */
+  await page.emulateTimezone('Europe/Zagreb');
   await page.setViewport({ width: 1440, height: 900 });
   /* index.html used to load Oswald + IBM Plex from fonts.googleapis.com, and
      `waitUntil: 'networkidle0'` waited on it — so the suite depended on the
@@ -3354,25 +3359,89 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /Figure: CC BY 4\.0/.test(enSvg) && !/Izvori:/.test(enSvg),
     (enSvg.match(/>[^<]{20,90}</g) || []).slice(0, 3).join(' | '));
 
-  /* Who gets which language. Croatian is the default for the languages that
-     read it — a Serbian or Bosnian reader is far better served by Croatian than
-     by English — and English is the fallback for everyone else. */
-  const detect = [];
-  for (const tags of [['hr-HR', 'hr'], ['sr-Latn-RS', 'sr'], ['bs-BA'], ['de-DE', 'de'], ['en-GB']]) {
+  /* Who gets which language, on a fresh visit with nothing shared and nothing
+     stored. Two signals — the browser's language list and where the reader is —
+     and a reader needs only one of them to point at Croatian.
+     Both are pinned per page: `emulateTimezone` because the machine running the
+     suite has a timezone of its own, and on a Croatian one every case below
+     would pass for the wrong reason. */
+  const bootLang = async (tags, tz, stored) => {
     const pg = await browser.newPage();
-    await pg.evaluateOnNewDocument(t => {
+    await pg.emulateTimezone(tz);
+    await pg.evaluateOnNewDocument((t, st) => {
       Object.defineProperty(navigator, 'languages', { get: () => t, configurable: true });
       Object.defineProperty(navigator, 'language', { get: () => t[0], configurable: true });
-    }, tags);
+      /* runs before any page script, so the app's module init sees it */
+      try { if (st) localStorage.setItem('atlas-lang', st); else localStorage.removeItem('atlas-lang'); }
+      catch { /* opaque origin on the initial about:blank */ }
+    }, tags, stored || '');
     await pg.goto(url, { waitUntil: 'networkidle0' });
     await settle(250);
-    detect.push({ t: tags[0], l: await pg.evaluate(() => document.documentElement.lang) });
+    const r = await pg.evaluate(() => ({ l: document.documentElement.lang, hash: location.hash }));
     await pg.close();
+    return r;
+  };
+
+  /* Signal 1, with the reader pinned OUTSIDE the region so the language list is
+     what decides. Croatian is the default for the languages that read it — a
+     Serbian or Bosnian reader is far better served by Croatian than by English —
+     and English is the fallback for everyone else. */
+  const detect = [];
+  for (const tags of [['hr-HR', 'hr'], ['sr-Latn-RS', 'sr'], ['bs-BA'], ['de-DE', 'de'], ['en-GB']]) {
+    detect.push({ t: tags[0], ...await bootLang(tags, 'Europe/Berlin') });
   }
   ck('hr/sr/bs readers get Croatian, everyone else English, with no l= in the link',
     detect[0].l === 'hr' && detect[1].l === 'hr' && detect[2].l === 'hr'
     && detect[3].l === 'en' && detect[4].l === 'en',
     JSON.stringify(detect));
+
+  /* Signal 2: WHERE the reader is. A browser set to English or German inside
+     Croatia is extremely ordinary — it is what a great many machines in the
+     region ship as — and the atlas is Croatian by default, so answering such a
+     reader in English because of a setting they may never have chosen gets the
+     common case backwards. The signal is the device's own timezone, plus any
+     region subtag the reader's own language tags carry (`en-HR`); it is not an
+     IP lookup, because an IP lookup needs a third-party host this app must not
+     reach or a server round trip, and either answer arrives after the first
+     paint — one frame in which 41.986 means forty-one.
+     …and the region deciding the default must NOT put `l=` in the link: it is
+     still the reader's own default, and a link carrying it would force Croatian
+     on whoever it was sent to. */
+  const inRegion = [
+    { t: ['de-DE', 'de'], tz: 'Europe/Zagreb', why: 'German browser, in Croatia' },
+    { t: ['en-US', 'en'], tz: 'Europe/Zagreb', why: 'English browser, in Croatia' },
+    { t: ['fr-FR'], tz: 'Europe/Sarajevo', why: 'French browser, in BiH' },
+    { t: ['it-IT'], tz: 'Europe/Podgorica', why: 'Italian browser, in Montenegro' },
+    /* the region subtag alone, with the timezone saying otherwise */
+    { t: ['en-HR'], tz: 'America/New_York', why: 'en-HR abroad' },
+  ];
+  const inR = [];
+  for (const c of inRegion) inR.push({ why: c.why, ...await bootLang(c.t, c.tz) });
+  ck('a reader in the region gets Croatian whatever their browser asks for, and the link stays neutral',
+    inR.every(r => r.l === 'hr' && !/l=/.test(r.hash)),
+    JSON.stringify(inR));
+
+  /* The converse, so the region signal cannot be the *only* thing deciding:
+     outside it the language list still answers, in both directions. */
+  const outRegion = [
+    { t: ['hr-HR', 'hr'], tz: 'America/New_York', want: 'hr', why: 'Croatian browser abroad' },
+    { t: ['sr-Latn-RS'], tz: 'Australia/Sydney', want: 'hr', why: 'Serbian browser abroad' },
+    { t: ['en-GB', 'en'], tz: 'Europe/London', want: 'en', why: 'English browser in the UK' },
+    { t: ['ja-JP'], tz: 'Asia/Tokyo', want: 'en', why: 'neither signal' },
+  ];
+  const outR = [];
+  for (const c of outRegion) outR.push({ why: c.why, want: c.want, ...await bootLang(c.t, c.tz) });
+  ck('and outside the region the browser language still decides, both ways',
+    outR.every(r => r.l === r.want), JSON.stringify(outR));
+
+  /* An explicit act beats an inference, always. A reader sitting in Zagreb who
+     once pressed EN gets English on the next visit — the region must not
+     silently undo the one signal that is not a guess. */
+  const stored = await bootLang(['hr-HR', 'hr'], 'Europe/Zagreb', 'en');
+  ck('a stored choice still outranks both signals, and is that reader’s own default',
+    /* no l= either: BASE.lang resolves from the stored choice, so English *is*
+       this reader's default and a link they share must not force it on anyone */
+    stored.l === 'en' && !/l=/.test(stored.hash), JSON.stringify(stored));
 
   /* A shared link outranks both the browser and the stored choice: a link sent
      in English has to arrive in English, or the sender cannot show anyone

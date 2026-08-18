@@ -32,18 +32,78 @@ export type Lang = 'hr' | 'en';
    come along without being enumerated. */
 const HR_LANGS = new Set(['hr', 'bs', 'sr', 'sh', 'me', 'cnr']);
 
-/* `navigator.languages` in preference order, falling back to `language`. The
-   first entry that is decidably one or the other wins; a reader whose list is
-   `['de','hr']` gets English, which is what their own ordering asks for. */
-export function detectLang(nav: Pick<Navigator, 'languages' | 'language'> = navigator): Lang {
-  const list = nav.languages && nav.languages.length ? nav.languages : [nav.language];
+/* WHERE the reader is, as opposed to what their browser asks for. The countries
+   whose official language is one of HR_LANGS above — Croatia, Bosnia and
+   Herzegovina, Serbia, Montenegro — by ISO 3166-1 alpha-2 and by IANA zone.
+
+   A caveat worth stating rather than discovering: in the IANA database
+   Europe/Zagreb, Europe/Sarajevo, Europe/Ljubljana and Europe/Skopje are all
+   *links* to Europe/Belgrade, and an engine is free to canonicalise. Chrome
+   returns what the platform supplies (on Windows, via CLDR's windowsZones
+   mapping keyed by the system region, so a Croatian install answers
+   Europe/Zagreb), but a canonicalising environment answers Europe/Belgrade for
+   all of them — which is in this set anyway, so the failure mode is that a
+   Slovenian or Macedonian reader is offered Croatian. In this region that is a
+   far better wrong guess than English, and it is one click from being right. */
+const HR_REGIONS = new Set(['hr', 'ba', 'rs', 'me']);
+const HR_ZONES = new Set(['europe/zagreb', 'europe/sarajevo', 'europe/belgrade', 'europe/podgorica']);
+
+/* The device's own statement of where it is. Not an IP lookup, deliberately: an
+   IP lookup needs either a third-party geolocation host — which this app must
+   not reach, and the suite asserts it reaches none — or a server function of our
+   own, and *either way the answer arrives after the first paint*. The language
+   has to be settled before the first render (see setLang below): a frame of the
+   wrong language here is not a cosmetic flicker, it is a frame in which `41.986`
+   means forty-one. The timezone costs no request and is available synchronously,
+   which is the only reason it can decide anything at boot.
+   Wrapped: `resolvedOptions().timeZone` is unset on a few old engines and throws
+   on a couple more, and a language default is not worth a blank page. */
+export function timeZone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; }
+}
+
+/* Who gets which language, before anything is stored or shared.
+
+   Two signals, and the reader only needs one of them to be Croatian:
+
+   1. LANGUAGE — `navigator.languages` in preference order, falling back to
+      `language`. The first entry that is decidably one or the other wins, so a
+      reader whose list is `['en','hr']` gets English, which is what their own
+      ordering asks for, while `['de','hr']` gets Croatian: German is not on
+      offer, so the second preference is the first that means anything here.
+   2. REGION — where the reader actually is. A browser set to English or German
+      inside Croatia is extremely ordinary (it is what a great many machines in
+      the region ship as), and the atlas is Croatian by default; answering such
+      a reader in English because of a setting they may never have chosen gets
+      the common case backwards.
+
+   So English is the answer only when *neither* signal points at Croatian:
+   English is the fallback for readers this atlas cannot otherwise reach, not a
+   default that a location has to argue its way out of. `l=` in the permalink
+   and a stored choice both still outrank all of this — an explicit act beats an
+   inference, always. */
+export function detectLang(
+  nav: Pick<Navigator, 'languages' | 'language'> = navigator,
+  tz: string = timeZone(),
+): Lang {
+  const list = (nav.languages && nav.languages.length ? nav.languages : [nav.language]).filter(Boolean);
   for (const tag of list) {
-    if (!tag) continue;
     const primary = String(tag).toLowerCase().split('-')[0];
     if (HR_LANGS.has(primary)) return 'hr';
-    if (primary === 'en') return 'en';
+    /* decidable, but not final: the region below can still answer for it */
+    if (primary === 'en') break;
   }
-  return 'en';
+  /* A region subtag is the reader's own tag saying where they are (`en-HR`), and
+     is read from every entry rather than only the first: a list is a preference
+     order for languages, not for places. Script subtags are skipped by length —
+     a region is two letters (`hr-HR`) or three digits (`es-419`), a script is
+     four (`sr-Latn-RS`), which is why `sr-Latn` must not read as region "latn". */
+  for (const tag of list) {
+    for (const sub of String(tag).toLowerCase().split('-').slice(1)) {
+      if (sub.length === 2 && HR_REGIONS.has(sub)) return 'hr';
+    }
+  }
+  return HR_ZONES.has(tz.toLowerCase()) ? 'hr' : 'en';
 }
 
 /* Module-level, and set by App before it renders — the same escape hatch the
