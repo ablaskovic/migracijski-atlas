@@ -7,7 +7,7 @@ import { moveTip, COARSE } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { L } from '../lib/i18n.ts';
+import { L, yr } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Godine — 21 counties × the whole series, one cell per county-year.
@@ -144,7 +144,11 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
     const gy = (ev.clientY - r.top - zoom.t.y) / zoom.t.k;
     const c = Math.floor((gx - x0) / cw), rw = Math.floor((gy - y0) / ch);
     const inside = rw >= 0 && rw < nR && c >= 0 && c < nC;
-    setS({ yrHl: inside ? [order[rw], cols[c]] : null });
+    /* the same-value guard the matrix overlay documents: a new tuple per
+       pointermove is a full reconciliation per pointermove */
+    const cur = S.yrHl;
+    const same = inside ? !!cur && cur[0] === order[rw] && cur[1] === cols[c] : !cur;
+    if (!same) setS({ yrHl: inside ? [order[rw], cols[c]] : null });
     const { clientX, clientY } = ev;
     requestAnimationFrame(() => moveTip({ clientX, clientY }));
   };
@@ -168,7 +172,7 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
             role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
             /* the cell states its own county, year and value: #tip is
                aria-hidden, so this string is the only copy of the number */
-            aria-label={`${D[iso].n}, ${YEARS[yi]}.: ${txt}`}
+            aria-label={`${D[iso].n}, ${yr(YEARS[yi])}: ${txt}`}
             onPointerEnter={() => setS({ yrHl: [iso, yi] })}
             onPointerLeave={() => { if (!COARSE) setS({ yrHl: null }); }}
             onPointerMove={moveTip}
@@ -214,7 +218,7 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
             fontSize={colFs} fontFamily={MONO}
             fontWeight={hlC === c || cols[c] === S.yi ? 600 : 400}
             fill={cols[c] === S.yi ? '#0F7D8C' : hlC === c ? '#20262B' : '#5F6A72'}
-            transform={`translate(${x0 + c * cw + cw / 2 + 3},${y0 - 6}) rotate(-60)`}>{YEARS[yi]}.</text>
+            transform={`translate(${x0 + c * cw + cw / 2 + 3},${y0 - 6}) rotate(-60)`}>{yr(YEARS[yi])}</text>
         ))}
         {rows}
         {/* Pre-2007 is the softest part of the series and this is the first view

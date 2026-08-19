@@ -61,7 +61,7 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
         <path d={lineG(ints)!} fill="none" stroke="#20262B" strokeWidth={1.6} />
         {[2000, 2010, 2020].map(t => (
           <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize={8.5}
-            fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
+            fontFamily="var(--mono)" fill="var(--mut)">{yr(t)}</text>
         ))}
         <text x={w - mR} y={mT + 2} textAnchor="end" fontSize={8.5}
           fontFamily="var(--mono)" fill="var(--mut)">{'±' + fmtI.format(m)}</text>

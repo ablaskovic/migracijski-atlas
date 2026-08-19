@@ -82,7 +82,13 @@ function markPct(S: State, m: number): number | null {
    a second line here costs a control over there. The branches are ordered by
    what the reader is looking at — first "these counts differ from the published
    ones", then "this threshold is not the study's". */
-const PW = `${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.`;
+/* A function, not a module constant: a constant is evaluated at import time,
+   before App's module scope has called setLang, so it froze the study's window
+   in Croatian ordinals for every reader. In English the klas legend read "The
+   paper publishes 7 / 7 / 7 for 2011.–2024.. On the newer CBS series …" — the
+   ordinal dots plus a doubled full stop, on the headline paper-comparison
+   surface at its default state. */
+const PW = (): string => yrSpan(PAPER_WINDOW.from, PAPER_WINDOW.to);
 
 /* Pre-2007 is the softest data in the file and the app never said so where it
    shows. Measured on atlas_data2.json: the national inter-county margin
@@ -99,23 +105,23 @@ const preNote = (S: State): string =>
 function klasNote(S: State): string {
   if (paperKlasComparable(S)) {
     if (!PAPER_KLAS_DIFF.length) {
-      return L(`Podjela odgovara objavljenoj u radu za ${PW}`,
-        `The split matches the one published in the paper for ${PW}`);
+      return L(`Podjela odgovara objavljenoj u radu za ${PW()}`,
+        `The split matches the one published in the paper for ${PW()}`);
     }
     const who = PAPER_KLAS_DIFF.map(d => SHORTN[d.iso]).join(', ');
     /* Croatian needs the verb to agree with the count; English does not, so the
        plural branch exists only on the Croatian side. */
-    return L(`Rad za ${PW} objavljuje 7 / 7 / 7. Na novijoj DZS seriji drukčije `
+    return L(`Rad za ${PW()} objavljuje 7 / 7 / 7. Na novijoj DZS seriji drukčije `
       + `${PAPER_KLAS_DIFF.length > 1 ? 'su razvrstane' : 'je razvrstana'}: ${who} — v. „Kako čitati”.`,
-    `The paper publishes 7 / 7 / 7 for ${PW}. On the newer CBS series `
+    `The paper publishes 7 / 7 / 7 for ${PW()}. On the newer CBS series `
       + `${PAPER_KLAS_DIFF.length > 1 ? 'these fall' : 'this falls'} differently: ${who} — see “How to read”.`);
   }
   if (S.thrRel) {
-    return L(`Prag u % popisa 2011. — rad koristi apsolutni prag (${fmtI.format(PAPER_THR)}, ${PW}), a argumentira relativno.`,
-      `Threshold as % of the 2011 census — the paper uses an absolute threshold (${fmtI.format(PAPER_THR)}, ${PW}) but argues in relative terms.`);
+    return L(`Prag u % popisa 2011. — rad koristi apsolutni prag (${fmtI.format(PAPER_THR)}, ${PW()}), a argumentira relativno.`,
+      `Threshold as % of the 2011 census — the paper uses an absolute threshold (${fmtI.format(PAPER_THR)}, ${PW()}) but argues in relative terms.`);
   }
-  return L(`Prag i tri razreda iz rada; rad ih računa za ${PW} pragom ${fmtI.format(PAPER_THR)}.`,
-    `Threshold and the three classes are the paper's; it computes them for ${PW} at a threshold of ${fmtI.format(PAPER_THR)}.`);
+  return L(`Prag i tri razreda iz rada; rad ih računa za ${PW()} pragom ${fmtI.format(PAPER_THR)}.`,
+    `Threshold and the three classes are the paper's; it computes them for ${PW()} at a threshold of ${fmtI.format(PAPER_THR)}.`);
 }
 
 export default function Legend({ S }: { S: State }) {

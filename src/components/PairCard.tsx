@@ -77,7 +77,7 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
         <circle cx={x(2018)} cy={h - mB} r={3} fill="none" stroke="var(--acc)" strokeWidth={1.5} />
         {[2000, 2010, 2020].map(t => (
           <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize={8.5}
-            fontFamily="var(--mono)" fill="var(--mut)">{t}.</text>
+            fontFamily="var(--mono)" fill="var(--mut)">{yr(t)}</text>
         ))}
         <text x={w - mR} y={mT + 2} textAnchor="end" fontSize={8.5}
           fontFamily="var(--mono)" fill="var(--mut)">{'±' + fmtI.format(m)}</text>

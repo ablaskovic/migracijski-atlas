@@ -8,10 +8,12 @@ import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
 import {
   CODE_LICENCE, FONT_LICENCE, FONT_LICENCE_HREF, IMG_LICENCE, sources,
 } from '../lib/licences.ts';
-import { L, NEWTAB, t } from '../lib/i18n.ts';
+import { L, NEWTAB, t, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
-const PW = `${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.`;
+/* a function for the reason Legend's twin is one: a module constant freezes the
+   study's window in whatever language happened to be default at import time */
+const PW = (): string => yrSpan(PAPER_WINDOW.from, PAPER_WINDOW.to);
 
 /* The legend has room for the names; this has room for the reason. Grouped by
    transition rather than listed per county, so the sentence stays one clause
@@ -227,11 +229,11 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
       </div>
       <div className="help-p">
         <b>{L('Zašto se razredi razlikuju od objavljenih.', 'Why the classes differ from the published ones.')}</b>
-        {L(` Klasifikacija ovdje primjenjuje prag iz rada, ali na novijoj DZS seriji, pa rezultat nije istovjetan objavljenome. Rad za ${PW} objavljuje sedam pobjednica, sedam neutralnih i sedam gubitnica.`,
-          ` The classification here applies the paper’s threshold, but to a newer CBS series, so the result is not identical to the published one. For ${PW} the paper publishes seven gaining, seven neutral and seven losing counties.`)}
+        {L(` Klasifikacija ovdje primjenjuje prag iz rada, ali na novijoj DZS seriji, pa rezultat nije istovjetan objavljenome. Rad za ${PW()} objavljuje sedam pobjednica, sedam neutralnih i sedam gubitnica.`,
+          ` The classification here applies the paper’s threshold, but to a newer CBS series, so the result is not identical to the published one. For ${PW()} the paper publishes seven gaining, seven neutral and seven losing counties.`)}
         {' ' + klasDiffSentence()}
-        {L(` Metoda je ista; razlikuje se berba podataka. Rad računa ${PW} — pomaknete li vremensku vrpcu dalje, prikaz više ne odgovara razdoblju koje je rad analizirao.`,
-          ` The method is the same; the data vintage differs. The paper computes ${PW} — move the scrubber beyond it and the view no longer matches the period the paper analysed.`)}
+        {L(` Metoda je ista; razlikuje se berba podataka. Rad računa ${PW()} — pomaknete li vremensku vrpcu dalje, prikaz više ne odgovara razdoblju koje je rad analizirao.`,
+          ` The method is the same; the data vintage differs. The paper computes ${PW()} — move the scrubber beyond it and the view no longer matches the period the paper analysed.`)}
       </div>
       <div className="help-p">
         <b>{L('Kako je nastala podjela na regije.', 'How the regional split was arrived at.')}</b>

@@ -58,7 +58,8 @@ function tipHTML(S: State): string {
   if (S.view === 'flow') {
     if (iso === S.sel) return '<div class="tip-name">' + c.n + '</div>' + L('odabrana županija — klik na drugu za promjenu', 'selected county — click another to change');
     const o = fsum(S.sel!, iso, S.yi, S.cum), i2 = fsum(iso, S.sel!, S.yi, S.cum), net = i2 - o;
-    const per = S.cum ? '2011.–' + y + '.' : y + '.';
+    /* line 44 does this correctly; this one hand-built the Croatian ordinals */
+    const per = S.cum ? yrSpan(2011, y) : yrOf(y);
     return '<div class="tip-name">' + c.n + '</div><table>' +
       '<tr><td>' + D[S.sel!].n + ' → ' + c.n + '</td><td>' + fmtI.format(o) + '</td></tr>' +
       '<tr><td>' + c.n + ' → ' + D[S.sel!].n + '</td><td>' + fmtI.format(i2) + '</td></tr>' +
