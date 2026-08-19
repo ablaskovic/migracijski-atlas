@@ -49,6 +49,23 @@ export function useZoom(w: number, h: number) {
   /* a pan ends with a click on whatever path was under the cursor — swallow it,
      otherwise dragging the map also selects a county */
   const panned = useRef(false);
+  /* Pointer capture, so a gesture survives the pointer leaving the box. The map
+     box is ~570 px wide, so panning Istria to Vukovar at k = 4 routinely reaches
+     its edge mid-drag — and the gesture died there with the button still held,
+     because onPointerLeave was wired to onPointerUp. On touch a pinch aborted
+     the moment one finger crossed the edge. Reads as a dead-feeling map rather
+     than as an error.
+     Taken when the gesture *becomes* one, never on pointerdown: while an element
+     holds capture the click is dispatched to it rather than to the hit-test
+     target, so capturing on press would have sent every county click to the svg
+     and nothing would ever have been selected. Below DEAD px it is still a
+     click, and above it the click is swallowed anyway. */
+  const held = useRef(new Set<number>());
+  const grab = (el: Element, id: number) => {
+    if (held.current.has(id)) return;
+    held.current.add(id);
+    try { el.setPointerCapture(id); } catch { /* pointer already gone — still pans */ }
+  };
 
   const reset = useCallback(() => setT(IDENT), []);
   /* a resize changes the clamp bounds — re-fit so content cannot end up adrift */
@@ -122,6 +139,10 @@ export function useZoom(w: number, h: number) {
   };
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    /* Only the primary button pans. Without the filter a right-button drag
+       moved the map, so the context menu opened over a map that had shifted
+       under it — and a middle-button drag panned instead of autoscrolling. */
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     panned.current = false;   /* a fresh gesture starts as a click until it moves */
     pts.current.set(e.pointerId, local(e));
     if (pts.current.size === 2) {
@@ -146,6 +167,7 @@ export function useZoom(w: number, h: number) {
       const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
       const k = clamp(g.t.k * (d / g.d), KMIN, KMAX), r = k / g.t.k;
       panned.current = true;
+      grab(e.currentTarget, e.pointerId);
       /* zoom about the pinch centre and follow it as the fingers travel — not
          zoomTo(), whose anchor is fixed: here cx/cy drift away from g.cx/g.cy */
       setT(fit({ k, x: cx - (g.cx - g.t.x) * r, y: cy - (g.cy - g.t.y) * r }, w, h));
@@ -158,19 +180,27 @@ export function useZoom(w: number, h: number) {
       if (!dr.moved && Math.hypot(dx, dy) < DEAD) return;
       dr.moved = true;
       panned.current = true;
+      grab(e.currentTarget, e.pointerId);
       setT(fit({ k: dr.t.k, x: dr.t.x + dx, y: dr.t.y + dy }, w, h));
     }
   };
 
   const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (held.current.delete(e.pointerId)) {
+      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    }
     pts.current.delete(e.pointerId);
     if (pts.current.size < 2) gesture.current = null;
     if (!pts.current.size) drag.current = null;
   };
 
+  /* No onPointerLeave: with capture the pointer cannot leave mid-gesture, and
+     mapping leave to up is what *actively ended* a pan the moment the cursor
+     crossed the box edge. pointercancel still covers the browser claiming the
+     gesture as a page scroll. */
   const bind = {
     ref, onPointerDown, onPointerMove, onPointerUp,
-    onPointerCancel: onPointerUp, onPointerLeave: onPointerUp,
+    onPointerCancel: onPointerUp,
   };
   /* pan-y keeps one-finger page scrolling alive; pinch still reaches us */
   const style = { touchAction: 'pan-y' as const, cursor: t.k > 1 ? 'grab' : undefined };
