@@ -84,16 +84,45 @@ function useModalWhenNarrow(open: boolean): boolean {
     const card = document.getElementById('helpCard');
     if (!card) return;
     const touched: Element[] = [];
+    const moved: [Element, string][] = [];
+    /* `inert` is an IDL attribute of HTMLElement, and one of #helpCard's
+       siblings is `svg#map`, an SVGSVGElement. Setting the attribute there
+       parses and does nothing at all — measured in Chrome: `svg.inert` is
+       undefined where `div.inert` is false, and a focusable child of an inert
+       <svg> still takes Tab where the same child under an inert <div> does not.
+       So the whole map went on holding tab stops under a dialog that declares
+       aria-modal="true": measured at 390×844 with the glossary open, 80 of the
+       80 tab stops outside the dialog were county paths, every one of them
+       100 % covered by the overlay, and Enter on one of them selected a county
+       and rewrote the map the reader could not see.
+       The map's tab stops are suspended directly instead. Its focusable content
+       is SVG in every view (21 county paths, 556 municipalities, 420 matrix
+       cells, 588 Godine cells), the roving values are recorded and put back on
+       close, and pointer use is untouched — tabindex -1 removes an element from
+       the tab order, not from the page. */
+    const map = document.getElementById('map');
+    for (const f of map?.querySelectorAll('[tabindex]:not([tabindex="-1"])') ?? []) {
+      moved.push([f, f.getAttribute('tabindex')!]);
+      f.setAttribute('tabindex', '-1');
+    }
     for (let el: Element | null = card; el && el !== document.body; el = el.parentElement) {
       for (const sib of el.parentElement?.children ?? []) {
         /* skip what is already inert (#card and #jcard, set by React) so the
            cleanup below cannot clear a flag it did not set */
         if (sib === el || sib.hasAttribute('inert') || sib.classList.contains('sr-only')) continue;
+        /* …and skip what `inert` cannot reach: the map is the one non-HTML
+           sibling on the walk, and it is handled above. Flagging it was worse
+           than useless — it made `closest('[inert]')` report the 21 county paths
+           as inert to anything asking, this suite included. */
+        if (!(sib instanceof HTMLElement)) continue;
         sib.setAttribute('inert', '');
         touched.push(sib);
       }
     }
-    return () => touched.forEach(el => el.removeAttribute('inert'));
+    return () => {
+      touched.forEach(el => el.removeAttribute('inert'));
+      moved.forEach(([el, v]) => el.setAttribute('tabindex', v));
+    };
   }, [open, narrow]);
   return narrow;
 }

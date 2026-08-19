@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 405;
+const EXPECTED_CHECKS = 406;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -143,6 +143,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      own block at the end rather than being tested by accident. */
   browser = await puppeteer.launch({ args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR'] });
   const page = await browser.newPage();
+  /* A real visitor's tab is focused; a headless one is not, and nothing in the
+     suite noticed until a check pressed Tab. Tab past the last stop of a modal
+     hands focus to the browser UI — and in headless there is no way back: from
+     that press on `document.hasFocus()` stayed false *across navigations*, and
+     a focused document is what makes `el.focus()` fire a focus event at all.
+     Measured: after a 60-press walk, `.cnt[data-iso="HR-18"].focus()` on a
+     freshly loaded page fired no focus handler, set no highlight and matched no
+     :focus-visible — so the tooltip check three blocks later failed while the
+     app was innocent. Every keyboard check in the file rests on this, and every
+     one of them was one Tab press away from measuring nothing. */
+  await (await page.createCDPSession()).send('Emulation.setFocusEmulationEnabled', { enabled: true });
   /* No HTTP cache. The deployed policy this suite now serves marks
      /assets/* immutable for a year, and a memory-cached response is never a
      request — so the checks that abort a chunk to test its failure UI silently
@@ -1945,6 +1956,41 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('below 900 px the glossary is modal: nothing it covers is still a tab stop',
     gNarrow.modal === 'true' && gNarrow.outside > 30 && gNarrow.live === 0,
     JSON.stringify(gNarrow));
+  /* …measured by pressing Tab, because the check above cannot see this defect:
+     it filters with `closest('[inert]')`, an ATTRIBUTE selector, and `inert` is
+     an IDL attribute of HTMLElement. Set on `svg#map` it does nothing to the
+     map (measured: `svg.inert === undefined`, and an inert <svg>'s focusable
+     children still take Tab) while matching that selector perfectly — so all 21
+     county paths were discarded as "inert" and `live` read 0 with the whole map
+     still in the tab order. Walking the cycle is the only version of this that
+     cannot be fooled: 80 of 80 stops outside the dialog were covered county
+     paths before the fix. */
+  const tabWalk = async (steps) => {
+    const stops = [];
+    for (let i = 0; i < steps; i++) {
+      await page.keyboard.press('Tab');
+      stops.push(await page.evaluate(() => {
+        const a = document.activeElement, card = document.querySelector('#helpCard');
+        if (!a || a === document.body) return { body: true, who: 'BODY' };
+        const r = a.getBoundingClientRect(), c = card.getBoundingClientRect();
+        return {
+          inDialog: card.contains(a),
+          covered: !card.contains(a) && r.left >= c.left - 0.5 && r.right <= c.right + 0.5
+            && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5,
+          who: a.id || a.getAttribute('data-iso') || String(a.getAttribute('class') || a.tagName),
+        };
+      }));
+    }
+    /* `moved` is the floor: focus that never goes anywhere reports "nothing
+       outside the dialog" just as loudly as a correct trap does */
+    return { stops: stops.length, moved: stops.filter((s, i) => i && s.who !== stops[i - 1].who).length,
+      outside: stops.filter(s => !s.body && !s.inDialog).length,
+      covered: stops.filter(s => s.covered).length,
+      who: [...new Set(stops.filter(s => s.covered).map(s => s.who))].slice(0, 4) };
+  };
+  const wNarrow = await tabWalk(60);
+  ck('and Tab proves it: 60 presses under the open glossary never leave the dialog',
+    wNarrow.outside === 0 && wNarrow.covered === 0 && wNarrow.moved >= 5, JSON.stringify(wNarrow));
   await page.setViewport({ width: 1440, height: 900 });
   await fresh('#v=saldo&c=1&y=2024&st=2');
   const gWide = await glossary();
