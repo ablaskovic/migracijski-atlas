@@ -6,7 +6,7 @@ import {
 } from '../lib/credits.ts';
 import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
 import {
-  CODE_LICENCE, FONT_LICENCE, FONT_LICENCE_HREF, IMG_LICENCE, sources,
+  CODE_LICENCE, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE, sources,
 } from '../lib/licences.ts';
 import { L, NEWTAB, t, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -210,7 +210,7 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
       {/* The full citation, once, where there is room for it — the header and the
           footer carry the short form and the same link. */}
       {!paperPending() && (
-        <div className="help-cite">
+        <div className="help-cite" lang="hr">
           <a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
             aria-label={`${PAPER.citation} ${NEWTAB()}`}>{PAPER.citation}</a>
           <div className="help-doi">{PAPER.doi}</div>
@@ -269,8 +269,16 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <b>{IMG_LICENCE}</b>
         {L(' — slobodno ih upotrijebite uz navođenje izvora, koji je već otisnut na samoj slici. Kod atlasa je pod ',
           ' — use them freely with attribution, which is already printed on the image itself. The atlas code is under ')}
-        <b>{CODE_LICENCE}</b>{L(', a fontovi (Oswald, IBM Plex) pod ', ', and the fonts (Oswald, IBM Plex) under ')}{' '}
-        <a className="paper-link" href={FONT_LICENCE_HREF} target="_blank" rel="noopener noreferrer">{FONT_LICENCE}</a>.
+        <b>{CODE_LICENCE}</b>{L(', a fontovi pod ', ', and the fonts under ')}
+        <b>{FONT_LICENCE}</b>
+        {/* one link per copyright holder, each with a name of its own and the
+            new-tab warning every other external link in the app carries (3.2.5) */}
+        {' ('}{FONT_LICENCES.map((f, i) => (
+          <span key={f.href}>{i > 0 && ' · '}
+            <a className="paper-link" href={f.href} target="_blank" rel="noopener noreferrer"
+              aria-label={`${f.label} — ${FONT_LICENCE}. ${NEWTAB()}`}>{f.label}</a>
+          </span>
+        ))}{'). '}
         {L('IPF procjene su izračun ovog atlasa, a ne objavljena statistika — ne prosljeđujte ih kao DZS-ove brojke.',
           'The IPF estimates are this atlas’s computation, not published statistics — do not pass them on as CBS figures.')}
       </div>

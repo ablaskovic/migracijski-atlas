@@ -32,15 +32,22 @@ export interface SourceLink { label: string; href: string; note: string }
    so a const would have frozen every note in whatever language happened to be
    the default, and would never have followed the toggle afterwards. `label` and
    `href` are identifiers and stay put. */
+/* `label` was described as an identifier and left untranslated, but two of the
+   four are prose: "i sur." is Croatian for "et al.", and the English footer and
+   export credit of the same build say "Pitoski et al. 2021" and "CBS" while the
+   English glossary said "Pitoski i sur. (2021.)" and "Državni zavod za
+   statistiku". The organisation's own English name and the standard English
+   abbreviation are what a reader can look up; the DOI and the URL, which are the
+   real identifiers, do not move. */
 const SRC = (): SourceLink[] => [
   {
-    label: 'Državni zavod za statistiku',
+    label: L('Državni zavod za statistiku', 'Croatian Bureau of Statistics'),
     href: 'https://podaci.dzs.hr/',
     note: L('tablice 7.4.1.–7.4.3. i STAN-2026-2-1 — uvjeti korištenja DZS-a',
       'tables 7.4.1.–7.4.3. and STAN-2026-2-1 — CBS terms of use'),
   },
   {
-    label: 'Pitoski i sur. (2021.)',
+    label: L('Pitoski i sur. (2021.)', 'Pitoski et al. (2021)'),
     href: 'https://doi.org/10.1186/s40649-021-00093-0',
     note: L('izmjereni tokovi 2018. (županije i JLS), CC BY 4.0',
       'measured 2018 flows (counties and LAUs), CC BY 4.0'),
@@ -68,8 +75,14 @@ export const sources = SRC;
 export const IMG_LICENCE = 'CC BY 4.0';
 export const CODE_LICENCE = 'MIT';
 export const FONT_LICENCE = 'SIL OFL 1.1';
-/** Served from public/fonts, so a built site carries it (OFL §2). */
-export const FONT_LICENCE_HREF = './fonts/OFL-IBMPlex.txt';
+/* Two copyright holders, so two files. One link for three families from two
+   holders was both wrong and the reason public/fonts/OFL-Oswald.txt shipped with
+   nothing on the site reaching it — OFL §2 requires the licence to travel with
+   the font software, and a file nobody can find has not travelled. */
+export const FONT_LICENCES: { label: string; href: string }[] = [
+  { label: 'IBM Plex', href: './fonts/OFL-IBMPlex.txt' },
+  { label: 'Oswald', href: './fonts/OFL-Oswald.txt' },
+];
 
 /* The export is the artifact that leaves the app and it has no link to click,
    so the terms go on it as text. Unconditional — every view's image carries the
