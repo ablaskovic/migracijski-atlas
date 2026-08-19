@@ -97,8 +97,19 @@ export const STORIES: Story[] = [
     patch: { view: 'saldo', flow: 'tot', den: 'rel11', cum: true, yi: Y24 },
   },
   {
-    get label() { return L('2022.: prvi plus prema inozemstvu', '2022: the first surplus with abroad'); },
-    get cap() { return L('Do 2017. samo je jedna županija imala pozitivan saldo s inozemstvom. Godine 2022. ima ih 12, a nacionalni saldo prvi put je pozitivan (+11.685); do 2024. u plusu ih je 19 od 21. Preokret je stvaran i nagao.', 'Up to 2017 only one county had a positive balance with abroad. In 2022 twelve do, and the national balance is positive for the first time (+11,685); by 2024 nineteen of twenty-one are in the black. The reversal is real and abrupt.'); },
+    /* Both superlatives were false against the atlas's own committed series, and
+       the app draws the refutation directly under the caption: the national
+       external balance is positive in every year from 1998 to 2008, peaking at
+       +44.192 — nearly four times the +11.685 the caption cites — and in 1998
+       all 21 counties were positive, not one. Recomputed with metrics.ts's own
+       natExt formula and read back off the Godine grid, which agrees:
+       1998 +44.192 … 2008 +7.053 / 2009 −1.472 … 2021 −4.512 / 2022 +11.685.
+       Both claims are dated to the window they hold in — 2009–2021 is the run
+       of deficits 2022 ends, and 2015–2017 is where at most one county was in
+       the black (2015: none, 2016: one, 2017: one; 2014 had two). The figures
+       themselves were right and are unchanged. */
+    get label() { return L('2022.: prvi plus od 2008.', '2022: the first surplus since 2008'); },
+    get cap() { return L('Od 2015. do 2017. najviše je jedna županija imala pozitivan saldo s inozemstvom. Godine 2022. ima ih 12, a nacionalni saldo prvi je put od 2008. pozitivan (+11.685); do 2024. u plusu ih je 19 od 21. Preokret je stvaran i nagao.', 'From 2015 to 2017 at most one county had a positive balance with abroad. In 2022 twelve do, and the national balance is positive for the first time since 2008 (+11,685); by 2024 nineteen of twenty-one are in the black. The reversal is real and abrupt.'); },
     patch: { view: 'saldo', flow: 'ext', den: 'abs', cum: false, yi: YEARS.indexOf(2022) },
   },
   {

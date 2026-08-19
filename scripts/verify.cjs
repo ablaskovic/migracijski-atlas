@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 410;
+const EXPECTED_CHECKS = 412;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3577,6 +3577,57 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the natural-change Nalaz: no county is positive in any year from 2017 on',
     nNatY.total === 189 && nNatY.positive === 0 && /2016/.test(nNatY.cap),
     JSON.stringify({ total: nNatY.total, pos: nNatY.positive }));
+
+  /* ── the external Nalaz's two superlatives, against the atlas's own series ──
+     It said 2022 was the first year the national external balance was positive
+     and that at most one county had ever been positive before 2017. The shipped
+     data says the balance is positive in every year 1998–2008, peaking at
+     +44.192 — nearly four times the +11.685 the caption cites — and that in 1998
+     all 21 counties were positive. The atlas draws eleven years of that surplus
+     in the scrubber 100 px under the banner denying it.
+     Recomputed from the Godine grid rather than from the JSON: 21 counties ×
+     28 years of aria-labels, summed per year, is the same number the map paints
+     and is independent of metrics.ts. No check pinned this preset — the
+     round-trip check asserts a caption survives its own link, never that it is
+     true. */
+  await fresh('#v=yrs&f=ext&c=0&y=2022');
+  const extY = await page.evaluate(() => {
+    const num = t => Number(String(t).replace(/\./g, '').replace('−', '-').replace('+', '').trim());
+    const per = {};
+    for (const c of document.querySelectorAll('#map .yrc')) {
+      const y = +c.getAttribute('data-y');
+      (per[y] = per[y] || []).push(num((c.getAttribute('aria-label') || '').split(': ')[1]));
+    }
+    const nat = {}, pos = {};
+    for (const y of Object.keys(per)) {
+      nat[y] = per[y].reduce((a, b) => a + b, 0);
+      pos[y] = per[y].filter(v => v > 0).length;
+    }
+    return { cells: document.querySelectorAll('#map .yrc').length, nat, pos };
+  });
+  const lastPlus = Object.keys(extY.nat).map(Number)
+    .filter(y => y < 2022 && extY.nat[y] > 0).sort((a, b) => b - a)[0];
+  await fresh('');
+  const nExt = await page.evaluate(async () => {
+    const s = document.querySelector('#story');
+    s.value = '9'; s.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { cap: (document.querySelector('#storyCap') || {}).textContent || '', hash: location.hash,
+      pos: [...document.querySelectorAll('#railList .rrow .rval')]
+        .map(e => e.textContent.trim()).filter(t => t.startsWith('+')).length };
+  });
+  ck('the external Nalaz dates its reversal to the year the atlas’s own series does',
+    extY.cells === 588 && extY.nat[2022] === 11685 && lastPlus === 2008
+    && /prvi je put od 2008\./.test(nExt.cap) && !/prvi put je pozitivan/.test(nExt.cap)
+    && /\+11\.685/.test(nExt.cap),
+    JSON.stringify({ lastPlus, nat2022: extY.nat[2022], nat2008: extY.nat[2008], nat1998: extY.nat[1998] }));
+  ck('and the one-county window it names is the window the grid actually shows',
+    extY.pos[2015] <= 1 && extY.pos[2016] <= 1 && extY.pos[2017] <= 1 && extY.pos[2014] > 1
+    && extY.pos[1998] === 21 && extY.pos[2022] === 12 && extY.pos[2024] === 19
+    && /Od 2015\. do 2017\./.test(nExt.cap) && /ima ih 12/.test(nExt.cap)
+    && /19 od 21/.test(nExt.cap) && nExt.pos === 12 && /st=10/.test(nExt.hash),
+    JSON.stringify({ p1998: extY.pos[1998], p2014: extY.pos[2014], p2015: extY.pos[2015],
+      p2016: extY.pos[2016], p2017: extY.pos[2017], p2022: extY.pos[2022], p2024: extY.pos[2024], rail: nExt.pos }));
 
   /* 390: the densest grid in the app on the narrowest layout */
   await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
