@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 367;
+const EXPECTED_CHECKS = 383;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4169,6 +4169,115 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await page.mouse.up({ button: 'right' });
   ck('and a right-button drag does not pan the map', rBefore === rAfter,
     JSON.stringify({ rBefore, rAfter }));
+
+  /* ── M-12: the matrix cell floor holds where the search runs out of box ──
+     The 12 px floor is a documented invariant and the suite asserted it — but
+     never at ≤980 px with a chip panel open, which is where the placement search
+     measured 11,52 px. */
+  for (const w of [1024, 980, 960]) {
+    await page.setViewport({ width: w, height: 900 });
+    for (const h of ['#v=mx&c=0&y=2018&dir=net&cz=1', '#v=mx&c=0&y=2018&dir=net&ag=1']) {
+      await fresh(h);
+      const g = await page.evaluate(() => {
+        const c = document.querySelector('.mxc').getBoundingClientRect();
+        const cells = [...document.querySelectorAll('.mxc')];
+        /* and no cell may end up under the dock, which is what an off-box grid
+           would cost if it overflowed sideways instead of downwards */
+        const dock = document.querySelector('.chipdock').getBoundingClientRect();
+        const under = cells.filter(e => {
+          const r = e.getBoundingClientRect();
+          return r.left < dock.right && r.right > dock.left && r.top < dock.bottom && r.bottom > dock.top;
+        }).length;
+        return { cell: +c.width.toFixed(2), n: cells.length, under };
+      });
+      ck(`matrix cell holds its 12 px floor at ${w} px with a panel open (${h.slice(-4)})`,
+        g.cell >= 12 && g.n === 420 && g.under === 0, JSON.stringify(g));
+    }
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── M-13: the selected Godine column label is 9 px text on the ground ── */
+  await fresh('#v=yrs&f=int&c=0&y=2022');
+  const yrsSel = await page.evaluate(() => {
+    /* the Croatian column label carries its ordinal dot */
+    const t = [...document.querySelectorAll('#map text')].find(e => /^2022\.?$/.test(e.textContent));
+    return t ? { txt: t.textContent, fill: t.getAttribute('fill'), weight: t.getAttribute('font-weight') } : null;
+  });
+  ck('the selected year label is ink, not 9 px teal on the ground',
+    !!yrsSel && yrsSel.fill === '#20262B', JSON.stringify(yrsSel));
+
+  /* ── M-14: the threshold slider is the only control that changes what klas
+     classifies, and it was a 110×16 target on a coarse pointer ── */
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  await fresh('#v=klas&c=1&y=2024');
+  const thrBox = await page.evaluate(() => {
+    const r = document.querySelector('#thr').getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  });
+  ck('the klasifikacija threshold slider clears 24 px on a coarse pointer',
+    thrBox.h >= 24, JSON.stringify(thrBox));
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── M-15: the docked corridor card clipped the honesty badge at 901–960 ── */
+  for (const w of [960, 940, 901]) {
+    await page.setViewport({ width: w, height: 900 });
+    await fresh('#v=mx&c=0&y=2018&dir=net&s=HR-14&pp=HR-21');
+    const clip = await page.evaluate(() => {
+      const row = document.querySelector('#pairRow');
+      const tag = row ? row.querySelector('.cls-tag') : null;
+      const rail = document.querySelector('.rail');
+      if (!row || !tag || !rail) return null;
+      const t = tag.getBoundingClientRect(), r = rail.getBoundingClientRect();
+      return { over: +(t.right - r.right).toFixed(2), badge: tag.textContent };
+    });
+    ck(`the corridor badge stays inside the rail at ${w} px`,
+      !!clip && clip.over <= 0 && clip.badge === 'izmjereno', JSON.stringify(clip));
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── M-16: county names are identifiers and must not be clipped, with or
+     without the WCAG 1.4.12 text-spacing overrides ── */
+  const spacing = `* { line-height: 1.5 !important; letter-spacing: 0.12em !important;
+    word-spacing: 0.16em !important; }`;
+  for (const [w, over] of [[1440, false], [1280, false], [960, false], [1440, true]]) {
+    await page.setViewport({ width: w, height: 900 });
+    await fresh('#v=mx&c=0&y=2018&dir=net');
+    if (over) await page.addStyleTag({ content: spacing });
+    await settle(150);
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll('#railList .rname, #railList .rval')]
+        .filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent).slice(0, 3));
+    ck(`no rail label is clipped at ${w} px${over ? ' under the 1.4.12 overrides' : ''}`,
+      clipped.length === 0, JSON.stringify(clipped));
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── M-17: Windows High Contrast blanks whatever decodes the map ── */
+  /* puppeteer's own emulateMediaFeatures whitelist does not carry forced-colors,
+     so this goes through CDP directly */
+  const cdp = await page.createCDPSession();
+  const forced = on => cdp.send('Emulation.setEmulatedMedia',
+    { features: on ? [{ name: 'forced-colors', value: 'active' }] : [] });
+  await forced(true);
+  await fresh('#v=klas&c=1&y=2024');
+  const fcKlas = await page.evaluate(() => {
+    const sw = [...document.querySelectorAll('.legend-sw')].map(e => getComputedStyle(e).backgroundColor);
+    const seg = document.querySelector('#segView button[aria-pressed="true"]');
+    const cs = getComputedStyle(seg);
+    return { sw, distinct: new Set(sw).size, outline: cs.outlineWidth, adjust: getComputedStyle(document.querySelector('.legend-sw')).forcedColorAdjust };
+  });
+  await fresh('');
+  const fcBar = await page.evaluate(() => {
+    const b = document.querySelector('.legend-bar');
+    const cs = getComputedStyle(b);
+    return { adjust: cs.forcedColorAdjust, border: cs.borderTopWidth, img: cs.backgroundImage.slice(0, 24) };
+  });
+  await forced(false);
+  await cdp.detach();
+  ck('forced colors keeps the two colour keys legible and the pressed state visible',
+    fcKlas.distinct === 3 && fcKlas.adjust === 'none' && parseFloat(fcKlas.outline) >= 2
+    && fcBar.adjust === 'none' && parseFloat(fcBar.border) >= 1 && /gradient/.test(fcBar.img),
+    JSON.stringify({ fcKlas, fcBar }));
 
   /* ── M-11: the two corridor repairs must not disagree ──
      `#v=mx&s=X&pp=X` looked complete to the lone-half test, passed it, and was
