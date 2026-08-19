@@ -36,7 +36,12 @@ function zoomTo(base: ZoomT, k2: number, px: number, py: number, w: number, h: n
   return fit({ k, x: px - (px - base.x) * r, y: py - (py - base.y) * r }, w, h);
 }
 
-export function useZoom(w: number, h: number) {
+/* `frozen` is the open glossary. The map's own keys are bare-key shortcuts like
+   the year's, and a dialog that holds focus owns the keyboard: measured with the
+   glossary open at 1440x900, "+" zoomed the map to 1,6x behind the overlay,
+   where the reader could neither see it nor undo it without closing the dialog
+   first. App's handler takes the same guard for the year and playback keys. */
+export function useZoom(w: number, h: number, frozen = false) {
   const [t, setT] = useState<ZoomT>(IDENT);
   /* callback ref, not useRef: switching view (map ⇄ matrix) mounts a *new* svg,
      and a plain ref would leave the wheel/click listeners bound to the old one —
@@ -93,6 +98,7 @@ export function useZoom(w: number, h: number) {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const tag = t?.tagName;
+      if (frozen) return;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || t?.isContentEditable) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1.6); }
@@ -107,7 +113,7 @@ export function useZoom(w: number, h: number) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [w, h, zoomBy, panBy]);
+  }, [w, h, zoomBy, panBy, frozen]);
 
   /* wheel must be non-passive to preventDefault, so it is bound imperatively */
   useEffect(() => {

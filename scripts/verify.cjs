@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 404;
+const EXPECTED_CHECKS = 405;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1952,6 +1952,41 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     gWide.modal === 'false' && gWide.live > 20 && gWide.role === 'dialog'
     && gWide.named === 'helpTitle',
     JSON.stringify(gWide));
+
+  /* ── P2: the dialog owns the keyboard while it holds focus ──
+     Space is exercised elsewhere with focus on a <button> (l.629), on <body>
+     (l.637) and on an inert rail row (l.1630) — never inside the dialog, which
+     is the one place it is also the focused element's own page-down. #helpCard
+     is a scroll container (2.498 px of content in a 392 px box) and App's only
+     scroll guard was the DOCUMENT's scrollHeight, which at ≥900 px never grows.
+     Measured before the fix: Space → the card did not move, playback started,
+     the year went 2024.→2025. and the permalink was rewritten, all behind an
+     opaque overlay; ArrowRight stepped the year again; "+" zoomed the map to
+     1,6× under it. PageDown scrolled the card in the same state, which is what
+     proves only the app's own bare keys were at fault. */
+  await fresh('#v=saldo&c=1&y=2024');
+  await page.evaluate(() => document.querySelector('#helpBtn').click());
+  await settle(350);
+  const dlgKeys = { focus: await page.evaluate(() => document.activeElement.id) };
+  await page.keyboard.press(' ');
+  await settle(350);
+  Object.assign(dlgKeys, await page.evaluate(() => ({
+    scrolled: Math.round(document.querySelector('#helpCard').scrollTop),
+    playing: document.querySelector('#play').getAttribute('aria-pressed'),
+  })));
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('+');
+  await settle(300);
+  Object.assign(dlgKeys, await page.evaluate(() => ({
+    yr: document.querySelector('#bigYear').textContent, hash: location.hash,
+    zoom: document.querySelector('#map g').getAttribute('transform'),
+  })));
+  ck('with the glossary open Space pages the dialog and no bare key moves the atlas',
+    dlgKeys.focus === 'helpCard' && dlgKeys.scrolled > 0 && dlgKeys.playing === 'false'
+    && dlgKeys.yr === '2024.' && dlgKeys.hash === '#v=saldo&c=1&y=2024'
+    && /scale\(1\)/.test(dlgKeys.zoom), JSON.stringify(dlgKeys));
+  await page.evaluate(() => document.querySelector('#helpX').click());
+  await settle(200);
 
   /* ── P2: activations that unmount their own control hand focus on ── */
   await fresh('#v=mx&y=2018&c=0&dir=net');

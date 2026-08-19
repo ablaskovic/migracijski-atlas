@@ -55,7 +55,8 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
   }, [jf]);
 
   /* wheel/pinch zoom + drag pan; identity by default so nothing else shifts */
-  const zoom = useZoom(size.w, size.h);
+  /* the glossary is a dialog and owns the keyboard while it is open — see useZoom */
+  const zoom = useZoom(size.w, size.h, S.help);
   const zt = `translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`;
   /* a view change re-fits the content, so a leftover transform would be wrong;
      resetSeq is the ⟲ button, which owns the same "back to how it started" */

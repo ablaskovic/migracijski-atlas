@@ -370,6 +370,19 @@ export default function App() {
         if (s.hl || s.pairHl || s.yrHl || s.jlsHl != null) up({ hl: null, pairHl: null, yrHl: null, jlsHl: null });
         return;
       }
+      /* Escape is the dialog's own key and is handled above; nothing below is.
+         `toggleHelp` moves focus into #helpCard, which is a scroll container
+         (overflow-y:auto) 2.498 px tall in a 392 px box — so Space is that
+         container's page-down, and it was being taken here instead. The only
+         guard was `document.documentElement.scrollHeight > innerHeight + 1`,
+         i.e. whether the DOCUMENT scrolls, which at ≥900 px it never does.
+         Measured against ./dist at 1440x900 and 1280x800: glossary open, focus
+         on #helpCard, Space → scrollTop stays 0, playing false→true, the year
+         2024.→2025. and the permalink rewritten, all of it behind an opaque
+         overlay and announced only by the sr-only live region. PageDown scrolled
+         the card (0→343) in the same state, which is what proves only Space was
+         stolen. The arrows did the same thing one year at a time. */
+      if (s.help) return;
       if (typing) return;
       /* Everything below is a bare-key shortcut, so a chord must not trigger it.
          Alt+← / Alt+→ (Cmd+←/→ on macOS) are the browser's Back and Forward —
