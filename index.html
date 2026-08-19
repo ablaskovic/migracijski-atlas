@@ -6,12 +6,23 @@
 <title>Migracijski atlas županija · 1998.–2025.</title>
 <!-- Shareable permalinks are the point of this app, and a pasted link rendered as
      a bare URL in every chat client and mail preview. -->
-<meta name="description" content="Interaktivni atlas migracija hrvatskih županija 1998.–2025.: saldo, klasifikacija, regije, međužupanijski tokovi, matrica 21×21 i izmjerena JLS karta 2018. Izvor: DZS.">
+<meta name="description" content="Interaktivni atlas migracija hrvatskih županija 1998.–2025.: saldo, klasifikacija, regije, godine, međužupanijski tokovi, matrica 21×21 i izmjerena JLS karta 2018. Izvor: DZS.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Migracijski atlas županija · 1998.–2025.">
-<meta property="og:description" content="Saldo, klasifikacija, regije, tokovi, matrica 21×21 i izmjerena JLS karta 2018. Svaka je vrijednost označena kao izmjerena ili procjena. Izvor: DZS.">
+<meta property="og:description" content="Saldo, klasifikacija, regije, godine, tokovi, matrica 21×21 i izmjerena JLS karta 2018. Svaka je vrijednost označena kao izmjerena ili procjena. Izvor: DZS.">
+<!-- These enumerated six views and there are seven: Godine, the small-multiples
+     grid, was missing from both while the sitemap and the README list it. The
+     locale pair is the other half: scrapers never run JavaScript, so an English
+     permalink unfurled entirely in Croatian — og:locale:alternate is the only
+     thing static markup can say about that. -->
 <meta property="og:locale" content="hr_HR">
+<meta property="og:locale:alternate" content="en_GB">
 <meta name="twitter:card" content="summary">
+<!-- Every path on this origin renders this same page, so without a canonical the
+     blanket Allow: in robots.txt invites an unbounded set of duplicate URLs into
+     an index. The fragment carries the state and is never sent to a server, so
+     the canonical URL is the bare origin. -->
+<link rel="canonical" href="https://migracijski-atlas.hr/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <!-- First-paint placeholder. #root is empty until React mounts, and on the
      mobile profile that measured 2.054 ms of "render delay" — 76 % of LCP —
@@ -24,11 +35,17 @@
 <style>
 .boot{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
   background:var(--bg,#F4F5F2);color:var(--ink,#20262B)}
+/* The stacks below name the metric-matched fallback faces the tokens carry, so
+   the first paint uses the same metrics as everything after it — they were the
+   pre-v2.1.1 stacks, i.e. the placeholder shifted at the swap that the rest of
+   the app was fixed not to shift at. The fallback faces are declared in
+   index.css, which has not arrived yet at first paint; naming them here costs
+   nothing when they are absent and matches once they are there. */
 .boot-eyebrow{display:block;text-align:center;margin-bottom:7px;
-  font-family:var(--mono,'IBM Plex Mono',ui-monospace,monospace);
+  font-family:var(--mono,'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace);
   font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut,#5F6A72)}
 .boot-title{display:block;text-align:center;
-  font-family:var(--disp,'Oswald','Arial Narrow',sans-serif);
+  font-family:var(--disp,'Oswald','Oswald Fallback','Arial Narrow',sans-serif);
   font-weight:600;font-size:23px;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
 .boot-bar{width:180px;max-width:60vw;height:2px;background:var(--line,#D9DDD6);overflow:hidden}
 .boot-bar i{display:block;width:40%;height:100%;background:var(--acc,#0F7D8C);
@@ -46,7 +63,7 @@
    connection and a dead one look the same from here, and the honest reading of
    both is "this is taking too long, try reloading". */
 .boot-fail{opacity:0;animation:bootgiveup 0s linear 10s forwards;
-  font-family:var(--mono,'IBM Plex Mono',ui-monospace,monospace);
+  font-family:var(--mono,'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace);
   font-size:11px;line-height:1.5;text-align:center;color:var(--mut,#5F6A72);margin:0;max-width:34ch}
 .boot-fail a{color:var(--acc,#0F7D8C)}
 @keyframes bootgiveup{to{opacity:1}}
@@ -83,7 +100,7 @@
 <!-- The attribution sentence below duplicates src/lib/credits.ts, which this
      static fallback cannot import. Publication changes both, in one commit —
      verify.cjs asserts the two agree on whether the study is published. -->
-<noscript>Za ovaj je atlas potreban JavaScript. Podaci i metodologija: DZS tab. 7.4.1.–7.4.3. i STAN-2026-2-1; tokovi 2018. iz Pitoski i sur. (2021., CC BY); granice: geoBoundaries / OpenStreetMap suradnici (ODbL, https://www.openstreetmap.org/copyright). Izvezene slike: CC BY 4.0; kod: MIT; fontovi: SIL OFL 1.1. Klasifikacija i prijedlog regija preuzeti su iz rada: Maras, M. i Vinovrški, L. (2026.). Unutarnje i vanjske migracije stanovništva županija kao kriterij regionalizacije Hrvatske. Elektronički zbornik radova Veleučilišta u Šibeniku, 20(1–2), 59–76. https://hrcak.srce.hr/349820 (CC BY-NC). Atlas je neovisan, neslužben i nekomercijalan projekt: autor atlasa nije povezan s autorima rada ni s njihovim ustanovama.</noscript>
+<noscript><span lang="en">This atlas needs JavaScript.</span> Za ovaj je atlas potreban JavaScript. Podaci i metodologija: DZS tab. 7.4.1.–7.4.3. i STAN-2026-2-1; tokovi 2018. iz Pitoski i sur. (2021., CC BY); granice: geoBoundaries / OpenStreetMap suradnici (ODbL, https://www.openstreetmap.org/copyright). Izvezene slike: CC BY 4.0; kod: MIT; fontovi: SIL OFL 1.1. Klasifikacija i prijedlog regija preuzeti su iz rada: Maras, M. i Vinovrški, L. (2026.). Unutarnje i vanjske migracije stanovništva županija kao kriterij regionalizacije Hrvatske. Elektronički zbornik radova Veleučilišta u Šibeniku, 20(1–2), 59–76. https://hrcak.srce.hr/349820 (CC BY-NC). Atlas je neovisan, neslužben i nekomercijalan projekt: autor atlasa nije povezan s autorima rada ni s njihovim ustanovama.</noscript>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
