@@ -35,8 +35,11 @@ export function fitGrid(opts: {
   /* room reserved for the row labels hanging left of the grid, and for the
      column labels above it — rotated county names need far more than years do */
   lbl: number; top: number; padR: number; padB: number;
+  /* the documented cell floor. Not a clamp on the result — the caller still
+     floors — but a tie-break: see the fallback below. */
+  min?: number;
 }): Box {
-  const { size, legend, panel, cols, rows, lbl, top, padR, padB } = opts;
+  const { size, legend, panel, cols, rows, lbl, top, padR, padB, min = 0 } = opts;
   const GAP = 10;
   const legRight = legend.w ? 16 + legend.w + GAP : 0;
   const legBand = legend.h ? legend.h + 12 + GAP : padB;
@@ -50,6 +53,18 @@ export function fitGrid(opts: {
     { left: leftRight, w: size.w - leftRight - padR - panRight, h: size.h - top - padB },
   ];
   const cellOf = (c: { w: number; h: number }) => Math.min(c.w / cols, c.h / rows);
-  const best = cands.reduce((a, c) => (cellOf(c) > cellOf(a) ? c : a));
+  let best = cands.reduce((a, c) => (cellOf(c) > cellOf(a) ? c : a));
+  /* When no placement reaches the floor the caller floors the cell anyway and the
+     grid overflows its box — the documented trade, recovered by the shared
+     zoom/pan, and better than cells too small to hit. But *which* placement it
+     overflows out of then matters: the two candidates that keep their full
+     height are the ones that step LEFT of the chip dock, so the overflow runs
+     down past the legend rather than sideways under an opaque panel. Choosing on
+     `min(cellW, cellH)` alone picked a placement whose overflow landed under the
+     dock, which is how cells become unreachable rather than merely off-box. */
+  if (min > 0 && cellOf(best) < min) {
+    const clear = [cands[2], cands[3]].filter(c => c.w > 0 && c.h > 0);
+    if (clear.length) best = clear.reduce((a, c) => (cellOf(c) > cellOf(a) ? c : a));
+  }
   return { left: best.left, w: best.w, h: best.h, cw: best.w / cols, ch: best.h / rows };
 }

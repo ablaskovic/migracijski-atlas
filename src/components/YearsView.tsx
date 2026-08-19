@@ -37,13 +37,16 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   /* Year labels are short and rotated, so this needs far less head room than the
      matrix's rotated county names (90) — the grid gets the difference. */
   const LBL = 108, TOPL = 54, PADR = 14, PADB = 40;
-  const box = fitGrid({ size, legend, panel, cols: nC, rows: nR, lbl: LBL, top: TOPL, padR: PADR, padB: PADB });
+  const box = fitGrid({ size, legend, panel, cols: nC, rows: nR, lbl: LBL, top: TOPL, padR: PADR, padB: PADB, min: 12 });
   /* Floors, like the matrix's: below these the grid overflows the box and the
      shared zoom/pan is what recovers it, which is better than cells too small to
      hit. Rows and columns get different floors because they carry different
      things — a row is a labelled county, a column is one year of 28. */
   const cw = Math.max(7, box.cw), ch = Math.max(10, box.ch);
-  const x0 = box.left + Math.max(0, (box.w - nC * cw) / 2), y0 = TOPL;
+  /* same rule as Matrica: an over-wide grid overflows into the label gutter
+     rather than under the opaque chip dock */
+  const overW = nC * cw - box.w;
+  const x0 = box.left + (overW <= 0 ? overW / -2 : Math.max(2 - box.left, -overW)), y0 = TOPL;
 
   const m = DOM[S.flow + S.den + S.cum];
   const col = divScale(m);
@@ -217,7 +220,14 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
           <text key={yi} textAnchor="start"
             fontSize={colFs} fontFamily={MONO}
             fontWeight={hlC === c || cols[c] === S.yi ? 600 : 400}
-            fill={cols[c] === S.yi ? '#0F7D8C' : hlC === c ? '#20262B' : '#5F6A72'}
+            /* The selected column's label used to be teal at 9 px, which the
+               project's own token note measures at 4,43:1 on the karst ground —
+               "fine for controls and focus rings on the chrome, below AA for
+               normal text — keep teal text on --panel or larger than 18 px". The
+               selection is already marked by the teal column ring, which is a
+               graphical object and clears 3:1; the label carries it in ink and
+               weight instead. */
+            fill={cols[c] === S.yi || hlC === c ? '#20262B' : '#5F6A72'}
             transform={`translate(${x0 + c * cw + cw / 2 + 3},${y0 - 6}) rotate(-60)`}>{yr(YEARS[yi])}</text>
         ))}
         {rows}

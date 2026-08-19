@@ -33,10 +33,23 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
      search over a differently-shaped grid — its objective is the resulting cell,
      which for a square grid is the same ordering this used to compute. */
   const LBL = 108, TOPL = 90, PADR = 14, PADB = 40;
-  const box = fitGrid({ size, legend, panel, cols: n, rows: n, lbl: LBL, top: TOPL, padR: PADR, padB: PADB });
-  const cell = Math.max(8, Math.min(box.cw, box.ch));
-  /* center in the leftover width so the grid does not hug the labels */
-  const x0 = box.left + Math.max(0, (box.w - n * cell) / 2), y0 = TOPL;
+  /* 12, not 8. The floor is a documented invariant and the suite asserts it —
+     but never at ≤980 px with a chip panel open, which is where the placement
+     search runs out of box and the cell measured 11,52 px. The grid overflows
+     instead, which is the trade Godine already documents for its own floors:
+     the shared zoom/pan recovers an off-box grid, and nothing recovers a cell
+     too small to hit. */
+  const MINCELL = 12;
+  const box = fitGrid({ size, legend, panel, cols: n, rows: n, lbl: LBL, top: TOPL, padR: PADR, padB: PADB, min: MINCELL });
+  const cell = Math.max(MINCELL, Math.min(box.cw, box.ch));
+  /* Centre in the leftover width — but when the cell is at its floor the grid can
+     be WIDER than the lane it was given, and then the direction of the overflow
+     is the whole question: to the right it runs under the chip dock, which is
+     opaque, and those cells stop being reachable at all. Left it runs into the
+     row-label gutter, which is text the grid paints over and the shared zoom/pan
+     can recover. Clamped so the first column never leaves the box. */
+  const over = n * cell - box.w;
+  const x0 = box.left + (over <= 0 ? over / -2 : Math.max(2 - box.left, -over)), y0 = TOPL;
   const m = mxMax(S.dir, S.cum);
   const col = S.dir === 'net' ? divScale(m) : seqScale(m, S.dir);
   const showNum = cell >= 22;
