@@ -110,12 +110,14 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   the year is scrubbed, with no focus moving — exactly the case
                   role=status exists for. Without it the panel silently shows one
                   year while the big year reads another. */}
-              {!inRange && (
-                <div className="citz-clamp" id="citzClamp" role="status" aria-live="polite">
-                  {L(`Vremenska vrpca je na ${yr(YEARS[S.yi])} — izvan objavljenog raspona, prikazano ${yr(y)}`,
-                    `The time scrubber is at ${yr(YEARS[S.yi])} — outside the published range, showing ${yr(y)}`)}
-                </div>
-              )}
+              {/* Mounted whether or not it has something to say: a live region
+                  inserted already populated is not guaranteed to announce, which
+                  is the pattern #srLive follows and this one did not. Empty it
+                  paints nothing — see .citz-clamp:empty. */}
+              <div className="citz-clamp" id="citzClamp" role="status" aria-live="polite">
+                {!inRange && L(`Vremenska vrpca je na ${yr(YEARS[S.yi])} — izvan objavljenog raspona, prikazano ${yr(y)}`,
+                  `The time scrubber is at ${yr(YEARS[S.yi])} — outside the published range, showing ${yr(y)}`)}
+              </div>
               <div className="citz-note" id="citzNote">{L(`Prema zemlji državljanstva · DZS STAN-2026-2-1 (t. 2) · odabir godine prati vremensku vrpcu unutar ${yrSpan(yy[0], yy[yy.length - 1])}`,
                 `By country of citizenship · CBS STAN-2026-2-1 (t. 2) · the year follows the time scrubber within ${yrSpan(yy[0], yy[yy.length - 1])}`)}</div>
             </>

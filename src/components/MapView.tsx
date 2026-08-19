@@ -276,6 +276,9 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                     role="img"
                     aria-label={L(`${p.n}, ${SHORTN[ISOS[p.c]]}: doseljeno ${fmtI.format(p.i)}, odseljeno ${fmtI.format(p.o)}, neto ${sgn(p.i - p.o, fmtI)}`,
                       `${p.n}, ${SHORTN[ISOS[p.c]]}: ${fmtI.format(p.i)} in, ${fmtI.format(p.o)} out, net ${sgn(p.i - p.o, fmtI)}`)}
+                    /* municipality names are Croatian in both languages, so the
+                       annotation is unconditional, like the county paths' */
+                    lang="hr"
                     onPointerEnter={() => setS({ jlsHl: p.j })}
                     /* touch sends leave the moment the finger lifts, which would
                        flash the readout away; keep it until the next tap instead */
@@ -337,6 +340,11 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
                 <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')
                   + (S.view === 'reg' && S.regHl && REGOF[iso] === S.regHl ? ' rhl' : '')}
                   data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={countyAria(S, iso)}
+                  /* the label is mostly Croatian county names, whatever the
+                     document's language: without this a screen reader voices
+                     them with English phonemes (the identifier exemption that
+                     keeps them Croatian is what makes the annotation needed) */
+                  lang="hr"
                   /* every stroke in the map is inside the zoom transform, so a
                      hairline border grew with k — see index.css */
                   vectorEffect="non-scaling-stroke"
@@ -428,11 +436,16 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           browser's module map, so that state could not self-heal without the
           reload only this UI offers, and the export shipped without the
           outlines too. */}
-      {((S.view === 'jmap' && !JGEO) || (S.view === 'reg' && !REGGEO)) && (() => {
+      {/* The region is mounted for both geometry views whether or not it has
+          anything to report, for the reason #srLive is: a live region inserted
+          already populated is not guaranteed to announce. Empty it paints
+          nothing — see .geostat:empty. */}
+      {(S.view === 'jmap' || S.view === 'reg') && (() => {
         const jm = S.view === 'jmap';
+        const waiting = jm ? !JGEO : !REGGEO;
         return (
           <div className="geostat" id="jstatus" role="status" aria-live="polite">
-            {(jm ? jlsFailed() : regFailed()) ? (
+            {!waiting ? null : (jm ? jlsFailed() : regFailed()) ? (
               <>
                 <span id="jerror">{jm ? L('Geometrija JLS nije učitana.', 'LAU geometry failed to load.')
                   : L('Geometrija regija nije učitana.', 'Region geometry failed to load.')}</span>

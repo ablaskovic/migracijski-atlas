@@ -36,7 +36,19 @@
 @font-face{font-family:'Oswald';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/oswald-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
 @font-face{font-family:'Oswald';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/oswald-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 
-/* ── Metric-matched fallbacks ──────────────────────────────────────────────────
+/* The UI is built on glyphs the subsets above do not contain: → ← ↔ ⇄ ⟲ ⤢ are
+   outside both the latin and latin-ext ranges Google Fonts subsets to, so every
+   one of them renders from whatever the platform offers after IBM Plex. That is
+   a real substitution and it is recorded here rather than fixed, because it was
+   measured and is acceptable: at 9–12 px the arrows sit on the same baseline and
+   within a few per cent of the same advance in Chrome on this platform, and the
+   alternative — a custom subset carrying six symbols — adds a build step and a
+   font file to own for a difference no reader can see. The arrows are also never
+   load-bearing alone: every one of them sits beside the words it illustrates
+   (see the rail row names, the corridor card caption, the zoom reset). Revisit
+   if a glyph starts carrying meaning by itself.
+
+   ── Metric-matched fallbacks ──────────────────────────────────────────────────
    font-display:swap above means text paints in a fallback face and is re-laid
    out when the real one arrives. That re-layout was the *entire* measured CLS:
    one shift, at t=988 ms, worth 0,1038 — Lighthouse desktop scored 0,105 and
@@ -151,7 +163,14 @@ svg :focus,#spark:focus{outline:none}
 .hd-lang button{padding:0 8px;min-height:24px;font-size:10px;font-family:var(--mono);letter-spacing:.06em}
 .ctrls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .ctrl{display:flex;flex-direction:column;gap:4px}
-.ctrl-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+/* Explicit line-height, not `normal`. `normal` derives the line box from the
+   font's own metrics, and the metric-matched fallback only guarantees the
+   *advance* — measured at 390 px, where the ≤560 block drops this to 9 px, the
+   fallback's box was 12 px and the real face's 11, so each of the five control
+   labels shrank by one pixel when the webfont arrived and the header lost 5 px
+   under the reader. Pinned to what the real face already produces at each size,
+   so nothing moves at the swap and nothing moves today. */
+.ctrl-lab{font-family:var(--mono);font-size:9.5px;line-height:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
 .seg{display:flex;border:1px solid var(--line);background:var(--panel);border-radius:3px;overflow:hidden}
 /* 5px horizontal, not 7: the seventh view button (Godine) pushed .ctrls from
    three rows to four at 1440, taking the header 138 → 192 px and the map box
@@ -549,7 +568,10 @@ svg :focus,#spark:focus{outline:none}
 /* Nalazi caption banner — in normal flow directly under the map, not floating
    over it. Bottom-centred it shared the map's bottom edge with the legend and
    the chip dock and won on z-index: measured with elementFromPoint, the
-   "Dob i spol" chip was unclickable at 1200–1600 px for every preset. */
+   "Dob i spol" chip was unclickable at 1200–1600 px for every preset.
+   `:empty` is what lets the live region stay mounted while it has nothing to
+   say — see StoryBar. Same for the citizenship clamp and the geometry status. */
+.storybar:empty,.citz-clamp:empty,.geostat:empty{display:none}
 .storybar{display:flex;align-items:baseline;gap:10px;max-width:560px;margin:8px auto 0;
   background:var(--ink);color:#F2F3EF;
   border-radius:3px;padding:8px 12px;box-shadow:0 2px 12px rgba(32,38,43,.25)}
@@ -702,7 +724,7 @@ svg :focus,#spark:focus{outline:none}
   /* one thumb-sized row per control group; header scrolls with the page */
   .hd{padding:10px 12px 8px;gap:8px}
   .hd-sub{font-size:10.5px;line-height:1.35}
-  .ctrl-lab{font-size:9px}
+  .ctrl-lab{font-size:9px;line-height:11px}
   /* 2-col grid: wide groups span both columns, the 2–3 button ones take one.
      `dense` backfills a leftover cell with a later narrow group — which is what
      made Izvoz *relocate* on a view change here, because which group was
