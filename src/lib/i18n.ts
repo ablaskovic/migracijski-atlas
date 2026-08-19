@@ -178,7 +178,10 @@ export const NEWTAB = (): string => L('Otvara se u novoj kartici.', 'Opens in a 
 type Entry = string | ((...a: never[]) => string);
 const dict = {
   /* header, controls */
-  'hd.eyebrow': { hr: 'DZS · međužupanijske i vanjske migracije', en: 'CBS · inter-county and external migration' },
+  /* No 'hd.eyebrow': it was defined and rendered nowhere, and its text differed
+     from the eyebrow actually shown — the header composes its own (Header.tsx)
+     and so does the export band (exportPng.ts), so a copy edit here would have
+     changed nothing on screen while looking like it had. */
   /* The English title names the country; the Croatian one does not, and does not
      need to. "Migracijski atlas županija" reaches a reader who already knows
      whose counties these are — the atlas is in their language, on their subject,
