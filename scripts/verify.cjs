@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 345;
+const EXPECTED_CHECKS = 347;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1530,12 +1530,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const p = document.querySelector('#play').getBoundingClientRect();
     const hit = document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2);
     return { ov: Math.round(ov), onPlay: !!(hit && hit.closest('#play')),
-      offscreen: Math.round(a.b - innerHeight), hitId: hit ? (hit.id || hit.className) : null };
+      offscreen: Math.round(a.b - innerHeight), hitId: hit ? (hit.id || hit.className) : null,
+      inertBar: !!document.querySelector('#scrubBox').closest('[inert]') };
   });
   ck('390: the open glossary does not overlap the fixed scrubber',
     mobHelp.ov === 0 && mobHelp.offscreen <= 0, JSON.stringify(mobHelp));
-  ck('390: the play button is still clickable with the glossary open',
-    mobHelp.onPlay, String(mobHelp.hitId));
+  /* This used to assert the play button was still *clickable* under an open
+     glossary. Below 900 px the glossary is a near-fullscreen overlay and is
+     modal now, so the scrubber is deliberately inert while it is open — the
+     property that has to hold is that the bar is not covered (above) and that
+     closing the dialog hands it straight back. */
+  await page.evaluate(() => document.querySelector('#helpX').click());
+  await settle(300);
+  const mobBack = await page.evaluate(() => {
+    const p = document.querySelector('#play').getBoundingClientRect();
+    const hit = document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2);
+    return { onPlay: !!(hit && hit.closest('#play')),
+      inertBar: !!document.querySelector('#scrubBox').closest('[inert]'),
+      hitId: hit ? (hit.id || hit.className) : null };
+  });
+  ck('390: the glossary hands the play button straight back when it closes',
+    mobHelp.inertBar && !mobBack.inertBar && mobBack.onPlay,
+    JSON.stringify({ open: mobHelp.inertBar, closed: mobBack.inertBar, hit: mobBack.hitId }));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── errors ── */
@@ -1691,6 +1707,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     inert.cardInert && !inert.focusable, JSON.stringify(inert));
   ck('opening the glossary moves focus into the dialog it declares',
     inert.inDialog, JSON.stringify(inert));
+
+  /* ── P2: the same contract below the 900 px breakpoint ──
+     There the glossary is a near-fullscreen fixed overlay, and the rule above
+     names only the two elements that shared coordinates in the ≥900 px layout.
+     Measured at 390×844 before the fix: 33 of the cycle's 85 tab stops were
+     100 % covered — #helpBtn among them, one Shift+Tab from the dialog. */
+  const glossary = async () => page.evaluate(async () => {
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 300));
+    const card = document.querySelector('#helpCard');
+    const all = [...document.querySelectorAll(
+      'a[href],button:not([disabled]),select,input,[tabindex]:not([tabindex="-1"])')];
+    const outside = all.filter(e => !card.contains(e));
+    const live = outside.filter(e => !e.closest('[inert]') && e.getClientRects().length);
+    return { modal: card.getAttribute('aria-modal'), role: card.getAttribute('role'),
+      named: card.getAttribute('aria-labelledby'), outside: outside.length,
+      live: live.length, who: live.map(e => e.id || e.className).slice(0, 5) };
+  });
+  await page.setViewport({ width: 390, height: 844 });
+  await fresh('#v=saldo&c=1&y=2024&st=2');
+  const gNarrow = await glossary();
+  ck('below 900 px the glossary is modal: nothing it covers is still a tab stop',
+    gNarrow.modal === 'true' && gNarrow.outside > 30 && gNarrow.live === 0,
+    JSON.stringify(gNarrow));
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('#v=saldo&c=1&y=2024&st=2');
+  const gWide = await glossary();
+  ck('and above it the glossary stays non-modal, covering nothing',
+    gWide.modal === 'false' && gWide.live > 20 && gWide.role === 'dialog'
+    && gWide.named === 'helpTitle',
+    JSON.stringify(gWide));
 
   /* ── P2: activations that unmount their own control hand focus on ── */
   await fresh('#v=mx&y=2018&c=0&dir=net');

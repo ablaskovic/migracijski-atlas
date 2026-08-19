@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { focusSoon } from '../lib/state.ts';
 import {
   NO_AFFIL, PAPER, PAPER_THR, PAPER_WINDOW,
@@ -52,14 +53,58 @@ function klasDiffSentence(): string {
    user switches views, so a first-time reader had nowhere to learn what saldo,
    tokovi or IPF mean, or which end of the colour ramp is which. Deliberately
    plain copy: this is the page that assumes nothing. */
+/* Below 900 px the glossary stops being a card beside the map and becomes a
+   near-fullscreen fixed overlay — and the ≥900 px rule that made what it covers
+   inert names exactly the two elements that shared coordinates in *that* layout
+   (#card and #jcard). Measured at 390×844: 33 of the cycle's 85 tab stops are
+   100 % covered, including #helpBtn itself, both chip headers, a county path and
+   all five footer links — and it is not a 45-press walk to reach them, it is ONE
+   Shift+Tab from the just-opened dialog onto the button that opened it (2.4.11).
+
+   Narrow, the glossary is effectively modal, so it is made modal: everything
+   outside it goes inert while it is open, which is the same tool the ≥900 px
+   rule already uses, applied to the set the narrow layout actually covers.
+   `.sr-only` is skipped — it is the year/view status line, it cannot be covered
+   by anything, it holds no tab stop, and inerting it would silence the one
+   announcement the app makes while nothing has focus. */
+function useModalWhenNarrow(open: boolean): boolean {
+  const [narrow, setNarrow] = useState(
+    () => typeof matchMedia === 'function' && matchMedia('(max-width:900px)').matches);
+  useEffect(() => {
+    const mq = matchMedia('(max-width:900px)');
+    const sync = () => setNarrow(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  useEffect(() => {
+    if (!open || !narrow) return;
+    const card = document.getElementById('helpCard');
+    if (!card) return;
+    const touched: Element[] = [];
+    for (let el: Element | null = card; el && el !== document.body; el = el.parentElement) {
+      for (const sib of el.parentElement?.children ?? []) {
+        /* skip what is already inert (#card and #jcard, set by React) so the
+           cleanup below cannot clear a flag it did not set */
+        if (sib === el || sib.hasAttribute('inert') || sib.classList.contains('sr-only')) continue;
+        sib.setAttribute('inert', '');
+        touched.push(sib);
+      }
+    }
+    return () => touched.forEach(el => el.removeAttribute('inert'));
+  }, [open, narrow]);
+  return narrow;
+}
+
 export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => void }) {
+  const narrow = useModalWhenNarrow(S.help);
   if (!S.help) return null;
   return (
     /* tabIndex -1 so App can move focus *into* the panel on open: it declared
        role=dialog and then left focus on the ? button three tab stops away,
        which told a screen-reader user nothing had happened. Named by its own
        visible heading rather than a duplicate aria-label. */
-    <div className="helpcard" id="helpCard" role="dialog" aria-modal="false"
+    <div className="helpcard" id="helpCard" role="dialog" aria-modal={narrow ? 'true' : 'false'}
       aria-labelledby="helpTitle" tabIndex={-1}>
       <div className="card-hd">
         <h2 className="card-name" id="helpTitle">{L('Kako čitati', 'How to read')}</h2>
