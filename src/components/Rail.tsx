@@ -243,7 +243,11 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
             }}>
             {/* renders exactly rowName(d, i), in pieces, because .jc is a test
                 selector and the county tag is styled apart from the name */}
-            <div className="rname">{d.pair ? <>{i + 1}. {name(d)}</>
+            {/* lang="hr" because these are Croatian place names inside a document
+                that may be lang="en" — without it a screen reader voices
+                "Osječko-baranjska" with English phonemes. The exemption that
+                keeps them Croatian is what makes the annotation necessary. */}
+            <div className="rname" lang="hr">{d.pair ? <>{i + 1}. {name(d)}</>
               : d.jls != null ? <>{name(d)}{name(d) !== SHORTN[d.iso] && <>, <span className="jc">{SHORTN[d.iso]}</span></>}</>
               : name(d)}</div>
             {/* the separator the accessible name claims — see rowAria */}

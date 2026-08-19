@@ -373,6 +373,9 @@ export const natVol = YEARS.map((_, yi) => ISOS.reduce((a, iso) => a + D[iso].oi
    but a name — while the JLS map, whose labels are built from the data, read out
    doseljeno/odseljeno/neto. Same period wording as the legend and the export. */
 export function countyAria(S: State, iso: string): string {
+  /* `n` is a Croatian place name inside a document that may be lang="en". It
+     cannot be annotated from here — this returns one flat string — so the paths
+     that render it carry lang="hr" themselves (MapView). */
   const n = D[iso].n, y = YEARS[S.yi];
   const per = (S.cum || S.view === 'klas') ? yrSpan(2011, y) : yr(y);
   const num = (v: number) => S.den === 'abs' ? sgn(Math.round(v), fmtI) : sgn(v, fmtR) + ' %';
