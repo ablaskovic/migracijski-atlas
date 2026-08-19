@@ -13,6 +13,16 @@ import type { State } from '../lib/types.ts';
 /* Measured and estimated used to render as the same neutral pill, so the single
    most load-bearing distinction in the atlas was carried by wording alone.
    Solid = measured, dashed outline = estimate. Text is unchanged. */
+/* Every name below comes from a generated data file, and this markup goes into
+   `dangerouslySetInnerHTML`. Nothing user- or URL-controlled reaches it today,
+   and both audits confirmed the current data clean — 0 of 556 municipality and
+   0 of 21 county names contain < > & " ' — but the data files are regenerated
+   from upstream sources by a pipeline, `geo_jls.json` is a 475 KB single line no
+   reviewer reads, and "the current values happen to be safe" is not a property,
+   it is an observation. Three replaces make it one. */
+const esc = (v: string): string =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 function tag(kind: BadgeKind): string {
   /* takes the honesty *predicate*, not its display copy: comparing a rendered
      badge against a literal is what inverted this encoding in English on two
@@ -27,7 +37,7 @@ function tipHTML(S: State): string {
     if (!f) return '';
     const p = f.properties;
     const net = p.i - p.o;
-    return '<div class="tip-name">' + p.n + ' · ' + SHORTN[ISOS[p.c]] + '</div><table>' +
+    return '<div class="tip-name">' + esc(p.n) + ' · ' + esc(SHORTN[ISOS[p.c]]) + '</div><table>' +
       '<tr><td>' + L('doselilo iz drugih JLS', 'moved in from other LAUs') + '</td><td>+' + fmtI.format(p.i) + '</td></tr>' +
       '<tr><td>' + L('odselilo u druge JLS', 'moved out to other LAUs') + '</td><td>−' + fmtI.format(p.o) + '</td></tr>' +
       '<tr class="tip-net"><td>' + L('neto · ', 'net · ') + yrOf(2018) + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
@@ -36,7 +46,7 @@ function tipHTML(S: State): string {
   if (S.view === 'mx' && S.pairHl) {
     const [a, b] = S.pairHl, y = YEARS[S.yi];
     if (a === b) {
-      return '<div class="tip-name">' + D[a].n + '</div>' +
+      return '<div class="tip-name">' + esc(D[a].n) + '</div>' +
         L('Selidbe unutar iste županije nisu dio međužupanijske matrice.',
           'Moves within the same county are not part of the inter-county matrix.') +
         '<div class="tip-hint">' + L('dijagonala · bez vrijednosti', 'diagonal · no value') + '</div>';
@@ -44,10 +54,10 @@ function tipHTML(S: State): string {
     const ab = fsum(a, b, S.yi, S.cum), ba = fsum(b, a, S.yi, S.cum);
     const net = ba - ab;
     const per = S.cum ? yrSpan(2011, y) : yrOf(y);
-    return '<div class="tip-name">' + D[a].n + ' ↔ ' + D[b].n + '</div><table>' +
-      '<tr><td>' + D[a].n + ' → ' + D[b].n + '</td><td>' + fmtI.format(ab) + '</td></tr>' +
-      '<tr><td>' + D[b].n + ' → ' + D[a].n + '</td><td>' + fmtI.format(ba) + '</td></tr>' +
-      '<tr class="tip-net"><td>' + L('neto (', 'net (') + D[a].n + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
+    return '<div class="tip-name">' + esc(D[a].n) + ' ↔ ' + esc(D[b].n) + '</div><table>' +
+      '<tr><td>' + esc(D[a].n) + ' → ' + esc(D[b].n) + '</td><td>' + fmtI.format(ab) + '</td></tr>' +
+      '<tr><td>' + esc(D[b].n) + ' → ' + esc(D[a].n) + '</td><td>' + fmtI.format(ba) + '</td></tr>' +
+      '<tr class="tip-net"><td>' + L('neto (', 'net (') + esc(D[a].n) + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
       tag(S.cum ? 'cum' : flowKind(S.yi, S.cum));
   }
   /* Godine hovers a cell whose year is generally NOT the selected one, so its
@@ -56,14 +66,14 @@ function tipHTML(S: State): string {
   if (S.view === 'yrs') return S.yrHl ? countyBlock(S, S.yrHl[0], S.yrHl[1]) : '';
   const iso = S.hl!, c = D[iso], y = YEARS[S.yi];
   if (S.view === 'flow') {
-    if (iso === S.sel) return '<div class="tip-name">' + c.n + '</div>' + L('odabrana županija — klik na drugu za promjenu', 'selected county — click another to change');
+    if (iso === S.sel) return '<div class="tip-name">' + esc(c.n) + '</div>' + L('odabrana županija — klik na drugu za promjenu', 'selected county — click another to change');
     const o = fsum(S.sel!, iso, S.yi, S.cum), i2 = fsum(iso, S.sel!, S.yi, S.cum), net = i2 - o;
     /* line 44 does this correctly; this one hand-built the Croatian ordinals */
     const per = S.cum ? yrSpan(2011, y) : yrOf(y);
-    return '<div class="tip-name">' + c.n + '</div><table>' +
-      '<tr><td>' + D[S.sel!].n + ' → ' + c.n + '</td><td>' + fmtI.format(o) + '</td></tr>' +
-      '<tr><td>' + c.n + ' → ' + D[S.sel!].n + '</td><td>' + fmtI.format(i2) + '</td></tr>' +
-      '<tr class="tip-net"><td>' + L('neto (', 'net (') + D[S.sel!].n + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
+    return '<div class="tip-name">' + esc(c.n) + '</div><table>' +
+      '<tr><td>' + esc(D[S.sel!].n) + ' → ' + esc(c.n) + '</td><td>' + fmtI.format(o) + '</td></tr>' +
+      '<tr><td>' + esc(c.n) + ' → ' + esc(D[S.sel!].n) + '</td><td>' + fmtI.format(i2) + '</td></tr>' +
+      '<tr class="tip-net"><td>' + L('neto (', 'net (') + esc(D[S.sel!].n) + ') · ' + per + '</td><td class="' + (net < 0 ? 'neg' : 'pos') + '">' + sgn(net, fmtI) + '</td></tr></table>' +
       tag(S.cum ? 'cum' : flowKind(S.yi, S.cum));
   }
   return countyBlock(S, iso, S.yi);
@@ -83,7 +93,7 @@ function countyBlock(S: State, iso: string, yi: number): string {
   const vi = ii - oi, ve = ie - oe, vt = vi + ve, rt = vt / c.p * 100;
   let nt = 0; if (cum) { for (let i = IX2011; i <= Math.max(yi, IX2011); i++) nt += natAt(iso, i); } else nt = natAt(iso, yi);
   const per = cum ? yrSpan(2011, y) : yrOf(y);
-  let h = '<div class="tip-name">' + c.n + (S.view === 'reg' ? ' · ' + REG[REGOF[iso]].name : '') + '</div><table>' +
+  let h = '<div class="tip-name">' + esc(c.n) + (S.view === 'reg' ? ' · ' + esc(REG[REGOF[iso]].name) : '') + '</div><table>' +
     '<tr><td>' + L('doseljeni iz žup.', 'in from counties') + '</td><td>+' + fmtI.format(ii) + '</td></tr>' +
     '<tr><td>' + L('odseljeni u žup.', 'out to counties') + '</td><td>−' + fmtI.format(oi) + '</td></tr>' +
     '<tr><td>' + L('doseljeni iz inoz.', 'in from abroad') + '</td><td>+' + fmtI.format(ie) + '</td></tr>' +
@@ -99,7 +109,7 @@ function countyBlock(S: State, iso: string, yi: number): string {
       'the sum of two published components — not total population change') + '</div>' : '');
   if (S.view === 'klas') {
     const k = klasOf(iso, yi, S.thr, S.thrRel, S.thrPct);
-    h += '<span class="cls-tag" style="color:' + (k === 'neu' ? '#20262B' : '#fff') + ';background:' + KCOL[k] + '">' + KLAB[k] + '</span>';
+    h += '<span class="cls-tag" style="color:' + (k === 'neu' ? '#20262B' : '#fff') + ';background:' + KCOL[k] + '">' + esc(KLAB[k]) + '</span>';
   }
   return h;
 }
