@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 402;
+const EXPECTED_CHECKS = 403;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2328,6 +2328,34 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the footer always carries a reference clause and the non-affiliation statement',
     /nije javno objavljen|preuzeti su iz rada:/.test(attr.ft) && /nije povezan/.test(attr.ft),
     attr.ft.slice(-220));
+  /* Every upstream source on this page is credited by name and linked; the
+     atlas itself was the one credit that stayed anonymous — the footer and the
+     glossary both said "autor atlasa" and named nobody, and the markup carried
+     no author at all. The <noscript> is checked with them for the same reason
+     the citation is: it cannot import lib/licences.ts, so a half-done edit has
+     to fail here rather than ship a page that names the author with JavaScript
+     and not without it. The year and holder are LICENSE §1's, which is why both
+     are matched rather than just the name. */
+  const mine = await page.evaluate(() => ({
+    ftAuthor: /Ante Blašković/.test(document.querySelector('.ft').textContent),
+    ftRepo: !!document.querySelector('.ft a[href="https://github.com/ablaskovic/migracijski-atlas"]'),
+    ftTerms: /©\s*2026/.test(document.querySelector('.ft').textContent)
+      && /\bMIT\b/.test(document.querySelector('.ft').textContent),
+    ns: document.querySelector('body > noscript').textContent,
+    meta: document.querySelector('meta[name=author]')?.content || '',
+  }));
+  /* LICENSE §1 is the fourth copy and the one that legally matters, so it is
+     matched too rather than trusted to have been edited alongside. Read from
+     disk, not from the page: it does not ship to the browser. */
+  const licHolder = (() => {
+    try { return /Copyright \(c\) 2026 Ante Blašković/.test(fs.readFileSync(path.resolve(__dirname, '../LICENSE'), 'utf8')); }
+    catch { return false; }
+  })();
+  ck('the atlas credits its own author, terms and source repository',
+    mine.ftAuthor && mine.ftRepo && mine.ftTerms && mine.meta === 'Ante Blašković'
+    && /Ante Blašković/.test(mine.ns) && /github\.com\/ablaskovic\/migracijski-atlas/.test(mine.ns)
+    && /©\s*2026/.test(mine.ns) && /\bMIT\b/.test(mine.ns) && licHolder,
+    JSON.stringify({ ...mine, ns: undefined, licHolder }));
   /* The one deliberately state-dependent check in the block: the paper was
      published on 27 July 2026, and that is a fact about this vintage of the
      atlas the same way the ground-truth table is a fact about this vintage of

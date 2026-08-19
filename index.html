@@ -7,6 +7,11 @@
 <!-- Shareable permalinks are the point of this app, and a pasted link rendered as
      a bare URL in every chat client and mail preview. -->
 <meta name="description" content="Interaktivni atlas migracija hrvatskih županija 1998.–2025.: saldo, klasifikacija, regije, godine, međužupanijski tokovi, matrica 21×21 i izmjerena JLS karta 2018. Izvor: DZS.">
+<!-- The atlas had no author in its markup at all, while every upstream source it
+     uses is credited by name in the page. Both values duplicate
+     src/lib/licences.ts, which this file cannot import — the same standing
+     arrangement the study's citation in the <noscript> below is under. -->
+<meta name="author" content="Ante Blašković">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Migracijski atlas županija · 1998.–2025.">
 <meta property="og:description" content="Saldo, klasifikacija, regije, godine, tokovi, matrica 21×21 i izmjerena JLS karta 2018. Svaka je vrijednost označena kao izmjerena ili procjena. Izvor: DZS.">
@@ -100,7 +105,7 @@
 <!-- The attribution sentence below duplicates src/lib/credits.ts, which this
      static fallback cannot import. Publication changes both, in one commit —
      verify.cjs asserts the two agree on whether the study is published. -->
-<noscript><span lang="en">This atlas needs JavaScript.</span> Za ovaj je atlas potreban JavaScript. Podaci i metodologija: DZS tab. 7.4.1.–7.4.3. i STAN-2026-2-1; tokovi 2018. iz Pitoski i sur. (2021., CC BY); granice: geoBoundaries / OpenStreetMap suradnici (ODbL, https://www.openstreetmap.org/copyright). Izvezene slike: CC BY 4.0; kod: MIT; fontovi: SIL OFL 1.1. Klasifikacija i prijedlog regija preuzeti su iz rada: Maras, M. i Vinovrški, L. (2026.). Unutarnje i vanjske migracije stanovništva županija kao kriterij regionalizacije Hrvatske. Elektronički zbornik radova Veleučilišta u Šibeniku, 20(1–2), 59–76. https://hrcak.srce.hr/349820 (CC BY-NC). Atlas je neovisan, neslužben i nekomercijalan projekt: autor atlasa nije povezan s autorima rada ni s njihovim ustanovama.</noscript>
+<noscript><span lang="en">This atlas needs JavaScript.</span> Za ovaj je atlas potreban JavaScript. Podaci i metodologija: DZS tab. 7.4.1.–7.4.3. i STAN-2026-2-1; tokovi 2018. iz Pitoski i sur. (2021., CC BY); granice: geoBoundaries / OpenStreetMap suradnici (ODbL, https://www.openstreetmap.org/copyright). Izvezene slike: CC BY 4.0; kod: MIT; fontovi: SIL OFL 1.1. Klasifikacija i prijedlog regija preuzeti su iz rada: Maras, M. i Vinovrški, L. (2026.). Unutarnje i vanjske migracije stanovništva županija kao kriterij regionalizacije Hrvatske. Elektronički zbornik radova Veleučilišta u Šibeniku, 20(1–2), 59–76. https://hrcak.srce.hr/349820 (CC BY-NC). Atlas je neovisan, neslužben i nekomercijalan projekt: autor atlasa nije povezan s autorima rada ni s njihovim ustanovama. Izradio Ante Blašković · © 2026 · MIT · izvorni kod: https://github.com/ablaskovic/migracijski-atlas</noscript>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

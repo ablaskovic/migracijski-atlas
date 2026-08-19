@@ -8,7 +8,7 @@ import { L, NEWTAB, setLang, storedLang, storeLang, t, yr, yrSpan } from './lib/
 import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperPending, paperRefNote, paperRefTail } from './lib/credits.ts';
-import { sources } from './lib/licences.ts';
+import { ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from './lib/licences.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
@@ -476,7 +476,30 @@ export default function App() {
             <><a className="paper-link" lang="hr" href={PAPER.url} target="_blank" rel="noopener noreferrer"
               aria-label={`${PAPER.short} — ${PAPER.citation} ${NEWTAB()}`}>{PAPER.short}</a>{paperRefTail()} </>
           )}
-          {NO_AFFIL()}{L(" DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.", " CBS revises its series afterwards, so some values differ from those in the paper.")}</span>
+          {NO_AFFIL()}{L(" DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.", " CBS revises its series afterwards, so some values differ from those in the paper.")}
+          {/* Who made it, and where to check it. Every upstream source on this
+              page is credited by name and linked; the atlas itself said only
+              "autor atlasa" and linked nothing, which was the one attribution
+              here that stayed anonymous.
+              Threaded onto the end of this sentence rather than given a span of
+              its own: .ft is a flex row of items above a fixed-height lane, so
+              a third item wraps to a whole new line — measured, that cost the
+              footer 75 → 100 px and took the map box to 545, under the 560 the
+              suite pins. Inline it costs a line only where the sentence was
+              already close to wrapping. The full statement, with the year and
+              the repository spelled out, is in the glossary, which has room.
+              Values come from lib/licences.ts — the footer, the glossary and
+              index.html's <noscript> all read the same four. */}
+          {' '}{L('Izradio ', 'Built by ')}<span lang="hr">{ATLAS_AUTHOR}</span>
+          {` · © ${CODE_YEAR} · ${CODE_LICENCE} · `}
+          {/* Name built from the visible text, not written alongside it: 2.5.3
+              Label in Name wants the accessible name to *contain* what a
+              speech-input user can see, and "Izvorni kod atlasa na GitHubu" does
+              not contain "izvorni kod" — the capital I alone is enough to miss.
+              Same label — note — new-tab shape as the four source links above,
+              which is the shape the suite checks all of them against. */}
+          <a className="paper-link" href={REPO} target="_blank" rel="noopener noreferrer"
+            aria-label={`${L('izvorni kod', 'source code')} — ${L('atlas na GitHubu', 'the atlas on GitHub')}. ${NEWTAB()}`}>{L('izvorni kod', 'source code')}</a></span>
       </footer>
       <Tooltip S={S} />
       {/* Vercel Analytics + Speed Insights. Both render nothing; each injects one

@@ -121,6 +121,13 @@ its own.
   author has no connection to the study's authors or their institutions, and
   they have neither reviewed nor endorsed it. Stated in the footer, the
   glossary, and on exports of the two views that use the study's method.
+- **The atlas itself** — built by Ante Blašković, © 2026, code under **MIT**,
+  source at
+  [github.com/ablaskovic/migracijski-atlas](https://github.com/ablaskovic/migracijski-atlas).
+  Named and linked in the footer and in the glossary's "Licencije i izvori"
+  section, in `<meta name="author">`, and in the `<noscript>` fallback. Every
+  upstream source above is credited by name; this is the atlas returning the
+  favour for itself, which for a long time it did not.
 
 See [LICENSE](LICENSE) for the full terms of all three.
 
@@ -136,3 +143,10 @@ half-done edit fails rather than shipping a page that cites the paper in one
 place and calls it pending in another. It was written for the reverse case: the
 paper was unpublished until 27 July 2026 and the atlas deliberately did not name
 it, which is the state `paperPending()` still describes.
+
+[`src/lib/licences.ts`](src/lib/licences.ts) is the same arrangement for
+everything that is *not* the study — the four upstream sources, the image, code
+and font licences, and `ATLAS_AUTHOR` / `CODE_YEAR` / `REPO`. The footer, the
+glossary and the `<noscript>` all read those three, `LICENSE` §1 carries the
+same year and holder, and `scripts/verify.cjs` checks the page and the fallback
+agree on all of it.

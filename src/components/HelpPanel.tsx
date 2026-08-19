@@ -6,7 +6,7 @@ import {
 } from '../lib/credits.ts';
 import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
 import {
-  CODE_LICENCE, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE, sources,
+  ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE, REPO, sources,
 } from '../lib/licences.ts';
 import { L, NEWTAB, t, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -269,7 +269,16 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <b>{IMG_LICENCE}</b>
         {L(' — slobodno ih upotrijebite uz navođenje izvora, koji je već otisnut na samoj slici. Kod atlasa je pod ',
           ' — use them freely with attribution, which is already printed on the image itself. The atlas code is under ')}
-        <b>{CODE_LICENCE}</b>{L(', a fontovi pod ', ', and the fonts under ')}
+        <b>{CODE_LICENCE}</b>
+        {/* The one credit on this page that was anonymous. Everything upstream —
+            DZS, Pitoski i sur., OSM, geoBoundaries, the study's own authors — is
+            named and linked; the atlas said "autor atlasa" and stopped there.
+            Named here, with the repository, so a reader can check the code that
+            produced every figure. Year and holder are LICENSE §1's. */}
+        {` (© ${CODE_YEAR} `}<span lang="hr">{ATLAS_AUTHOR}</span>{' — '}
+        <a className="paper-link" href={REPO} target="_blank" rel="noopener noreferrer"
+          aria-label={`${L('Izvorni kod atlasa na GitHubu', 'The atlas source code on GitHub')}. ${NEWTAB()}`}>GitHub</a>
+        {')'}{L(', a fontovi pod ', ', and the fonts under ')}
         <b>{FONT_LICENCE}</b>
         {/* one link per copyright holder, each with a name of its own and the
             new-tab warning every other external link in the app carries (3.2.5) */}

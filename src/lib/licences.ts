@@ -75,6 +75,21 @@ export const sources = SRC;
 export const IMG_LICENCE = 'CC BY 4.0';
 export const CODE_LICENCE = 'MIT';
 export const FONT_LICENCE = 'SIL OFL 1.1';
+/* ── The atlas itself ───────────────────────────────────────────────────────
+   credits.ts owns the study; this is the other half — the code, and the person
+   answerable for it. Both surfaces already said "autor atlasa" without ever
+   naming them, which is the one attribution on the page that was anonymous
+   while every upstream source was credited by name.
+   One place, because the footer, the glossary and index.html's <noscript> all
+   state it. The <noscript> cannot import anything, so it carries a copy the
+   suite compares against these values — the same rule the paper's citation is
+   held to, for the same reason: a half-done edit should fail rather than ship a
+   page that names the author in one place and not in another.
+   The year and holder match LICENSE §1 exactly; they are one fact in two files
+   and the suite checks they agree. */
+export const ATLAS_AUTHOR = 'Ante Blašković';
+export const CODE_YEAR = '2026';
+export const REPO = 'https://github.com/ablaskovic/migracijski-atlas';
 /* Two copyright holders, so two files. One link for three families from two
    holders was both wrong and the reason public/fonts/OFL-Oswald.txt shipped with
    nothing on the site reaching it — OFL §2 requires the licence to travel with
