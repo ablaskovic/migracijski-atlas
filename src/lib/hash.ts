@@ -28,7 +28,12 @@ export function encodeHash(S: State): string {
   p.set('c', S.cum ? '1' : '0');
   p.set('y', String(YEARS[S.yi]));
   if (S.thr !== BASE.thr) p.set('t', String(S.thr));
-  if (S.thrRel) { p.set('tr', '1'); p.set('tp', String(S.thrPct)); }
+  if (S.thrRel) p.set('tr', '1');
+  /* `tp` used to be emitted only alongside `tr`, so a non-default % threshold did
+     not survive its own link once the unit was switched back to persons — and a
+     hand-written `tp=` decoded into state and was immediately rewritten away. It
+     is a field like any other: present when it differs from the default. */
+  if (S.thrPct !== BASE.thrPct) p.set('tp', String(S.thrPct));
   if (S.sel) p.set('s', S.sel);
   if (S.pair) p.set('pp', S.pair);
   if (S.dir !== BASE.dir) p.set('dir', S.dir);
@@ -58,19 +63,32 @@ export function decodeHash(hash: string): Patch {
   if (p.get('c') != null) o.cum = p.get('c') === '1';
   const yi = YEARS.indexOf(Number(p.get('y')));
   if (yi >= 0) o.yi = yi;
+  /* Integers only, for the reason `st` is: `#v=klas&t=1234.5678` rendered
+     "−1.234,568 osoba" — a fractional count of people — and left the range input
+     off its own 250-person step. The % threshold is a decimal by design, but one
+     the slider quantises to 0,1, so a link cannot mint a value it could not
+     produce either. */
   const thr = Number(p.get('t'));
-  if (thr >= 500 && thr <= 15000) o.thr = thr;
+  if (Number.isInteger(thr) && thr >= 500 && thr <= 15000) o.thr = thr;
   if (p.get('tr') === '1') o.thrRel = true;
-  const tp = Number(p.get('tp'));
+  const tp = Math.round(Number(p.get('tp')) * 10) / 10;
   if (tp >= 0.5 && tp <= 5) o.thrPct = tp;
   if (ISOS.includes(p.get('s')!)) o.sel = p.get('s');
   if (ISOS.includes(p.get('pp')!)) o.pair = p.get('pp');
   const dir = oneOf(p.get('dir'), DIRS);
   if (dir) o.dir = dir;
   if (p.get('lb') === '1') o.labels = true;
-  if (p.get('cz')) { o.citz = true; o.citzTab = p.get('cz') === '2' ? 'zem' : 'grp'; }
-  if (p.get('jl')) { o.jls = true; o.jlsTab = p.get('jl') === '2' ? 'loc' : 'inter'; }
-  if (p.get('ag')) { o.age = true; o.ageTab = p.get('ag') === '2' ? 'int' : 'ext'; }
+  /* Enumerated, like every other field. Truthiness meant `#cz=0` — a value that
+     plainly reads as "closed" — booted with the panel OPEN, against the codec's
+     own "unknown or invalid fields are ignored" contract; so did `cz=banana`.
+     These three were the only enumerated fields not going through `oneOf`. */
+  const PANEL = ['1', '2'] as const;
+  const cz = oneOf(p.get('cz'), PANEL);
+  if (cz) { o.citz = true; o.citzTab = cz === '2' ? 'zem' : 'grp'; }
+  const jl = oneOf(p.get('jl'), PANEL);
+  if (jl) { o.jls = true; o.jlsTab = jl === '2' ? 'loc' : 'inter'; }
+  const ag = oneOf(p.get('ag'), PANEL);
+  if (ag) { o.age = true; o.ageTab = ag === '2' ? 'int' : 'ext'; }
   /* ── invariant repairs ──
      Every test below reads `at(k)` — the value the link actually BOOTS, i.e.
      `{...BASE, ...o}[k]` — never the raw patch. `encodeHash` omits any field
