@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 414;
+const EXPECTED_CHECKS = 416;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4701,6 +4701,19 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a failed region chunk says so and offers the same retry the JLS view does',
     /regija/.test(regFail.err || '') && regFail.retry && regFail.live === 'status'
     && regFail.lines === 0, JSON.stringify(regFail));
+  /* This abort is deliberate too, and it never scrubbed after itself — the
+     blanket `errors.length = 0` further down was covering for it, which is
+     exactly what a blanket wipe does. Scrubbed here, where it is caused, by the
+     same targeted splice the geo_jls block uses. */
+  {
+    const before = errors.length;
+    for (let i = errors.length - 1; i >= 0; i--) {
+      if (/geo_regions5/.test(errors[i]) && /ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+    }
+    ck('the blocked region chunk is the only error swept, and it was swept',
+      before - errors.length >= 1 && errors.length === 0,
+      JSON.stringify({ dropped: before - errors.length, left: errors.slice(0, 2) }));
+  }
 
   /* ── M-7: the first-paint placeholder must give up out loud ──
      A purged hashed chunk against a cached index.html leaves this markup as the
@@ -4718,8 +4731,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a boot with no entry chunk stops claiming progress and says what to do',
     bootFail.present && bootFail.opacity === '1' && bootFail.stillBooting && !bootFail.mounted,
     JSON.stringify(bootFail));
-  /* the deliberate abort above lands in the error list like any other */
-  errors.length = 0;
+  /* The deliberate abort above lands in the error list like any other, and this
+     used to drop the whole ledger to length 0 to be rid of it. The comment
+     justified one entry; the statement truncated the array — so the end-of-run
+     "still zero page/console errors" assertion covered the last dozen checks
+     instead of bracketing the run, and the 141 ck() sites between the previous
+     errors assertion (the geo_jls scrub) and this line were guarded by nothing
+     at all. That is most of the file, under a CSP whose entire enforcement story
+     is that Chrome logs every violation to the console and this suite asserts
+     zero console errors twice (see the header, and the design note at l.184).
+     Same targeted splice the geo_jls scrub uses: remove only what the blocked
+     entry chunk produced, prove at least one was removed, and prove nothing else
+     is left — so an unrelated error raised anywhere in that window now fails a
+     check instead of being swept up with it. */
+  {
+    const before = errors.length;
+    for (let i = errors.length - 1; i >= 0; i--) {
+      if (/\/assets\/index-[\w-]+\.js/.test(errors[i]) && /ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+    }
+    ck('the blocked entry chunk is the only error swept, and it was swept',
+      before - errors.length >= 1 && errors.length === 0,
+      JSON.stringify({ dropped: before - errors.length, left: errors.slice(0, 2) }));
+  }
   /* and the rewrite must not turn that 404 into a 200 text/html */
   const vercelCfg = JSON.parse(fs.readFileSync(path.resolve('vercel.json'), 'utf8'));
   ck('the catch-all rewrite excludes the build’s own asset directories',
@@ -5061,6 +5094,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     !/s=HR/.test(mxSelf.hash) && !/pp=/.test(mxSelf.hash) && !mxSelf.pair && mxSelf.band === 0,
     JSON.stringify(mxSelf));
   /* ── errors, again, after the v2.0.5 block ── */
+  /* This is the closing half of the bracket the file's design note describes,
+     and it means it now: the ledger is no longer truncated mid-run, so what it
+     covers is every check since the geo_jls scrub — 141 ck() sites that were
+     previously answered by an array somebody had emptied. */
   await fresh('');
   ck('still zero page/console errors after the pass-3 surfaces',
     errors.length === 0, errors.join(' ; ').slice(0, 300));
