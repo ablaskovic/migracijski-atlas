@@ -811,3 +811,28 @@ svg :focus,#spark:focus{outline:none}
    note so a long note cannot push the link out of the panel's 330 px. */
 .help-src{margin-top:5px}
 .help-srcnote{color:var(--mut);font-size:10px}
+
+/* ── forced colors (Windows High Contrast) ────────────────────────────────────
+   Measured under `forced-colors: active`: SVG `fill` is not forced, so the 21
+   county paths keep their ramp colours — but everything that *decodes* them is
+   HTML and is forced. The legend's gradient bar became an empty 180×9 box, the
+   three klasifikacija swatches collapsed to one colour, and all 19 segment
+   buttons signalled "pressed" by background alone, which forced-colors replaces.
+   A key that cannot be read is a map that cannot be read, and a pressed state
+   that is not shown is a control lying about itself.
+
+   `forced-color-adjust:none` is the right tool for the two keys rather than a
+   textual substitute: they are not decoration, they are the legend for ink the
+   forced palette does not touch, so opting them out keeps the key and the map
+   saying the same thing. Each gets a CanvasText edge so its box stays visible
+   against a forced background. Pressed states get a border, which survives. */
+@media (forced-colors:active){
+  .legend-bar,.legend-sw,.citz-rows .sw,.zbar span{forced-color-adjust:none}
+  .legend-bar,.legend-sw,.citz-rows .sw{border:1px solid CanvasText}
+  .legend-mark{background:CanvasText;width:3px;forced-color-adjust:none}
+  /* pressed-by-background is invisible here; pressed-by-border is not */
+  .seg button[aria-pressed="true"],.jtabs button[aria-pressed="true"],
+  .helpbtn.on,.labbtn.on{outline:2px solid Highlight;outline-offset:-2px;color:Highlight}
+  /* and the two-tone focus ring loses its white halo to the forced palette */
+  .fr-ink,.jl:focus-visible{stroke:Highlight}
+}
