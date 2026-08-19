@@ -48,8 +48,16 @@ export const ISOS = Object.keys(D);
    so an untranslated number is not merely foreign, it is wrong by three orders
    of magnitude to the reader it is shown to. The display minus is U+2212 in both
    languages: that is a glyph choice the house rules pin, not a locale one. */
-export const fmtI: Pick<Intl.NumberFormat, 'format'> = { format: n => numI().format(n) };
-export const fmtR: Pick<Intl.NumberFormat, 'format'> = { format: n => numR().format(n) };
+/* hr-HR's Intl already emits U+2212 for a negative and en-GB emits U+002D, so
+   the one rule the house pins in *both* languages was the one Intl decided per
+   locale: the matrix's in-cell numbers are formatted straight from a signed
+   value and drew an ASCII hyphen in English while every other negative on the
+   page — all of which go through `sgn` below, which prepends U+2212 itself —
+   drew the real minus. Normalised here rather than at that one call site, so
+   the next signed value formatted directly cannot reopen it. */
+const minus = (s: string): string => s.replace(/-/g, '−');
+export const fmtI: Pick<Intl.NumberFormat, 'format'> = { format: n => minus(numI().format(n)) };
+export const fmtR: Pick<Intl.NumberFormat, 'format'> = { format: n => minus(numR().format(n)) };
 export const sgn = (v: number, f: Pick<Intl.NumberFormat, 'format'>) =>
   (v > 0 ? '+' : v < 0 ? '−' : '') + f.format(Math.abs(v));
 
@@ -401,8 +409,18 @@ export function countyAria(S: State, iso: string): string {
 /* export caption from state */
 export function exportDesc(S: State): [string, string] {
   if (S.view === 'jmap') {
-    return [L('Gradovi i općine: unutarnja migracija (izmjereno)',
-      'Towns and municipalities: internal migration (measured)'), yr(2018)];
+    /* The direction was the one word this figure did not carry: Odlasci,
+       Dolasci and Neto exported the same title under the same filename, so in a
+       slide nobody could tell whether a dark municipality meant many left it or
+       many arrived. The on-screen legend has always named it; the export says
+       everything the screen says. */
+    const d = {
+      out: L('odlasci iz JLS', 'moves out of the LAU'),
+      in: L('dolasci u JLS', 'moves into the LAU'),
+      net: L('neto po JLS', 'net per LAU'),
+    }[S.dir];
+    return [L('Gradovi i općine: ', 'Towns and municipalities: ') + d
+      + L(' · unutarnja migracija (izmjereno)', ' · internal migration (measured)'), yr(2018)];
   }
   const per = (S.cum || S.view === 'klas') ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi]);
   const den = S.den === 'rel11' ? L(' · % popisa 2011.', ' · % of 2011 census')
