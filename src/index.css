@@ -203,6 +203,11 @@ svg :focus,#spark:focus{outline:none}
 .rstbtn:hover{color:var(--ink)}
 .only{display:none}.only.show{display:flex}
 .thr input[type=range]{width:110px;accent-color:var(--acc)}
+/* WCAG 2.5.8 wants 24 px on a coarse pointer, and this is the only control that
+   changes what Klasifikacija classifies. #scrubTog was raised for exactly this
+   rule and the segments and rail rows were re-padded to 44 px; the range input
+   was never revisited and measured 110×16. */
+@media (pointer:coarse){.thr input[type=range]{height:24px}}
 .thr-val{font-family:var(--mono);font-size:12px;min-width:52px}
 
 .main{flex:1;display:flex;min-height:0}
