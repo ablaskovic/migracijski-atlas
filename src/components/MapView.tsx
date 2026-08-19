@@ -5,7 +5,7 @@ import {
   GEO, ISOS, DOM, RDOM, REGOF, SHORTN,
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowKind, jlsVal, jmapScale, countyAria, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
-import { jlsGeo, regGeo, jlsFailed, retryGeo } from '../lib/geoAsync.ts';
+import { jlsGeo, regGeo, jlsFailed, regFailed, retryGeo } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
 import PairCard from './PairCard.tsx';
@@ -420,16 +420,29 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           permanent post-failure UI — an empty country under a spinner, with no
           retry short of a reload. role=status so the wait and the failure both
           reach assistive tech, which the SVG <text> never did. */}
-      {S.view === 'jmap' && !JGEO && (
-        <div className="geostat" id="jstatus" role="status" aria-live="polite">
-          {jlsFailed() ? (
-            <>
-              <span id="jerror">{L('Geometrija JLS nije učitana.', 'LAU geometry failed to load.')}</span>
-              <button id="jretry" onClick={retryGeo}>{L('Pokušaj ponovno', 'Try again')}</button>
-            </>
-          ) : <span id="jloading">{L('Učitavanje geometrije JLS…', 'Loading LAU geometry…')}</span>}
-        </div>
-      )}
+      {/* Both halves, not one. geoAsync was built symmetrically — jlsFailed() /
+          regFailed(), shared flags, shared retry — and only the JLS half was
+          wired to anything, so a failed geo_regions5.json fetch left Regije
+          drawing county tints from the static REGOF with no boundary outlines,
+          no message and no retry. A failed module fetch is cached in the
+          browser's module map, so that state could not self-heal without the
+          reload only this UI offers, and the export shipped without the
+          outlines too. */}
+      {((S.view === 'jmap' && !JGEO) || (S.view === 'reg' && !REGGEO)) && (() => {
+        const jm = S.view === 'jmap';
+        return (
+          <div className="geostat" id="jstatus" role="status" aria-live="polite">
+            {(jm ? jlsFailed() : regFailed()) ? (
+              <>
+                <span id="jerror">{jm ? L('Geometrija JLS nije učitana.', 'LAU geometry failed to load.')
+                  : L('Geometrija regija nije učitana.', 'Region geometry failed to load.')}</span>
+                <button id="jretry" onClick={retryGeo}>{L('Pokušaj ponovno', 'Try again')}</button>
+              </>
+            ) : <span id="jloading">{jm ? L('Učitavanje geometrije JLS…', 'Loading LAU geometry…')
+              : L('Učitavanje geometrije regija…', 'Loading region geometry…')}</span>}
+          </div>
+        );
+      })()}
       <Legend S={S} />
       <JlsCard S={S} setS={setS} toggleJls={toggleJls} />
       <HelpPanel S={S} setS={setS} />
