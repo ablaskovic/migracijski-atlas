@@ -33,7 +33,18 @@ npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
 npm i -D puppeteer   # once, for verification
 npm run verify       # typecheck + lint + build + 295-check suite (must pass)
+npm run smoke        # probe the DEPLOYED origin (network; not part of verify)
 ```
+
+`npm run verify` can only test the build it is handed, so all of its checks can
+be green while the origin readers actually reach serves something else — which
+is what happened: an audit found the production alias pinned three releases
+back, with the whole English language and the robots.txt fix live only in git,
+and nothing in the repository could have said so. `npm run smoke` asks the three
+questions the suite structurally cannot: do `robots.txt` and `sitemap.xml` serve
+as static files or does the catch-all rewrite answer them with the SPA shell, is
+the deployed entry chunk the one in `dist/`, and does the deployed bundle carry
+the current release's markers. Run it after a deploy.
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
 are their own chunks: the view that needs one fetches it on entry, and the other is

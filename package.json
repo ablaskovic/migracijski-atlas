@@ -13,7 +13,8 @@
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "verify": "tsc --noEmit && oxlint && vite build && node scripts/verify.cjs dist"
+    "verify": "tsc --noEmit && oxlint && vite build && node scripts/verify.cjs dist",
+    "smoke": "node scripts/smoke.cjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
