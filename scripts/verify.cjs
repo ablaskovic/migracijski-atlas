@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 353;
+const EXPECTED_CHECKS = 367;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -140,11 +140,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const ORIGIN = new URL(url).origin;
   /* one handler only — a second `page.on('request')` makes both call continue()
      on the same request and puppeteer throws "Request is already handled" */
-  let blockGeoChunk = false;
+  let blockGeoChunk = false, blockEntry = false;
   page.on('request', r => {
     const u = r.url();
     if (/^https?:/.test(u) && new URL(u).origin !== ORIGIN) thirdParty.push(u);
-    if (blockGeoChunk && /geo_jls/.test(u)) return r.abort();
+    /* `blockGeoChunk` names which payload to drop: the JLS chunk by default, and
+       'reg' for the region outlines, whose failure UI had no importers at all. */
+    if (blockGeoChunk && new RegExp(blockGeoChunk === 'reg' ? 'geo_regions5' : 'geo_jls').test(u)) return r.abort();
+    /* a purged hashed chunk against a cached index.html — the ordinary way the
+       first-paint placeholder is left with nothing to replace it */
+    if (blockEntry && /\/assets\/index-[\w-]+\.js$/.test(u)) return r.abort();
     return r.continue();
   });
   const errors = [];
@@ -3573,8 +3578,52 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const enSvg = await page.evaluate(() => window.__exportSVG(false));
   ck('the English export carries its badge, sources and licence in English',
     /CUMULATIVE ESTIMATE/i.test(enSvg) && /Sources:/.test(enSvg)
-    && /Figure: CC BY 4\.0/.test(enSvg) && !/Izvori:/.test(enSvg),
+    && /Figure: CC BY 4\.0/.test(enSvg) && !/Izvori:/.test(enSvg)
+    /* the legend badge was a Croatian literal, so the title said CUMULATIVE
+       ESTIMATE over a bar labelled "kumulativna procjena" */
+    && !/izmjereno|kumulativna procjena|skala/.test(enSvg),
     (enSvg.match(/>[^<]{20,90}</g) || []).slice(0, 3).join(' | '));
+
+  /* the JLS legend badge is the other half of the same literal */
+  await fresh('#l=en&v=jmap&dir=net');
+  const enJmapSvg = await page.evaluate(() => window.__exportSVG(false));
+  ck('and an English JLS export badges itself in English too',
+    /measured/.test(enJmapSvg) && /√ scale/.test(enJmapSvg)
+    && !/izmjereno|skala/.test(enJmapSvg),
+    (enJmapSvg.match(/·[^<]{4,40}</g) || []).slice(0, 3).join(' | '));
+
+  /* ── Croatian year ordinals must not leak into English ──
+     `2024.` is a Croatian ordinal and reads as a full stop in English; the study
+     window was a module constant evaluated before setLang had run, so the
+     headline paper-comparison note read "for 2011.–2024.." at its default
+     state, and all 28 Godine column headers plus 588 cell labels carried the
+     dot. Every year on screen goes through yr()/yrSpan() now. */
+  await fresh('#l=en&v=klas&c=1&y=2024');
+  const enKlas = await page.evaluate(() => document.querySelector('#legend .legend-note').textContent);
+  await fresh('#l=en&v=yrs&f=int&c=0&y=2022');
+  const enYrs = await page.evaluate(() => ({
+    cols: [...document.querySelectorAll('#map text')].map(t => t.textContent).filter(t => /^\d{4}\.?$/.test(t)),
+    cell: document.querySelector('.yrc').getAttribute('aria-label'),
+  }));
+  ck('no Croatian year ordinal survives into English',
+    /for 2011–2024\. On the newer/.test(enKlas) && !/\d{4}\.\.|\d{4}\.–/.test(enKlas)
+    && enYrs.cols.length >= 28 && enYrs.cols.every(t => !t.endsWith('.'))
+    && !/\d{4}\./.test(enYrs.cell),
+    JSON.stringify({ klas: enKlas.slice(0, 70), cols: enYrs.cols.slice(0, 3), cell: enYrs.cell }));
+
+  /* ── the display minus is U+2212 in both languages ──
+     in-cell matrix numbers are formatted straight from a signed value, and
+     en-GB's Intl emits U+002D where hr-HR emits U+2212 */
+  await page.setViewport({ width: 1920, height: 1200 });
+  for (const l of ['hr', 'en']) {
+    await fresh(`#l=${l}&v=mx&y=2018&c=0&dir=net`);
+    const neg = await page.evaluate(() =>
+      [...document.querySelectorAll('.mxnum')].map(t => t.textContent).filter(t => /[-−]/.test(t)));
+    ck(`negative matrix numbers use U+2212, not an ASCII hyphen (${l})`,
+      neg.length > 0 && neg.every(t => t.includes('−') && !t.includes('-')),
+      JSON.stringify(neg.slice(0, 3)));
+  }
+  await page.setViewport({ width: 1440, height: 900 });
 
   /* The arc-dash and pair-badge encodings, in the other language. Both used to
      be keyed off a comparison against the Croatian literal 'izmjereno', so in
@@ -3963,6 +4012,175 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && !axNames.some(n => n && /^(.+)\1$/.test(n)),
     JSON.stringify({ missing: labels.filter(l => !axNames.includes(l)), doubled: axNames.filter(n => n && /^(.+)\1$/.test(n)) }));
 
+
+  /* ══════════════════ v2.3.2 — audit pass ══════════════════ */
+
+  /* ── M-4: Back must not discard an explicit stored language choice ──
+     BASE.lang is resolved once at module init, and the popstate handler folded
+     BASE back in — so Back to an entry written before the toggle reverted the
+     language while localStorage still said otherwise, and reloading that same
+     URL booted the other one. One URL, two languages, by arrival route. */
+  const backLang = await (async () => {
+    const pg = await browser.newPage();
+    await pg.emulateTimezone('Europe/Zagreb');
+    await pg.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });
+      Object.defineProperty(navigator, 'language', { get: () => 'hr-HR', configurable: true });
+      try { localStorage.removeItem('atlas-lang'); } catch { /* opaque origin */ }
+    });
+    await pg.goto(url + '#v=saldo&c=1&y=2024', { waitUntil: 'networkidle0' });
+    await settle(300);
+    await pg.click('#segView button[data-v="klas"]');   /* pushes a history entry */
+    await settle(300);
+    await pg.click('#segLang button[data-l="en"]');     /* stored; replaces this entry */
+    await settle(300);
+    await pg.goBack();                                  /* back to the pre-toggle entry */
+    await settle(400);
+    const r = await pg.evaluate(() => ({ lang: document.documentElement.lang,
+      stored: localStorage.getItem('atlas-lang'), hash: location.hash,
+      pressed: document.querySelector('#segLang button[aria-pressed="true"]').dataset.l }));
+    await pg.close();
+    return r;
+  })();
+  ck('Back keeps the language choice the reader has stored',
+    backLang.stored === 'en' && backLang.lang === 'en' && backLang.pressed === 'en',
+    JSON.stringify(backLang));
+
+  /* ── M-5: a defensive key must not make a caption panel-sensitive ──
+     `sel` is in STORY_KEYS and twelve presets carried a defensive `sel: null`,
+     so opening a county card killed a caption whose claim the card changes
+     nothing about: pick Nalaz 2, click the top rail row, and the rail is
+     byte-identical before and after while #storyCap is gone. */
+  await fresh('');
+  const selKeep = await page.evaluate(async () => {
+    const sel = document.querySelector('#story');
+    sel.value = '1';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 350));
+    const before = document.querySelector('#railList').textContent;
+    document.querySelector('#railList .rrow').click();
+    await new Promise(r => setTimeout(r, 350));
+    return { cap: !!document.querySelector('#storyCap'), card: !!document.querySelector('#cardName'),
+      same: before === document.querySelector('#railList').textContent };
+  });
+  ck('opening a county card keeps a caption that claims nothing about one',
+    selKeep.cap && selKeep.card && selKeep.same, JSON.stringify(selKeep));
+
+  /* ── M-6: the region half of the geometry failure machinery ──
+     regFailed() had zero importers, so a failed geo_regions5.json left Regije
+     drawing county tints with no outlines, no message and no retry — and the
+     five outlines were counted nowhere, so a build drawing zero of them passed
+     every check. */
+  await fresh('#v=reg&c=1&y=2024');
+  await page.waitForFunction(() => document.querySelectorAll('.regline').length === 5, { timeout: 15000 })
+    .catch(() => {});
+  const regLines = await page.evaluate(() => document.querySelectorAll('.regline').length);
+  ck('Regije draws all five region outlines', regLines === 5, String(regLines));
+  blockGeoChunk = 'reg';
+  await page.goto('about:blank');
+  await page.goto(url + '#v=reg&c=1&y=2024', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!document.querySelector('#jerror'), { timeout: 15000 })
+    .catch(() => {});
+  const regFail = await page.evaluate(() => {
+    const st = document.querySelector('#jstatus');
+    return { err: (document.querySelector('#jerror') || {}).textContent || null,
+      retry: !!document.querySelector('#jretry'),
+      live: st ? st.getAttribute('role') : null,
+      lines: document.querySelectorAll('.regline').length };
+  });
+  blockGeoChunk = false;
+  ck('a failed region chunk says so and offers the same retry the JLS view does',
+    /regija/.test(regFail.err || '') && regFail.retry && regFail.live === 'status'
+    && regFail.lines === 0, JSON.stringify(regFail));
+
+  /* ── M-7: the first-paint placeholder must give up out loud ──
+     A purged hashed chunk against a cached index.html leaves this markup as the
+     permanent UI, claiming progress it is not making. */
+  blockEntry = true;
+  await page.goto('about:blank');
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await settle(11000);
+  const bootFail = await page.evaluate(() => {
+    const f = document.querySelector('#bootFail');
+    return { present: !!f, opacity: f ? getComputedStyle(f).opacity : null,
+      stillBooting: !!document.querySelector('.boot'), mounted: !!document.querySelector('#map') };
+  });
+  blockEntry = false;
+  ck('a boot with no entry chunk stops claiming progress and says what to do',
+    bootFail.present && bootFail.opacity === '1' && bootFail.stillBooting && !bootFail.mounted,
+    JSON.stringify(bootFail));
+  /* the deliberate abort above lands in the error list like any other */
+  errors.length = 0;
+  /* and the rewrite must not turn that 404 into a 200 text/html */
+  const vercelCfg = JSON.parse(fs.readFileSync(path.resolve('vercel.json'), 'utf8'));
+  ck('the catch-all rewrite excludes the build’s own asset directories',
+    vercelCfg.rewrites.length === 1 && /\(\?!assets\//.test(vercelCfg.rewrites[0].source)
+    && /fonts\//.test(vercelCfg.rewrites[0].source), JSON.stringify(vercelCfg.rewrites));
+
+  /* ── M-8: the exported JLS figure must state its direction ──
+     Odlasci, Dolasci and Neto shared one title, one badge and one filename, so
+     in a slide nobody could tell whether a dark municipality meant many left it
+     or many arrived. */
+  const jmapExp = {};
+  for (const d of ['out', 'in', 'net']) {
+    await fresh('#v=jmap&dir=' + d);
+    /* the export band uppercases its title, so this reads it case-insensitively */
+    jmapExp[d] = await page.evaluate(() => {
+      const svg = window.__exportSVG(false) || '';
+      return (svg.match(/>[^<]*GRADOVI I OP[^<]*</i) || [''])[0];
+    });
+  }
+  ck('the three JLS export directions produce three different titles',
+    new Set(Object.values(jmapExp)).size === 3
+    && /odlasci iz JLS/i.test(jmapExp.out) && /dolasci u JLS/i.test(jmapExp.in)
+    && /neto po JLS/i.test(jmapExp.net),
+    JSON.stringify(jmapExp));
+
+  /* ── M-10: a pan must survive the pointer crossing the map edge ──
+     onPointerLeave was mapped to onPointerUp, so a drag died at the box edge
+     with the button still held — a ~570 px box and a country to cross. */
+  await fresh('');
+  await page.keyboard.press('+'); await page.keyboard.press('+'); await page.keyboard.press('+');
+  await settle(250);
+  const mbox = await page.evaluate(() => {
+    const r = document.querySelector('#map').getBoundingClientRect();
+    return { l: r.left, t: r.top, w: r.width, h: r.height };
+  });
+  const tf = () => page.evaluate(() => document.querySelector('#map g').getAttribute('transform'));
+  const t0 = await tf();
+  await page.mouse.move(mbox.l + mbox.w / 2, mbox.t + mbox.h / 2);
+  await page.mouse.down();
+  await page.mouse.move(mbox.l + 6, mbox.t + mbox.h / 2, { steps: 6 });
+  const tEdge = await tf();
+  await page.mouse.move(mbox.l - 120, mbox.t + mbox.h / 2, { steps: 6 });   /* outside the box */
+  const tPast = await tf();
+  await page.mouse.up();
+  ck('a pan keeps going when the pointer crosses the map edge',
+    t0 !== tEdge && tEdge !== tPast, JSON.stringify({ t0, tEdge, tPast }));
+  /* and a right-button drag is not a pan */
+  await fresh('');
+  await page.keyboard.press('+');
+  await settle(250);
+  const rBefore = await tf();
+  await page.mouse.move(mbox.l + mbox.w / 2, mbox.t + mbox.h / 2);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(mbox.l + 40, mbox.t + mbox.h / 2, { steps: 5 });
+  const rAfter = await tf();
+  await page.mouse.up({ button: 'right' });
+  ck('and a right-button drag does not pan the map', rBefore === rAfter,
+    JSON.stringify({ rBefore, rAfter }));
+
+  /* ── M-11: the two corridor repairs must not disagree ──
+     `#v=mx&s=X&pp=X` looked complete to the lone-half test, passed it, and was
+     then reduced to a lone `sel` — a state nothing renders, whose `s=` encodeHash
+     laundered into every shared link and Tokovi then adopted as its hub. */
+  await fresh('#v=mx&s=HR-01&pp=HR-01&c=0&y=2018');
+  const mxSelf = await page.evaluate(() => ({ hash: location.hash,
+    pair: !!document.querySelector('#pair'),
+    band: document.querySelectorAll('.mxsel').length }));
+  ck('a self-pair corridor leaves no phantom row behind in Matrica',
+    !/s=HR/.test(mxSelf.hash) && !/pp=/.test(mxSelf.hash) && !mxSelf.pair && mxSelf.band === 0,
+    JSON.stringify(mxSelf));
   /* ── errors, again, after the v2.0.5 block ── */
   await fresh('');
   ck('still zero page/console errors after the pass-3 surfaces',
