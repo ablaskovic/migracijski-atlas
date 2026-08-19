@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 383;
+const EXPECTED_CHECKS = 393;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -94,7 +94,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   const arg = process.argv[2] || 'dist';
   let url = arg;
-  if (!/^https?:/.test(arg)) {
+  /* URL mode was guaranteed red against every possible host, with failures that
+     indicted the app rather than the harness: it skipped serve(), so the two
+     /_vercel platform routes were never stubbed and `stubHits.size === 2` could
+     not hold, and `entryKB` resolved the URL as a local directory and measured 0.
+     Both are harness facts, not app facts, so both are scoped to the mode that
+     can answer them — and in URL mode the platform routes are stubbed through
+     request interception instead of through the server. */
+  const URLMODE = /^https?:/.test(arg);
+  if (!URLMODE) {
     const dir = path.resolve(arg);
     if (!fs.existsSync(path.join(dir, 'index.html'))) { console.error('no index.html in ' + dir + ' — run `npm run build` first'); process.exit(2); }
     ({ srv, url } = await serve(dir));
@@ -135,15 +143,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      four checks measure the real faces and the interception has the opposite
      job: prove the page reaches **no** third-party origin at all. Anything
      off-origin is recorded and the run asserts the list is empty. */
-  await page.setRequestInterception(true);
   const thirdParty = [];
   const ORIGIN = new URL(url).origin;
+  /* Recording was attached to the main page only, and the invariant was asserted
+     once, mid-run: everything after that point — every English boot, all the
+     v2.0.6–v2.3.x blocks — could reach off-origin and never be looked at, and the
+     sixteen bootLang pages and the two font-swap pages recorded nothing at all.
+     Every page the suite opens goes through here now, and the assertion is
+     repeated at end-of-run beside the second zero-errors check. */
+  const watch = async (pg, abortIf) => {
+    await pg.setRequestInterception(true);
+    /* ONE handler per page: a second `page.on('request')` makes both call
+       continue() on the same request and puppeteer throws "Request is already
+       handled", so a page that needs to block something passes a predicate
+       rather than installing its own. */
+    pg.on('request', r => {
+      const u = r.url();
+      if (/^https?:/.test(u) && new URL(u).origin !== ORIGIN) thirdParty.push(u);
+      if (abortIf && abortIf(u)) return r.abort();
+      return r.continue();
+    });
+    return pg;
+  };
+  await page.setRequestInterception(true);
   /* one handler only — a second `page.on('request')` makes both call continue()
      on the same request and puppeteer throws "Request is already handled" */
   let blockGeoChunk = false, blockEntry = false;
   page.on('request', r => {
     const u = r.url();
     if (/^https?:/.test(u) && new URL(u).origin !== ORIGIN) thirdParty.push(u);
+    /* URL mode has no local server to stub the two Vercel platform routes, so
+       they are stubbed here instead — same effect, same recorded hits */
+    if (URLMODE && VERCEL_STUB.some(v => new URL(u).pathname === v)) {
+      stubHits.add(new URL(u).pathname);
+      return r.respond({ status: 200, contentType: 'text/javascript',
+        body: '/* Vercel platform route, stubbed by scripts/verify.cjs */' });
+    }
     /* `blockGeoChunk` names which payload to drop: the JLS chunk by default, and
        'reg' for the region outlines, whose failure UI had no importers at all. */
     if (blockGeoChunk && new RegExp(blockGeoChunk === 'reg' ? 'geo_regions5' : 'geo_jls').test(u)) return r.abort();
@@ -1614,11 +1649,18 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('geo_jls and geo_regions5 ship as their own chunks, not in the entry',
     chunks.some(c => /^geo_jls/.test(c)) && chunks.some(c => /^geo_regions5/.test(c))
     && chunks.filter(c => /^index-/.test(c)).length === 1, chunks.join(','));
-  const entryKB = fs.existsSync(path.resolve(arg, 'assets'))
+  /* dist mode measures the file; URL mode has no directory to measure, so it
+       reads the served entry chunk's own transfer size instead of reporting 0 */
+  const entryKB = URLMODE
+    ? Math.round((await page.evaluate(() => {
+      const e = performance.getEntriesByType('resource').find(r => /\/assets\/index-.*\.js$/.test(r.name));
+      return e ? (e.decodedBodySize || e.transferSize || 0) : 0;
+    })) / 1024)
+    : fs.existsSync(path.resolve(arg, 'assets'))
     ? Math.round(fs.readdirSync(path.resolve(arg, 'assets'))
       .filter(f => /^index-.*\.js$/.test(f))
       .reduce((a, f) => a + fs.statSync(path.join(path.resolve(arg, 'assets'), f)).size, 0) / 1024)
-    : 0;
+      : 0;
   ck('entry chunk stays under 600 KB (was 995 KB with both payloads inlined)',
     entryKB > 0 && entryKB < 600, entryKB + ' KB');
 
@@ -2081,7 +2123,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   blockGeoChunk = true;
   await page.goto('about:blank');
   await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
-  await settle(2500);
+  /* every other wait in this file is condition-based, and the project fixed this
+     exact class once already for #v=jmap ("waits on 556 features, not a
+     stopwatch"): a fixed sleep against an async import flakes on a slow machine */
+  await page.waitForFunction(() => !!document.querySelector('#jerror') || !!document.querySelector('#jloading'),
+    { timeout: 15000 }).catch(() => {});
+  await page.waitForFunction(() => !!document.querySelector('#jerror'), { timeout: 15000 })
+    .catch(() => {});
   const geoFail = await page.evaluate(() => {
     const st = document.querySelector('#jstatus');
     return { err: !!document.querySelector('#jerror'), retry: !!document.querySelector('#jretry'),
@@ -3458,13 +3506,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     return { hd: b('header.hd'), main: b('main.main'), ft: b('.ft'), scrub: b('#scrubBox') }; })()`;
   const swap = {};
   for (const mode of ['fallback', 'real']) {
-    const p2 = await browser.newPage();
+    const p2 = await watch(await browser.newPage(),
+      mode === 'fallback' ? (u => u.endsWith('.woff2')) : null);
     await pinHr(p2);
     await p2.setViewport({ width: 1350, height: 940 });
-    if (mode === 'fallback') {
-      await p2.setRequestInterception(true);
-      p2.on('request', r => (r.url().endsWith('.woff2') ? r.abort() : r.continue()));
-    }
     await p2.goto(url, { waitUntil: 'networkidle0' });
     await settle(600);
     swap[mode] = await p2.evaluate(swapBox);
@@ -3738,7 +3783,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      suite has a timezone of its own, and on a Croatian one every case below
      would pass for the wrong reason. */
   const bootLang = async (tags, tz, stored) => {
-    const pg = await browser.newPage();
+    const pg = await watch(await browser.newPage());
     await pg.emulateTimezone(tz);
     await pg.evaluateOnNewDocument((t, st) => {
       Object.defineProperty(navigator, 'languages', { get: () => t, configurable: true });
@@ -4021,7 +4066,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      language while localStorage still said otherwise, and reloading that same
      URL booted the other one. One URL, two languages, by arrival route. */
   const backLang = await (async () => {
-    const pg = await browser.newPage();
+    const pg = await watch(await browser.newPage());
     await pg.emulateTimezone('Europe/Zagreb');
     await pg.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });
@@ -4279,6 +4324,137 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && fcBar.adjust === 'none' && parseFloat(fcBar.border) >= 1 && /gradient/.test(fcBar.img),
     JSON.stringify({ fcKlas, fcBar }));
 
+  /* ── M-18: the differential stroke test exercised 2 of 9 documented selectors ──
+     The strong measurement — it rasterises rather than reading attributes — ran
+     on the JLS map alone, so a build that dropped `vector-effect` from the county
+     paths, the region outlines, either grid or their trace bands would have
+     shipped the reported "weird thick border" and stayed green. Every view that
+     strokes inside the zoom transform is measured the same way now, and each of
+     its selectors is asserted to *declare* the attribute on every element rather
+     than inherit it from a stylesheet the exported document does not carry. */
+  const strokeScan = async (hash, zoom, sels) => {
+    await fresh(hash);
+    await page.evaluate(z => {
+      for (let i = 0; i < z; i++) window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
+    }, zoom);
+    await settle(500);
+    return page.evaluate(async list => {
+      const doc = window.__exportSVG(false);
+      /* A pixel *difference* rather than a run-length measurement. The JLS probe
+         above counts dark runs, which works there because .jbord is ink — but the
+         county paths and both grids stroke in white, so a dark-run median cannot
+         see them at all and reported 0 vs 0. Rasterising the document as it ships
+         and again with the attribute stripped, then counting the pixels that
+         move, is colour-agnostic: if the attribute is doing nothing the two
+         images are identical, whatever the stroke is painted in. */
+      const raster = async str => {
+        const u = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml;charset=utf-8' }));
+        const img = new Image();
+        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = u; });
+        const cv = document.createElement('canvas');
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(u);
+        return ctx.getImageData(0, 0, cv.width, cv.height).data;
+      };
+      const a = await raster(doc);
+      const b = await raster(doc.replace(/ vector-effect="non-scaling-stroke"/g, ''));
+      let moved = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        if (Math.abs(a[i] - b[i]) > 12 || Math.abs(a[i + 1] - b[i + 1]) > 12
+          || Math.abs(a[i + 2] - b[i + 2]) > 12) moved++;
+      }
+      const declares = {};
+      for (const t of list) {
+        const q = [...document.querySelectorAll(t)];
+        declares[t] = q.length > 0 && q.every(e => e.getAttribute('vector-effect') === 'non-scaling-stroke');
+      }
+      return { moved, px: a.length / 4, declares };
+    }, sels);
+  };
+  for (const [hash, z, sels] of [
+    ['#v=saldo&c=1&y=2024', 4, ['.cnt']],
+    ['#v=reg&c=1&y=2024', 4, ['.cnt', '.regline']],
+    ['#v=mx&c=0&y=2018&dir=net&s=HR-14&pp=HR-21', 3, ['.mxc', '.mxd', '.mxsel rect']],
+    ['#v=yrs&f=int&c=0&y=2022', 3, ['.yrc', '.yrsel rect']],
+  ]) {
+    const r = await strokeScan(hash, z, sels);
+    ck(`zooming ${hash.slice(3, 8)} does not fatten its strokes, and every stroke declares it`,
+      r.moved > 2000 && Object.values(r.declares).every(Boolean),
+      JSON.stringify(r));
+  }
+  await fresh('');
+
+  /* ── M-21: the glossary's own accessibility contract ──
+     role=dialog, aria-labelledby and #jcard[inert] were in the documented
+     contract and in no assertion, which is why the ≤900 px regression was
+     invisible. The first two are asserted on both sides of the breakpoint
+     above; this is the third, which needs the JLS card to exist at all. */
+  await fresh('#v=flow&s=HR-21&c=0&y=2018&jl=1');
+  const jInert = await page.evaluate(async () => {
+    const before = document.querySelector('#jcard').hasAttribute('inert');
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 300));
+    const during = document.querySelector('#jcard').hasAttribute('inert');
+    document.querySelector('#helpX').click();
+    await new Promise(r => setTimeout(r, 300));
+    return { before, during, after: document.querySelector('#jcard').hasAttribute('inert') };
+  });
+  ck('the open glossary makes the JLS card inert, and hands it back on close',
+    !jInert.before && jInert.during && !jInert.after, JSON.stringify(jInert));
+
+  /* ── M-20: the third honesty badge, on all three layers ──
+     'badge.est' — load-bearing for every non-2018 tokovi year — appeared in no
+     check on any layer, in either language. Screen, export and the visual mark,
+     because the house rule binds honesty labels to exactly those. */
+  for (const [l, badge] of [['hr', 'procjena (IPF)'], ['en', 'estimate (IPF)']]) {
+    await fresh(`#l=${l}&v=flow&s=HR-21&dir=out&c=0&y=2017&pp=HR-01`);
+    const est = await page.evaluate(() => {
+      const tag = document.querySelector('#pairRow .cls-tag');
+      return { sub: document.querySelector('#bigYearSub').textContent,
+        tag: tag ? tag.textContent : null, cls: tag ? tag.className : null,
+        border: tag ? getComputedStyle(tag).borderStyle : null,
+        svg: (window.__exportSVG(false) || '').toUpperCase() };
+    });
+    ck(`the annual IPF badge reads on screen, in the export and in the mark (${l})`,
+      est.sub.includes(badge) && est.tag === badge && /est/.test(est.cls)
+      && est.border === 'dashed' && est.svg.includes(badge.toUpperCase()),
+      JSON.stringify({ sub: est.sub, tag: est.tag, border: est.border,
+        inSvg: est.svg.includes(badge.toUpperCase()) }));
+  }
+
+  /* ── M-24: the top rung of the language precedence ──
+     `pinHr` deletes atlas-lang on every main-page document and none of the 15
+     bootLang combinations passes an `l=`, so "an explicit link beats a stored
+     choice" was exercised in neither direction. Both directions now, on a fresh
+     document each time — and a link must not rewrite what the reader chose. */
+  const linkVsStored = async (stored, hash) => {
+    const pg = await watch(await browser.newPage());
+    await pg.emulateTimezone('Europe/Zagreb');
+    await pg.evaluateOnNewDocument(st => {
+      Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });
+      Object.defineProperty(navigator, 'language', { get: () => 'hr-HR', configurable: true });
+      try { localStorage.setItem('atlas-lang', st); } catch { /* opaque origin */ }
+    }, stored);
+    await pg.goto(url + hash, { waitUntil: 'networkidle0' });
+    await settle(250);
+    const r = await pg.evaluate(() => ({ lang: document.documentElement.lang,
+      stored: localStorage.getItem('atlas-lang'),
+      val: (document.querySelector('#railList .rrow .rval') || {}).textContent || '' }));
+    await pg.close();
+    return r;
+  };
+  const linkEn = await linkVsStored('hr', '#l=en&v=saldo&c=1&y=2024');
+  const linkHr = await linkVsStored('en', '#l=hr&v=saldo&c=1&y=2024');
+  ck('an explicit link beats a stored choice, in both directions',
+    linkEn.lang === 'en' && linkHr.lang === 'hr'
+    && /,/.test(NBSP(linkEn.val)) && /\./.test(NBSP(linkHr.val)),
+    JSON.stringify({ linkEn, linkHr }));
+  ck('and following a link does not rewrite the stored choice',
+    linkEn.stored === 'hr' && linkHr.stored === 'en',
+    JSON.stringify({ en: linkEn.stored, hr: linkHr.stored }));
+
   /* ── M-11: the two corridor repairs must not disagree ──
      `#v=mx&s=X&pp=X` looked complete to the lone-half test, passed it, and was
      then reduced to a lone `sel` — a state nothing renders, whose `s=` encodeHash
@@ -4298,8 +4474,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* The two Vercel platform routes are stubbed (see VERCEL_STUB); this asserts
      they were actually asked for — a silent analytics regression would otherwise
      read as green — and that nothing *else* went missing behind the stub. */
+  /* Re-asserted here, not only at check #171: everything the suite exercises
+     after that point was unguarded, and the two probes together bracket the run. */
+  ck('and the page still reaches no third-party origin at end of run',
+    thirdParty.length === 0, thirdParty.slice(0, 4).join(' , ') || 'none');
   ck('the only paths dist cannot answer are the two Vercel platform routes',
-    stubHits.size === 2 && notFound.length === 0,
+    stubHits.size === 2 && (URLMODE || notFound.length === 0),
     JSON.stringify({ stubbed: [...stubHits], missing: notFound.slice(0, 5) }));
 
   /* The suite is a fixed protocol, so its size is itself an invariant: three
