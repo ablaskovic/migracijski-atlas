@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 408;
+const EXPECTED_CHECKS = 410;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1777,6 +1777,50 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('390: the glossary hands the play button straight back when it closes',
     mobHelp.inertBar && !mobBack.inertBar && mobBack.onPlay,
     JSON.stringify({ open: mobHelp.inertBar, closed: mobBack.inertBar, hit: mobBack.hitId }));
+
+  /* ── 390: the fixed bar must not sit on the focus ring (2.4.11) ──
+     The check above is the only one that measured anything against #scrubBox,
+     and it measures exactly one element — #helpCard — for which index.css
+     reserves a dedicated lane. Nothing measured the elements that actually
+     RECEIVE focus. Measured before the fix, tabbing the map and the 21-row
+     county rail at 390x844: 25 of 79 focused stops were 100 % behind the bar,
+     ten of them whole rail rows ("Zadarska +9.649" through "Vukovarsko-
+     srijemska −28.292"), because an element under a position:fixed overlay is
+     still inside the scrollport and scroll-into-view therefore does nothing.
+     Both bar states, because they reserve different heights (136 / 78 px), and
+     the walk's own floor is that focus moved at all. */
+  const barWalk = async (steps) => {
+    const stops = [];
+    for (let i = 0; i < steps; i++) {
+      await page.keyboard.press('Tab');
+      stops.push(await page.evaluate(() => {
+        const a = document.activeElement;
+        if (!a || a === document.body) return { body: true, who: 'BODY' };
+        const bar = document.querySelector('#scrubBox');
+        const b = bar.getBoundingClientRect(), r = a.getBoundingClientRect();
+        const ov = Math.max(0, Math.min(r.right, b.right) - Math.max(r.left, b.left))
+          * Math.max(0, Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top));
+        const area = r.width * r.height;
+        /* the bar's own play button and timeline are inside it by construction */
+        return { hidden: !bar.contains(a) && area > 0 && ov / area >= 0.999,
+          who: a.id || a.getAttribute('data-iso') || String(a.getAttribute('class') || a.tagName) };
+      }));
+    }
+    return { moved: stops.filter((s, i) => i && s.who !== stops[i - 1].who).length,
+      hidden: stops.filter(s => s.hidden).length,
+      who: [...new Set(stops.filter(s => s.hidden).map(s => s.who))].slice(0, 4) };
+  };
+  await fresh('#v=saldo&c=1&y=2024');
+  const barOpen = await barWalk(60);
+  ck('390: Tab never lands on a row the fixed scrubber covers',
+    barOpen.hidden === 0 && barOpen.moved >= 10, JSON.stringify(barOpen));
+  await page.evaluate(() => document.querySelector('.scrub-tog').click());
+  await settle(300);
+  const barShut = await barWalk(60);
+  barShut.pad = await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingBottom);
+  ck('390: and the collapsed bar reserves its own 78 px, not the open bar’s 136',
+    barShut.hidden === 0 && barShut.moved >= 10 && barShut.pad === '78px',
+    JSON.stringify(barShut));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── errors ── */

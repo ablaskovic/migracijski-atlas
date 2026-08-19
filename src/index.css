@@ -779,6 +779,22 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
     box-shadow:0 -2px 12px rgba(32,38,43,.10)}
   body{padding-bottom:136px}
   body.scrub-collapsed{padding-bottom:78px}
+  /* …and the same two numbers as scroll padding, because trailing body padding
+     is not what moves a focused element out from under the bar. An element
+     behind a position:fixed overlay is still inside the scrollport, so
+     scroll-into-view considers it visible and does not scroll at all: measured
+     at 390×844, tabbing through the map and the 21-row county rail put 25 of 79
+     focused stops 100 % behind the bar — "Zadarska +9.649", "Osječko-baranjska
+     −26.517" and eight more rows at 100 %, with no ring visible anywhere (WCAG
+     2.4.11). scroll-padding shrinks the region the browser will scroll INTO, so
+     the same focus move now scrolls the row clear: measured, 0 obscured stops
+     left, both bar states. The bar's own two controls sit inside it by
+     definition and are not counted.
+     :has() so the collapsed lane reserves only its own 78 px; where it is not
+     supported the base 136 px still clears the bar, it just scrolls further
+     than it needs to. */
+  html{scroll-padding-bottom:136px}
+  html:has(body.scrub-collapsed){scroll-padding-bottom:78px}
   .scrub.collapsed .scrub-chart{display:none}
   /* The bar's bottom edge is pinned to the viewport and its top is not, so
      folding the chart away moved the play button down and halved it — measured
