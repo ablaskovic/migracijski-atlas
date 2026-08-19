@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { YEARS, Y0, YEND, IX2011, IX2018, VLAB } from './lib/metrics.ts';
-import { decodeHash, encodeHash } from './lib/hash.ts';
+import { encodeHash, readHash } from './lib/hash.ts';
 import { BASE, focusSoon } from './lib/state.ts';
 import { L, NEWTAB, setLang, storeLang, t, yr, yrSpan } from './lib/i18n.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
@@ -29,7 +29,7 @@ declare global {
    Deliberate v4 deviation: first entry into a flow-ish view (Tokovi/Matrica)
    always lands on godišnje 2018 — lead with the measured matrix, not the IPF
    cumulative estimate. */
-const INITIAL: State = { ...BASE, ...decodeHash(location.hash) };
+const INITIAL: State = { ...BASE, ...readHash(location.hash) };
 /* Before the first render, not in an effect: every string and every number in
    the tree below is formatted against this, so it has to be true by the time
    anything reads it. An effect runs *after* the first paint, which would render
@@ -217,11 +217,11 @@ export default function App() {
   }, [S]);
   useEffect(() => {
     const onPop = () => {
-      lastView.current = decodeHash(location.hash).view ?? BASE.view;
+      lastView.current = readHash(location.hash).view ?? BASE.view;
       /* `help` and `flowSeen` are deliberately not in the permalink, so folding
          BASE back in would close the glossary and re-arm the first-entry 2018
          jump as a side effect of pressing Back. Carry them across instead. */
-      const back: State = { ...ref.current, ...BASE, help: ref.current.help, flowSeen: ref.current.flowSeen, ...decodeHash(location.hash) };
+      const back: State = { ...ref.current, ...BASE, help: ref.current.help, flowSeen: ref.current.flowSeen, ...readHash(location.hash) };
       /* Back can cross a language change like any other control, and the module
          mirror has to move with it — otherwise the tree re-renders in the old
          language against the new state. Not stored: stepping through history is

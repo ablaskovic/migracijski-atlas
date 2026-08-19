@@ -127,7 +127,24 @@ export function decodeHash(hash: string): Patch {
      view rendering +41.986. `storyHolds` folds BASE in for both sides and is the
      same function App invalidates on. Runs last so the repairs above (a flow hub,
      flowSeen, the jmap year, the dropped chip) are part of what gets compared. */
+  /* `Number.isInteger`, not just the range: `#v=saldo&st=1.5` decoded to 0.5,
+     passed `>= 0 && < STORIES.length`, and `STORIES[0.5]` is undefined — so
+     reading `.patch` off it threw at module scope, React never mounted, and
+     index.html's boot placeholder became the permanent UI. Reload-persistent,
+     from one shareable link to the official domain. The codec's own contract
+     (line 3) promises invalid fields are ignored on decode; a non-integer index
+     is exactly that. */
   const st = Number(p.get('st')) - 1;
-  if (st >= 0 && st < STORIES.length && storyHolds(o, st)) o.story = st;
+  if (Number.isInteger(st) && st >= 0 && st < STORIES.length && storyHolds(o, st)) o.story = st;
   return o;
+}
+
+/* Belt and braces for the two callers that run where a throw is fatal: App's
+   module scope (before the first paint) and the popstate handler (which would
+   otherwise die and stop answering Back for the rest of the session). A
+   permalink is untrusted input and first paint is not worth any decode defect,
+   present or future — an unreadable hash degrades to the default view, which is
+   what "unknown or invalid fields are ignored" has always promised. */
+export function readHash(hash: string): Patch {
+  try { return decodeHash(hash); } catch { return {}; }
 }

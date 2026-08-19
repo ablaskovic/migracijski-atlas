@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 341;
+const EXPECTED_CHECKS = 344;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1841,6 +1841,40 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }));
   ck('#v=flow with no hub repairs to HR-21 instead of rendering nothing',
     /s=HR-21/.test(hubRepair.hash) && hubRepair.arcs > 0, JSON.stringify(hubRepair));
+
+  /* ── P3: a malformed permalink must not be able to stop the app booting ──
+     `#v=saldo&st=1.5` decoded to a preset index of 0.5, which passed the range
+     test; `STORIES[0.5]` is undefined, reading `.patch` off it threw at module
+     scope, React never mounted, and index.html's boot placeholder became the
+     permanent UI — reload-persistent, from one shareable link. The codec
+     promises unknown or invalid fields are ignored, so the app has to render,
+     and it has to render the state the *valid* part of the link asks for. */
+  for (const [h, view] of [['#v=saldo&st=1.5', 'Saldo'], ['#v=klas&st=3.14', 'Klasifikacija']]) {
+    await fresh(h);
+    const boot = await page.evaluate(() => ({
+      booted: !!document.querySelector('#map'), placeholder: !!document.querySelector('.boot'),
+      view: (document.querySelector('#segView button[aria-pressed="true"]') || {}).textContent,
+      cap: !!document.querySelector('#storyCap'),
+    }));
+    ck(`a malformed preset index still boots the app (${h})`,
+      boot.booted && !boot.placeholder && boot.view === view && !boot.cap, JSON.stringify(boot));
+  }
+  /* the same input reached through history rather than through a boot: the
+     popstate handler decodes too, and a throw there stops it answering Back for
+     the rest of the session */
+  await fresh('#v=saldo&c=1&y=2024');
+  const popBad = await page.evaluate(async () => {
+    history.pushState(null, '', '#v=reg&st=2.5');
+    dispatchEvent(new PopStateEvent('popstate'));
+    await new Promise(r => setTimeout(r, 250));
+    const view = document.querySelector('#segView button[aria-pressed="true"]').textContent;
+    history.pushState(null, '', '#v=klas&c=1&y=2024');
+    dispatchEvent(new PopStateEvent('popstate'));
+    await new Promise(r => setTimeout(r, 250));
+    return { view, after: document.querySelector('#segView button[aria-pressed="true"]').textContent };
+  });
+  ck('and Back into a malformed hash leaves the handler alive',
+    popBad.view === 'Regije' && popBad.after === 'Klasifikacija', JSON.stringify(popBad));
 
   /* ── P3: the play loop actually advances, stops, and kills the caption ── */
   await fresh('');
