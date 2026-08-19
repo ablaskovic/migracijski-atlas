@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 347;
+const EXPECTED_CHECKS = 351;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -831,6 +831,71 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     open: !!document.querySelector('#citz.open') }));
   ck('a Nalaz that never mentions a panel survives one being opened',
     p2keep.cap && p2keep.open, JSON.stringify(p2keep));
+
+  /* ── the picker is a third route into a view and owes the same clamps ──
+     `applyStory` used to write the preset's patch straight into state, running
+     neither `setView`'s transition nor `decodeHash`'s repairs. Four legs, all
+     reproduced through the in-app picker. */
+  await fresh('#v=flow&s=HR-21&c=0&y=2018&jl=1');
+  const st1 = await page.evaluate(async () => {
+    const sel = document.querySelector('#story');
+    sel.value = '4';                                   /* Nalaz 5 — Klasifikacija */
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 350));
+    return { hash: location.hash, panelOpen: document.body.classList.contains('panel-open'),
+      jcard: !!document.querySelector('#jcard.show') };
+  });
+  ck('picking a Nalaz out of Tokovi drops the JLS chip instead of shipping a dead flag',
+    !/jl=/.test(st1.hash) && !st1.panelOpen && !st1.jcard, JSON.stringify(st1));
+
+  await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&c=0&y=2018');
+  const st2 = await page.evaluate(async () => {
+    const sel = document.querySelector('#story');
+    sel.value = '5';                                   /* Nalaz 6 — Regije */
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 350));
+    return { hash: location.hash, pair: !!document.querySelector('#pair') };
+  });
+  ck('and it drops the corridor instead of carrying half of one into Regije',
+    !/pp=/.test(st2.hash) && !/s=HR/.test(st2.hash) && !st2.pair, JSON.stringify(st2));
+
+  /* the per-view year memory: the identical navigation via the segments
+     restores godišnje 2015, so the picker has to as well */
+  await fresh('#v=saldo&c=0&y=2015');
+  const st3 = await page.evaluate(async () => {
+    const sel = document.querySelector('#story');
+    sel.value = '5';                                   /* Nalaz 6 — Regije, kum 2024 */
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 350));
+    document.querySelector('#segView button[data-v="saldo"]').click();
+    await new Promise(r => setTimeout(r, 350));
+    return { yr: document.querySelector('#bigYear').textContent, hash: location.hash };
+  });
+  ck('a Nalaz records the year window it leaves, so going back restores it',
+    /2015/.test(st3.yr) && /c=0/.test(st3.hash), JSON.stringify(st3));
+
+  /* flowSeen: the Matrica preset is an entry into a flow-ish view, so a later
+     press of Tokovi must not re-fire the first-entry jump to 2018 */
+  await fresh('');
+  const st4 = await page.evaluate(async () => {
+    const sel = document.querySelector('#story');
+    sel.value = '14';                                  /* Nalaz 15 — Matrica 2018 */
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 350));
+    document.querySelector('#segMode button[data-v="cum"]').click();
+    await new Promise(r => setTimeout(r, 250));
+    const sp = document.querySelector('#spark');
+    sp.focus();
+    sp.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    await new Promise(r => setTimeout(r, 250));
+    const built = location.hash;
+    document.querySelector('#segView button[data-v="flow"]').click();
+    await new Promise(r => setTimeout(r, 350));
+    return { built, yr: document.querySelector('#bigYear').textContent, hash: location.hash };
+  });
+  ck('and entering Matrica through the picker retires the first-entry jump',
+    /c=1&y=2025/.test(st4.built) && /c=1/.test(st4.hash) && /y=2025/.test(st4.hash),
+    JSON.stringify(st4));
 
   /* ══════════ overlays: rect overlap is not the same as reachable ══════════ */
   /* elementFromPoint, not bounding boxes: the banner covered the Dob i spol chip

@@ -122,7 +122,11 @@ export const STORIES: Story[] = [
   {
     get label() { return L('Najprometniji koridor nije najneravnoteženiji', 'The busiest corridor is not the most lopsided'); },
     get cap() { return L('Izmjereno 2018.: Grad Zagreb ↔ Zagrebačka premjesti 4.288 ljudi, a neto tek −334 (8 %). Osječko-baranjska ↔ Grad Zagreb premjesti 819, a neto −517 — 63 %. Velik promet ne znači i velik gubitak.', 'Measured in 2018: City of Zagreb ↔ Zagrebačka moves 4,288 people for a net of just −334 (8 %). Osječko-baranjska ↔ City of Zagreb moves 819 for a net of −517 — 63 %. Heavy traffic does not mean heavy loss.'); },
-    patch: { view: 'mx', dir: 'net', cum: false, yi: IX2018, sel: 'HR-14', pair: 'HR-21', jls: false },
+    /* `flowSeen`, like the Tokovi preset at the top of this list: Matrica is a
+       flow-ish view and entering it is what retires the first-entry jump. Both
+       other routes into it already set the flag; a preset that describes the
+       state it lands on has to describe this part of it too. */
+    patch: { view: 'mx', dir: 'net', cum: false, yi: IX2018, sel: 'HR-14', pair: 'HR-21', jls: false, flowSeen: true },
   },
 ];
 

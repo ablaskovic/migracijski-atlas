@@ -143,7 +143,23 @@ export default function App() {
     up(open ? { sel: null, pair: null } : { sel: a, pair: b, playing: false });
   };
   const setYi = (yi: number) => up({ yi });
-  const applyStory = (i: number) => up({ ...STORIES[i].patch, story: i, playing: false });
+  /* The Nalazi picker is the third route into a view, and it used to run none of
+     the entry clamps the other two implement — `setView` for a segment press,
+     `decodeHash` for a link. Measured, four consequences shipped through it:
+     a JLS chip flag that survives into Klasifikacija (body.panel-open with no
+     panel, and the next Escape consumed clearing it); half a corridor carried
+     into Regije, a state both other routes document as impossible and which
+     encodeHash then laundered into every shared link; the per-view year memory
+     never written, so returning to Saldo lost the window the reader had built;
+     and `flowSeen` left false by the Matrica preset, so a later press of Tokovi
+     re-fired the first-entry jump and discarded the reader's own year.
+     Composing the same transition instead of re-implementing it: `setView` runs
+     the clamp table, the preset's own patch lands on top of it. */
+  const applyStory = (i: number) => {
+    const p = STORIES[i].patch;
+    if (p.view) setView(p.view);
+    up({ ...p, story: i, playing: false });
+  };
 
   /* chip panels are mutually exclusive */
   const toggleCitz = () => { const s = ref.current; up({ citz: !s.citz, jls: false, age: false }); };
@@ -221,6 +237,9 @@ export default function App() {
       /* `help` and `flowSeen` are deliberately not in the permalink, so folding
          BASE back in would close the glossary and re-arm the first-entry 2018
          jump as a side effect of pressing Back. Carry them across instead. */
+      /* the outgoing view's year window, for the same reason every other
+         transition records it — Back is a view change like any other */
+      vmem.current[ref.current.view] = { yi: ref.current.yi, cum: ref.current.cum };
       const back: State = { ...ref.current, ...BASE, help: ref.current.help, flowSeen: ref.current.flowSeen, ...readHash(location.hash) };
       /* Back can cross a language change like any other control, and the module
          mirror has to move with it — otherwise the tree re-renders in the old
