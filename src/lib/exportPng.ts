@@ -73,7 +73,9 @@ function bakeMapClone(node: SVGSVGElement): SVGSVGElement {
 }
 
 function fname(S: State, per: string, ext: string): string {
-  return ('migracijski-atlas_' + S.view + (S.view === 'flow' ? '_' + S.dir : '') + '_' + per)
+  /* jmap too, not only flow: the three directions produced three different
+     figures that landed on disk under one name and overwrote each other */
+  return ('migracijski-atlas_' + S.view + (S.view === 'flow' || S.view === 'jmap' ? '_' + S.dir : '') + '_' + per)
     .replace(/[–.]/g, '-').replace(/-+/g, '-').replace(/-$/, '') + '.' + ext;
 }
 
@@ -98,15 +100,22 @@ function legendSpec(S: State): Leg {
   }
   if (S.view === 'jmap') {
     const { m, scale } = jmapScale(S.dir);
-    return S.dir === 'net' ? { kind: 'div', m, rel: false, badge: '· izmjereno · √ skala', scale }
-      : { kind: 'seq', m, badge: '· izmjereno · √ skala', scale };
+    /* the badge is the honesty label plus the scale note, and both were Croatian
+       literals — an English figure carried "· izmjereno · √ skala" under an
+       English title */
+    const badge = '· ' + t('badge.meas') + L(' · √ skala', ' · √ scale');
+    return S.dir === 'net' ? { kind: 'div', m, rel: false, badge, scale }
+      : { kind: 'seq', m, badge, scale };
   }
   const flowish = S.view === 'flow' || S.view === 'mx';
   /* `flowBadge` never returns the cumulative wording, so a cumulative export
      carried "· procjena (IPF)" in its legend under a title that said
      "KUMULATIVNA PROCJENA" — one image, two different honesty labels. Same
      expression exportDesc uses, so the two halves cannot disagree again. */
-  const badge = flowish ? '· ' + (S.cum ? 'kumulativna procjena' : flowBadge(S.yi, S.cum)) : '';
+  /* …and it was still a Croatian literal, so an English cumulative export was
+     titled "· CUMULATIVE ESTIMATE" over a legend badge reading "kumulativna
+     procjena" — one image, two languages for the same honesty fact. */
+  const badge = flowish ? '· ' + (S.cum ? t('badge.cum') : flowBadge(S.yi, S.cum)) : '';
   if (flowish && S.dir !== 'net') {
     const m = S.view === 'mx' ? mxMax(S.dir, S.cum) : flowMax(S.sel!, S.dir, S.cum);
     return { kind: 'seq', m, badge };
