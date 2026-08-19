@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 412;
+const EXPECTED_CHECKS = 413;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1135,6 +1135,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const pcWide = await page.evaluate(() => getComputedStyle(document.querySelector('.paircard')).position);
   ck('.paircard drops to static below 960 px and floats above it',
     pcNarrow === 'static' && pcWide === 'absolute', pcNarrow + ' / ' + pcWide);
+
+  /* ── the same two boxes, swept by HEIGHT ──
+     Every sweep above varies the width at a fixed height of 900, and this
+     collision is driven by height: the corridor card (top:44, z-index 5) and the
+     chip dock (bottom:12, z-index 4) share the map stage's right edge, so when
+     the stage is short the card's bottom lands past the dock's top and wins.
+     Measured before the fix with real mouse clicks at 1024×768 with a coarse
+     pointer: elementFromPoint at the centre of #ageHd returned #pairSvg and at
+     #citzHd .pair-note — both headers dead, and a header is those panels' only
+     pointer affordance. Clean at 900 px tall, broken at 768 and 700, which is
+     the single most common desktop viewport and every touchscreen up to 900. */
+  const shortStage = [];
+  for (const [w, h, touch] of [[1024, 768, true], [1024, 768, false], [1280, 700, false],
+    [1366, 768, false], [1440, 900, false], [1600, 1000, false]]) {
+    await page.setViewport({ width: w, height: h, isMobile: touch, hasTouch: touch });
+    await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+    const bad = await page.evaluate(() => {
+      const out = [];
+      const card = document.querySelector('#pair').getBoundingClientRect();
+      const dock = document.querySelector('.chipdock').getBoundingClientRect();
+      if (card.bottom > dock.top) out.push('card' + Math.round(card.bottom) + '>dock' + Math.round(dock.top));
+      /* the whole face, not the centre alone: a header half-covered is a header
+         whose visible half is a lie about where the control is */
+      for (const id of ['#ageHd', '#citzHd', '#pairX']) {
+        const e = document.querySelector(id);
+        if (!e) { out.push(id + ':absent'); continue; }
+        const b = e.getBoundingClientRect();
+        for (const [fx, fy] of [[0.1, 0.5], [0.3, 0.5], [0.5, 0.5], [0.7, 0.5], [0.9, 0.5]]) {
+          const hit = document.elementFromPoint(b.left + b.width * fx, b.top + b.height * fy);
+          if (!(hit && (hit === e || e.contains(hit)))) {
+            out.push(id + '@' + fx + '<' + (hit ? (hit.id || hit.className) : 'null'));
+          }
+        }
+      }
+      return out;
+    });
+    if (bad.length) shortStage.push(`${w}x${h}${touch ? ' touch' : ''} ${bad.join(',')}`);
+  }
+  ck('the corridor card clears the chip dock at every stage height, not only at 900 px',
+    shortStage.length === 0, shortStage.slice(0, 3).join(' | '));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ══════════ keyboard: nothing dimmed-but-focusable, nothing dead ══════════ */

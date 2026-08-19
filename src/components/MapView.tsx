@@ -242,7 +242,12 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
      and below the map in normal flow instead of covering it; on desktop they go
      back to absolute and anchor to .map-wrap, which is the same box. */
   return (
-    <div className="map-wrap">
+    /* --stageh is the map stage's measured height (.map-box is the stage's only
+       in-flow child, so the two are the same box). It used to sit on .chipdock,
+       which was the only box that needed it; the corridor card needs the same
+       number to know where the dock's top edge is, and it is not inside the
+       dock. Set on their common ancestor and inherited by both. */
+    <div className="map-wrap" style={{ '--stageh': size.h ? size.h + 'px' : undefined } as CSSProperties}>
       <DetailCard S={S} setS={setS} />
       {/* outside .map-box on purpose: at ≤900 it leaves the overlay layer and
           sits in normal flow above the map, like the detail card. Floating, it
@@ -497,7 +502,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           there is no percentage for the body to cap itself with. The stage's
           height is already measured here (.map-box is the stage's only in-flow
           child, so the two are the same box) — see --chipfree in index.css. */}
-      <div className="chipdock" style={{ '--stageh': size.h ? size.h + 'px' : undefined } as CSSProperties}>
+      <div className="chipdock">
         <AgePanel S={S} setS={setS} toggleAge={toggleAge} />
         <CitzPanel S={S} setS={setS} toggleCitz={toggleCitz} />
       </div>
