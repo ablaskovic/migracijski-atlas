@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 413;
+const EXPECTED_CHECKS = 414;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1175,6 +1175,51 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('the corridor card clears the chip dock at every stage height, not only at 900 px',
     shortStage.length === 0, shortStage.slice(0, 3).join(' | '));
+
+  /* ── 901–960 px: the band the width sweeps stop just short of ──
+     The sweep above bottoms out at 960, and this band is where .paircard has
+     just gone static: in the pinned desktop column its ~215 px came off the map,
+     which measured 14 px tall at 901x700 and 80 at 941x700. A stage that short
+     cannot hold the top strip and the bottom-anchored dock at once, and the two
+     shared z-index 4 — so DOM order decided, the dock is the later sibling, and
+     it took the "Aa oznake" button's clicks: 0 of 9 face points reachable at
+     941x700 and a real click at the centre opening the Dob i spol panel (ag=1)
+     instead. Pressing one control and activating another is the failure class
+     commit 988c913 already fixed once for the Nalazi banner.
+     Driven with a real mouse, and the two chip headers are probed in the same
+     pass: raising the button above the dock without giving the stage its height
+     back would only have swapped which control is dead (measured, #ageHd went
+     4/5 → 2/5 that way). */
+  const labBand = [];
+  for (const [w, h] of [[901, 700], [921, 700], [941, 700], [960, 700], [901, 768], [941, 820]]) {
+    await page.setViewport({ width: w, height: h });
+    await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+    const reach = await page.evaluate(() => {
+      const out = {};
+      for (const id of ['#labBtn', '#ageHd', '#citzHd']) {
+        const e = document.querySelector(id);
+        if (!e) { out[id] = 'absent'; continue; }
+        const b = e.getBoundingClientRect();
+        out[id] = [[0.1, 0.5], [0.3, 0.5], [0.5, 0.5], [0.7, 0.5], [0.9, 0.5]].filter(([fx, fy]) => {
+          const hit = document.elementFromPoint(b.left + b.width * fx, b.top + b.height * fy);
+          return hit && (hit === e || e.contains(hit));
+        }).length;
+      }
+      const b = document.querySelector('#labBtn').getBoundingClientRect();
+      out.at = [b.left + b.width / 2, b.top + b.height / 2];
+      return out;
+    });
+    await page.mouse.click(reach.at[0], reach.at[1]);
+    await settle(280);
+    const after = await page.evaluate(() => ({ hash: location.hash,
+      lb: document.querySelector('#labBtn').getAttribute('aria-pressed') }));
+    if (reach['#labBtn'] !== 5 || reach['#ageHd'] !== 5 || reach['#citzHd'] !== 5
+      || after.lb !== 'true' || !/lb=1/.test(after.hash) || /[&#](ag|cz)=/.test(after.hash)) {
+      labBand.push(`${w}x${h} lab${reach['#labBtn']} age${reach['#ageHd']} citz${reach['#citzHd']} → ${after.hash}`);
+    }
+  }
+  ck('at 901–960 px the labels toggle takes its own click, and the chip headers keep theirs',
+    labBand.length === 0, labBand.slice(0, 3).join(' | '));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ══════════ keyboard: nothing dimmed-but-focusable, nothing dead ══════════ */

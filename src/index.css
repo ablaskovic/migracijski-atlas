@@ -587,7 +587,13 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .card-note{font-size:9px;color:var(--mut);margin-top:4px;line-height:1.35}
 
 /* map corner toggle for county labels */
-.labbtn{position:absolute;top:14px;right:16px;z-index:4;font-family:var(--mono);font-size:9.5px;
+/* z-index 6, with .helpbtn and .zoomrst: the map's top strip is one lane and it
+   sits above the dock. At 4 it tied with .chipdock and DOM order decided —
+   the dock is a later sibling, so it painted over the button and took its
+   clicks (measured at 941x700 in Tokovi with a corridor open: 0 of 9 face
+   points reachable, and a real click at the centre opened the Dob i spol panel
+   instead of toggling the labels). Stacking by intent, not by source order. */
+.labbtn{position:absolute;top:14px;right:16px;z-index:6;font-family:var(--mono);font-size:9.5px;
   letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
 .labbtn:hover{color:var(--ink)}
@@ -726,6 +732,21 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 @media (max-width:960px){
   .paircard{position:static;width:auto;margin:8px 8px 0;top:auto;right:auto;
     box-shadow:none;max-width:none;max-height:none;overflow-y:visible}
+}
+/* …but between 901 and 960 px that static card is a flex item in a column the
+   viewport still pins (the scrolling mobile layout only starts at 900), so its
+   ~215 px came straight off the map. Measured at 941x700 with a corridor open:
+   .map-box 80 px, at 901x700 fourteen — and a stage that short cannot hold both
+   the top strip and the bottom-anchored dock, so the dock rose into the button
+   above it and, at 901x700, out of the stage entirely into the card, where both
+   chip headers went dead as well (0 of 5 face points each).
+   Capped at 40 % of the map's own column the card gives instead of the map:
+   measured, .map-box 14→134, 68→166, 80→174, 82→174, 200→246, and the labels
+   toggle, both chip headers and the card's own × all reachable at every one of
+   their five face points across the band. It scrolls internally, and above
+   961 px — where the card floats and the cap does not apply — nothing changes. */
+@media (min-width:901px) and (max-width:960px){
+  .paircard{max-height:40%;overflow-y:auto}
 }
 
 @media (max-width:900px){
