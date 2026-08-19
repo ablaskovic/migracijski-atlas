@@ -305,11 +305,20 @@ svg :focus,#spark:focus{outline:none}
    since a county row does what clicking the county on the map does and the map
    target is huge; it was not, because it does not cover the Matrica corridor
    rows, whose equivalent is a matrix cell that is itself near the floor. */
-.rrow{display:grid;grid-template-columns:120px 1fr 60px;align-items:center;gap:8px;
+/* 140 px, and names that wrap rather than clip. The 120 px column truncated
+   Dubrovačko-neretvanska (124 px) at every desktop width with no override at
+   all, and under the standard WCAG 1.4.12 text-spacing overrides — line-height
+   1.5, letter-spacing 0.12em, word-spacing 0.16em — eight of the 21 county names
+   went past it. County names are identifiers the project's own rules say must
+   not be altered, and 1.4.12 asks for no loss of content, which an ellipsis is.
+   The 140 px column the project documents as the fix lived only in the ≤560 px
+   block; wrapping is what covers the corridor rows, whose names run 154–211 px
+   into a 150 px column and cannot be widened into a 292 px rail. */
+.rrow{display:grid;grid-template-columns:140px 1fr 60px;align-items:center;gap:8px;
   min-height:24px;padding:2.5px 14px;cursor:pointer;border-left:3px solid transparent}
 .rrow:hover,.rrow.hl{background:#EEF0EA;border-left-color:var(--acc)}
 .rrow.big{padding:6px 14px}
-.rname{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rname{font-size:11px;line-height:1.25;overflow-wrap:anywhere}
 .rbar-track{position:relative;height:9px}
 .rbar-zero{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line)}
 .rbar{position:absolute;top:0;height:9px;transition:width .25s,left .25s,background-color .25s}
