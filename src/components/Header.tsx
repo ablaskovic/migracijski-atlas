@@ -53,10 +53,14 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
   };
   useEffect(() => () => clearTimeout(errT.current), []);
 
+  /* The only signal a failed export gave was "greška" for 1,6 s, and a bare
+     `catch {}` discarded the reason — so a reader could report nothing more than
+     "it did not work" and neither could the console. The label stays; the cause
+     goes where a cause belongs. */
   const onPng = async () => {
     setBusy(true); setErr(null);
     try { await exportPNG(document.querySelector<SVGSVGElement>('#map')!, S, true); }
-    catch { fail('png'); }
+    catch (e) { console.error('PNG export failed', e); fail('png'); }
     setBusy(false);
     /* the button disables itself mid-export, and browsers blur a newly-disabled
        element — so a keyboard export dropped focus to <body> every time */
@@ -65,7 +69,7 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
   const onSvg = () => {
     setErr(null);
     try { exportSVG(document.querySelector<SVGSVGElement>('#map')!, S, true); }
-    catch { fail('svg'); }
+    catch (e) { console.error('SVG export failed', e); fail('svg'); }
   };
 
   const lockFD = S.view === 'klas' || S.view === 'flow' || S.view === 'mx' || S.view === 'jmap';

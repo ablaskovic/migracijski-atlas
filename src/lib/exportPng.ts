@@ -2,6 +2,7 @@ import {
   ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
   klasOf, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc,
 } from './metrics.ts';
+import { ensureFonts, fontCss } from './exportFonts.ts';
 import { paperCaveatLine, paperExportLine } from './credits.ts';
 import { exportLicenceLine } from './licences.ts';
 import { L, t, yrSpan } from './i18n.ts';
@@ -19,6 +20,16 @@ export interface ExportInfo { w: number; h: number; bytes: number }
 function bakeMapClone(node: SVGSVGElement): SVGSVGElement {
   const clone = node.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  /* The faces, if they have been fetched. The serialised map is rasterised in
+     its own browsing context, which cannot see document.fonts — so without this
+     every in-map string fell back to an installed face while the band around it
+     drew in the real one. See exportFonts.ts. */
+  const face = fontCss();
+  if (face) {
+    const st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    st.textContent = face;
+    clone.insertBefore(st, clone.firstChild);
+  }
   clone.setAttribute('width', String(node.clientWidth));
   clone.setAttribute('height', String(node.clientHeight));
   clone.querySelectorAll('.cnt').forEach(p => {
@@ -328,12 +339,21 @@ const caveatLine = (S: State): string =>
   S.view === 'klas' || S.view === 'reg' ? paperCaveatLine() : '';
 
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
+  await ensureFonts();
   const w = node.clientWidth, h = node.clientHeight;
   const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
   const clone = bakeMapClone(node);
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
   const img = new Image();
-  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  /* The revoke used to sit after this await, so every *failed* export stranded a
+     multi-hundred-KB blob for the life of the document and each retry stranded
+     another. try/finally is what makes a cleanup a cleanup. */
+  try {
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('the serialised map did not rasterise')); img.src = url; });
+  } catch (e) {
+    URL.revokeObjectURL(url);
+    throw e;
+  }
   const SC = 2;
   const cv = document.createElement('canvas');
   cv.width = w * SC; cv.height = (h + TOP + BOT) * SC;
