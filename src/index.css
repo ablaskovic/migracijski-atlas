@@ -438,11 +438,11 @@ svg :focus,#spark:focus{outline:none}
 .citz-rows .cv{font-family:var(--mono);font-size:9.5px;text-align:right;color:var(--mut)}
 .citz-rows .ct{font-weight:500;border-top:1px solid var(--line);padding-top:2px}
 .citz-note{font-size:9px;color:var(--mut);margin-top:5px;line-height:1.35}
-/* Same 164 px legend reserve as the glossary: with 12 corridors listed this card
+/* Same 176 px legend reserve as the glossary: with 12 corridors listed this card
    is ~400 px tall, and once the map box shrinks (narrow window, corridor card in
    flow above it) it grew straight down over the legend. Bounded and scrolling
    instead — the header stays put while the list moves. */
-.jcard{top:14px;left:16px;z-index:5;display:none;max-height:calc(100% - 164px);flex-direction:column}
+.jcard{top:14px;left:16px;z-index:5;display:none;max-height:calc(100% - 176px);flex-direction:column}
 .jcard.show{display:flex}
 .jcard .chip-hd{flex:none}
 .jcard .chip-body{width:312px;overflow-y:auto;min-height:0}
@@ -531,11 +531,16 @@ svg :focus,#spark:focus{outline:none}
 /* top:14 (not 44) and wider than .card — the glossary takes over the whole
    top-left corner while open. At 44 the detail card's header and its × peeked
    out 30 px above it and read as two stacked cards.
-   The 164 px reserve is the legend's lane: the tallest legend (klas with the
+   The 176 px reserve is the legend's lane. The tallest legend was measured in
+   Croatian alone and the English one is 12 px taller — 148,4 px off the map's
+   bottom edge against 137,4 — which left 15,6 px of the old 164 px rather than
+   the ~26 px of clearance the number was chosen for. Both cards scroll
+   internally, so the reserve is the cheap side of that trade.
+   (klas with the
    relative threshold note) rises 136 px off the map's bottom edge, and a
    glossary whose own first section explains the colour scale must not be
    covering the colour scale. It scrolls instead. */
-.helpcard{position:absolute;top:14px;left:16px;width:330px;max-height:calc(100% - 164px);overflow-y:auto;
+.helpcard{position:absolute;top:14px;left:16px;width:330px;max-height:calc(100% - 176px);overflow-y:auto;
   background:var(--panel);border:1px solid var(--line);border-radius:3px;
   box-shadow:0 2px 14px rgba(32,38,43,.14);padding:10px 12px 10px;z-index:9;font-size:11px;line-height:1.45}
 .help-h{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;

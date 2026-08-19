@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 398;
+const EXPECTED_CHECKS = 399;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -272,7 +272,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('citz has stacked bars for 5 years x groups (>=40 rects)', citz.rects >= 40, String(citz.rects));
   ck('citz 2024 totals +70.391 / −38.997 / saldo +31.394',
     citz.rows.includes('+70.391') && citz.rows.includes('\u221238.997') && citz.rows.includes('+31.394'));
-  ck('citz 2024 Azija +26.601', citz.rows.includes('+26.601'));
+  /* +26.601 is Asia's DOSELJENI, not its net — the net is +21.675. The three
+     figures either side of it on this row are d / o / net, which is what made
+     the bare number read as a fourth net. */
+  ck('citz 2024 Azija doseljeni +26.601', citz.rows.includes('+26.601'));
   ck('citz source note names STAN-2026-2-1', citz.note.includes('STAN-2026-2-1'));
 
   /* ── prirodno / ukupna promjena flows ── */
@@ -883,17 +886,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('help panel fully covers the detail card it overlays', cover.covers, 'peek ' + cover.peek + ' px');
 
   /* the glossary's own first section explains the colour scale, so it must not
-     be sitting on the colour scale — 164 px of reserve is the tallest legend
-     (klas + relative threshold, 136 px off the map's bottom edge) plus a gap */
-  await fresh('#v=klas&c=1&y=2024&tr=1&tp=1.5');
-  await click('#helpBtn');
-  const helpLeg = await page.evaluate(() => {
-    const h = document.querySelector('#helpCard').getBoundingClientRect();
-    const l = document.querySelector('#legend').getBoundingClientRect();
-    return Math.round(Math.max(0, Math.min(h.right, l.right) - Math.max(h.left, l.left))
-      * Math.max(0, Math.min(h.bottom, l.bottom) - Math.max(h.top, l.top)));
-  });
-  ck('open glossary does not cover the legend', helpLeg === 0, helpLeg + ' px²');
+     be sitting on the colour scale — 176 px of reserve is the tallest legend
+     plus a gap. The tallest legend is the ENGLISH klas one, at 148,4 px off the
+     map's bottom edge against Croatian's 137,4: the reserve was measured in one
+     language and checked in one language, which left 15,6 px of clearance rather
+     than the ~26 px the number was chosen for. Both languages now. */
+  for (const [lang, pre] of [['hr', '#'], ['en', '#l=en&']]) {
+    await fresh(pre + 'v=klas&c=1&y=2024&tr=1&tp=1.5');
+    await click('#helpBtn');
+    const helpLeg = await page.evaluate(() => {
+      const h = document.querySelector('#helpCard').getBoundingClientRect();
+      const g = document.querySelector('#legend').getBoundingClientRect();
+      const box = document.querySelector('.map-box').getBoundingClientRect();
+      return { over: Math.round(Math.max(0, Math.min(h.right, g.right) - Math.max(h.left, g.left))
+        * Math.max(0, Math.min(h.bottom, g.bottom) - Math.max(h.top, g.top))),
+      lane: +(box.bottom - g.top).toFixed(1), gap: +(g.top - h.bottom).toFixed(1) };
+    });
+    ck(`open glossary does not cover the legend, and clears it (${lang})`,
+      helpLeg.over === 0 && helpLeg.lane < 176 && helpLeg.gap >= 8, JSON.stringify(helpLeg));
+  }
 
   /* ══════════ permalink honesty: a caption may never outlive its numbers ══════ */
   /* The guard used to seed its comparison from the preset itself, so every key
@@ -2307,7 +2318,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      published on 27 July 2026, and that is a fact about this vintage of the
      atlas the same way the ground-truth table is a fact about this vintage of
      the DZS series. It moved with credits.ts and index.html's <noscript>, in one
-     commit, per CLAUDE.md — which is exactly what this line is here to force. */
+     commit — which is exactly what this line is here to force. */
   ck('as of this build the study is published, and the subtitle cites it by year',
     !pending.hd && !pending.ft && /Maras/.test(attr.sub) && /\(2026\.\)/.test(attr.sub),
     attr.sub);
