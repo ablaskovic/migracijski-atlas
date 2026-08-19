@@ -69,22 +69,35 @@ file map predates the port. Translation table:
 | `src/data/od2018.json` | `tools/pipeline/ref/od2018.json` (a pipeline *input*) |
 | `src/data/raw/*.xlsx` | `tools/pipeline/raw/*.xlsx` |
 | `src/ipf.py`, `src/parse_*.py` | `tools/pipeline/` |
-| `src/verify.js` (32 checks) | `scripts/verify.cjs` (209 checks) |
+| `src/verify.js` (32 checks) | `scripts/verify.cjs` (the count is pinned in that file) |
 
 The Python docstrings still cite the pre-port paths in their prose; the code
 itself opens the correct relative paths from `tools/pipeline/`.
 
 ## What this pipeline does *not* regenerate
 
-Three payloads in `src/data/` have no parser here, and CLAUDE.md House Rule 4 is
-scoped accordingly:
-
-- **`atlas_data2.json`** — `parse_nat.py` only *patches* the `nat` arrays into an
-  existing file. The leaf series (`ii`, `oi`, `ie`, `oe`), `pe` and `p` come from
-  the upstream sheet 7.4.2/7.4.3 parser, which lives outside this repo. A DZS
-  revision of those sheets cannot be absorbed by "rerun the pipeline".
 - **`geo_counties.json`**, **`geo_regions5.json`** — mapshaper one-liners over
   geoBoundaries ADM1, recorded only in the handoff's provenance section.
+- **`odm.json`**, **`jls_drill.json`** and the statistics baked into
+  `geo_jls.json` — these descend from the 31 MB Pitoski figshare edge list, which
+  is downloaded separately and is not committed here.
 
-Committing the upstream series parser as `parse_series.py` would close the first
-gap and is the single most useful addition here.
+### `atlas_data2.json` is reproducible here — the old note was wrong
+
+This section used to claim that the county leaf series (`ii`, `oi`, `ie`, `oe`),
+`pe` and `p` came from a parser living outside the repository, so that a DZS
+revision could not be absorbed by rerunning the pipeline. That claim is false,
+and it was load-bearing: it scoped a house rule, and it stopped two independent
+auditors from checking the largest payload in the app.
+
+`raw/pregled-zupanije.xlsx` is committed, and every one of those values is in it:
+sheets 7.4.1.–7.4.3. An audit re-derived the whole series from that workbook with
+a hand-rolled xlsx reader and matched it exactly — 21 counties × {ii, ie, oi, oe}
+× 28 years = 2.352 leaf values, Σcounties − the RH row = 0 for all four series in
+all 28 years, the 21 `nat` arrays plus `natRH` from sheet 7.4.1., and `pe` from
+sheet 7.4.3. (2001–2024) with 504 matched and 0 mismatches.
+
+`parse_nat.py` only *patches* the `nat` arrays into an existing file, so there is
+still no committed script that rebuilds the leaf series from the workbook —
+which is a missing `parse_series.py`, not missing provenance. Writing it is the
+single most useful addition here, and it is now known to be possible.
