@@ -140,10 +140,18 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
           <div className="seg" id="segExp" role="group" aria-labelledby="segExpLab">
             {/* the ghost here reserves the widest *state*, not the label: this
                 button reads PNG, then "…", then "greška", and the group used to
-                narrow ~20 px mid-export and widen again on failure */}
-            <button id="pngBtn" data-t={L('greška', 'error')} disabled={busy} onClick={onPng} title={L('Preuzmi kartu kao PNG', 'Download the map as PNG')}
+                narrow ~20 px mid-export and widen again on failure.
+                `data-t2` is the same word in the *other* language, drawn as a
+                second zero-height ghost (index.css). PNG and SVG are the same
+                string in both languages, so the visible label never changes —
+                but "greška" is wider than "error", and with only the current
+                language reserved the pair resized and slid on a language
+                switch: measured 47,7 → 38,1 px on #pngBtn at 1440, 46,7 → 37,1
+                on #svgBtn, moving both. Reserving the wider of the two makes the
+                box the same in HR and EN. Same reasoning as .hd-title[data-alt]. */}
+            <button id="pngBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busy} onClick={onPng} title={L('Preuzmi kartu kao PNG', 'Download the map as PNG')}
               aria-label={L('Preuzmi trenutačnu kartu kao PNG', 'Download the current map as PNG')}>{err === 'png' ? L('greška', 'error') : busy ? '…' : 'PNG'}</button>
-            <button id="svgBtn" data-t={L('greška', 'error')} onClick={onSvg} title={L('Preuzmi kartu kao SVG (vektor)', 'Download the map as SVG (vector)')}
+            <button id="svgBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} onClick={onSvg} title={L('Preuzmi kartu kao SVG (vektor)', 'Download the map as SVG (vector)')}
               aria-label={L('Preuzmi trenutačnu kartu kao SVG (vektor)', 'Download the current map as SVG (vector)')}>{err === 'svg' ? L('greška', 'error') : 'SVG'}</button>
           </div>
           {/* An aria-label overrides button text, so the busy and error states

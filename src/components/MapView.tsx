@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { scaleSqrt } from 'd3-scale';
 import {
@@ -94,16 +95,35 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
      state, with nothing open: 8 unreachable `.mxc` at 1440 and 24 at 1150, and
      20 / 34 `.yrc` in Godine, every one of them returning `.chipdock` from
      `elementFromPoint`. A collapsed chip is exactly as opaque as an open one;
-     "is it open" was never the right question, "does it overlay" is. */
+     "is it open" was never the right question, "does it overlay" is.
+
+     The dock's own rect stopped being the answer to that question. An open
+     panel's body is no longer inside it: opening one used to push the header
+     stack 354 px up out from under the pointer, so the body was lifted out of
+     the flow and anchored above the two headers, which now hold still
+     (index.css .chipdock). It is a positioned descendant, so it falls outside
+     the dock's border box entirely — measuring that box alone would report a
+     58 px strip while ~370 px of opaque panel sat over the grid.
+     The union of the header stack and whichever body is open is what the grid
+     steers around. Both are anchored to the dock's bottom-right corner, which
+     is the corner fitGrid reserves from. */
   const [panel, setPanel] = useState({ w: 0, h: 0 });
   useEffect(() => {
     const el = wrapRef.current?.parentElement?.querySelector<HTMLElement>('.chipdock');
     if (!el || getComputedStyle(el).position !== 'absolute') { setPanel({ w: 0, h: 0 }); return; }
-    const ro = new ResizeObserver(() => {
-      const r = el.getBoundingClientRect();
-      setPanel(p => (p.w === r.width && p.h === r.height ? p : { w: r.width, h: r.height }));
-    });
+    const measure = () => {
+      const bs = [...el.querySelectorAll<HTMLElement>('.chipcard, .chipcard.open .chip-body')]
+        .filter(e => e.getClientRects().length).map(e => e.getBoundingClientRect());
+      const w = bs.length ? Math.max(...bs.map(b => b.right)) - Math.min(...bs.map(b => b.left)) : 0;
+      const h = bs.length ? Math.max(...bs.map(b => b.bottom)) - Math.min(...bs.map(b => b.top)) : 0;
+      setPanel(p => (p.w === w && p.h === h ? p : { w, h }));
+    };
+    /* the dock's own box no longer changes when a panel opens, so observing it
+       alone would never fire — the cards and the floating body are what move */
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
+    el.querySelectorAll<HTMLElement>('.chipcard, .chip-body').forEach(c => ro.observe(c));
+    measure();
     return () => ro.disconnect();
   }, [S.citz, S.age, S.citzTab, S.ageTab, S.view, size.w]);
 
@@ -464,7 +484,12 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           656 px of the map's bottom edge and ran into the legend below ~1150 px
           and under the detail card below ~1100. Stacked, the dock is one panel
           wide at every width and the two can never overlap each other. */}
-      <div className="chipdock">
+      {/* --stageh is what bounds the floating panel body: it is positioned
+          against this dock, and the dock is only as tall as its two headers, so
+          there is no percentage for the body to cap itself with. The stage's
+          height is already measured here (.map-box is the stage's only in-flow
+          child, so the two are the same box) — see --chipfree in index.css. */}
+      <div className="chipdock" style={{ '--stageh': size.h ? size.h + 'px' : undefined } as CSSProperties}>
         <AgePanel S={S} setS={setS} toggleAge={toggleAge} />
         <CitzPanel S={S} setS={setS} toggleCitz={toggleCitz} />
       </div>

@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 399;
+const EXPECTED_CHECKS = 402;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1066,13 +1066,27 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      across the widths between the two viewports the suite otherwise pins */
   const allOv = () => page.evaluate(() => {
     const ids = ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#jcard', '#card', '#legend', '#chipdock', '#storyBar'];
+    /* The dock's own border box stopped being what it covers. Its open panel
+       body is a positioned descendant anchored ABOVE the header stack, so it
+       falls outside that box entirely (index.css .chipdock) — measuring the
+       rect alone would have quietly stopped testing the open panel here, which
+       is the state this sweep exists for. The union is what a reader sees. */
+    const box = e => {
+      if (!e.classList.contains('chipdock')) return e.getBoundingClientRect();
+      const bs = [...e.querySelectorAll('.chipcard, .chipcard.open .chip-body')]
+        .filter(c => c.getClientRects().length).map(c => c.getBoundingClientRect());
+      if (!bs.length) return e.getBoundingClientRect();
+      return { left: Math.min(...bs.map(b => b.left)), right: Math.max(...bs.map(b => b.right)),
+        top: Math.min(...bs.map(b => b.top)), bottom: Math.max(...bs.map(b => b.bottom)) };
+    };
     const els = ids.map(s => [s, s === '#chipdock' ? document.querySelector('.chipdock') : document.querySelector(s)])
       .filter(([, e]) => e && e.getBoundingClientRect().width > 0
         && getComputedStyle(e).display !== 'none'
-        && getComputedStyle(e).position !== 'static');
+        && getComputedStyle(e).position !== 'static')
+      .map(([s, e]) => [s, box(e)]);
     const bad = [];
     for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
-      const a = els[i][1].getBoundingClientRect(), b = els[j][1].getBoundingClientRect();
+      const a = els[i][1], b = els[j][1];
       const ov = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
         * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
       if (ov > 1) bad.push(els[i][0] + '×' + els[j][0] + '=' + Math.round(ov));
@@ -3214,7 +3228,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const ydock = await page.evaluate(() => {
     const d = document.querySelector('.chipdock');
     if (!d || getComputedStyle(d).position !== 'absolute') return { skip: true };
-    const b = d.getBoundingClientRect(), c0 = document.querySelector('#map .yrc').getBoundingClientRect();
+    /* union, not the dock's own rect: the open body is anchored above the
+       header stack and is outside it — see the same note in the overlay sweep */
+    const bs = [...d.querySelectorAll('.chipcard, .chipcard.open .chip-body')]
+      .filter(c => c.getClientRects().length).map(c => c.getBoundingClientRect());
+    const b = { left: Math.min(...bs.map(r => r.left)), right: Math.max(...bs.map(r => r.right)),
+      top: Math.min(...bs.map(r => r.top)), bottom: Math.max(...bs.map(r => r.bottom)) };
+    const c0 = document.querySelector('#map .yrc').getBoundingClientRect();
     return {
       under: [...document.querySelectorAll('#map .yrc')].filter(c => {
         const r = c.getBoundingClientRect();
@@ -4158,6 +4178,88 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     labels.length === 7 && labels.every(l => axNames.includes(l))
     && !axNames.some(n => n && /^(.+)\1$/.test(n)),
     JSON.stringify({ missing: labels.filter(l => !axNames.includes(l)), doubled: axNames.filter(n => n && /^(.+)\1$/.test(n)) }));
+
+  /* ── the same invariant, for the controls the .ctrls snapshot cannot reach ──
+     CTRL_SNAP above covers the header and nothing else, so every control that
+     lives over the map, in the timeline bar or inside a chip panel was measured
+     by nobody. Measured, three of them moved on their own state change:
+
+       1. The chip dock is anchored to the map's bottom edge, so an opening
+          panel took its height off the top of the stack: clicking Državljanstvo
+          moved *its own header* 354 px up out from under the pointer (672 →
+          317,7) and Dob i spol with it (637 → 282,7), at 1440, 1024 and 390.
+       2. Inside an open panel, pressing a tab moved that tab — the body's
+          height changes with the tab, and a bottom-anchored body moves its own
+          top edge when it does. 15 px on Dob i spol, 3,3 px on Državljanstvo.
+       3. Collapsing the timeline moved the play button 48 px down and halved it
+          (8,740,48,96 → 8,788,48,48): the bar's bottom edge is pinned to the
+          viewport, its top is not, and the button was stretching between them.
+
+     Asserted as outcomes — nothing may move — rather than by looking for the
+     rules that fix them, so a different fix would still pass and a regression
+     could not. Same rec() contract as CTRL_SNAP: document coordinates, and
+     anything not rendered is left out rather than reported at the origin. */
+  const MAP_SNAP = `(() => {
+    const out = {};
+    const rec = (k, el) => { if (!el || !el.getClientRects().length) return; const r = el.getBoundingClientRect();
+      out[k] = [Math.round((r.x + scrollX) * 10) / 10, Math.round((r.y + scrollY) * 10) / 10,
+        Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10].join(','); };
+    for (const s of ['#helpBtn', '#labBtn', '#zoomRst', '#play', '#scrubTog',
+      '#cardX', '#storyX', '#resetBtn', '#citzHd', '#ageHd', '#jlsHd', '#pngBtn', '#svgBtn'])
+      rec(s, document.querySelector(s));
+    document.querySelectorAll('.jtabs button').forEach((b, i) => rec('tab' + i + '/' + (b.dataset.v || ''), b));
+    return out;
+  })()`;
+  const chipMoves = [];
+  for (const W of [1440, 1024]) {
+    await page.setViewport({ width: W, height: 900 });
+    /* (1) opening a panel, and closing it again */
+    for (const hd of ['#citzHd', '#ageHd']) {
+      await fresh('');
+      const before = await page.evaluate(MAP_SNAP);
+      await click(hd); await settle(200);
+      let m = movedBetween(before, await page.evaluate(MAP_SNAP));
+      if (m.length) chipMoves.push(`${W}px open ${hd}: ` + m.join(' | '));
+      await click(hd); await settle(200);
+      m = movedBetween(before, await page.evaluate(MAP_SNAP));
+      if (m.length) chipMoves.push(`${W}px reclose ${hd}: ` + m.join(' | '));
+    }
+    /* (2) pressing a tab inside an open panel */
+    for (const [hd, tab] of [['#citzHd', '.citz .jtabs button[data-v="zem"]'],
+      ['#ageHd', '.agec .jtabs button[data-v="int"]']]) {
+      await fresh('');
+      await click(hd); await settle(250);
+      const before = await page.evaluate(MAP_SNAP);
+      await click(tab); await settle(250);
+      const m = movedBetween(before, await page.evaluate(MAP_SNAP));
+      if (m.length) chipMoves.push(`${W}px tab ${tab}: ` + m.join(' | '));
+    }
+  }
+  ck('opening a chip panel, closing it, and switching its tab move no control at all',
+    chipMoves.length === 0, chipMoves.slice(0, 3).join('  ;  ').slice(0, 300));
+
+  /* The play button is the one control that must stay under the thumb while the
+     timeline folds away — it is how playback is stopped. */
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
+  await fresh('');
+  const playBefore = await page.evaluate(() => { const r = document.querySelector('#play').getBoundingClientRect();
+    return [r.x, r.y, r.width, r.height].map(v => Math.round(v * 10) / 10).join(','); });
+  await click('#scrubTog'); await settle(300);
+  const playAfter = await page.evaluate(() => { const r = document.querySelector('#play').getBoundingClientRect();
+    return [r.x, r.y, r.width, r.height].map(v => Math.round(v * 10) / 10).join(','); });
+  ck('collapsing the timeline leaves the play button exactly where it was',
+    playBefore === playAfter, JSON.stringify({ open: playBefore, collapsed: playAfter }));
+
+  /* PNG and SVG read the same in both languages, so the visible label never
+     changes — but the *reserved* state did ("greška" against "error"), and a
+     ghost is what sets these boxes. Measured before the fix: 47,7 → 38,1 and
+     46,7 → 37,1, i.e. two buttons resizing on a switch that renames neither. */
+  await page.setViewport({ width: 1440, height: 900 });
+  const expBox = async h => { await fresh(h); return page.evaluate(() =>
+    ['#pngBtn', '#svgBtn'].map(s => Math.round(document.querySelector(s).getBoundingClientRect().width * 10) / 10).join(',')); };
+  const expHr = await expBox(''), expEn = await expBox('#l=en');
+  ck('the export pair keeps its box across a language switch that renames neither button',
+    expHr === expEn, JSON.stringify({ hr: expHr, en: expEn }));
 
 
   /* ══════════════════ v2.3.2 — audit pass ══════════════════ */
