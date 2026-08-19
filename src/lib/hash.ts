@@ -108,14 +108,20 @@ export function decodeHash(hash: string): Patch {
      each county's whole series, and a floating 1998–2025 card over it would both
      cover live cells and duplicate the row underneath it. */
   if (at('view') === 'jmap' || at('view') === 'yrs') o.sel = null;
+  /* A county is not a corridor with itself: `#v=flow&s=HR-01&pp=HR-01` renders no
+     card (PairCard guards `pair === sel`) and left the same dead flag behind.
+     Runs BEFORE the lone-half repair below, not after. The other order made the
+     two disagree: `#v=mx&s=X&pp=X` looked like a complete corridor to the
+     lone-half test, passed it, and was then reduced to a lone `sel` — booting
+     {view:'mx', sel:X, pair:null}, which nothing renders, whose first Escape is
+     consumed clearing a phantom, and which encodeHash laundered into every
+     shared link as a stray `s=` that Tokovi then adopted as its hub. */
+  if (at('sel') && at('sel') === at('pair')) o.pair = null;
   /* In Matrica `sel` is legible only as a corridor's row — there is no county
      card there — so a lone half of a corridor is dropped, whichever half it is:
      `#v=mx&s=HR-18` would otherwise mark a row with no card, and `#v=mx&pp=HR-13`
      an Escape-eating flag with nothing on screen at all. */
   if (at('view') === 'mx' && !(at('sel') && at('pair'))) { o.sel = null; o.pair = null; }
-  /* A county is not a corridor with itself: `#v=flow&s=HR-01&pp=HR-01` renders no
-     card (PairCard guards `pair === sel`) and left the same dead flag behind. */
-  if (at('sel') && at('sel') === at('pair')) o.pair = null;
   /* panels are mutually exclusive — keep at most one open (citz > jls > age) */
   if (at('citz')) { o.jls = false; o.age = false; }
   else if (at('jls')) o.age = false;
