@@ -68,8 +68,23 @@ function klasDiffSentence(): string {
    rule already uses, applied to the set the narrow layout actually covers.
    `.sr-only` is skipped — it is the year/view status line, it cannot be covered
    by anything, it holds no tab stop, and inerting it would silence the one
-   announcement the app makes while nothing has focus. */
-function useModalWhenNarrow(open: boolean): boolean {
+   announcement the app makes while nothing has focus.
+
+   Wide, the glossary is deliberately NOT modal — it is a 330 px card beside a
+   map that stays live — and that is kept. What is not kept is the claim that a
+   non-modal card covers nothing: it is 330 px of opaque panel over the map's
+   left edge, and how much of the map that is depends on the width. Measured
+   with 120 Tab presses and elementFromPoint at each stop: 0 entirely-obscured
+   stops at 1440 px, SEVEN at 1000 px — consecutive county buttons drawn behind
+   the card, focus ring included, where Enter re-selects a county the reader
+   cannot see (2.4.11). Half a desktop screen, or 1440 px at 150 % zoom.
+   So the map's tab stops are suspended at every width while the dialog is open,
+   rather than at a breakpoint or against a geometry that a zoom or a pan
+   invalidates a frame later. The trade is 21 stops the reader gives up while a
+   dialog is open and Escape hands straight back; the map keeps its pointer
+   behaviour throughout, and every other control on the page stays reachable,
+   which is what non-modal means here. */
+function useModalWhenNarrow(open: boolean, view: State['view']): boolean {
   const [narrow, setNarrow] = useState(
     () => typeof matchMedia === 'function' && matchMedia('(max-width:900px)').matches);
   useEffect(() => {
@@ -80,7 +95,7 @@ function useModalWhenNarrow(open: boolean): boolean {
     return () => mq.removeEventListener('change', sync);
   }, []);
   useEffect(() => {
-    if (!open || !narrow) return;
+    if (!open) return;
     const card = document.getElementById('helpCard');
     if (!card) return;
     const touched: Element[] = [];
@@ -105,30 +120,37 @@ function useModalWhenNarrow(open: boolean): boolean {
       moved.push([f, f.getAttribute('tabindex')!]);
       f.setAttribute('tabindex', '-1');
     }
-    for (let el: Element | null = card; el && el !== document.body; el = el.parentElement) {
-      for (const sib of el.parentElement?.children ?? []) {
-        /* skip what is already inert (#card and #jcard, set by React) so the
-           cleanup below cannot clear a flag it did not set */
-        if (sib === el || sib.hasAttribute('inert') || sib.classList.contains('sr-only')) continue;
-        /* …and skip what `inert` cannot reach: the map is the one non-HTML
-           sibling on the walk, and it is handled above. Flagging it was worse
-           than useless — it made `closest('[inert]')` report the 21 county paths
-           as inert to anything asking, this suite included. */
-        if (!(sib instanceof HTMLElement)) continue;
-        sib.setAttribute('inert', '');
-        touched.push(sib);
+    if (narrow) {
+      for (let el: Element | null = card; el && el !== document.body; el = el.parentElement) {
+        for (const sib of el.parentElement?.children ?? []) {
+          /* skip what is already inert (#card and #jcard, set by React) so the
+             cleanup below cannot clear a flag it did not set */
+          if (sib === el || sib.hasAttribute('inert') || sib.classList.contains('sr-only')) continue;
+          /* …and skip what `inert` cannot reach: the map is the one non-HTML
+             sibling on the walk, and it is handled above. Flagging it was worse
+             than useless — it made `closest('[inert]')` report the 21 county
+             paths as inert to anything asking, this suite included. */
+          if (!(sib instanceof HTMLElement)) continue;
+          sib.setAttribute('inert', '');
+          touched.push(sib);
+        }
       }
     }
     return () => {
       touched.forEach(el => el.removeAttribute('inert'));
       moved.forEach(([el, v]) => el.setAttribute('tabindex', v));
     };
-  }, [open, narrow]);
+    /* `view` is a dependency because a view change mounts a whole new grid with
+       fresh tabindex=0 cells — and above 900 px the dialog is not modal, so the
+       reader can switch views with it open. The cleanup restores the outgoing
+       view's values (on nodes React has already dropped, harmlessly) and the
+       incoming grid is suspended in the same pass. */
+  }, [open, narrow, view]);
   return narrow;
 }
 
 export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => void }) {
-  const narrow = useModalWhenNarrow(S.help);
+  const narrow = useModalWhenNarrow(S.help, S.view);
   if (!S.help) return null;
   return (
     /* tabIndex -1 so App can move focus *into* the panel on open: it declared

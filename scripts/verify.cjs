@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 406;
+const EXPECTED_CHECKS = 408;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1998,6 +1998,33 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     gWide.modal === 'false' && gWide.live > 20 && gWide.role === 'dialog'
     && gWide.named === 'helpTitle',
     JSON.stringify(gWide));
+  /* "covering nothing" was a name, not an assertion: the check above counts
+     non-inert focusables outside the dialog and wants that number LARGE, which
+     is the opposite measurement. Nothing in it compares a box to a box. And it
+     runs at 1440 px, where the claim happens to be true — the card is 330 px of
+     opaque panel over the map's left edge, so how much of the map it covers is
+     a function of the width. Measured with 120 Tab presses and a bbox test at
+     each stop: 0 entirely-obscured stops at 1440, SEVEN at 1000 (a half-screen
+     window, or 1440 at 150 % zoom) — consecutive county buttons drawn behind
+     the card with their focus ring, where Enter re-selects a county the reader
+     cannot see (2.4.11). Non-modality is kept: the rest of the page must still
+     be tabbable, which is what `outside` asserts on the same walk. */
+  await page.setViewport({ width: 1000, height: 900 });
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  const g1000 = await glossary();
+  const w1000 = await tabWalk(60);
+  ck('at 1000 px, where the card does cover the map, no tab stop lands under it',
+    w1000.covered === 0 && w1000.outside > 10 && w1000.moved >= 5 && g1000.modal === 'false',
+    JSON.stringify({ ...w1000, modal: g1000.modal }));
+  const handBack = await page.evaluate(async () => {
+    document.querySelector('#helpX').click();
+    await new Promise(r => setTimeout(r, 250));
+    return { cnt: document.querySelectorAll('#map .cnt[tabindex="0"]').length,
+      help: !!document.querySelector('#helpCard') };
+  });
+  ck('and closing it hands the map’s 21 county stops straight back',
+    handBack.cnt === 21 && !handBack.help, JSON.stringify(handBack));
+  await page.setViewport({ width: 1440, height: 900 });
 
   /* ── P2: the dialog owns the keyboard while it holds focus ──
      Space is exercised elsewhere with focus on a <button> (l.629), on <body>
