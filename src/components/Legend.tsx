@@ -262,8 +262,13 @@ export default function Legend({ S }: { S: State }) {
             : L('ostale županije → ', 'other counties → ') + (D[S.sel!]?.n || '')} · {per}
         </div>
         <SeqBar scale={sq} m={m} mark={mark} />
-        <div className="legend-note">{L('Debljina luka ∝ broju osoba, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. ',
-          'Arc width ∝ number of people, relative to the selected county (not comparable between counties). The arrowhead shows the direction of the move. ')}{src}</div>
+        {/* "∝" was inherited verbatim from the v4 single-file and is not what the
+            encoding does: the width scale is `scaleSqrt`, with a 0,6 px floor, so
+            a 4,9× flow ratio draws about 2,2× the width and the top corridor's
+            dominance reads at half. The JLS legend has always stated its √ scale;
+            this one now says the same thing about itself. */}
+        <div className="legend-note">{L('Debljina luka po korijenskoj (√) skali, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. ',
+          'Arc width on a square-root (√) scale, relative to the selected county (not comparable between counties). The arrowhead shows the direction of the move. ')}{src}</div>
       </div>
     );
   }
