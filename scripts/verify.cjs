@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 344;
+const EXPECTED_CHECKS = 345;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -719,9 +719,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
        visible and out of flow; the caller asserts the count so an empty sweep
        can no longer read as a pass. */
     const els = ids.map(s => [s, document.querySelector(s)])
+      /* "is it positioned" was never the right question. `.storybar` computes to
+         `static`, so #storyBar was filtered out of this sweep at every width in
+         every state — the element the sweep was written for could not be seen by
+         it. "Does it have a box" is the question: an in-flow element can be
+         overlapped by an absolutely positioned one just as easily. */
       .filter(([, e]) => e && e.getBoundingClientRect().width > 0
+        && e.getBoundingClientRect().height > 0
         && getComputedStyle(e).display !== 'none'
-        && getComputedStyle(e).position !== 'static');
+        && getComputedStyle(e).visibility !== 'hidden');
     const bad = [];
     for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
       const a = els[i][1].getBoundingClientRect(), b = els[j][1].getBoundingClientRect();
@@ -829,7 +835,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* ══════════ overlays: rect overlap is not the same as reachable ══════════ */
   /* elementFromPoint, not bounding boxes: the banner covered the Dob i spol chip
      at every width from 1200 to 1600 and a click on it did nothing. */
-  const reach = [];
+  const reach = [], probedAll = new Set();
   for (const w of [1600, 1440, 1280, 1100, 1000, 960]) {
     await page.setViewport({ width: w, height: 900 });
     for (const h of ['#v=saldo&f=ext&c=0&y=2025&cz=1&st=4', '#v=reg&c=1&y=2024&st=6',
@@ -837,20 +843,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       await fresh(h);
       const bad = await page.evaluate(() => {
         const out = [];
-        for (const sel of ['#ageHd', '#citzHd', '#jcardHd', '#cardX', '#helpBtn']) {
+        window.probed = window.probed || new Set();
+        const probed = window.probed;
+        /* #storyX was missing from this list, and it is the one control the sweep
+           would have caught: the chip dock covered 323 of its 323 px² at four of
+           six desktop widths and the click opened a panel instead. */
+        for (const sel of ['#ageHd', '#citzHd', '#jcardHd', '#cardX', '#helpBtn', '#storyX', '#pairX']) {
           const e = document.querySelector(sel);
           if (!e || !e.offsetParent) continue;
           const r = e.getBoundingClientRect();
           const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
           if (hit && !e.contains(hit) && hit !== e) out.push(sel + '<' + (hit.id || hit.className));
+          probed.add(sel);
         }
         return out;
       });
       if (bad.length) reach.push(w + ' ' + h.slice(0, 22) + ' ' + bad.join(','));
+      (await page.evaluate(() => [...(window.probed || [])])).forEach(x => probedAll.add(x));
     }
   }
   ck('every chip header and close button is actually clickable, 960–1600 px',
     reach.length === 0, reach.slice(0, 4).join(' | '));
+  /* A sweep that probes nothing passes. Name the floor so it cannot: every
+     selector above has to have been reachable in at least one of the states. */
+  ck('and the reachability sweep actually probed all seven controls',
+    probedAll.size === 7, [...probedAll].join(','));
 
   /* the same overlap sweep the zoom test runs, but over the full overlay set and
      across the widths between the two viewports the suite otherwise pins */

@@ -233,6 +233,16 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           cells at 960 px, and steering the grid around it crushes the cell to
           ~10 px). Over a map it costs sea. */}
       {S.view !== 'mx' && <PairCard S={S} setS={setS} />}
+      {/* The stage exists to be the chip dock's containing block. Anchored to
+          .map-wrap the dock's `bottom:12px` measured past the in-flow Nalazi
+          banner, so at z-index 4 it painted over it: measured with a real click,
+          #storyX was 100 % covered at 1280/1150/1024/960 and the press opened
+          the Dob i spol panel instead of closing the banner. The v2.0.3 pass
+          fixed "the banner covers the chip" and left "the chip covers the
+          banner"; sharing a box with the map alone, neither can reach the
+          other. Below 900 px the stage is a plain block and the dock joins the
+          normal flow, where nothing overlays anything. */}
+      <div className="map-stage">
       <div className="map-box" ref={wrapRef}>
       {S.view === 'mx' ? (
         <MatrixView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} />
@@ -424,11 +434,6 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
       <JlsCard S={S} setS={setS} toggleJls={toggleJls} />
       <HelpPanel S={S} setS={setS} />
       </div>
-      {/* Outside .map-box on purpose. Floated bottom-centre the caption shared
-          the map's bottom edge with the legend (left) and the chip dock (right),
-          and won on z-index: the "Dob i spol" chip was unclickable at every
-          desktop width from 1200 to 1600. In flow it collides with nothing. */}
-      <StoryBar S={S} setS={setS} />
       {/* One dock, not two bottom-right anchors. Side by side the pair spanned
           656 px of the map's bottom edge and ran into the legend below ~1150 px
           and under the detail card below ~1100. Stacked, the dock is one panel
@@ -437,6 +442,13 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
         <AgePanel S={S} setS={setS} toggleAge={toggleAge} />
         <CitzPanel S={S} setS={setS} toggleCitz={toggleCitz} />
       </div>
+      </div>
+      {/* Outside the stage on purpose. Floated bottom-centre the caption shared
+          the map's bottom edge with the legend (left) and the chip dock (right),
+          and won on z-index: the "Dob i spol" chip was unclickable at every
+          desktop width from 1200 to 1600. In flow, below the stage the dock is
+          anchored to, it collides with nothing in either direction. */}
+      <StoryBar S={S} setS={setS} />
     </div>
   );
 }

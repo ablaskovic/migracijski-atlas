@@ -208,6 +208,10 @@ svg :focus,#spark:focus{outline:none}
 .main{flex:1;display:flex;min-height:0}
 .map-wrap{flex:1;position:relative;min-width:0;display:flex;flex-direction:column}
 /* the measured map area — overlays that must stay over the map anchor to this */
+/* The map area and the chip dock, together. The dock is absolutely positioned
+   and this is what it anchors to: against .map-wrap its bottom edge measured
+   past the in-flow Nalazi banner and covered it (see MapView). */
+.map-stage{flex:1;position:relative;min-height:0;min-width:0;display:flex;flex-direction:column}
 .map-box{flex:1;position:relative;min-height:0;min-width:0}
 .map-box svg{display:block;width:100%;height:100%}
 /* Every stroke in the map lives inside the zoom transform, so its width was
@@ -373,7 +377,16 @@ svg :focus,#spark:focus{outline:none}
    dock is one panel wide at every width and the two cannot overlap each other.
    MapView measures *this* box to lay the matrix grid out around it. */
 .chipdock{position:absolute;right:16px;bottom:12px;z-index:4;display:flex;
-  flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100% - 32px)}
+  flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100% - 32px);
+  /* Bounded by the map area, the same way .jcard is: the stage is ~450 px tall
+     at a 900 px window and an open Državljanstvo panel is ~400 px, so unbounded
+     the dock's top ran into the "Aa oznake" / "?" buttons at 1000 px and below.
+     56 = the 12 px bottom offset plus the 44 px those two occupy. The header
+     stays put and the body scrolls, like the JLS card. */
+  max-height:calc(100% - 56px)}
+.chipdock .chipcard{display:flex;flex-direction:column;min-height:0}
+.chipdock .chip-hd{flex:none}
+.chipdock .chipcard.open .chip-body{overflow-y:auto;min-height:0}
 .citz,.agec{position:static;right:auto;bottom:auto}
 .citz .chip-body{width:296px}
 .agec .chip-body{width:296px}
@@ -581,6 +594,9 @@ svg :focus,#spark:focus{outline:none}
   body{display:block;overflow-x:hidden;overflow-y:auto;-webkit-text-size-adjust:100%}
   .main{display:block;min-height:0}
   .map-wrap{height:auto;flex:none;display:block}
+  /* the stage stops being a stage: the dock is in normal flow here, so there is
+     no overlay geometry left for it to bound */
+  .map-stage{display:block;height:auto;flex:none}
   .map-box{height:min(52vh,460px);min-height:288px;flex:none}
   .rail{width:100%;border-left:none;border-top:1px solid var(--line);
     max-height:none;height:auto;display:block}
