@@ -15,6 +15,7 @@ import Rail from './components/Rail.tsx';
 import Scrubber from './components/Scrubber.tsx';
 import Tooltip from './components/Tooltip.tsx';
 import { exportPNG, exportSVG, type ExportInfo } from './lib/exportPng.ts';
+import { ensureFonts } from './lib/exportFonts.ts';
 import type { Patch, State, View } from './lib/types.ts';
 
 declare global {
@@ -241,12 +242,20 @@ export default function App() {
      leaving the site outright. Everything finer stays a replace so the history
      does not fill up with year steps. */
   const lastView = useRef(S.view);
+  /* …and so is a reset. It is a destructive control sitting beside the Nalazi
+     picker, and it only *changed the view* some of the time: from Klasifikacija
+     the entry was pushed and Back undid it, while the identical misclick from
+     Saldo replaced the entry and Back could not — inconsistent undo semantics in
+     an app that ships Back-as-undo as a feature. */
+  const lastReset = useRef(0);
   useEffect(() => {
     const h = '#' + encodeHash(S);
-    if (location.hash === h) return;
-    if (S.view !== lastView.current) { lastView.current = S.view; history.pushState(null, '', h); }
+    if (location.hash === h) { lastReset.current = resetSeq; return; }
+    const wasReset = resetSeq !== lastReset.current;
+    lastReset.current = resetSeq;
+    if (S.view !== lastView.current || wasReset) { lastView.current = S.view; history.pushState(null, '', h); }
     else history.replaceState(null, '', h);
-  }, [S]);
+  }, [S, resetSeq]);
   useEffect(() => {
     const onPop = () => {
       lastView.current = readHash(location.hash).view ?? BASE.view;
@@ -277,6 +286,11 @@ export default function App() {
   useEffect(() => {
     window.__exportPNG = dl => exportPNG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
     window.__exportSVG = dl => exportSVG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
+    /* Warm the export's font payload here rather than at the click: the SVG
+       exporter is synchronous by contract, so the faces have to be in hand
+       before anyone presses Izvoz. One same-origin request against an immutable
+       cache, off the first-paint path. */
+    ensureFonts().catch(() => { /* the figure names the families instead */ });
     return () => { delete window.__exportPNG; delete window.__exportSVG; };
   }, []);
   useEffect(() => { document.body.classList.toggle('panel-open', S.citz || S.jls || S.age || S.help); }, [S.citz, S.jls, S.age, S.help]);
@@ -335,6 +349,10 @@ export default function App() {
           focusSoon(s.citz ? '#citzHd' : s.jls ? '#jcardHd' : '#ageHd');
           return;
         }
+        /* the Nalazi banner was the one dismissible surface missing from this
+           cascade — it has a × like every other, and focus goes back to the
+           picker that opened it, like every other */
+        if (s.story != null) { up({ story: null }); focusSoon('#story'); return; }
         /* in Tokovi `sel` is the hub, not a dismissible selection */
         if (s.sel && s.view !== 'flow') {
           up({ sel: null });
@@ -452,8 +470,10 @@ export default function App() {
             Always visible, because a disclaimer behind a panel is a disclaimer
             most readers never meet. */}
         <span>{paperRefNote()}{' '}
+          {/* the short citation is Croatian by construction — it is what is
+              printed on the paper — so it is annotated rather than translated */}
           {!paperPending() && (
-            <><a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
+            <><a className="paper-link" lang="hr" href={PAPER.url} target="_blank" rel="noopener noreferrer"
               aria-label={`${PAPER.short} — ${PAPER.citation} ${NEWTAB()}`}>{PAPER.short}</a>{paperRefTail()} </>
           )}
           {NO_AFFIL()}{L(" DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.", " CBS revises its series afterwards, so some values differ from those in the paper.")}</span>
