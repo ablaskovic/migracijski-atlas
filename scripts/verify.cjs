@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 395;
+const EXPECTED_CHECKS = 398;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -221,7 +221,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  /* the URL as well as the text: Chrome's "Failed to load resource" message does
+     not name what failed, and the deliberate-abort scrub below has to be able to
+     drop exactly the one it caused and nothing else */
+  page.on('console', m => {
+    if (m.type() !== 'error') return;
+    const at = (m.location() || {}).url || '';
+    errors.push('console: ' + m.text() + (at ? ' @ ' + at : ''));
+  });
 
   await page.goto(url, { waitUntil: 'networkidle0' });
   await settle(500);
@@ -2027,6 +2034,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     skip: !!document.querySelector('a.skip[href="#map"]'),
     railNamed: !!document.querySelector('aside.rail[aria-labelledby="railLab"]'),
     cardSvg: document.querySelector('#cardSvg').getAttribute('role'),
+    /* `[].every()` is true, so this passed if the glyph stopped being rendered
+       at all — the count is what makes it mean something */
+    arrN: document.querySelectorAll('.chip-arr').length,
     arrHidden: [...document.querySelectorAll('.chip-arr')].every(a => a.getAttribute('aria-hidden') === 'true'),
   }));
   ck('the page has a real heading outline, not styled divs',
@@ -2034,7 +2044,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a skip link bypasses the header controls', struct.skip, JSON.stringify(struct));
   ck('the rail landmark is named and the card chart is a labelled figure',
     struct.railNamed && struct.cardSvg === 'img', JSON.stringify(struct));
-  ck('decorative chip arrows are hidden from assistive tech', struct.arrHidden);
+  ck('decorative chip arrows are hidden from assistive tech',
+    struct.arrN >= 3 && struct.arrHidden, JSON.stringify({ n: struct.arrN, hidden: struct.arrHidden }));
 
   /* ── P3: the threshold slider says what the readout says ── */
   await fresh('#v=klas&c=1&y=2024&tr=1&tp=1.5');
@@ -2181,9 +2192,19 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     .catch(() => {});
   const retried = await page.evaluate(() => document.querySelectorAll('#map .jl').length);
   ck('the retry genuinely re-fetches the chunk it failed on', retried === 556, String(retried));
-  /* the aborted request above is a deliberate console error — drop exactly it,
-     so the error check that follows still means something */
-  for (let i = errors.length - 1; i >= 0; i--) if (/ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+  /* The aborted request above is a deliberate console error. Drop exactly it —
+     the comment always said so, but the pattern matched any net:: failure with
+     no URL test and no count limit, so an unrelated same-origin failure anywhere
+     in that window was swept up with it and both zero-error checks passed. */
+  {
+    const before = errors.length;
+    for (let i = errors.length - 1; i >= 0; i--) {
+      if (/geo_jls/.test(errors[i]) && /ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+    }
+    ck('the deliberate abort is the only error swept, and it was swept',
+      before - errors.length >= 1 && errors.length === 0,
+      JSON.stringify({ dropped: before - errors.length, left: errors.slice(0, 2) }));
+  }
   /* Privacy and determinism are the same property here: a page that reaches no
      third-party origin cannot leak a visitor's IP on first paint and cannot
      have a check quietly depend on someone else's uptime. */
@@ -2998,7 +3019,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     });
     return r;
   };
-  const FLOW = '#v=flow&s=HR-03&d=net&c=1&y=2025';
+  /* `dir=net`, not `d=net`: `d` is the denominator and `net` is not one of its
+     values, so the codec dropped it and the intended Neto direction held only
+     because BASE.dir happens to be 'net'. A default change would have silently
+     rerouted this overflow fixture to a shorter title — the ignore-invalid
+     policy masking a typo in the suite's own inputs. */
+  const FLOW = '#v=flow&s=HR-03&dir=net&c=1&y=2025';
   const fits = [await fitAt(1440, FLOW), await fitAt(1024, FLOW), await fitAt(1024, '#v=klas'),
     /* 390 is where the title hits its 12 px floor and has to wrap instead of
        shrinking further, and where the legend caveat drops from x=222 to its own
@@ -3014,8 +3040,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
        four characters longer and lands within ~1 px of the 390 px edge. Appended
        rather than given its own check, so the overflow and overlap assertions
        above simply cover the second language too. */
-    await fitAt(1440, '#l=en&v=flow&s=HR-03&d=net&c=1&y=2025'), await fitAt(390, '#l=en&v=klas'),
-    await fitAt(390, '#l=en&v=flow&s=HR-03&d=net&c=1&y=2025')];
+    await fitAt(1440, '#l=en&v=flow&s=HR-03&dir=net&c=1&y=2025'), await fitAt(390, '#l=en&v=klas'),
+    await fitAt(390, '#l=en&v=flow&s=HR-03&dir=net&c=1&y=2025')];
   ck('no exported band text runs past the canvas edge, 1440 down to 390',
     fits.every(f => f.over.length === 0),
     JSON.stringify(fits.map(f => f.over)).slice(0, 300));
@@ -3197,6 +3223,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      the same as reachable — and asserted for BOTH grid views, since this was
      never a Godine bug, only a Godine-visible one. */
   const dockClosed = [];
+  let dockProbed = 0;
   for (const W of [1600, 1440, 1150, 960]) {
     await page.setViewport({ width: W, height: 900 });
     for (const [h, sel] of [['#v=yrs&c=1&y=2024', '.yrc'], ['#v=yrs&c=0&y=2024', '.yrc'],
@@ -3216,11 +3243,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         }).length;
       }, sel);
       if (bad) dockClosed.push(`${W}${h.slice(0, 8)}${sel}:${bad}`);
+      dockProbed += await page.evaluate(s => {
+        const d = document.querySelector('.chipdock');
+        return d && getComputedStyle(d).position === 'absolute'
+          ? document.querySelectorAll('#map ' + s).length : 0;
+      }, sel);
     }
   }
   await page.setViewport({ width: 1440, height: 900 });
   ck('a CLOSED chip dock covers no grid cell either, in Matrica or Godine',
     dockClosed.length === 0, dockClosed.join(' | '));
+  /* Both dock-coverage checks return "pass" the moment `.chipdock` stops being
+     position:absolute — and this file records active design pressure on exactly
+     that element. A floor makes the vacuous case a failure. */
+  ck('and that sweep actually compared cells rather than skipping on a layout change',
+    dockProbed > 4000, String(dockProbed));
 
   /* a carried `sel` has no card to open here, so it must die on the way in —
      the v2.0.5 rule, reached by a seventh view */
@@ -3536,11 +3573,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       const r = e.getBoundingClientRect();
       return [+r.top.toFixed(1), +r.height.toFixed(1)]; };
     return { hd: b('header.hd'), main: b('main.main'), ft: b('.ft'), scrub: b('#scrubBox') }; })()`;
-  const swap = {};
+  /* 390 as well as 1350: the ≤560 block changes the type scale, and the swap was
+     invisible only at the size the overrides were checked at. Measured at 390 the
+     header lost 5 px, main and the map box 5, the footer 6 — the five .ctrl-lab
+     line boxes each dropped a pixel, because `line-height: normal` derives the
+     box from the font's own metrics and the metric-matched fallback only
+     guarantees the advance. */
+  const swap = {}, swapNarrow = {};
   for (const mode of ['fallback', 'real']) {
     const p2 = await watch(await browser.newPage(),
       mode === 'fallback' ? (u => u.endsWith('.woff2')) : null);
     await pinHr(p2);
+    await p2.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
+    await p2.goto(url, { waitUntil: 'networkidle0' });
+    await settle(600);
+    swapNarrow[mode] = await p2.evaluate(swapBox);
     await p2.setViewport({ width: 1350, height: 940 });
     await p2.goto(url, { waitUntil: 'networkidle0' });
     await settle(600);
@@ -3578,6 +3625,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const swapMoved = ['hd', 'main', 'ft', 'scrub'].map(k => ({ k,
     dTop: +(swap.real[k][0] - swap.fallback[k][0]).toFixed(1),
     dH: +(swap.real[k][1] - swap.fallback[k][1]).toFixed(1) }));
+  const swapNarrowMoved = ['hd', 'main', 'ft', 'scrub'].map(k => ({ k,
+    dTop: +(swapNarrow.real[k][0] - swapNarrow.fallback[k][0]).toFixed(1),
+    dH: +(swapNarrow.real[k][1] - swapNarrow.fallback[k][1]).toFixed(1) }));
+  ck('and it moves nothing at 390 px either, where the type scale changes',
+    swapNarrowMoved.every(m => m.dTop === 0 && m.dH === 0),
+    JSON.stringify(swapNarrowMoved.filter(m => m.dTop || m.dH)));
   ck('the font swap moves nothing: header, main, footer and scrubber are identical',
     swapMoved.length === 4 && swapMoved.every(m => m.dTop === 0 && m.dH === 0),
     JSON.stringify(swapMoved));
@@ -3896,8 +3949,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      in English has to arrive in English, or the sender cannot show anyone
      anything. And a link with no l= stays language-neutral, so the same URL
      serves both readers. */
-  await page.goto(url + '#v=saldo&c=1&y=2024&l=en', { waitUntil: 'networkidle0' });
-  await settle(300);
+  /* fresh(), not goto(): the previous navigation was to the same document, so
+     this was a fragment change — which never re-runs module init, and this check
+     is about a BOOT property. It could not have failed on a boot-path
+     regression, which is the class it exists to catch (the helper exists for
+     exactly this reason). */
+  await fresh('#v=saldo&c=1&y=2024&l=en');
   const sharedEn = await page.evaluate(() => ({
     lang: document.documentElement.lang,
     val: document.querySelector('#railList .rrow .rval').textContent,
@@ -4019,7 +4076,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      with whichever narrow group happened to be available — which depended on
      whether Prag or Smjer was mounted. Measured: Izvoz sat beside Vrijeme in
      Saldo and moved to a row of its own in Klasifikacija. */
-  for (const W of [1440, 1280, 1024, 960, 390]) {
+  /* 1600 and 1150 were absent and both have defect history — the 901–1150
+     collision band, and the 1440 Izvoz wrap. Seven widths, as documented. */
+  for (const W of [1600, 1440, 1280, 1150, 1024, 960, 390]) {
     await page.setViewport(W === 390
       ? { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 }
       : { width: W, height: 900 });
@@ -4042,7 +4101,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       if (moved.length) viewMoves.push(`${W}px saldo→${v}: ` + moved.join(' | '));
     }
   }
-  ck('pressing a control moves nothing, 1440 down to 960',
+  ck('pressing a control moves nothing, 1600 down to 390',
     pressMoves.length === 0, pressMoves.slice(0, 3).join('  ;  ').slice(0, 300));
   ck('and a view change moves no control that survives it — the optional group only appears',
     viewMoves.length === 0, viewMoves.slice(0, 3).join('  ;  ').slice(0, 300));
