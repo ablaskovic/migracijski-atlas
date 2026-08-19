@@ -25,8 +25,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Applies to: `src/**` (except `src/data/`), `scripts/**`, `tools/pipeline/*.py`,
-`tools/pipeline/*.cjs`, and the configuration files at the repository root.
+Applies to: `src/**` (except `src/data/` and `src/fonts/`), `scripts/**`,
+`tools/**`, and the configuration files at the repository root.
+
+`src/fonts/` is excepted because §4 below licenses those same files under the
+SIL Open Font License 1.1, and one document must not grant two incompatible
+licences over one set of files.
 
 ## 2. Boundary geometry — ODbL 1.0
 
