@@ -168,7 +168,15 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
     const inside = rw >= 0 && rw < n && c >= 0 && c < n;
     const a = inside ? MXORD[rw] : null, b = inside ? MXORD[c] : null;
     /* the diagonal carries no value, but it does carry an explanation */
-    setS({ pairHl: a && b ? [a, b] : null });
+    /* Same-value guard, the one `setHL` already has for the scalar highlights.
+       Without it every pointermove over the touch overlay allocated a fresh
+       tuple, which is never `===` the previous one, so a finger held inside one
+       cell reconciled the whole app — 441 gridcells plus the rail's 420-row
+       compute-and-sort — at display rate, on the device class the overlay exists
+       to serve. */
+    const cur = S.pairHl;
+    const same = a && b ? !!cur && cur[0] === a && cur[1] === b : !cur;
+    if (!same) setS({ pairHl: a && b ? [a, b] : null });
     const { clientX, clientY } = ev;
     requestAnimationFrame(() => moveTip({ clientX, clientY }));
   };
