@@ -31,10 +31,22 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
                      #   module, so file:// is CORS-blocked and renders blank)
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
-npm i -D puppeteer   # once, for verification
-npm run verify       # typecheck + lint + build + 295-check suite (must pass)
+npm i -D puppeteer   # once, for verification (see below)
+npm run verify       # typecheck + lint + build + 393-check suite (must pass)
 npm run smoke        # probe the DEPLOYED origin (network; not part of verify)
 ```
+
+`puppeteer` is deliberately **not** a default devDependency: it downloads
+~170 MB of Chrome, which every fresh clone and every cold deploy would pay for a
+tool only `npm run verify` uses. `scripts/verify.cjs` says so when it cannot find
+it, and honours `PUPPETEER_PATH` (a puppeteer package directory) and
+`PUPPETEER_EXECUTABLE_PATH` (an existing Chrome) if you would rather not install
+a second copy. It shipped in devDependencies from 2026-07-31 until the audit
+pass; this restores the documented state.
+
+The suite pins its own size — `EXPECTED_CHECKS` in `scripts/verify.cjs` — so a
+deleted check is a failure rather than a quieter green run. The number above is
+the one that file runs; if the two disagree, the file is right.
 
 `npm run verify` can only test the build it is handed, so all of its checks can
 be green while the origin readers actually reach serves something else — which
@@ -49,12 +61,20 @@ the current release's markers. Run it after a deploy.
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
 are their own chunks: the view that needs one fetches it on entry, and the other is
 warmed on a 1,5 s timer, so neither is ever on the first-paint path. The entry chunk
-is ~521 kB / 170 kB gzip rather than ~1.048 kB / 301 kB (decimal kB throughout).
+is 555.044 B / 182.659 B gzip rather than ~1.048.000 B / ~301.000 B, plus a
+28.221 B / 5.775 B gzip stylesheet (measured on the current build; `npm run
+verify` asserts the entry stays under 600 kB).
 
 Requires Node ≥ 20.19 (vite 8).
 
-Before touching code, read `CLAUDE.md` — it carries the project's hard rules
-(verification protocol, DOM contract, honesty labeling, design tokens).
+`CLAUDE.md` carries general behavioural guidelines. The project's own hard rules
+— the verification protocol, the DOM contract, honesty labelling and the design
+tokens — live where they are enforced: `scripts/verify.cjs` is the protocol and
+the contract, the honesty labels are `badge.*` in `src/lib/i18n.ts` reached only
+through `flowKind()` / `badgeText()`, and the tokens are the `:root` block at the
+top of `src/index.css`. Earlier revisions of this file pointed at a
+project-specific `CLAUDE.md` that no longer exists at HEAD; its content is in git
+history.
 
 ## Hosting
 
