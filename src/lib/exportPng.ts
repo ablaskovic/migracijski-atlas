@@ -173,7 +173,7 @@ function legendNote(S: State): string {
       floor is not enough, so "NETO TOKOVI: SISAČKO-MOSLAVAČKA ↔ PARTNERI ·
       KUMULATIVNA PROCJENA" ran straight through the right-aligned period.
       Truncating is not the fix: the tail of that string is the honesty badge,
-      and dropping it would be an unbadged estimate (CLAUDE.md §3). It wraps.
+      and dropping it would be an unbadged estimate. It wraps.
    2. The four credit rows were drawn at x=20 with no fitting at all, so both
       the licence row and the source row simply ran off the right edge — the
       source row has been ~950 px at 8,5 px mono all along, which is wider than

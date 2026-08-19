@@ -103,7 +103,7 @@ either way. The statement is made so a reader does not have to reason it out.
 ## Note on the estimates
 
 The IPF layers are generated output, not published statistics. Do not
-redistribute them as DZS figures. `CLAUDE.md` and `tools/pipeline/README.md`
+redistribute them as DZS figures. `README.md` and `tools/pipeline/README.md`
 document how they are produced.
 
 ## Note on the companion study

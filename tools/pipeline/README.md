@@ -53,7 +53,7 @@ These do NOT, and need a manual sweep in the same commit as the data refresh:
 - `src/lib/stories.ts` — Nalazi captions quote hard numbers (−334, +27.521, +3.413,
   Split −691, …); a data refresh that moves a headline must update its caption too
   (same rule as the ground-truth table)
-- `scripts/verify.cjs` ground-truth constants + the table in `CLAUDE.md` — recompute
+- `scripts/verify.cjs` ground-truth constants — recompute
   from raw sources if DZS revised the series, and say which vintage moved them
 
 ## v4 → React port: where things moved
@@ -81,6 +81,27 @@ itself opens the correct relative paths from `tools/pipeline/`.
 - **`odm.json`**, **`jls_drill.json`** and the statistics baked into
   `geo_jls.json` — these descend from the 31 MB Pitoski figshare edge list, which
   is downloaded separately and is not committed here.
+
+### The OSM extract holds 557 features and 556 ship — that is expected
+
+`geo_jls.cjs` asserts "a perfect 1:1 cover of all 556 JLS" before writing, and
+throws otherwise, so a run that produced `geo_jls.json` proved the claim for
+itself. Counting the committed files from outside does not reproduce it, and an
+audit flagged the difference; both halves check out:
+
+- `raw/jls_geo_osm.geojson` has **557** features to **556** shipped. The extra
+  one is `Град Сомбор` — Sombor, in Serbia — picked up by the Overpass bounding
+  box and dropped by the county-centroid test, which is what that test is for.
+- **25** shipped names do not appear verbatim in the extract. All 25 are naming
+  variants, not missing geometry: the extract carries official forms
+  (`Grad Dugo Selo`, `Općina Lupoglav`) while the shipped data carries short
+  ones, and the Istrian municipalities are bilingual in one and not the other
+  (`Bale ‒ Valle`, `Poreč ‒ Parenzo`, `Kaštelir-Labinci ‒ Castelliere-S.
+  Domenica`). The matcher normalises; a string comparison from outside does not.
+
+No pipeline script was executed in either audit, and none is executed by
+`npm run verify` — the data files are inputs to the app, and the suite verifies
+them by recomputing the ground-truth table from what ships.
 
 ### `atlas_data2.json` is reproducible here — the old note was wrong
 

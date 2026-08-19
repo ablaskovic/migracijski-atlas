@@ -58,9 +58,9 @@ export default function App() {
     /* One predicate, not two. This used to walk `storyKeys(i)` against the patch
        directly, which invalidated on any STORY_KEYS field — while `storyHolds`,
        which both halves of the permalink codec use, skips the keys a preset
-       never sets. Two rules for one question, and CLAUDE.md claimed they were
-       one. `storyHolds` against the *resulting* state is the question actually
-       being asked: does this caption still describe the screen? */
+       never sets. Two rules for one question, and the project docs claimed they
+       were one. `storyHolds` against the *resulting* state is the question
+       actually being asked: does this caption still describe the screen? */
     if (n.story != null && patch.story === undefined && !storyHolds(n, n.story)) n.story = null;
     return n;
   });
@@ -486,7 +486,8 @@ export default function App() {
           "page reaches no third-party origin" invariant still holds for a
           deployed visitor. Only `npm run dev` loads them from
           va.vercel-scripts.com (the .debug.js builds), which is why the check
-          runs against `dist`. See CLAUDE.md. */}
+          runs against `dist` — see the third-party-origin checks in
+          scripts/verify.cjs, which assert it. */}
       <Analytics />
       <SpeedInsights />
     </>

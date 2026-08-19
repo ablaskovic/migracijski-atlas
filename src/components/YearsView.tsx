@@ -56,7 +56,8 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   /* In-cell numbers when the cell is big enough for the widest value it holds —
        .mxnum is the class, so the export bakes the same white halo it bakes for
        the matrix (no ink/white threshold clears 4.5:1 on this ramp; see
-       CLAUDE.md design tokens). Measured per cell rather than assumed: a
+       the design tokens at the top of index.css). Measured per cell rather than
+       assumed: a
        cumulative −28.292 is nine glyphs where an annual −87 is three. */
   const numFs = Math.min(8.5, ch * 0.5, cw * 0.26);
   const showNum = cw >= 30 && ch >= 14 && numFs >= 6;

@@ -4,7 +4,7 @@ import { L } from './i18n.ts';
    one-breath Croatian caption; App applies the patch and shows the banner.
    Numbers here are display copy only — the map/rail render the same values from
    metrics.ts, so a data refresh that moves them must update these captions too
-   (same rule as the CLAUDE.md ground-truth table). */
+   (same rule as the ground-truth constants pinned in scripts/verify.cjs). */
 import { YEARS, IX2018 } from './metrics.ts';
 import { BASE, STORY_KEYS } from './state.ts';
 import type { Patch, State } from './types.ts';
