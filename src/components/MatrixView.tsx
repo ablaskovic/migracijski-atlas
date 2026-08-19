@@ -271,7 +271,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
   }
 
   return (
-    <svg id="map" role="grid" aria-rowcount={n} aria-colcount={n}
+    /* tabIndex -1 for the skip link — see the county map in MapView */
+    <svg id="map" role="grid" tabIndex={-1} aria-rowcount={n} aria-colcount={n}
       aria-label={L('Matrica međužupanijskih tokova — strelice pomiču odabir, Enter otvara koridor',
         'Inter-county flow matrix — arrow keys move the selection, Enter opens the corridor')}
       {...zoom.bind} style={zoom.style}>

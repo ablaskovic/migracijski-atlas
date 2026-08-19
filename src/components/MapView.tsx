@@ -271,7 +271,8 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
       ) : S.view === 'jmap' ? (
         /* role=img would declare this a single leaf graphic and hide the
            focusable features inside it from assistive tech */
-        <svg id="map" role="group" aria-label={L('Karta gradova i općina — unutarnja migracija 2018. Strelice pomiču odabir.',
+        /* tabIndex -1 for the skip link, as in the county map below */
+        <svg id="map" role="group" tabIndex={-1} aria-label={L('Karta gradova i općina — unutarnja migracija 2018. Strelice pomiču odabir.',
         'Map of towns and municipalities — internal migration 2018. Arrow keys move the selection.')}
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
@@ -350,7 +351,13 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
           </g>
         </svg>
       ) : (
-        <svg id="map" role="group" aria-label={L('Karta županija Hrvatske', 'Map of Croatian counties')}
+        /* tabIndex -1 so the skip link has something to land on: "Prijeđi na
+           kartu" moves focus here rather than navigating to #map, and .focus()
+           on an element with no tabindex is a silent no-op that leaves focus on
+           <body> — which is exactly what the bypass block used to do. Not a tab
+           stop: the county paths inside it are, and adding one more would put a
+           whole-map stop in front of all 21 of them. */
+        <svg id="map" role="group" tabIndex={-1} aria-label={L('Karta županija Hrvatske', 'Map of Croatian counties')}
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
           <g>

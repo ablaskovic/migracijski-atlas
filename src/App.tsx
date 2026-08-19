@@ -434,7 +434,24 @@ export default function App() {
     <>
       {/* ~28 header controls sit between the page top and the map; landmarks
           serve AT but a sighted keyboard-only user had no bypass at all (2.4.1) */}
-      <a className="skip" href="#map">{L('Prijeđi na kartu', 'Skip to the map')}</a>
+      {/* …and the bypass block reset the atlas. Activating it was a
+          same-document fragment navigation, which every engine answers with
+          `popstate` — and this app reads popstate as a permalink. `#map` carries
+          none of the codec's fields, so `readHash('#map')` returns `{}` by the
+          codec's own "unknown or invalid fields are ignored" contract, and the
+          handler's `{ ...ref.current, ...BASE, ...patch }` was literally BASE.
+          Measured at 1440×900 with a real keyboard activation:
+          `#v=saldo&f=nat&d=rel11&c=0&y=2018&s=HR-21` became
+          `#v=saldo&c=1&y=2024` — view, sastavnica, vrijednosti, year and card
+          all gone, every number on screen changed, and the reset laundered into
+          the URL. Focus landed on <body> too, so it never reached the map
+          either: the one control that exists for keyboard users did neither of
+          the two things it promises.
+          Focus is moved here instead and the URL is left alone. The href stays:
+          it is what makes this a link, it is what the suite pins, and it is the
+          no-JS destination. */}
+      <a className="skip" href="#map" onClick={ev => { ev.preventDefault(); focusSoon('#map'); }}>
+        {L('Prijeđi na kartu', 'Skip to the map')}</a>
       <Header S={S} setS={up} setView={setView} setMode={setMode} applyStory={applyStory} resetAll={resetAll} />
       <main className="main">
         <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL} resetSeq={resetSeq}

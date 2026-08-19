@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 403;
+const EXPECTED_CHECKS = 404;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2067,6 +2067,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the page has a real heading outline, not styled divs',
     struct.h1 === 1 && struct.h2 >= 2, JSON.stringify(struct));
   ck('a skip link bypasses the header controls', struct.skip, JSON.stringify(struct));
+  /* Presence was the whole assertion, and the link was never activated anywhere
+     in the suite — so nothing could observe that activating it destroyed the
+     view. `href="#map"` is a same-document fragment navigation, every engine
+     answers one with popstate, and this app reads popstate as a permalink:
+     readHash('#map') returns {} by the codec's own "unknown or invalid fields
+     are ignored" contract, so the handler's {...ref.current, ...BASE, ...patch}
+     was literally BASE. Measured before the fix: #v=klas&c=1&y=2015&t=6000 →
+     #v=saldo&c=1&y=2024, big year 2015. → 2024., focus on <body>. Driven with a
+     real Tab and a real Enter, because that is the only way this control is
+     ever used. */
+  await fresh('#v=klas&c=1&y=2015&t=6000');
+  await page.keyboard.press('Tab');
+  const skipOn = await page.evaluate(() => document.activeElement.className);
+  await page.keyboard.press('Enter');
+  await settle(400);
+  const skipTo = await page.evaluate(() => ({ hash: location.hash,
+    focus: document.activeElement.id || document.activeElement.tagName,
+    /* landing somewhere invisible would be the same defect wearing a hat: the
+       map is focusable only for this, so its keyboard ring is part of the fix */
+    ring: getComputedStyle(document.activeElement).outlineStyle,
+    yr: document.querySelector('#bigYear').textContent }));
+  ck('the bypass block reaches the map, draws a ring and leaves the reader’s state where it was',
+    skipOn === 'skip' && skipTo.focus === 'map' && skipTo.ring !== 'none' && skipTo.yr === '2015.'
+    && /v=klas/.test(skipTo.hash) && /y=2015/.test(skipTo.hash) && /t=6000/.test(skipTo.hash),
+    JSON.stringify({ skipOn, ...skipTo }));
   ck('the rail landmark is named and the card chart is a labelled figure',
     struct.railNamed && struct.cardSvg === 'img', JSON.stringify(struct));
   ck('decorative chip arrows are hidden from assistive tech',

@@ -135,6 +135,17 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
    Unconditional on :focus, because a mouse click is deliberately *not*
    :focus-visible and that is exactly the case the UA ring appears in. */
 svg :focus,#spark:focus{outline:none}
+/* `svg :focus` is a DESCENDANT selector and never matched the <svg> itself,
+   which did not matter while the map was not focusable. It is now: the skip
+   link moves focus to #map rather than navigating to it (see App), so the map
+   carries tabindex -1 — and in Chrome an element with tabindex -1 takes focus
+   from a plain click too, which put `auto 5px` of Chrome's own ring round the
+   whole map box on every click of the sea. Unconditional, like the rule above;
+   the keyboard indicator is restored below it, drawn *inside* the box so a
+   bypass block that lands here is still visible (2.4.7) without an outline
+   overflowing the stage. */
+svg:focus{outline:none}
+svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 /* off-screen until focused — the keyboard bypass for the header's ~28 controls */
 .skip{position:absolute;left:-9999px;top:0;z-index:20;background:var(--ink);color:var(--bg);
   padding:8px 14px;font-size:13px;text-decoration:none;border-radius:0 0 3px 0}

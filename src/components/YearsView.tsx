@@ -201,7 +201,8 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   const preW = S.cum ? 0 : Math.max(0, (IX2007 - cols[0]) * cw);
 
   return (
-    <svg id="map" role="grid" aria-rowcount={nR} aria-colcount={nC}
+    /* tabIndex -1 for the skip link — see the county map in MapView */
+    <svg id="map" role="grid" tabIndex={-1} aria-rowcount={nR} aria-colcount={nC}
       aria-label={L('Županije kroz godine — strelice pomiču odabir, Enter postavlja godinu prikaza',
         'Counties over time — arrow keys move the selection, Enter sets the displayed year')}
       {...zoom.bind} style={zoom.style}>
