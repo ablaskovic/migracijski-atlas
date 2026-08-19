@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 351;
+const EXPECTED_CHECKS = 353;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -599,6 +599,44 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     yr: document.querySelector('#bigYear').textContent }));
   ck('reset restores saldo / migracije / 2024', rst.view === 'saldo' && rst.flow === 'tot' && rst.yr === '2024.',
     JSON.stringify(rst));
+
+  /* ── reset must not desync the language ──
+     `resetAll` used to call setS directly, bypassing `up` — the only writer that
+     moves the module language mirror. BASE.lang is resolved once at module init,
+     so after EN → ⟲ the state said Croatian, the page went on rendering English,
+     #segLang reported HR pressed, pressing HR was a no-op (up()'s guard saw no
+     change), and the permalink dropped `l=` so a link copied from a visibly
+     English page opened Croatian for its recipient. Run in the hr-pinned browser
+     with no stored choice, which is exactly the reader who hits it. */
+  await fresh('#v=saldo&c=1&y=2024');
+  const langReset = await page.evaluate(async () => {
+    const snap = () => ({
+      html: document.documentElement.lang,
+      h1: document.querySelector('.hd-title').textContent.trim(),
+      pressed: document.querySelector('#segLang button[aria-pressed="true"]').dataset.l,
+      hash: location.hash,
+      val: document.querySelector('#railList .rrow .rval').textContent,
+    });
+    document.querySelector('#segLang button[data-l="en"]').click();
+    await new Promise(r => setTimeout(r, 300));
+    const en = snap();
+    document.querySelector('#resetBtn').click();
+    await new Promise(r => setTimeout(r, 300));
+    const after = snap();
+    /* and the switch is still a live control in both directions */
+    document.querySelector('#segLang button[data-l="hr"]').click();
+    await new Promise(r => setTimeout(r, 300));
+    return { en, after, back: snap() };
+  });
+  ck('reset keeps the language it was pressed in, and says so in the link',
+    langReset.after.html === 'en' && langReset.after.pressed === 'en'
+    && /l=en/.test(langReset.after.hash) && /,/.test(NBSP(langReset.after.val)),
+    JSON.stringify(langReset.after));
+  ck('and the language switch still works in both directions after a reset',
+    langReset.back.html === 'hr' && langReset.back.pressed === 'hr'
+    && !/l=/.test(langReset.back.hash) && /\./.test(NBSP(langReset.back.val)),
+    JSON.stringify(langReset.back));
+  await fresh('');
 
   /* ── measured vs estimated are visually distinct, not just differently worded ── */
   await fresh('#v=flow&s=HR-21&c=0&y=2018&dir=out');

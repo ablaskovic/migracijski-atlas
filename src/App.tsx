@@ -178,7 +178,23 @@ export default function App() {
      *view* change — so "vrati na početni prikaz" used to leave the map sitting
      at 2.8×. Bumping a counter is the whole handshake MapView needs. */
   const [resetSeq, setResetSeq] = useState(0);
-  const resetAll = () => { vmem.current = {}; setResetSeq(n => n + 1); setS({ ...BASE }); };
+  /* Through `up`, the only writer, and keeping the language.
+     `setS({ ...BASE })` did neither. BASE.lang is resolved once at module init,
+     so a reader who had pressed EN got S.lang back to 'hr' while the module
+     mirror — which only `up` moves — stayed 'en': the page went on rendering
+     English under a state that said Croatian, #segLang reported HR pressed, and
+     pressing HR was a no-op because up()'s guard saw patch.lang === s.lang. The
+     permalink dropped `l=` too, so a link copied from a visibly English page
+     opened in Croatian for its recipient.
+     Reset does not revert the language at all now. "An explicit act beats an
+     inference" is the rule the whole language stack is built on, this button
+     says "back to the opening view", and a reload after a reset boots the
+     stored choice anyway — so reverting it was both surprising and untrue. */
+  const resetAll = () => {
+    vmem.current = {};
+    setResetSeq(n => n + 1);
+    up({ ...BASE, lang: ref.current.lang });
+  };
 
   /* The two big geometry payloads load on demand (see geoAsync.ts). App is the
      root, so re-rendering here is what hands the data to Rail, Legend and Tooltip
