@@ -260,12 +260,15 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
           </div>
         ))}
       </div>
-      {S.view === 'flow' && <div className="rail-hint">klik na partnera otvara koridor kroz vrijeme · klik na kartu mijenja županiju</div>}
+      {S.view === 'flow' && <div className="rail-hint">{L('klik na partnera otvara koridor kroz vrijeme · klik na kartu mijenja županiju',
+        'clicking a partner opens its corridor through time · clicking the map changes the county')}</div>}
       {S.view === 'mx' && (
         /* the hint has to describe what the click now does: it opens the corridor
            here, in the grid, instead of jumping to Tokovi */
-        <div className="rail-hint">klik na koridor otvara njegovu karticu i označuje ćeliju u mreži
-          {S.dir !== 'net' && ' · isti popis za odlaske i dolaske — svaki je koridor nečiji odlazak i nečiji dolazak'}</div>
+        <div className="rail-hint">{L('klik na koridor otvara njegovu karticu i označuje ćeliju u mreži',
+          'clicking a corridor opens its card and marks its cell in the grid')}
+          {S.dir !== 'net' && L(' · isti popis za odlaske i dolaske — svaki je koridor nečiji odlazak i nečiji dolazak',
+            ' · the same list for out and in — every corridor is someone’s departure and someone’s arrival')}</div>
       )}
     </aside>
   );

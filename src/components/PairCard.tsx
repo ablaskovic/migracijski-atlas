@@ -3,7 +3,7 @@ import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
 import { YEARS, Y0, YEND, IX2018, SHORTN, getOD, flowBadge, flowKind, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
-import { L, yrSpan } from '../lib/i18n.ts';
+import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Corridor card: the annual series of one directed pair (sel ⇄ pair) from ODM.
@@ -60,7 +60,8 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
           the matrix was told the chart showed Istarska's odlasci. Every series
           here is this corridor and nothing else, so the caption names both
           endpoints in the direction each series runs. */}
-      <div className="card-sub">{`godišnji tok ${Y0}.–${YEND}., samo ovaj koridor · površina: neto za ${SHORTN[sel]} · puna crta: ${SHORTN[sel]} → ${SHORTN[pair]} · crtkano: ${SHORTN[pair]} → ${SHORTN[sel]}`}</div>
+      <div className="card-sub">{L(`godišnji tok ${yrSpan(Y0, YEND)}, samo ovaj koridor · površina: neto za ${SHORTN[sel]} · puna crta: ${SHORTN[sel]} → ${SHORTN[pair]} · crtkano: ${SHORTN[pair]} → ${SHORTN[sel]}`,
+        `annual flow ${yrSpan(Y0, YEND)}, this corridor only · area: net for ${SHORTN[sel]} · solid line: ${SHORTN[sel]} → ${SHORTN[pair]} · dashed: ${SHORTN[pair]} → ${SHORTN[sel]}`)}</div>
       <svg id="pairSvg" viewBox={`0 0 ${w} ${h}`} role="img"
         aria-label={L(`Koridor ${SHORTN[sel]} i ${SHORTN[pair]} — samo selidbe između te dvije županije, ne ukupni tokovi županije. Godišnji tok ${yrSpan(Y0, YEND)}, raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`,
           `Corridor ${SHORTN[sel]} and ${SHORTN[pair]} — only moves between these two counties, not the county's total flows. Annual flow ${yrSpan(Y0, YEND)}, range ±${fmtI.format(m)}. The selected year's values are below the chart.`)}>
@@ -83,11 +84,16 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
         <line y1={mT} y2={h - mB} stroke="var(--acc)" strokeWidth={1.4} x1={cx} x2={cx} />
       </svg>
       <div className="pair-row" id="pairRow">
-        <span>{YEARS[S.yi]}. · → {fmtI.format(outs[S.yi])} · ← {fmtI.format(ins[S.yi])} · neto {sgn(nets[S.yi], fmtI)}</span>
+        <span>{yr(YEARS[S.yi])} · → {fmtI.format(outs[S.yi])} · ← {fmtI.format(ins[S.yi])}{L(' · neto ', ' · net ')}{sgn(nets[S.yi], fmtI)}</span>
         <span className={'cls-tag ' + flowKind(S.yi, false)}>{flowBadge(S.yi, false)}</span>
       </div>
-      <div className="pair-note">{S.yi === IX2018 ? 'Jedina godina s izmjerenom matricom tokova.' : L('Točka 2018. je izmjerena; ostale su godine IPF procjena na DZS marginama.',
-    'The 2018 point is measured; the other years are IPF estimates on CBS margins.')}</div>
+      {/* only one branch of this ternary used to be localized — and the flow
+          first-entry jump lands on 2018, so the untranslated one is the branch an
+          English reader meets first */}
+      <div className="pair-note">{S.yi === IX2018
+        ? L('Jedina godina s izmjerenom matricom tokova.', 'The only year with a measured flow matrix.')
+        : L('Točka 2018. je izmjerena; ostale su godine IPF procjena na DZS marginama.',
+          'The 2018 point is measured; the other years are IPF estimates on CBS margins.')}</div>
     </div>
   );
 }

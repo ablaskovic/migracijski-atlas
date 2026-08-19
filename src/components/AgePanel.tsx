@@ -1,6 +1,6 @@
 import { DEMO, fmtI } from '../lib/metrics.ts';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { L } from '../lib/i18n.ts';
+import { L, yr } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Dob i spol — who is actually moving. National, 2025 only (I T3 / II T2 are
@@ -31,8 +31,10 @@ export default function AgePanel({ S, setS, toggleAge }: {
       {open && (
         <div className="chip-body">
           <div className="jcard-cap">
-            {ext ? 'vanjska migracija po starosti · odseljeni (lijevo) / doseljeni (desno)'
-              : 'preseljeni unutar RH po starosti (sve razine)'}
+            {ext ? L('vanjska migracija po starosti · odseljeni (lijevo) / doseljeni (desno)',
+              'external migration by age · departures (left) / arrivals (right)')
+              : L('preseljeni unutar RH po starosti (sve razine)',
+                'moves within Croatia by age (all levels)')}
           </div>
           <div className="jtabs" id="ageTabs">
             <button data-v="ext" aria-pressed={ext} onClick={() => setS({ ageTab: 'ext' })}>{L('Vanjska', 'External')}</button>
@@ -44,13 +46,13 @@ export default function AgePanel({ S, setS, toggleAge }: {
             {ext ? (
               <>
                 <text x={cx - gap - 2} y={mT - 5} textAnchor="end" fontSize={8}
-                  fontFamily="var(--mono)" fill="#B5341F">{'− odseljeni'}</text>
+                  fontFamily="var(--mono)" fill="#B5341F">{L('− odseljeni', '− departures')}</text>
                 <text x={cx + gap + 2} y={mT - 5} fontSize={8}
-                  fontFamily="var(--mono)" fill="#1D4E89">{'doseljeni +'}</text>
+                  fontFamily="var(--mono)" fill="#1D4E89">{L('doseljeni +', 'arrivals +')}</text>
               </>
             ) : (
               <text x={cx + gap + 2} y={mT - 5} fontSize={8}
-                fontFamily="var(--mono)" fill="var(--mut)">{'preseljeni'}</text>
+                fontFamily="var(--mono)" fill="var(--mut)">{L('preseljeni', 'moves')}</text>
             )}
             {DEMO.ages.map((a, i) => {
               const r = n - 1 - i;                      /* oldest on top */
@@ -79,19 +81,20 @@ export default function AgePanel({ S, setS, toggleAge }: {
           <div className="age-rows" id="ageRows">
             {ext ? (
               <>
-                <span>{L('doseljeni ', 'arrivals ')}<b>{'+' + fmtI.format(DEMO.cTot[0])}</b> · {Math.round(100 * DEMO.extM.d / DEMO.cTot[0])} % muškarci</span>
-                <span>{L('odseljeni ', 'departures ')}<b>{'−' + fmtI.format(DEMO.cTot[1])}</b> · {Math.round(100 * DEMO.extM.o / DEMO.cTot[1])} % muškarci</span>
-                <span>vrh: <b>{DEMO.ages[peakIx]}</b> ({fmtI.format(DEMO.ext.d[peakIx])} doseljenih)</span>
+                <span>{L('doseljeni ', 'arrivals ')}<b>{'+' + fmtI.format(DEMO.cTot[0])}</b> · {Math.round(100 * DEMO.extM.d / DEMO.cTot[0])}{L(' % muškarci', ' % men')}</span>
+                <span>{L('odseljeni ', 'departures ')}<b>{'−' + fmtI.format(DEMO.cTot[1])}</b> · {Math.round(100 * DEMO.extM.o / DEMO.cTot[1])}{L(' % muškarci', ' % men')}</span>
+                <span>{L('vrh: ', 'peak: ')}<b>{DEMO.ages[peakIx]}</b> ({fmtI.format(DEMO.ext.d[peakIx])}{L(' doseljenih)', ' arrivals)')}</span>
               </>
             ) : (
               <>
-                <span>{L('preseljeno ', 'moves ')}<b>{fmtI.format(DEMO.intTot)}</b> · {Math.round(100 * (1 - DEMO.intM / DEMO.intTot))} % žene</span>
-                <span>vrh: <b>{DEMO.ages[peakIx]}</b> ({fmtI.format(DEMO.intm[peakIx])} preseljenih)</span>
+                <span>{L('preseljeno ', 'moves ')}<b>{fmtI.format(DEMO.intTot)}</b> · {Math.round(100 * (1 - DEMO.intM / DEMO.intTot))}{L(' % žene', ' % women')}</span>
+                <span>{L('vrh: ', 'peak: ')}<b>{DEMO.ages[peakIx]}</b> ({fmtI.format(DEMO.intm[peakIx])}{L(' preseljenih)', ' moves)')}</span>
               </>
             )}
           </div>
           <div className="citz-note" id="ageNote">
-            {`DZS STAN-2026-2-1 (t. I 3 / II 2) · objavljeno samo za ${DEMO.year}. — vremenska vrpca ne mijenja ovaj prikaz.`}
+            {L(`DZS STAN-2026-2-1 (t. I 3 / II 2) · objavljeno samo za ${yr(DEMO.year)} — vremenska vrpca ne mijenja ovaj prikaz.`,
+              `CBS STAN-2026-2-1 (t. I 3 / II 2) · published for ${yr(DEMO.year)} only — the time scrubber does not change this view.`)}
           </div>
         </div>
       )}

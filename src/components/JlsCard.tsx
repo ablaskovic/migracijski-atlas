@@ -1,7 +1,14 @@
 import { JLS, ISOS, D, SHORTN, fmtI } from '../lib/metrics.ts';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { L } from '../lib/i18n.ts';
+import { L, t, yr } from '../lib/i18n.ts';
 import type { JlsRow, Patch, State } from '../lib/types.ts';
+
+/* "· 2018. · izmjereno" was one hardcoded string appended to an already
+   translated caption, so an English reader met "largest gross corridors (LAU net
+   is not published) · 2018. · izmjereno". Composed from `yr()` and the badge
+   dictionary instead, a translated caption can never carry an untranslated
+   scope or honesty label again. */
+const SCOPE = (): string => ' · ' + yr(2018) + ' · ' + t('badge.meas');
 
 export default function JlsCard({ S, setS, toggleJls }: {
   S: State; setS: (p: Patch) => void; toggleJls: () => void;
@@ -36,12 +43,12 @@ export default function JlsCard({ S, setS, toggleJls }: {
         <span className="chip-arr" aria-hidden="true">▸</span>
         {/* scope in the collapsed header, matching the Državljanstvo / Dob chips
             — otherwise this one chip hides its year and status until opened */}
-        <span id="jcardTitle">{on ? 'JLS koridori · ' + (D[S.sel!]?.n || '') : 'JLS koridori'}
-          {!open && <span className="chip-more"> · 2018. · izmjereno</span>}</span>
+        <span id="jcardTitle">{L('JLS koridori', 'LAU corridors') + (on ? ' · ' + (D[S.sel!]?.n || '') : '')}
+          {!open && <span className="chip-more">{SCOPE()}</span>}</span>
       </div>
       {open && (
         <div className="chip-body">
-          <div className="jcard-cap" id="jcardCap">{cap + ' · 2018. · izmjereno'}</div>
+          <div className="jcard-cap" id="jcardCap">{cap + SCOPE()}</div>
           <div className="jtabs" id="jlsTabs">
             <button data-v="inter" aria-pressed={S.jlsTab === 'inter'} onClick={() => setS({ jlsTab: 'inter' })}>{L('Među županijama', 'Between counties')}</button>
             <button data-v="loc" aria-pressed={S.jlsTab === 'loc'} onClick={() => setS({ jlsTab: 'loc' })}>{L('Unutar županije', 'Within the county')}</button>

@@ -75,7 +75,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 339;
+const EXPECTED_CHECKS = 341;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3447,6 +3447,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && !CRO.test(enCtl.tog) && !CRO.test(enCtl.zoom) && !CRO.test(enCtl.zoomT)
     && enCtl.zoom.startsWith(enCtl.zoomT) && /1\.6×/.test(NBSP(enCtl.zoomTxt)),
     JSON.stringify(enCtl));
+
+  /* ── the panels' own visible copy ──
+     Scope limits (2018-only, 2025-only, the scrubber-does-not-apply notes) and
+     the identity-sum caveat are the load-bearing kind: unreadable, they are not
+     weak labels but unlabelled claims. Each panel is opened and read, so the
+     next one that forgets is caught here. */
+  const enText = async (hash, sel) => {
+    await fresh(hash);
+    return page.evaluate(s => { const e = document.querySelector(s); return e ? e.textContent : null; }, sel);
+  };
+  const enScope = {
+    clamp: await enText('#l=en&v=saldo&cz=1&y=2015', '#citzClamp'),
+    fixed: await enText('#l=en&v=saldo&cz=2&y=2024', '#zemFixed'),
+    age: await enText('#l=en&v=saldo&ag=1&y=2024', '#ageNote'),
+    jcap: await enText('#l=en&v=flow&s=HR-21&c=0&y=2018&jl=1', '#jcardCap'),
+  };
+  ck('every English panel states its own scope in English',
+    Object.values(enScope).every(s => s && !CRO.test(s))
+    && /outside the published range/.test(enScope.clamp) && /Fixed at 2025/.test(enScope.fixed)
+    && /published for 2025 only/.test(enScope.age) && / · 2018 · measured$/.test(NBSP(enScope.jcap)),
+    JSON.stringify(enScope));
+
+  const enNote = {
+    card: await enText('#l=en&v=saldo&f=all&c=1&y=2024&s=HR-18', '#cardNote'),
+    flow: await enText('#l=en&v=flow&s=HR-21&c=0&y=2018', '.rail-hint'),
+    mx: await enText('#l=en&v=mx&c=0&y=2018&dir=out', '.rail-hint'),
+    pair: await enText('#l=en&v=flow&s=HR-21&pp=HR-01&c=0&y=2018', '.pair-note'),
+  };
+  ck('and the identity-sum caveat, both rail hints and the measured-year note read in English',
+    Object.values(enNote).every(s => s && !CRO.test(s))
+    && /not total population change/.test(enNote.card) && /clicking the map/.test(enNote.flow)
+    && /someone’s departure/.test(enNote.mx) && /only year with a measured flow matrix/.test(enNote.pair),
+    JSON.stringify(enNote));
 
   /* Who gets which language, on a fresh visit with nothing shared and nothing
      stored. Two signals — the browser's language list and where the reader is —

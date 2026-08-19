@@ -3,7 +3,7 @@ import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
 import { YEARS, Y0, YEND, D, netAt, natAt, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
-import { L, yrSpan } from '../lib/i18n.ts';
+import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => void }) {
@@ -43,7 +43,8 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
         <button className="card-x" id="cardX" aria-label={L(`Zatvori karticu — ${D[sel].n}`, `Close the card — ${D[sel].n}`)}
           onClick={() => { setS({ sel: null }); focusSoon(`.cnt[data-iso="${sel}"], #railList .rrow[data-iso="${sel}"]`); }}>×</button>
       </div>
-      <div className="card-sub" id="cardSub">{`godišnji saldo ${Y0}.–${YEND}. · vanjske (površina) · unutarnje (crta) · prirodni prirast (crtkano)`}</div>
+      <div className="card-sub" id="cardSub">{L(`godišnji saldo ${yrSpan(Y0, YEND)} · vanjske (površina) · unutarnje (crta) · prirodni prirast (crtkano)`,
+        `annual net ${yrSpan(Y0, YEND)} · external (area) · internal (line) · natural change (dashed)`)}</div>
       {/* an unlabelled <svg> exposes its tick <text> children as loose strings in
           the reading order; role=img + a name collapses them into one figure */}
       <svg id="cardSvg" viewBox={`0 0 ${w} ${h}`} role="img"
@@ -67,7 +68,7 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
         <line id="cardCur" y1={mT} y2={h - mB} stroke="var(--acc)" strokeWidth={1.4} x1={cx} x2={cx} />
       </svg>
       <div className="card-row" id="cardRow">
-        <span className="cy">{YEARS[S.yi]}.</span>
+        <span className="cy">{yr(YEARS[S.yi])}</span>
         <span>{L('unut. ', 'internal ')}<b>{sgn(ints[S.yi], fmtI)}</b></span>
         <span>{L('vanj. ', 'external ')}<b>{sgn(exts[S.yi], fmtI)}</b></span>
         <span>{L('prir. ', 'natural ')}<b>{sgn(nats[S.yi], fmtI)}</b></span>
@@ -76,8 +77,12 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
             two components instead, and carry the same caveat they carry. */}
         <span>{L('mig.+prir. ', 'mig.+nat. ')}<b>{sgn(ints[S.yi] + exts[S.yi] + nats[S.yi], fmtI)}</b></span>
       </div>
+      {/* the caveat the tooltip, the legend and the glossary all carry: this is
+          an identity sum of two published components, not DZS total population
+          change. Unreadable, it is an unlabelled claim rather than a caveat. */}
       <div className="card-note" id="cardNote">
-        Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.
+        {L('Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
+          'The sum of two published components — not total population change.')}
       </div>
     </div>
   );

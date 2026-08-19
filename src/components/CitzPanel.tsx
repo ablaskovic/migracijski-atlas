@@ -3,7 +3,7 @@ import { max } from 'd3-array';
 import { CIT, cgroups, DEMO, YEARS, fmtI, sgn } from '../lib/metrics.ts';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react';
 import type { Patch, State } from '../lib/types.ts';
-import { L } from '../lib/i18n.ts';
+import { L, yr, yrSpan } from '../lib/i18n.ts';
 
 export default function CitzPanel({ S, setS, toggleCitz }: {
   S: State; setS: (p: Patch) => void; toggleCitz: () => void;
@@ -63,7 +63,8 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
           </div>
           {/* one panel, two time behaviours: Skupine follows the scrubber,
               Zemlje is frozen — make the frozen one say so up front */}
-          {zem && <div className="citz-clamp" id="zemFixed">{`Fiksno ${DEMO.year}. — vremenska vrpca ne mijenja ovaj popis.`}</div>}
+          {zem && <div className="citz-clamp" id="zemFixed">{L(`Fiksno ${yr(DEMO.year)} — vremenska vrpca ne mijenja ovaj popis.`,
+            `Fixed at ${yr(DEMO.year)} — the time scrubber does not change this list.`)}</div>}
           {zem ? (
             <>
               <div id="zemList">
@@ -76,13 +77,14 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   </div>
                 ))}
                 <div className="jrow zt">
-                  <span className="jn">Ukupno {DEMO.year}.</span>
+                  <span className="jn">{L('Ukupno ', 'Total ') + yr(DEMO.year)}</span>
                   <span className="zbar" />
                   <span className="jv">{'+' + fmtI.format(DEMO.cTot[0])}</span>
                   <span className="jv">{'−' + fmtI.format(DEMO.cTot[1])}</span>
                 </div>
               </div>
-              <div className="citz-note">{`Prema zemlji podrijetla/odredišta (ne državljanstvu) · DZS STAN-2026-2-1 (t. I 4) · objavljeno samo za ${DEMO.year}.`}</div>
+              <div className="citz-note">{L(`Prema zemlji podrijetla/odredišta (ne državljanstvu) · DZS STAN-2026-2-1 (t. I 4) · objavljeno samo za ${yr(DEMO.year)}`,
+                `By country of origin/destination (not citizenship) · CBS STAN-2026-2-1 (t. I 4) · published for ${yr(DEMO.year)} only`)}</div>
             </>
           ) : (
             <>
@@ -100,7 +102,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   <FragmentRow key={k} col={col} lab={lab} d={CIT.g[k].d[ci]} o={CIT.g[k].o[ci]} />
                 ))}
                 <span />
-                <span className="ct">Ukupno {y}. · saldo {sgn(ts, fmtI)}</span>
+                <span className="ct">{L('Ukupno ', 'Total ') + yr(y) + L(' · saldo ', ' · net ') + sgn(ts, fmtI)}</span>
                 <span className="cv ct">{'+' + fmtI.format(td)}</span>
                 <span className="cv ct">{'−' + fmtI.format(to)}</span>
               </div>
@@ -110,10 +112,12 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   year while the big year reads another. */}
               {!inRange && (
                 <div className="citz-clamp" id="citzClamp" role="status" aria-live="polite">
-                  {`Vremenska vrpca je na ${YEARS[S.yi]}. — izvan objavljenog raspona, prikazano ${y}.`}
+                  {L(`Vremenska vrpca je na ${yr(YEARS[S.yi])} — izvan objavljenog raspona, prikazano ${yr(y)}`,
+                    `The time scrubber is at ${yr(YEARS[S.yi])} — outside the published range, showing ${yr(y)}`)}
                 </div>
               )}
-              <div className="citz-note" id="citzNote">{`Prema zemlji državljanstva · DZS STAN-2026-2-1 (t. 2) · odabir godine prati vremensku vrpcu unutar ${yy[0]}.–${yy[yy.length - 1]}.`}</div>
+              <div className="citz-note" id="citzNote">{L(`Prema zemlji državljanstva · DZS STAN-2026-2-1 (t. 2) · odabir godine prati vremensku vrpcu unutar ${yrSpan(yy[0], yy[yy.length - 1])}`,
+                `By country of citizenship · CBS STAN-2026-2-1 (t. 2) · the year follows the time scrubber within ${yrSpan(yy[0], yy[yy.length - 1])}`)}</div>
             </>
           )}
         </div>
