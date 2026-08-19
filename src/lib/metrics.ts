@@ -247,7 +247,16 @@ export function getOD(a: string, b: string, yi: number): number {
 }
 export function fsum(a: string, b: string, yi: number, cum: boolean): number {
   if (!cum) return getOD(a, b, yi);
-  let t = 0; for (let i = IX2011; i <= Math.max(yi, IX2011); i++) t += getOD(a, b, i);
+  /* Explicitly 0 before the window opens, like `val()` — the two cumulative
+     primitives were the same function with different floors. `Math.max(yi,
+     IX2011)` made the loop run once for any earlier year and return 2011's
+     value, i.e. a cumulative total for a year the accumulation does not
+     include. Unreachable today (every route clamps yi to ≥ IX2011 in cumulative
+     mode), which is exactly why it was worth removing: it is a defence
+     asymmetry only a future clamp-bypassing caller would ever surface, and by
+     then it would read as data rather than as a bug. */
+  if (yi < IX2011) return 0;
+  let t = 0; for (let i = IX2011; i <= yi; i++) t += getOD(a, b, i);
   return t;
 }
 export function flowOf(sel: string, dir: Dir, p: string, yi: number, cum: boolean): number {
