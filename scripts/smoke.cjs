@@ -49,7 +49,8 @@ function get(url) {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', d => { body += d; });
-      res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'] || '', body }));
+      res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'] || '',
+        headers: res.headers, body }));
     }).on('error', reject);
   });
 }
@@ -87,12 +88,32 @@ function localEntry() {
   ck('the home page answers 200 as HTML', home.status === 200 && /text\/html/.test(home.type),
     home.status + ' ' + home.type);
 
+  /* The live origin sent exactly one security header (HSTS) before the audit
+     pass: no CSP, no frame-ancestors, no nosniff, no Referrer-Policy. These are
+     configured in vercel.json, which only the deploy can prove it applied. */
+  const csp = home.headers['content-security-policy'] || '';
+  ck('the origin sends the Content-Security-Policy the repo configures',
+    /default-src 'self'/.test(csp) && /frame-ancestors 'none'/.test(csp), csp.slice(0, 80) || 'absent');
+  ck('and nosniff plus a referrer policy',
+    home.headers['x-content-type-options'] === 'nosniff'
+    && /strict-origin/.test(home.headers['referrer-policy'] || ''),
+    JSON.stringify({ nosniff: home.headers['x-content-type-options'], ref: home.headers['referrer-policy'] }));
+  ck('the document revalidates rather than being cached blind',
+    /no-cache|max-age=0/.test(home.headers['cache-control'] || ''),
+    home.headers['cache-control'] || 'absent');
+
   /* the build emits relative asset URLs (`./assets/…`), so both forms are read */
   const served = (home.body.match(/src="\.?(\/assets\/index-[\w-]+\.js)"/) || [])[1] || null;
   const local = localEntry();
   ck('the deployed entry chunk is the one in ./dist',
     !!served && !!local && served === local,
     'deployed ' + served + ' · local ' + (local || 'no dist — run `npm run build`'));
+  if (served) {
+    const asset = await get(ORIGIN.replace(/\/$/, '') + served);
+    ck('content-hashed assets are served immutable',
+      /immutable/.test(asset.headers['cache-control'] || ''),
+      asset.headers['cache-control'] || 'absent');
+  }
 
   /* Marker analysis, so a stale deploy is legible even without a local build:
      these strings entered the bundle in v2.2.0 (English) and v2.1.1, and the

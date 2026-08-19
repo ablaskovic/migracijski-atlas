@@ -42,13 +42,38 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 const VERCEL_STUB = ['/_vercel/insights/script.js', '/_vercel/speed-insights/script.js'];
 const stubHits = new Set();
 const notFound = [];
+
+/* The deployed header policy, read from the file that deploys it and applied by
+   the local server below — so the whole run happens under the real
+   Content-Security-Policy instead of asserting that one exists. A policy that
+   breaks the app then fails checks rather than passing them: Chrome logs every
+   violation to the console, and this suite asserts zero console errors twice.
+   Matching is by prefix, which is all the four sources in vercel.json need. */
+const HEADERS = (() => {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../vercel.json'), 'utf8'));
+    return (cfg.headers || []).map(h => ({
+      /* "/(.*)" → every path; "/assets/(.*)" → that prefix; "/(index.html)?" → the root */
+      test: h.source === '/(.*)' ? () => true
+        : h.source === '/(index.html)?' ? p => p === '/' || p === '/index.html'
+          : p => p.startsWith(h.source.replace(/\(\.\*\)$/, '')),
+      set: Object.fromEntries(h.headers.map(x => [x.key, x.value])),
+    }));
+  } catch { return []; }
+})();
+function policyFor(p) {
+  const out = {};
+  for (const h of HEADERS) if (h.test(p)) Object.assign(out, h.set);
+  return out;
+}
+
 function serve(dir) {
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
       let p = decodeURIComponent(req.url.split('?')[0]);
       if (VERCEL_STUB.includes(p)) {
         stubHits.add(p);
-        res.writeHead(200, { 'content-type': 'text/javascript' });
+        res.writeHead(200, { 'content-type': 'text/javascript', ...policyFor(p) });
         res.end('/* Vercel platform route, stubbed by scripts/verify.cjs */');
         return;
       }
@@ -58,7 +83,7 @@ function serve(dir) {
       if (f !== dir && !f.startsWith(dir + path.sep)) { res.writeHead(403); res.end('no'); return; }
       fs.readFile(f, (err, data) => {
         if (err) { notFound.push(p); res.writeHead(404); res.end('nope'); return; }
-        res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' });
+        res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream', ...policyFor(p) });
         res.end(data);
       });
     });
@@ -75,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 393;
+const EXPECTED_CHECKS = 395;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -118,6 +143,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      own block at the end rather than being tested by accident. */
   browser = await puppeteer.launch({ args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR'] });
   const page = await browser.newPage();
+  /* No HTTP cache. The deployed policy this suite now serves marks
+     /assets/* immutable for a year, and a memory-cached response is never a
+     request — so the checks that abort a chunk to test its failure UI silently
+     stopped seeing one, and passed the bug. A harness that repeats the same
+     navigation dozens of times wants every load to be a real load anyway. */
+  await page.setCacheEnabled(false);
   const pinHr = pg => pg.evaluateOnNewDocument(() => {
     Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });
     Object.defineProperty(navigator, 'language', { get: () => 'hr-HR', configurable: true });
@@ -152,6 +183,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      Every page the suite opens goes through here now, and the assertion is
      repeated at end-of-run beside the second zero-errors check. */
   const watch = async (pg, abortIf) => {
+    await pg.setCacheEnabled(false);
     await pg.setRequestInterception(true);
     /* ONE handler per page: a second `page.on('request')` makes both call
        continue() on the same request and puppeteer throws "Request is already
@@ -4454,6 +4486,36 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('and following a link does not rewrite the stored choice',
     linkEn.stored === 'hr' && linkHr.stored === 'en',
     JSON.stringify({ en: linkEn.stored, hr: linkHr.stored }));
+
+  /* ── M-25: the hosting policy, applied to every response of this run ──
+     The live origin sent exactly one security header (HSTS): no CSP, no
+     frame-ancestors, no nosniff, no Referrer-Policy — the page was framable by
+     any origin. And content-hashed assets got no `immutable` while HTML got no
+     revalidation, so a repeat visitor re-validated ~12 conditional requests per
+     load and the cached-HTML-against-purged-chunk mismatch had a clear run.
+     `serve()` reads vercel.json and applies it, so every check above ran under
+     the real policy and a CSP that broke the app would have failed them rather
+     than passing quietly. This asserts the policy is present and is the one the
+     deploy will send. */
+  const docHdr = (await page.goto(url, { waitUntil: 'domcontentloaded' })).headers();
+  await fresh('');
+  const entryUrl = await page.evaluate(() => {
+    const e = performance.getEntriesByType('resource').find(r => /\/assets\/index-.*\.js$/.test(r.name));
+    return e ? e.name : null;
+  });
+  const assetHdr = entryUrl ? (await page.goto(entryUrl, { waitUntil: 'domcontentloaded' })).headers() : {};
+  await fresh('');
+  const csp = docHdr['content-security-policy'] || '';
+  ck('every response carries the deployed security policy',
+    /default-src 'self'/.test(csp) && /frame-ancestors 'none'/.test(csp)
+    && /img-src 'self' data: blob:/.test(csp)
+    && docHdr['x-content-type-options'] === 'nosniff'
+    && /strict-origin/.test(docHdr['referrer-policy'] || ''),
+    JSON.stringify({ csp: csp.slice(0, 80), nosniff: docHdr['x-content-type-options'] }));
+  ck('content-hashed assets are immutable and the document revalidates',
+    /immutable/.test(assetHdr['cache-control'] || '')
+    && /must-revalidate/.test(docHdr['cache-control'] || ''),
+    JSON.stringify({ asset: assetHdr['cache-control'], doc: docHdr['cache-control'] }));
 
   /* ── M-11: the two corridor repairs must not disagree ──
      `#v=mx&s=X&pp=X` looked complete to the lone-half test, passed it, and was
