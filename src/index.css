@@ -452,8 +452,14 @@ svg :focus,#spark:focus{outline:none}
   border:0;border-bottom:1px solid var(--line);border-radius:0;padding:8px 14px 10px}
 /* the row the open card describes — teal, matching the grid's selection ring */
 .rrow.selrow{box-shadow:inset 2px 0 0 var(--acc)}
-.pair-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
-  font-family:var(--mono);font-size:9px;color:var(--ink);margin-top:4px;white-space:nowrap}
+/* `nowrap` on the row meant the docked variant could not give: between 901 and
+   960 px the corridor card sits in the 292 px rail and the row ran 4,9 px past
+   its right edge, clipping the honesty badge — the one thing on it that must not
+   be. The row wraps; the spans inside it still do not, so no figure ever breaks
+   across a line. */
+.pair-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:9px;color:var(--ink);margin-top:4px}
+.pair-row>span{white-space:nowrap}
 .pair-row .cls-tag{font-size:8.5px;margin-top:0}
 .pair-note{font-size:9px;color:var(--mut);margin-top:4px;line-height:1.35}
 
