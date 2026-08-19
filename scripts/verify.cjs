@@ -1090,10 +1090,19 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       return { left: Math.min(...bs.map(b => b.left)), right: Math.max(...bs.map(b => b.right)),
         top: Math.min(...bs.map(b => b.top)), bottom: Math.max(...bs.map(b => b.bottom)) };
     };
+    /* No `position !== 'static'` filter. It looked like "only compare things that
+       float", and what it actually did was delete the Nalazi banner from every
+       comparison this sweep has ever made: .storybar declares no position, so it
+       computes to static and was dropped at all six widths in all four states —
+       560x52 px of visible, opaque banner, invisible to the check. #pair is
+       static below 961 too, so the 960 column lost the corridor card as well.
+       The predicate is the one the zoom sweep was already corrected to: a
+       non-zero box that is actually displayed. Overlap is about boxes; how a box
+       got where it is does not change what it covers. */
     const els = ids.map(s => [s, s === '#chipdock' ? document.querySelector('.chipdock') : document.querySelector(s)])
       .filter(([, e]) => e && e.getBoundingClientRect().width > 0
         && getComputedStyle(e).display !== 'none'
-        && getComputedStyle(e).position !== 'static')
+        && getComputedStyle(e).visibility !== 'hidden')
       .map(([s, e]) => [s, box(e)]);
     const bad = [];
     for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
@@ -1102,9 +1111,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
       if (ov > 1) bad.push(els[i][0] + '×' + els[j][0] + '=' + Math.round(ov));
     }
-    return { bad, n: els.length };
+    return { bad, n: els.length, ids: els.map(e => e[0]) };
   });
-  const midOv = [];
+  const midOv = [], midSeen = new Set();
   let midMin = 99;
   for (const w of [1600, 1440, 1200, 1100, 1000, 960]) {
     await page.setViewport({ width: w, height: 900 });
@@ -1115,11 +1124,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       await fresh(h);
       const r = await allOv();
       midMin = Math.min(midMin, r.n);
+      r.ids.forEach(i => midSeen.add(i));
       if (r.bad.length) midOv.push(w + ':' + r.bad.join(','));
     }
   }
   ck('no map overlay overlaps another at 960–1600 px either', midOv.length === 0, midOv.slice(0, 4).join(' | '));
-  ck('the 960–1600 sweep compared overlays at every width', midMin >= 3, String(midMin));
+  /* A count floor cannot see an element that was never admitted: `n` is computed
+     from the same filtered list, so an id the filter drops can neither raise
+     `bad` nor lower `n`, and the sweep reported a healthy 3–6 while comparing
+     the banner against nothing. Name the ids instead. #zoomRst is the one id in
+     the list no state here produces (it needs k > 1), so eight is the whole set;
+     #storyBar and #pair are named outright because they are the two the old
+     filter removed. */
+  ck('the 960–1600 sweep compared every overlay it lists, the static ones included',
+    midMin >= 3 && midSeen.size >= 8 && midSeen.has('#storyBar') && midSeen.has('#pair'),
+    JSON.stringify({ midMin, seen: [...midSeen].sort() }));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── .paircard is static below 960 px ──
