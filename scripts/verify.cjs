@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 416;
+const EXPECTED_CHECKS = 417;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4468,8 +4468,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      whether Prag or Smjer was mounted. Measured: Izvoz sat beside Vrijeme in
      Saldo and moved to a row of its own in Klasifikacija. */
   /* 1600 and 1150 were absent and both have defect history — the 901–1150
-     collision band, and the 1440 Izvoz wrap. Seven widths, as documented. */
-  for (const W of [1600, 1440, 1280, 1150, 1024, 960, 390]) {
+     collision band, and the 1440 Izvoz wrap. */
+  /* 2560 and 2048 are here because every width above it was measured on a
+     laptop. .hd is `justify-content:space-between` and wraps, so between 2016
+     and 2048 px — measured, not derived — .ctrls stops fitting beside the
+     identity block and takes a line of its own, left-aligned. That is the only
+     reason every width in the list above holds still, and it is why a sweep
+     that stopped at 1600 was green while the header slid about on any monitor
+     wider than 1080p: sharing the line pins .ctrls to the RIGHT edge, so a
+     group that appears translates every control already on the row. Measured at
+     2560 before the fix, Saldo → Klasifikacija moved 29 controls 255,6 px
+     (#segView saldo 1289 → 1033,4) and Saldo → Tokovi/Matrica/JLS moved the
+     same 29 by 151,4 px.
+     2048 rather than a rounder number because it is the worse case: from ~2020
+     to ~2290 the row fitted beside the identity block in Saldo and did not in
+     the view being switched to, so it hopped a whole line — 32 controls, 617 px
+     left and 60 px down (#segView saldo 777,43 → 160,103), taking the header
+     height 80 → 140 with them. Nine widths, as documented. */
+  for (const W of [2560, 2048, 1600, 1440, 1280, 1150, 1024, 960, 390]) {
     await page.setViewport(W === 390
       ? { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 }
       : { width: W, height: 900 });
@@ -4492,7 +4508,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       if (moved.length) viewMoves.push(`${W}px saldo→${v}: ` + moved.join(' | '));
     }
   }
-  ck('pressing a control moves nothing, 1600 down to 390',
+  ck('pressing a control moves nothing, 2560 down to 390',
     pressMoves.length === 0, pressMoves.slice(0, 3).join('  ;  ').slice(0, 300));
   ck('and a view change moves no control that survives it — the optional group only appears',
     viewMoves.length === 0, viewMoves.slice(0, 3).join('  ;  ').slice(0, 300));
@@ -4620,6 +4636,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const expHr = await expBox(''), expEn = await expBox('#l=en');
   ck('the export pair keeps its box across a language switch that renames neither button',
     expHr === expEn, JSON.stringify({ hr: expHr, en: expEn }));
+
+  /* ── and the same view change, on a monitor wider than 1080p ──
+     The sweep above measures .ctrls, which is the header. Everything anchored
+     to the map below it moves when the *header* changes height, and a view
+     change is what changes it: the control row grows a line, the header grows
+     54 px, and #helpBtn, #labBtn and the chip headers all drop by it. That is
+     the real behaviour at 1440 — the row genuinely needs a second line for Prag
+     there and no reserve is being proposed for it — so this is asserted only at
+     the widths this pass is about, where the row fits on one line in every view
+     and therefore nothing may move at all. It is 2048 that earns this check:
+     there the row used to hop between the shared header line and its own on a
+     view change, which took the header 80 → 140 and dropped #helpBtn, #labBtn
+     and both chip headers 60 px with it. At 2560 the header was always one line
+     and these never moved — that width is here to keep it that way.
+     MAP_SNAP rather than CTRL_SNAP, because the header controls are already
+     covered above and these are the ones that were not. */
+  const wideMoves = [];
+  for (const W of [2560, 2048]) {
+    await page.setViewport({ width: W, height: 1080 });
+    for (const v of ['klas', 'reg', 'yrs', 'flow', 'mx']) {
+      await fresh('');
+      const before = await page.evaluate(MAP_SNAP);
+      await click(`#segView button[data-v="${v}"]`);
+      await settle(200);
+      const m = movedBetween(before, await page.evaluate(MAP_SNAP));
+      if (m.length) wideMoves.push(`${W}px saldo→${v}: ` + m.join(' | '));
+    }
+  }
+  ck('a view change on a monitor wider than 1080p moves no control over the map either',
+    wideMoves.length === 0, wideMoves.slice(0, 3).join('  ;  ').slice(0, 300));
+  await page.setViewport({ width: 1440, height: 900 });
 
 
   /* ══════════════════ v2.3.2 — audit pass ══════════════════ */

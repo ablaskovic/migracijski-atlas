@@ -178,7 +178,30 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .hd-titlerow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .hd-lang{width:max-content;flex:none}
 .hd-lang button{padding:0 8px;min-height:24px;font-size:10px;font-family:var(--mono);letter-spacing:.06em}
-.ctrls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+/* `flex-basis:100%` — the control row takes a whole header line at every width,
+   including the ones where it would have fitted beside the identity block.
+   .hd is `justify-content:space-between`, so on a shared line .ctrls is pinned
+   to the RIGHT edge and its left edge is whatever its own width leaves over —
+   which turns every group that appears into a translation of every control
+   already on the row. Measured at 2560×1080 before this: Saldo → Klasifikacija
+   moved 29 controls 255,6 px left (#segView saldo 1289 → 1033,4), and Saldo →
+   Tokovi / Matrica / JLS moved the same 29 by 151,4 px. The two blocks stop
+   fitting on one line between 2016 and 2048 px, so every width the suite
+   measured — 1600 and down — saw a header that held still, and the defect lived
+   only on monitors wider than 1080p.
+   This is the invariant the optional groups already rest on: "last, they can
+   only ever extend the tail" (Header.tsx) is true of a row that grows rightward
+   from a fixed left edge and of no other. It also removes the band just above
+   the threshold where a view change made the whole row hop between the shared
+   line and its own. That band ran ~2020 to ~2290 and was the worse case by some
+   way: at 2048 the row fitted beside the identity block in Saldo and did not in
+   Klasifikacija, so 32 controls went 617 px left and 60 px down at once (.ctrls
+   637,25 → 20,85) and the header went 80 → 140 underneath them. .ctrls is now
+   never a candidate for that line in the first place.
+   It costs the 60 px of header height the shared line was saving, on the
+   monitors wide enough to have had it; .map-wrap is flex:1 and takes the
+   difference. The ≤560 block says `width:100%` for the same reason. */
+.ctrls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;flex-basis:100%}
 .ctrl{display:flex;flex-direction:column;gap:4px}
 /* Explicit line-height, not `normal`. `normal` derives the line box from the
    font's own metrics, and the metric-matched fallback only guarantees the
