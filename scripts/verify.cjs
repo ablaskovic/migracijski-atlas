@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 417;
+const EXPECTED_CHECKS = 418;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4480,11 +4480,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      2560 before the fix, Saldo → Klasifikacija moved 29 controls 255,6 px
      (#segView saldo 1289 → 1033,4) and Saldo → Tokovi/Matrica/JLS moved the
      same 29 by 151,4 px.
-     2048 rather than a rounder number because it is the worse case: from ~2020
-     to ~2290 the row fitted beside the identity block in Saldo and did not in
-     the view being switched to, so it hopped a whole line — 32 controls, 617 px
-     left and 60 px down (#segView saldo 777,43 → 160,103), taking the header
-     height 80 → 140 with them. Nine widths, as documented. */
+     2048 rather than a rounder number because it is the worse case: Saldo shared
+     the line from 2017 px and Klasifikacija only from 2273, so anywhere between
+     the two the row hopped a whole line on a view change — at 2048, 32 controls
+     went 617 px left and 60 px down (#segView saldo 777,43 → 160,103) and took
+     the header height 80 → 140 with them. Nine widths, as documented. */
   for (const W of [2560, 2048, 1600, 1440, 1280, 1150, 1024, 960, 390]) {
     await page.setViewport(W === 390
       ? { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 }
@@ -4498,8 +4498,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       const moved = movedBetween(before, await page.evaluate(CTRL_SNAP));
       if (moved.length) pressMoves.push(`${W}px ${grp}=${v}: ` + moved.join(' | '));
     }
-    /* (2) a view change, which adds or removes a whole group */
-    for (const v of ['klas', 'reg', 'yrs', 'flow', 'mx']) {
+    /* (2) a view change, which adds or removes a whole group. JLS is in the
+       list because it is the only one that swaps a group both ways — #thrBox
+       out, #dirBox in — rather than only adding one, and measured at 2560 and
+       2048 before the fix it moved 25 controls that neither of the other six
+       reached in that shape. */
+    for (const v of ['klas', 'reg', 'yrs', 'flow', 'mx', 'jmap']) {
       await fresh('');
       const before = await page.evaluate(CTRL_SNAP);
       await click(`#segView button[data-v="${v}"]`);
@@ -4653,9 +4657,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      MAP_SNAP rather than CTRL_SNAP, because the header controls are already
      covered above and these are the ones that were not. */
   const wideMoves = [];
-  for (const W of [2560, 2048]) {
+  /* 2272 is the top of the band and the worst case in the whole defect: the
+     Klasifikacija threshold is 2273, so at 2272 Saldo shared the identity
+     block's line and Klasifikacija did not. */
+  for (const W of [2560, 2272, 2048]) {
     await page.setViewport({ width: W, height: 1080 });
-    for (const v of ['klas', 'reg', 'yrs', 'flow', 'mx']) {
+    for (const v of ['klas', 'reg', 'yrs', 'flow', 'mx', 'jmap']) {
       await fresh('');
       const before = await page.evaluate(MAP_SNAP);
       await click(`#segView button[data-v="${v}"]`);
@@ -4666,6 +4673,40 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('a view change on a monitor wider than 1080p moves no control over the map either',
     wideMoves.length === 0, wideMoves.slice(0, 3).join('  ;  ').slice(0, 300));
+
+  /* ── and in the direction a reader actually travels ──
+     Every no-move sweep in this file starts from a fresh Saldo, so all of them
+     have only ever measured a group APPEARING. The largest movement the defect
+     ever produced was one LEAVING: at 2272, Klasifikacija → Saldo took #segView
+     saldo from 160,103,42,25 to 1001,43,42,25 — 841 px sideways and 60 px up in
+     a single click, because the row stopped needing its own header line and
+     jumped back onto the identity block's, where space-between re-pinned it to
+     the right edge. movedBetween already drops anything not rendered in both
+     states, so the group that leaves is not the claim; everything that stays is.
+     Klasifikacija ↔ JLS is the third case neither direction reaches on its own:
+     a swap, #thrBox (245,6 px) out and #dirBox (141,4 px) in, which moved every
+     control 104,2 px at 2560 with nothing appearing or disappearing that a
+     reader could see.
+     English is here because the thresholds are the *content's*, not the
+     layout's, and English is 15 px narrower in the identity block and ~10 px in
+     the row: it shared the line from 1992 px where Croatian needed 2017, so a
+     Croatian-only sweep is blind to a 25 px band — and 1992 is only 72 px above
+     the 1920 the suite already uses for two matrix checks. */
+  const hopMoves = [];
+  for (const [W, pre] of [[2560, ''], [2272, ''], [2048, ''], [2048, 'l=en&'], [1992, 'l=en&']]) {
+    await page.setViewport({ width: W, height: 1080 });
+    for (const [from, to] of [['klas', 'saldo'], ['flow', 'saldo'], ['saldo', 'klas'],
+      ['klas', 'jmap'], ['jmap', 'klas']]) {
+      await fresh('#' + pre + 'v=' + from);
+      const before = await page.evaluate(CTRL_SNAP);
+      await click(`#segView button[data-v="${to}"]`);
+      await settle(200);
+      const m = movedBetween(before, await page.evaluate(CTRL_SNAP));
+      if (m.length) hopMoves.push(`${W}px ${pre ? 'en ' : ''}${from}→${to}: ` + m.join(' | '));
+    }
+  }
+  ck('and a group leaving or being swapped moves no control either, 1992 to 2560, in both languages',
+    hopMoves.length === 0, hopMoves.slice(0, 3).join('  ;  ').slice(0, 300));
   await page.setViewport({ width: 1440, height: 900 });
 
 

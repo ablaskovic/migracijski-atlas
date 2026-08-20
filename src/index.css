@@ -193,11 +193,20 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    only ever extend the tail" (Header.tsx) is true of a row that grows rightward
    from a fixed left edge and of no other. It also removes the band just above
    the threshold where a view change made the whole row hop between the shared
-   line and its own. That band ran ~2020 to ~2290 and was the worse case by some
-   way: at 2048 the row fitted beside the identity block in Saldo and did not in
-   Klasifikacija, so 32 controls went 617 px left and 60 px down at once (.ctrls
-   637,25 → 20,85) and the header went 80 → 140 underneath them. .ctrls is now
-   never a candidate for that line in the first place.
+   line and its own, which was the worse case by some way. Saldo shared it from
+   2017 px and Klasifikacija only from 2273, so between the two a view change
+   moved the row a whole line: at 2048, 32 controls went 617 px left and 60 px
+   down at once (.ctrls 637,25 → 20,85) and the header went 80 → 140 underneath
+   them; at 2272, the top of the band, Klasifikacija → Saldo moved #segView
+   saldo 841 px. .ctrls is now never a candidate for that line in the first
+   place, at any width.
+   Those four numbers are the fine-pointer Croatian ones and they are not the
+   widest: the coarse-pointer block re-pads every control to its 44 px target,
+   which takes the row 1391 → 1522 in Saldo and 1646,6 → 1789,6 in
+   Klasifikacija and moves the band to 2148–2415. A breakpoint or a reserved
+   width would have had to carry the largest cell of that table — two languages
+   × two pointer types × seven views — and keep carrying it as labels change.
+   This carries no number at all.
    It costs the 60 px of header height the shared line was saving, on the
    monitors wide enough to have had it; .map-wrap is flex:1 and takes the
    difference. The ≤560 block says `width:100%` for the same reason. */
