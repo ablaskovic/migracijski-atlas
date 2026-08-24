@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 436;
+const EXPECTED_CHECKS = 437;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -684,6 +684,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     zem.first.includes('Njemačka') && zem.first.includes('+9.628') && zem.first.includes('−6.238'), zem.first);
   ck('zemlje tab lists Nepal +6.264 and totals +56.665',
     zem.all.includes('Nepal') && zem.all.includes('+6.264') && zem.all.includes('+56.665'), '');
+  /* …and the column closes. The list is the top 12 by arrivals and the row under
+     it is the national total, printed adjacently with nothing between them: the
+     12 arrival values sum to 43.365 against 56.665 — 13.300 people, 23,5 % — and
+     departures 27.322 against 37.485. The sibling Skupine tab teaches the
+     opposite, its six group rows summing to its total exactly in all five
+     published years, so the pattern a reader learns there misled them here. */
+  const zemSum = await page.evaluate(() => {
+    const num = t => Number(String(t).replace(/[^\d]/g, '')) || 0;
+    const rows = [...document.querySelectorAll('#zemList .jrow')];
+    const body = rows.filter(r => !r.classList.contains('zt'));
+    const tot = rows.find(r => r.classList.contains('zt'));
+    const vals = r => [...r.querySelectorAll('.jv')].map(v => num(v.textContent));
+    const sum = body.reduce((a, r) => { const v = vals(r); return [a[0] + v[0], a[1] + v[1]]; }, [0, 0]);
+    return { rows: body.length, sum, tot: vals(tot), label: tot.querySelector('.jn').textContent };
+  });
+  ck('the zemlje column sums to its own total row',
+    zemSum.rows === 13 && zemSum.sum[0] === zemSum.tot[0] && zemSum.sum[1] === zemSum.tot[1]
+    && /sve zemlje/i.test(zemSum.label), JSON.stringify(zemSum));
 
   /* ── JLS 2018 map (556 measured polygons; the only municipal migration map) ── */
   await fresh('#v=jmap&dir=net');

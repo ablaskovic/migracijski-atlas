@@ -76,8 +76,24 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                     <span className="jv">{'−' + fmtI.format(o)}</span>
                   </div>
                 ))}
+                {/* The remainder, so the column closes. This list is the top 12
+                    by arrivals and the row below it is the national total, and
+                    the two were printed adjacently with nothing between them:
+                    the 12 arrival values sum to 43.365 against a total of
+                    56.665 — 13.300 people, 23,5 % — and departures 27.322 against
+                    37.485. The sibling Skupine tab teaches the opposite, since
+                    its six group rows sum to its total exactly in all five
+                    published years, so a reader who learned the pattern there was
+                    misled here. Derived, not written out, so a data refresh
+                    cannot leave it asserting a stale difference. */}
+                <div className="jrow">
+                  <span className="jn">{L('Ostale zemlje', 'Other countries')}</span>
+                  <span className="zbar" />
+                  <span className="jv">{'+' + fmtI.format(DEMO.cTot[0] - DEMO.countries.reduce((a, c) => a + c[1], 0))}</span>
+                  <span className="jv">{'−' + fmtI.format(DEMO.cTot[1] - DEMO.countries.reduce((a, c) => a + c[2], 0))}</span>
+                </div>
                 <div className="jrow zt">
-                  <span className="jn">{L('Ukupno ', 'Total ') + yr(DEMO.year)}</span>
+                  <span className="jn">{L('Ukupno — sve zemlje ', 'Total — all countries ') + yr(DEMO.year)}</span>
                   <span className="zbar" />
                   <span className="jv">{'+' + fmtI.format(DEMO.cTot[0])}</span>
                   <span className="jv">{'−' + fmtI.format(DEMO.cTot[1])}</span>
