@@ -3958,10 +3958,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /pobjednice · 7/.test(klasCmp.counts[0]) && /neutralne · 5/.test(klasCmp.counts[1])
     && /gubitnice · 9/.test(klasCmp.counts[2]), JSON.stringify(klasCmp.counts));
   /* One note, never two — the klas legend is the tallest in the app and both
-     .helpcard and .jcard reserve 164 px for its lane. */
-  const klasNotes = await page.evaluate(() => document.querySelectorAll('#legend .legend-note').length);
-  ck('exactly one klasifikacija legend note, and the legend still fits its 164 px lane',
-    klasNotes === 1 && klasCmp.h <= 164, JSON.stringify({ notes: klasNotes, h: klasCmp.h }));
+     .helpcard and .jcard reserve a lane for it. The bound said 164, which was the
+     reserve BEFORE index.css raised it to 176 for the English string; the panels
+     sit at top:14, so what the legend may occupy is 176 − 14 = 162. And the
+     measurement ran in Croatian only, while the note above the reserve says the
+     ENGLISH klas legend is the tall one — 148,4 px off the map's bottom edge
+     against Croatian's 137,4 — so the binding case was the one not measured. */
+  const klasLane = {};
+  for (const [lang, pre] of [['hr', '#'], ['en', '#l=en&']]) {
+    await fresh(pre + 'v=klas&y=2024');
+    klasLane[lang] = await page.evaluate(() => ({
+      notes: document.querySelectorAll('#legend .legend-note').length,
+      h: document.querySelector('#legend').getBoundingClientRect().height,
+    }));
+  }
+  ck('exactly one klasifikacija legend note, and the legend still fits its 162 px lane',
+    klasLane.hr.notes === 1 && klasLane.en.notes === 1
+    && klasLane.hr.h <= 162 && klasLane.en.h <= 162, JSON.stringify(klasLane));
   /* Off the study's threshold or endpoint the comparison is meaningless, so the
      note must stop asserting one and say what the study actually computed. */
   await fresh('#v=klas&y=2025');
