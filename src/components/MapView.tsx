@@ -288,8 +288,19 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
        the legend's 176 px lane; index.css lets the legend yield there. 340 is
        14 (the panel's top offset) + its 140 px floor + 8 of clearance + the
        tallest legend measured (148, the English klas one) + its 12 px offset. */
+    /* Unconditionally, including 0. `size.h ? … : undefined` left the property
+       UNSET on a zero-measure stage, so every `var(--stageh,600px)` consumer read
+       600px — the one value guaranteed to be wrong there. --chipfree then
+       resolved to 428px and the citizenship body reserved 377 px inside a 0 px
+       stage: measured at 932×430 with a coarse pointer, the panel rendered at
+       [328,−180,296,388], so 180 px of it sat above the top of the screen where
+       its own overflow-y:auto cannot reach, and the rest landed on the header —
+       61.568 px² over .hd, with elementFromPoint at #segDen's centre returning
+       #ageHd and at the HR/EN switch returning #citzSvg. 0px reads as 0px now,
+       and the floors added for the short-stage case keep it a small panel rather
+       than a negative one. */
     <div className={'map-wrap' + (size.h && size.h < 340 ? ' stage-short' : '')}
-      style={{ '--stageh': size.h ? size.h + 'px' : undefined } as CSSProperties}>
+      style={{ '--stageh': size.h + 'px' } as CSSProperties}>
       <DetailCard S={S} setS={setS} />
       {/* outside .map-box on purpose: at ≤900 it leaves the overlay layer and
           sits in normal flow above the map, like the detail card. Floating, it
