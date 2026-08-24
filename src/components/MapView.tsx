@@ -434,7 +434,25 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                   onPointerMove={moveTip} onClick={() => selectCounty(iso)}
                   /* the ring is a keyboard affordance: drawn from the focus
                      event alone it also appeared on a plain mouse click */
-                  onFocus={e => { setHL(iso); if (isKeyFocus(e.currentTarget)) setFIso(iso); }}
+                  /* …and the tip has to be placed, not merely shown. moveTip
+                     replays the last POINTER position, and there may not have
+                     been one: measured at 1440×900 on a fresh load with the
+                     pointer never moved, focusing HR-19 painted its full readout
+                     at 0,0 — a 260×242 black panel over the app header — while
+                     the county it describes sits at (575,598). After a hover it
+                     is worse in a quieter way: hover Istarska (tip at 345,349),
+                     focus Vukovarsko-srijemska at (763,288) and the tip keeps its
+                     old position and swaps its content, so one county's numbers
+                     are anchored over another ~420 px away. Every Tab through the
+                     21 paths reproduced it. The JLS path 60 lines below and both
+                     grid views already do exactly this. */
+                  onFocus={e => {
+                    setHL(iso);
+                    if (!isKeyFocus(e.currentTarget)) return;
+                    setFIso(iso);
+                    const r = e.currentTarget.getBoundingClientRect();
+                    moveTip({ clientX: r.right, clientY: r.bottom });
+                  }}
                   onBlur={() => { setHL(null); setFIso(null); }}
                   /* Space is the other native activation key. Without it the
                      press fell through to App's window handler, which read a

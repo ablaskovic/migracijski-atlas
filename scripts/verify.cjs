@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 440;
+const EXPECTED_CHECKS = 441;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -473,6 +473,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await settle(80);
   const mark = await page.evaluate(() => !!document.querySelector('#legend .legend-mark'));
   ck('legend shows hover mark on gradient', mark);
+  /* Focus must PLACE the tip, not merely show it. moveTip replays the last
+     pointer position and there may not have been one: measured on a fresh load
+     with the pointer never moved, focusing a county painted its 260×242 readout
+     at 0,0 — over the app header — while the county sits at (575,598). After a
+     hover it is quieter and worse: the tip keeps the previous county's position
+     and swaps its content, anchoring one county's numbers over another ~420 px
+     away. Both grid views and the JLS path already place it. */
+  await fresh('');
+  const focTip = await page.evaluate(async () => {
+    const c = document.querySelector('.cnt[data-iso="HR-19"]');
+    c.focus();
+    await new Promise(r => setTimeout(r, 250));
+    const t = document.querySelector('#tip').getBoundingClientRect();
+    const b = c.getBoundingClientRect();
+    return { tip: { x: Math.round(t.x), y: Math.round(t.y) },
+      county: { x: Math.round(b.x), y: Math.round(b.y) },
+      shown: document.querySelector('#tip').classList.contains('show'),
+      near: Math.hypot(t.x - b.right, t.y - b.bottom) < 320 };
+  });
+  ck('focusing a county places its tooltip beside it, not at the origin',
+    focTip.shown && focTip.near && (focTip.tip.x > 0 || focTip.tip.y > 0),
+    JSON.stringify(focTip));
   await click('path[data-iso="HR-18"]');
   const cardRow = await page.evaluate(() => ({
     row: document.querySelector('#cardRow')?.textContent || '',
