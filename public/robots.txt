@@ -24,9 +24,8 @@
 User-agent: *
 Allow: /
 
-# Absolute by protocol — a Sitemap URL may not be relative. That is safe to
-# hardcode even though the build is otherwise host-agnostic (vite base './',
-# "works from any subpath"): robots.txt is only ever fetched from an origin
-# root, so a subpath deployment's copy is never read by a crawler at all and
-# this line cannot mislead one.
+# Absolute by protocol — a Sitemap URL may not be relative. Safe to hardcode:
+# robots.txt is only ever fetched from an origin root, and the build is
+# `base: '/'` anyway (see vite.config.ts — the subpath property was retired
+# because relative asset URLs and the catch-all rewrite cannot both hold).
 Sitemap: https://migracijski-atlas.hr/sitemap.xml

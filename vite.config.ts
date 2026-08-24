@@ -20,12 +20,25 @@ const dropDataChunkMaps = {
   },
 };
 
-// base './' so the production build works from any subpath. NOT from file://:
-// the entry is an ES module, and a module fetched from a null origin is
-// CORS-blocked (measured — blank page, "blocked by CORS policy"). Serve it.
+// base '/' — root-absolute asset URLs. This used to be './', "so the production
+// build works from any subpath", and that property is in direct conflict with the
+// catch-all rewrite the deploy needs: vercel.json renders index.html for any
+// path, and a relative `./assets/index-*.js` inside a document served at /a/b
+// resolves to /a/assets/index-*.js, which the SAME rewrite matched — so Chrome
+// received text/html for a module script, refused it on strict MIME checking and
+// React never mounted. Measured against the real rule: / and /atlas boot; /atlas/
+// and /a/b and /en/saldo do not — #map absent, the boot placeholder is the
+// permanent UI, and its own "Reload the page" link resolves back into the same
+// dead path forever. Every trailing-slash or two-segment URL a crawler mints, a
+// reader mistypes or somebody shares landed there.
+// Root-absolute URLs resolve at the origin whatever path served the document, so
+// all of those boot now. The cost is the subpath property, which nothing
+// deployed here used and which is what produced the defect. (Still NOT file://:
+// the entry is an ES module and a module fetched from a null origin is
+// CORS-blocked — measured, blank page, "blocked by CORS policy". Serve it.)
 export default defineConfig({
   plugins: [react(), dropDataChunkMaps],
-  base: './',
+  base: '/',
   // Source maps ship. The cost is ~1,5 MB of .map files sitting in dist that a
   // browser fetches only when devtools is open, so no visitor pays for them;
   // the benefit is that a stack trace from the deployed app names a line in

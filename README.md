@@ -32,7 +32,7 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
 npm i -D puppeteer   # once, for verification (see below)
-npm run verify       # typecheck + lint + build + 425-check suite (must pass)
+npm run verify       # typecheck + lint + build + 426-check suite (must pass)
 npm run smoke        # probe the DEPLOYED origin (network; not part of verify)
 ```
 
@@ -81,10 +81,19 @@ history.
 [`vercel.json`](vercel.json) is the whole configuration, and both of its lines
 are load-bearing. The rewrite renders `index.html` for any path, because the
 whole site is one page and state lives in the fragment — but it deliberately
-does **not** match `/assets/` or `/fonts/`. A catch-all that also swallowed
-those answered a purged or mistyped hashed chunk with `200 text/html`, so the
-browser reported a MIME error instead of a 404 and the first-paint placeholder
-ran for ever. Missing assets 404 like assets.
+does **not** match `/assets/` or `/fonts/`, **at any depth**. A catch-all that
+also swallowed those answered a purged or mistyped hashed chunk with
+`200 text/html`, so the browser reported a MIME error instead of a 404 and the
+first-paint placeholder ran for ever. Missing assets 404 like assets.
+
+The exclusion has to be depth-independent because the rewrite serves the same
+document at `/a/b`, and a relative asset URL inside it resolves to
+`/a/assets/…`, which a leading-anchored lookahead did not exclude. That is also
+why the build is `base: '/'` rather than `'./'`: root-absolute URLs resolve at
+the origin whatever path served the document, so a trailing-slash or
+two-segment URL boots the app instead of hanging on the placeholder. The build
+is no longer relocatable to a subpath — see the comment in
+[`vite.config.ts`](vite.config.ts).
 
 The placeholder itself gives up out loud after ten seconds, through a delayed
 CSS animation rather than a timer, so the front door still ships no script of

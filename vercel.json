@@ -2,7 +2,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/((?!assets/|fonts/).*)",
+      "source": "/((?!assets/|fonts/)(?!.*/(?:assets|fonts)/).*)",
       "destination": "/index.html"
     }
   ],

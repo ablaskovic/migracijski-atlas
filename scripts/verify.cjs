@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 425;
+const EXPECTED_CHECKS = 426;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5132,6 +5132,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && rw.deep.status === 200 && /id="root"/.test(rw.deep.body)
     && rw.asset.status === 404 && rw.font.status === 404,
     JSON.stringify({ sub: rw.sub.status, deep: rw.deep.status, asset: rw.asset.status, font: rw.font.status }));
+  /* …and serving the shell is not the same as mounting. Under the old relative
+     `base: './'` a document served at /a/b resolved its entry to
+     /a/assets/index-*.js, which the rewrite itself answered with text/html —
+     Chrome refused it on strict MIME checking and React never mounted, so every
+     trailing-slash or two-segment URL was a permanent boot placeholder whose own
+     "Reload the page" link pointed back into the same dead path. Drive a real
+     navigation to a two-segment path and require the map. */
+  await page.goto('about:blank');
+  await page.goto(base + '/en/saldo', { waitUntil: 'networkidle0' });
+  await settle(400);
+  const deepBoot = await page.evaluate(() => ({
+    map: !!document.querySelector('#map'),
+    boot: !!document.querySelector('.boot'),
+    kids: (document.querySelector('#root') || {}).childElementCount,
+  }));
+  ck('a two-segment URL mounts the app, not the boot placeholder',
+    deepBoot.map && !deepBoot.boot, JSON.stringify(deepBoot));
+  await fresh('');
 
   /* ── M-8: the exported JLS figure must state its direction ──
      Odlasci, Dolasci and Neto shared one title, one badge and one filename, so
