@@ -2338,15 +2338,30 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      numbers only render at cell >= 22 px, which 1440 does not reach (19 px) */
   await page.setViewport({ width: 1920, height: 1200 });
   await fresh('#v=mx&y=2018&c=0&dir=in');
+  /* Parsed and counted per element, not regexed over the whole string. `baked`
+     was `/class="mxnum"[^>]*paint-order="stroke"/ || /paint-order="stroke"/`,
+     whose second alternative subsumes the first — so it was true if that
+     substring appeared anywhere in the document, on the eyebrow, a legend label,
+     a title line. `whiteStroke` likewise only needed SOME single tag to carry
+     both attributes. Change the bake loop's selector (a refactor that renames the
+     class, or one that starts haloing the legend caption instead) and all 419
+     in-cell numbers ship bare — ink on indigo at ~2,5:1, the exact contrast
+     failure this block was written for — while one haloed text anywhere keeps
+     both flags true. `livePaint` does not cover the gap either: it reads the
+     stylesheet the exported document deliberately does not ship. */
   const halo = await page.evaluate(() => {
     const svg = window.__exportSVG(false) || '';
     const live = document.querySelector('.mxnum');
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    const nums = [...doc.querySelectorAll('.mxnum')];
+    const haloed = nums.filter(t => t.getAttribute('paint-order') === 'stroke'
+      && t.getAttribute('stroke') === '#fff' && +t.getAttribute('stroke-width') > 0);
     return { livePaint: live ? getComputedStyle(live).paintOrder : null,
-      baked: /class="mxnum"[^>]*paint-order="stroke"/.test(svg) || /paint-order="stroke"/.test(svg),
-      whiteStroke: /paint-order="stroke"[^>]*stroke="#fff"|stroke="#fff"[^>]*paint-order="stroke"/.test(svg) };
+      total: nums.length, haloed: haloed.length };
   });
   ck('matrix numbers carry a white halo on screen and baked into the export',
-    halo.livePaint === 'stroke' && halo.baked && halo.whiteStroke, JSON.stringify(halo));
+    halo.livePaint === 'stroke' && halo.total >= 100 && halo.haloed === halo.total,
+    JSON.stringify(halo));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── P2: the JLS export attributes OSM/ODbL, not geoBoundaries ── */
