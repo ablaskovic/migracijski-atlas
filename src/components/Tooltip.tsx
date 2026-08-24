@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
   D, ISOS, SHORTN, YEARS, IX2011, REG, REGOF,
-  natAt, fsum, klasOf, KCOL, KLAB, badgeText, flowKind, fmtI, fmtR, sgn,
+  natAt, fsum, klasOf, denom, KCOL, KLAB, badgeText, flowKind, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 
@@ -90,7 +90,21 @@ function countyBlock(S: State, iso: string, yi: number): string {
   let ii = 0, oi = 0, ie = 0, oe = 0;
   if (cum) { for (let i = IX2011; i <= Math.max(yi, IX2011); i++) { ii += c.ii[i]; oi += c.oi[i]; ie += c.ie[i]; oe += c.oe[i]; } }
   else { ii = c.ii[yi]; oi = c.oi[yi]; ie = c.ie[yi]; oe = c.oe[yi]; }
-  const vi = ii - oi, ve = ie - oe, vt = vi + ve, rt = vt / c.p * 100;
+  const vi = ii - oi, ve = ie - oe, vt = vi + ve;
+  /* Against the denominator the reader actually chose, not against the 2011
+     census unconditionally. Every other surface routes through
+     `metrics.denom(iso, yi, den)`, and this one did not read S.den at all: in
+     `d=relest` the legend's axis ended at ±20,6 %, the rail row read
+     Vukovarsko-srijemska −20,6 % and so did the path's aria-label, while the
+     tooltip under the cursor said −15,8 % — the darkest county on the map
+     reporting the wrong number, and switching Vrijednosti recoloured the map and
+     left the readout unchanged, which reads as the control being broken. The gap
+     is widest exactly where the map is darkest, because the counties that lost
+     most have the smallest current estimate. `abs` keeps the census form it
+     already had: there is no percentage on screen to agree with there. */
+  const dn = S.den === 'abs' ? 'rel11' : S.den;
+  const rt = vt / denom(iso, yi, dn) * 100;
+  const rtLab = dn === 'relest' ? L(' % tek. procjene)', ' % of current est.)') : L(' % pop. 2011.)', ' % of 2011 pop.)');
   let nt = 0; if (cum) { for (let i = IX2011; i <= Math.max(yi, IX2011); i++) nt += natAt(iso, i); } else nt = natAt(iso, yi);
   const per = cum ? yrSpan(2011, y) : yrOf(y);
   let h = '<div class="tip-name">' + esc(c.n) + (S.view === 'reg' ? ' · ' + esc(REG[REGOF[iso]].name) : '') + '</div><table>' +
@@ -100,7 +114,7 @@ function countyBlock(S: State, iso: string, yi: number): string {
     '<tr><td>' + L('odseljeni u inoz.', 'out to abroad') + '</td><td>−' + fmtI.format(oe) + '</td></tr>' +
     '<tr class="tip-net"><td>' + L('saldo unutarnje', 'net internal') + '</td><td class="' + (vi < 0 ? 'neg' : 'pos') + '">' + sgn(vi, fmtI) + '</td></tr>' +
     '<tr class="tip-net" style="font-weight:400"><td>' + L('saldo vanjske', 'net external') + '</td><td class="' + (ve < 0 ? 'neg' : 'pos') + '">' + sgn(ve, fmtI) + '</td></tr>' +
-    '<tr class="tip-net"><td>' + L('migracije · ', 'migration · ') + per + '</td><td class="' + (vt < 0 ? 'neg' : 'pos') + '">' + sgn(vt, fmtI) + ' (' + sgn(rt, fmtR) + L(' % pop. 2011.)', ' % of 2011 pop.)') + '</td></tr>' +
+    '<tr class="tip-net"><td>' + L('migracije · ', 'migration · ') + per + '</td><td class="' + (vt < 0 ? 'neg' : 'pos') + '">' + sgn(vt, fmtI) + ' (' + sgn(rt, fmtR) + rtLab + '</td></tr>' +
     '<tr class="tip-net" style="font-weight:400"><td>' + L('prirodni prirast', 'natural change') + '</td><td class="' + (nt < 0 ? 'neg' : 'pos') + '">' + sgn(nt, fmtI) + '</td></tr>' +
     /* not "ukupna promjena": this is the identity sum of two published
        components, not DZS total population change */
