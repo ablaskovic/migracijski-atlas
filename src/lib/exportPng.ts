@@ -361,9 +361,21 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
     URL.revokeObjectURL(url);
     throw e;
   }
-  const SC = 2;
+  /* Derived, not fixed at 2. `.main`/`.map-wrap` carry no max-width, so .map-box
+     grows to the window minus the 292 px rail: measured at 3840×2160 the map is
+     3548×1856 and a flat SC=2 asks for a 7096×4060 canvas — 28,8 Mpx, ~110 MB of
+     RGBA backing store, on top of the ~25 MB decoded blob-URL <img> drawImage
+     reads from and the serialised SVG. WebKit caps canvas backing store by AREA
+     (16.777.216 px on iOS/iPadOS) and past it toBlob yields a blank image rather
+     than an error, so the reader downloads an empty frame with no message. This
+     keeps 2× on every ordinary window — 1440×900 and 2560×1440 are both well
+     under the cap — and degrades toward 1× instead of failing on a 4K or 5K one. */
+  const MAX_PX = 16_000_000;
+  const SC = Math.max(1, Math.min(2, Math.sqrt(MAX_PX / Math.max(1, w * (h + TOP + BOT)))));
   const cv = document.createElement('canvas');
-  cv.width = w * SC; cv.height = (h + TOP + BOT) * SC;
+  /* rounded: SC is only fractional once the clamp engages, and a canvas takes
+     integers — the reference window keeps an exact 2x, which the suite pins */
+  cv.width = Math.round(w * SC); cv.height = Math.round((h + TOP + BOT) * SC);
   const ctx = cv.getContext('2d')!; ctx.scale(SC, SC);
   ctx.fillStyle = '#F4F5F2'; ctx.fillRect(0, 0, w, h + TOP + BOT);
   ctx.fillStyle = '#5F6A72'; ctx.font = '500 ' + B.eyebrowFs + 'px ' + MONO_CSS;

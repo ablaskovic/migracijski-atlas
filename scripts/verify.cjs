@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 450;
+const EXPECTED_CHECKS = 451;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -486,6 +486,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('exportPNG dims = 2x the SVG twin, width = 2x map', png.w === png.expW && png.h === png.expH,
     png.w + 'x' + png.h + ' vs ' + png.expW + 'x' + png.expH);
   ck('exportPNG produces a real blob (>50 KB)', png.bytes > 50000, String(png.bytes));
+  /* …and on a window big enough to matter the canvas is clamped by area rather
+     than blindly doubled. .main and .map-wrap carry no max-width, so at 3840×2160
+     the map is 3548×1856 and a flat 2× asks for 7096×4060 — 28,8 Mpx, ~110 MB of
+     backing store, on top of the ~25 MB decoded <img> drawImage reads from. WebKit
+     caps backing store by area at 16.777.216 px and past it toBlob yields a BLANK
+     image rather than an error, so the reader downloads an empty frame with no
+     message. */
+  await page.setViewport({ width: 3840, height: 2160 });
+  await fresh('');
+  const png4k = await page.evaluate(async () => {
+    const r = await window.__exportPNG(false);
+    return { w: r.w, h: r.h, px: r.w * r.h, bytes: r.bytes, map: document.querySelector('#map').clientWidth };
+  });
+  ck('the PNG export is clamped by area on a very large window',
+    png4k.px <= 16000000 && png4k.px > 4000000 && png4k.bytes > 50000,
+    JSON.stringify(png4k));
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('');
 
   /* ── SVG export (vector twin) ── */
   const svgDoc = await page.evaluate(() => window.__exportSVG(false));
