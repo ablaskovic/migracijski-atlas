@@ -352,14 +352,17 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   const clone = bakeMapClone(node);
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
   const img = new Image();
-  /* The revoke used to sit after this await, so every *failed* export stranded a
-     multi-hundred-KB blob for the life of the document and each retry stranded
-     another. try/finally is what makes a cleanup a cleanup. */
+  /* try/FINALLY, and revoked the moment the load settles. It used to be revoked
+     on two paths only — a successful draw, and an image error — so anything that
+     threw between the load and the draw (the canvas setup, the band, or now the
+     area clamp and the encode) stranded a multi-hundred-KB blob for the life of
+     the document, and every retry stranded another. Once onload has fired the
+     bitmap is decoded and held by the <img>, so revoking here is safe and the
+     later drawImage is unaffected — which is what makes one finally enough. */
   try {
     await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('the serialised map did not rasterise')); img.src = url; });
-  } catch (e) {
+  } finally {
     URL.revokeObjectURL(url);
-    throw e;
   }
   /* Derived, not fixed at 2. `.main`/`.map-wrap` carry no max-width, so .map-box
      grows to the window minus the 292 px rail: measured at 3840×2160 the map is
@@ -391,7 +394,6 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   const ruleY = 70 + (B.titleLines.length - 1) * TITLE_LH;
   ctx.strokeStyle = '#D9DDD6'; ctx.beginPath(); ctx.moveTo(20, ruleY); ctx.lineTo(w - 20, ruleY); ctx.stroke();
   ctx.drawImage(img, 0, TOP, w, h);
-  URL.revokeObjectURL(url);
   const ly = h + TOP + 18;
   const leg = legendSpec(S);
   ctx.font = '400 10px "IBM Plex Sans",system-ui,sans-serif';
