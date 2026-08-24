@@ -1176,6 +1176,11 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   /* and the zoom reset is a control too — it was the one map button the coarse
      pass skipped, at 9,5 px type in 4/8 px of padding */
   .zoomrst{min-height:44px;padding:4px 10px;font-size:0.65625rem}
+  /* …and so is the labels toggle, which this block also missed: measured 23 px
+     tall against the 44 px every other control here is re-padded to, and against
+     the 24 px WCAG 2.5.8 asks for outright. It is hidden below 900 px, so a
+     coarse pointer on a tablet was exactly where it was reachable and undersized. */
+  .labbtn{min-height:44px;padding:4px 10px}
   .play{width:48px}
 }
 
