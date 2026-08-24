@@ -4988,8 +4988,35 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
   /* County names are identifiers — they are what a reader checks against a DZS
      table — so they are NOT translated, in either direction. */
+  /* A real set comparison, not one name. `en1.top === 'Grad Zagreb'` re-asserts a
+     conjunct the check two blocks up already makes, and samples 1 of the 577
+     place names the claim covers — so 20 counties and all 556 municipalities
+     could be translated and this printed ok. Both lists, element for element,
+     against the same lists read in Croatian. */
+  const namesHr = {};
+  for (const [k, h, sel] of [['rail', '#v=saldo&c=1&y=2024', '#railList .rname'],
+    ['jls', '#v=jmap&dir=net', '.jl']]) {
+    await fresh(h);
+    namesHr[k] = await page.evaluate(x => x === '.jl'
+      ? [...document.querySelectorAll('.jl')].map(e => (e.getAttribute('aria-label') || '').split(',')[0])
+      : [...document.querySelectorAll(x)].map(e => e.textContent.trim()), sel);
+  }
+  const namesEn = {};
+  for (const [k, h, sel] of [['rail', '#l=en&v=saldo&c=1&y=2024', '#railList .rname'],
+    ['jls', '#l=en&v=jmap&dir=net', '.jl']]) {
+    await fresh(h);
+    namesEn[k] = await page.evaluate(x => x === '.jl'
+      ? [...document.querySelectorAll('.jl')].map(e => (e.getAttribute('aria-label') || '').split(',')[0])
+      : [...document.querySelectorAll(x)].map(e => e.textContent.trim()), sel);
+  }
   ck('county names are left in Croatian, because they are identifiers',
-    en1.top === 'Grad Zagreb', en1.top);
+    namesHr.rail.length === 21 && namesEn.rail.length === 21
+    && namesHr.jls.length === 556 && namesEn.jls.length === 556
+    && namesHr.rail.every((n, i) => n === namesEn.rail[i])
+    && namesHr.jls.every((n, i) => n === namesEn.jls[i]),
+    JSON.stringify({ rail: namesHr.rail.length, jls: namesHr.jls.length,
+      firstDiff: namesHr.jls.find((n, i) => n !== namesEn.jls[i]) || null }));
+  await fresh('#l=en&v=saldo&c=1&y=2024');
 
   /* The honesty labels are the load-bearing ones. A badge nobody can read is
      not a label — and the measured/estimate distinction has to keep its
