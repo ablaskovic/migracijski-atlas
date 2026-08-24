@@ -423,11 +423,19 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   /* bottom-up, so the source credit is always the last line on the image */
   B.credits.forEach((ln, i) => ctx.fillText(
     ln, 20, h + TOP + BOT - CREDIT_LH * (B.credits.length - i)));
-  if (!dl) {
-    const b = await new Promise<Blob | null>(r => cv.toBlob(r, 'image/png'));
-    return { w: cv.width, h: cv.height, bytes: b ? b.size : 0 };
-  }
-  cv.toBlob(b => { if (b) download(b, fname(S, per, 'png')); }, 'image/png');
+  /* One awaited encode for both branches. The download path used to fire
+     `cv.toBlob(b => { if (b) download(b, …) })` and return immediately, so the
+     function resolved before the callback ran: Header's `catch`/`fail('png')`
+     could not see an encode failure, `setBusy(false)` ran while the encode was
+     still in flight, and a null blob — which is exactly what a canvas over the
+     platform's area cap returns — was silently swallowed. Nothing downloaded,
+     nothing reported, the button back to normal. Awaiting it makes the failure
+     an exception the existing handler already renders, and keeps `busy` true
+     until the file is genuinely handed to the browser. */
+  const blob = await new Promise<Blob | null>(r => cv.toBlob(r, 'image/png'));
+  if (!blob) throw new Error('canvas.toBlob returned null (canvas too large, or the encode was refused)');
+  if (!dl) return { w: cv.width, h: cv.height, bytes: blob.size };
+  download(blob, fname(S, per, 'png'));
   return undefined;
 }
 
