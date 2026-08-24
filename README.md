@@ -32,7 +32,7 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
 npm i -D puppeteer   # once, for verification (see below)
-npm run verify       # typecheck + lint + build + 423-check suite (must pass)
+npm run verify       # typecheck + lint + build + 424-check suite (must pass)
 npm run smoke        # probe the DEPLOYED origin (network; not part of verify)
 ```
 

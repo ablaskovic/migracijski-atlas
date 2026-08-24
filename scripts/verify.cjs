@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 423;
+const EXPECTED_CHECKS = 424;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3576,9 +3576,54 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     yg.tab0 === 1, String(yg.tab0));
   ck('a cell states its own county, year and value (#tip is aria-hidden)',
     /^Grad Zagreb, 2011\.: \+2\.139$/.test(yg.aria0), yg.aria0);
-  ck('no cell sits under the legend, and the grid keeps a usable cell',
+  /* At the reference viewport the design target is met outright: nothing under
+     the legend and a cell well past the 12 px fitGrid aims for. That is worth
+     pinning, but it was the ONLY place either property was measured — see the
+     sweep below for what the contract actually is. */
+  ck('at 1440×900 no cell sits under the legend and the grid clears its 12 px target',
     yg.overLegend === 0 && yg.cw >= 12 && yg.ch >= 12,
     JSON.stringify({ over: yg.overLegend, cw: yg.cw, ch: yg.ch }));
+  /* Swept, and against the floor the code actually guarantees. The whole `yg`
+     probe ran at one viewport, and both of its clauses are false elsewhere on the
+     shipped build: at 1024×768 annual, 48 cells sit inside the legend's rect at a
+     12,0 × 10,0 px cell; at 1024×700, 160 cells; at 1280×720 the cell is
+     10,3 × 11,5 and at 901×900 it is 7,6 × 11,3. The 12 px is not the app's floor
+     at all — YearsView floors at 7 × 10 — it is a coincidence of 1440×900. And
+     gridfit documents overflow *past the legend* as the intended trade when no
+     placement reaches its target, so `overLegend === 0` was asserting a property
+     the design deliberately gives up. What the design does not give up is the
+     other half of that trade: the overflow must run past the legend, which is
+     pointer-events:none, and never under the chip dock, which is opaque and eats
+     the pointer — that is where a cell stops being reachable rather than merely
+     off-box. */
+  const ygSweep = [];
+  for (const [vw, vh] of [[1600, 900], [1440, 900], [1280, 900], [1280, 720],
+    [1024, 768], [1024, 700], [960, 900], [901, 900]]) {
+    await page.setViewport({ width: vw, height: vh });
+    for (const h of ['#v=yrs&c=1&y=2024', '#v=yrs&c=0&y=2024']) {
+      await fresh(h);
+      const g = await page.evaluate(() => {
+        const cells = [...document.querySelectorAll('#map .yrc')];
+        const dock = document.querySelector('.chipdock');
+        const d = dock && getComputedStyle(dock).position === 'absolute'
+          ? dock.getBoundingClientRect() : null;
+        const leg = document.querySelector('#legend').getBoundingClientRect();
+        const hits = (r, box) => r.left < box.right && r.right > box.left
+          && r.top < box.bottom && r.bottom > box.top;
+        const b0 = cells[0].getBoundingClientRect();
+        return { n: cells.length, cw: +b0.width.toFixed(1), ch: +b0.height.toFixed(1),
+          overDock: d ? cells.filter(c => hits(c.getBoundingClientRect(), d)).length : 0,
+          overLegend: cells.filter(c => hits(c.getBoundingClientRect(), leg)).length };
+      });
+      if (!g.n || g.cw < 7 || g.ch < 10 || g.overDock > 0) {
+        ygSweep.push(vw + 'x' + vh + ' ' + h.slice(1) + ' ' + JSON.stringify(g));
+      }
+    }
+  }
+  ck('Godine keeps its 7×10 cell floor and never overflows under the chip dock, 901–1600 px',
+    ygSweep.length === 0, ygSweep.slice(0, 3).join(' | '));
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('#v=yrs&c=1&y=2024');
   ck('the selected year is marked and no pre-2007 hatch appears in cumulative mode',
     yg.sel === 1 && yg.pre === 0, JSON.stringify({ sel: yg.sel, pre: yg.pre }));
   /* nothing to open here — the row IS the county's series, so a rail row must not
