@@ -501,22 +501,6 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   labN = await page.evaluate(() => document.querySelectorAll('#map .clab').length);
   ck('labels toggle off removes labels', labN === 0, String(labN));
 
-  /* …and the toggle is mounted only where something consumes it. `labelG` is
-     rendered by the two geometry branches, and Godine renders YearsView, which
-     never reads S.labels — so in that view the button flipped to .on, announced
-     "pressed", appended `lb=1` to the shared permalink, and changed nothing on
-     screen. The old check exercised only the default Saldo view and counted only
-     `#map .clab`, so it excluded the culprit view by construction. */
-  const labViews = [];
-  for (const [h, want] of [['#v=saldo', true], ['#v=klas', true], ['#v=reg', true],
-    ['#v=flow&s=HR-21', true], ['#v=jmap', true], ['#v=mx&y=2018&c=0', false], ['#v=yrs', false]]) {
-    await fresh(h);
-    const has = await page.evaluate(() => !!document.querySelector('#labBtn'));
-    if (has !== want) labViews.push(h + ' has=' + has + ' want=' + want);
-  }
-  ck('the labels toggle is mounted exactly in the views that draw labels',
-    labViews.length === 0, labViews.join(' | '));
-  await fresh('');
 
   /* ── scrubber last tick not clipped ── */
   /* By content, not by DOM order. The year ticks are rendered before the EU
@@ -582,6 +566,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('focusing a county places its tooltip beside it, not at the origin',
     focTip.shown && focTip.near && (focTip.tip.x > 0 || focTip.tip.y > 0),
     JSON.stringify(focTip));
+
+  /* …and the toggle is mounted only where something consumes it. `labelG` is
+     rendered by the two geometry branches, and Godine renders YearsView, which
+     never reads S.labels — so in that view the button flipped to .on, announced
+     "pressed", appended `lb=1` to the shared permalink, and changed nothing on
+     screen. The old check exercised only the default Saldo view and counted only
+     `#map .clab`, so it excluded the culprit view by construction. */
+  const labViews = [];
+  for (const [h, want] of [['#v=saldo', true], ['#v=klas', true], ['#v=reg', true],
+    ['#v=flow&s=HR-21', true], ['#v=jmap', true], ['#v=mx&y=2018&c=0', false], ['#v=yrs', false]]) {
+    await fresh(h);
+    const has = await page.evaluate(() => !!document.querySelector('#labBtn'));
+    if (has !== want) labViews.push(h + ' has=' + has + ' want=' + want);
+  }
+  ck('the labels toggle is mounted exactly in the views that draw labels',
+    labViews.length === 0, labViews.join(' | '));
+  await fresh('');
 
   /* ── first Tokovi entry lands on measured 2018 (even from default cum) ── */
   await fresh('');
