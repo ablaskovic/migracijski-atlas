@@ -466,7 +466,17 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
             {arcs && arcs.paths.map(a => (
               <path key={'h' + a.p} className="arch" d={a.head} fill={a.stroke} />
             ))}
-            {arcs && <circle cx={arcs.sx} cy={arcs.sy} r={4.5} fill="var(--ink)" stroke="#fff" strokeWidth={1.5} />}
+            {/* Every other thing drawn above the county paths opts out of hit
+                testing — .arc, .arch, .focusring, .regline, .jbord and the
+                inline .clab — and this one did not. It is not a descendant of
+                the county path, so while the cursor was over it the county's
+                pointerenter/pointermove never fired and its pointerleave already
+                had: the hub's own tooltip blanked, S.hl cleared (taking the rail
+                row and the legend mark with it), and a click landed on a circle
+                with no onClick, so selectCounty never ran. A ~12 px dead spot at
+                k=1, and it is inside the zoom transform, so ~72 px across at
+                KMAX — exactly where a reader zoomed in to click. */}
+            {arcs && <circle className="hubdot" cx={arcs.sx} cy={arcs.sy} r={4.5} fill="var(--ink)" stroke="#fff" strokeWidth={1.5} />}
           </g>
           {/* Two-tone focus ring, drawn above every fill so it is never the
               county's own stroke competing with its own colour. See index.css. */}

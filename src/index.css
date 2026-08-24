@@ -804,6 +804,9 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .yrc:focus-visible{stroke:var(--ink);stroke-width:2}
 /* arrowheads carry arc direction — colour alone read the wrong way for dolasci */
 .arch{pointer-events:none;opacity:.9}
+/* the hub marker is a location mark, not a control — it was the one overlay above
+   the county paths still hit-testing, which put a dead spot over the hub county */
+.hubdot{pointer-events:none}
 /* hovering a region row in the rail lights that region's counties */
 .cnt.rhl{stroke:var(--ink);stroke-width:1.6}
 .jl:focus-visible{stroke:var(--acc);stroke-width:1.6}
