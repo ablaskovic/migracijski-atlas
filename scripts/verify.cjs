@@ -635,6 +635,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('pair card opens: Grad Zagreb ⇄ Zagrebačka', pair.name.includes('Grad Zagreb') && pair.name.includes('Zagrebačka'), pair.name);
   ck('pair card 2018 readout 2.311 / 1.977 / −334 izmjereno',
     pair.row.includes('2.311') && pair.row.includes('1.977') && pair.row.includes('−334') && pair.row.includes('izmjereno'), pair.row);
+
+  /* ── arcs: measured year solid, IPF years dashed ── */
+  let adash = await page.evaluate(() => [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
+  ck('2018 arcs solid (no dasharray)', adash.length > 0 && adash.every(d => d === null), String(adash.length));
+  await page.keyboard.press('ArrowLeft');
+  await settle(150);
+  adash = await page.evaluate(() => [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
+  ck('2017 (IPF) arcs dashed', adash.length > 0 && adash.every(d => d === '7 4'), String(adash.length));
+
   /* …and in a cumulative view it is scoped to that window. The row read the raw
      annual ODM cell and hardcoded `false` for cum in both flowKind and flowBadge,
      while every sibling passes S.cum. Measured at
@@ -649,14 +658,6 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /2011\.–2024\./.test(NBSP(pairCum)) && NBSP(pairCum).includes('7.948')
     && NBSP(pairCum).includes('2.409') && NBSP(pairCum).includes('−5.539')
     && /kumulativna procjena/.test(pairCum), pairCum);
-
-  /* ── arcs: measured year solid, IPF years dashed ── */
-  let adash = await page.evaluate(() => [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
-  ck('2018 arcs solid (no dasharray)', adash.length > 0 && adash.every(d => d === null), String(adash.length));
-  await page.keyboard.press('ArrowLeft');
-  await settle(150);
-  adash = await page.evaluate(() => [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
-  ck('2017 (IPF) arcs dashed', adash.length > 0 && adash.every(d => d === '7 4'), String(adash.length));
 
   /* ── Nalazi story preset 1: GZ ring, banner + state + permalink ── */
   await page.select('#story', '0');
