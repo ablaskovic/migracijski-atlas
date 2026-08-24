@@ -26,11 +26,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Applies to: `src/**` (except `src/data/` and `src/fonts/`), `scripts/**`,
-`tools/**`, and the configuration files at the repository root.
+`tools/**` (except `tools/pipeline/raw/` and `tools/pipeline/ref/`), and the
+configuration files at the repository root.
 
 `src/fonts/` is excepted because §4 below licenses those same files under the
 SIL Open Font License 1.1, and one document must not grant two incompatible
 licences over one set of files.
+
+`tools/pipeline/raw/` and `tools/pipeline/ref/` are excepted for exactly that
+reason, and the exception was missing: `git ls-files tools/pipeline` lists five
+data files inside the old scope. `raw/jls_geo_osm.geojson` is declared a derived
+database under ODbL 1.0 by §2 below, which forbids relicensing and requires
+share-alike on redistribution; `ref/od2018.json` is declared CC BY 4.0 by §3,
+whose attribution terms an MIT grant strips; and the three DZS workbooks in
+`raw/` are covered by §3 as well. Everything else under `tools/**` — the
+pipeline's own code — stays MIT.
 
 ## 2. Boundary geometry — ODbL 1.0
 
@@ -58,6 +68,13 @@ under ODbL 1.0 and must carry the same attribution.
 - **All other years** in `odm.json` are IPF estimates computed here from the
   above structure and DZS margins. They are estimates, not measurements, and
   are labelled as such throughout the interface.
+- **The DZS source workbooks** (`tools/pipeline/raw/po-jls.xlsx`,
+  `tools/pipeline/raw/pregled-zupanije.xlsx`,
+  `tools/pipeline/raw/stan-2026-2-1_tablice-hr.xlsx`) are published by the
+  Croatian Bureau of Statistics and are redistributed here under DZS's own terms
+  of use, unchanged. They are the inputs the pipeline reads; nothing in this file
+  grants any licence over them. Previously they were named by no section at all
+  while §1 swept them into the MIT grant.
 - **DZS series** (`src/data/atlas_data2.json`, `citizen.json`, `demo.json`):
   Državni zavod za statistiku, tables 7.4.1.–7.4.3. and STAN-2026-2-1
   (podaci.dzs.hr). Reused under DZS terms of use; attribute DZS.
