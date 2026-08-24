@@ -1166,8 +1166,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   const midOv = [], midSeen = new Set();
   let midMin = 99;
-  for (const w of [1600, 1440, 1200, 1100, 1000, 960]) {
-    await page.setViewport({ width: w, height: 900 });
+  /* Height is a swept dimension here, not a constant. Every sweep in this file
+     pinned height at 900 and the one height sweep below loads a single flow
+     state whose element set is #pair against .chipdock — so #card and #legend
+     appeared in neither, and the plane where they collide was never visited with
+     them in it. Measured on the shipped build before the .card cap: at 1440×900
+     the legend sits at 610–698 and the card at 154–413, no overlap; at 1280×700
+     in the *same* state the legend moves to 410–498 while the card stays at
+     208–467 and wins on z-index — 16.118 px² of overlap, and elementFromPoint at
+     five points across the legend's mid-line returns the card at all five. The
+     colour ramp, the ±44.383 ticks and the caption — the only key to the
+     choropleth — 100 % hidden. Also 998 px² at 1600×700 and 718 px² at 1024×768. */
+  for (const [w, hv] of [[1600, 900], [1600, 700], [1440, 900], [1280, 900], [1280, 700],
+    [1200, 720], [1100, 900], [1024, 768], [1000, 700], [960, 900], [960, 700]]) {
+    await page.setViewport({ width: w, height: hv });
     /* the matrix with the *taller* age panel open is the placement search's
        worst case and was never in this sweep */
     for (const h of ['#v=saldo&c=1&y=2024&s=HR-18&ag=1', '#v=saldo&f=ext&c=0&y=2025&cz=1&st=4',
@@ -1176,10 +1188,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       const r = await allOv();
       midMin = Math.min(midMin, r.n);
       r.ids.forEach(i => midSeen.add(i));
-      if (r.bad.length) midOv.push(w + ':' + r.bad.join(','));
+      if (r.bad.length) midOv.push(w + 'x' + hv + ':' + r.bad.join(','));
     }
   }
-  ck('no map overlay overlaps another at 960–1600 px either', midOv.length === 0, midOv.slice(0, 4).join(' | '));
+  ck('no map overlay overlaps another, 960–1600 px wide and 700–900 px tall',
+    midOv.length === 0, midOv.slice(0, 4).join(' | '));
   /* A count floor cannot see an element that was never admitted: `n` is computed
      from the same filtered list, so an id the filter drops can neither raise
      `bad` nor lower `n`, and the sweep reported a healthy 3–6 while comparing
@@ -1187,7 +1200,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      the list no state here produces (it needs k > 1), so eight is the whole set;
      #storyBar and #pair are named outright because they are the two the old
      filter removed. */
-  ck('the 960–1600 sweep compared every overlay it lists, the static ones included',
+  ck('the overlay sweep compared every overlay it lists, the static ones included',
     midMin >= 3 && midSeen.size >= 8 && midSeen.has('#storyBar') && midSeen.has('#pair'),
     JSON.stringify({ midMin, seen: [...midSeen].sort() }));
   await page.setViewport({ width: 1440, height: 900 });
