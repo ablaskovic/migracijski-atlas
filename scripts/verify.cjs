@@ -2244,11 +2244,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const gridJump = await page.evaluate(async () => {
     const first = document.querySelector('.mxc[tabindex="0"]');
     first.focus();
-    const a0 = first.dataset.a;
+    const a0 = first.dataset.a, b0 = first.dataset.b;
     first.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
     await new Promise(r => setTimeout(r, 300));
     const now = document.querySelector('.mxc[tabindex="0"]');
-    return { a0, a1: now.dataset.a, b1: now.dataset.b, focused: document.activeElement === now };
+    return { a0, b0, a1: now.dataset.a, b1: now.dataset.b,
+      one: document.querySelectorAll('.mxc[tabindex="0"]').length,
+      focused: document.activeElement === now };
   });
   /* ARIA 1.2 requires a grid to own rows; 441 gridcells hanging off the svg meant
      NVDA/JAWS table navigation never engaged and no cell had positional context */
@@ -2271,9 +2273,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     gridRows.rowCount === '21' && gridRows.colCount === '21'
     && gridRows.rowIdx === '1' && gridRows.colIdx === '1', JSON.stringify(gridRows));
 
+  /* `data-b` is an ISO code — MXORD[c], i.e. 'HR-21' / 'HR-01' / … — so the old
+     `b1 !== '1'` disjunct was constant-true and short-circuited the whole test,
+     while its only discriminating half (`a1 !== a0`) is false even in a healthy
+     app: plain End is [-1, n-1], which keeps the row by construction. Deleting
+     the End entry from MatrixView's key map left this printing ok. Assert the
+     destination the way the JLS twin at the next block already does — same row,
+     a different column — and count the roving stops while we are here. */
   ck('End jumps the matrix roving cell instead of doing nothing',
-    gridJump.b1 !== undefined && gridJump.focused && JSON.stringify(gridJump) !== '{}'
-    && (gridJump.a1 !== gridJump.a0 || gridJump.b1 !== '1'), JSON.stringify(gridJump));
+    gridJump.focused && gridJump.one === 1
+    && gridJump.a1 === gridJump.a0 && gridJump.b1 !== gridJump.b0, JSON.stringify(gridJump));
 
   await fresh('#v=jmap&dir=net');
   const jJump = await page.evaluate(async () => {
