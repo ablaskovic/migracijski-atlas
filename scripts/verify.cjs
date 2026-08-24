@@ -29,7 +29,7 @@ catch {
   }
 }
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain', '.map': 'application/json', '.xml': 'application/xml' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain', '.map': 'application/json', '.xml': 'application/xml', '.woff2': 'font/woff2' };
 /* Vercel serves these two from its own platform layer, so they exist on the
    deployed site and not in dist/. Unstubbed, every page load 404s twice and both
    "zero page/console errors" checks fail — which is what has happened on every
@@ -456,10 +456,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const doc = window.__exportSVG(false);
     return { faces: (doc.match(/@font-face/g) || []).length,
       b64: (doc.match(/url\(data:font\/woff2;base64,/g) || []).length,
-      fams: ['IBM Plex Mono', 'IBM Plex Sans', 'Oswald'].filter(f => doc.includes("font-family:'" + f + "'")).length };
+      /* FACES is Mono + Oswald on purpose — exportFonts states that IBM Plex
+         Sans is deliberately absent, since the only text asking for it is the
+         PNG's canvas legend, which the page draws with the real face. */
+      fams: ['IBM Plex Mono', 'IBM Plex Sans', 'Oswald'].filter(f => doc.includes("font-family:'" + f + "'")) };
   });
   ck('the exported vector embeds its faces rather than naming them',
-    !!svgFaces && svgFaces.faces >= 6 && svgFaces.b64 === svgFaces.faces && svgFaces.fams === 3,
+    !!svgFaces && svgFaces.faces >= 6 && svgFaces.b64 === svgFaces.faces
+    && svgFaces.fams.includes('IBM Plex Mono') && svgFaces.fams.includes('Oswald'),
     JSON.stringify(svgFaces));
 
   /* ── header budget (v4: 138 px, default view) ── */
@@ -473,28 +477,6 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await settle(80);
   const mark = await page.evaluate(() => !!document.querySelector('#legend .legend-mark'));
   ck('legend shows hover mark on gradient', mark);
-  /* Focus must PLACE the tip, not merely show it. moveTip replays the last
-     pointer position and there may not have been one: measured on a fresh load
-     with the pointer never moved, focusing a county painted its 260×242 readout
-     at 0,0 — over the app header — while the county sits at (575,598). After a
-     hover it is quieter and worse: the tip keeps the previous county's position
-     and swaps its content, anchoring one county's numbers over another ~420 px
-     away. Both grid views and the JLS path already place it. */
-  await fresh('');
-  const focTip = await page.evaluate(async () => {
-    const c = document.querySelector('.cnt[data-iso="HR-19"]');
-    c.focus();
-    await new Promise(r => setTimeout(r, 250));
-    const t = document.querySelector('#tip').getBoundingClientRect();
-    const b = c.getBoundingClientRect();
-    return { tip: { x: Math.round(t.x), y: Math.round(t.y) },
-      county: { x: Math.round(b.x), y: Math.round(b.y) },
-      shown: document.querySelector('#tip').classList.contains('show'),
-      near: Math.hypot(t.x - b.right, t.y - b.bottom) < 320 };
-  });
-  ck('focusing a county places its tooltip beside it, not at the origin',
-    focTip.shown && focTip.near && (focTip.tip.x > 0 || focTip.tip.y > 0),
-    JSON.stringify(focTip));
   await click('path[data-iso="HR-18"]');
   const cardRow = await page.evaluate(() => ({
     row: document.querySelector('#cardRow')?.textContent || '',
@@ -577,6 +559,29 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         .catch(() => {});
     }
   };
+
+  /* Focus must PLACE the tip, not merely show it. moveTip replays the last
+     pointer position and there may not have been one: measured on a fresh load
+     with the pointer never moved, focusing a county painted its 260×242 readout
+     at 0,0 — over the app header — while the county sits at (575,598). After a
+     hover it is quieter and worse: the tip keeps the previous county's position
+     and swaps its content, anchoring one county's numbers over another ~420 px
+     away. Both grid views and the JLS path already place it. */
+  await fresh('');
+  const focTip = await page.evaluate(async () => {
+    const c = document.querySelector('.cnt[data-iso="HR-19"]');
+    c.focus();
+    await new Promise(r => setTimeout(r, 250));
+    const t = document.querySelector('#tip').getBoundingClientRect();
+    const b = c.getBoundingClientRect();
+    return { tip: { x: Math.round(t.x), y: Math.round(t.y) },
+      county: { x: Math.round(b.x), y: Math.round(b.y) },
+      shown: document.querySelector('#tip').classList.contains('show'),
+      near: Math.hypot(t.x - b.right, t.y - b.bottom) < 320 };
+  });
+  ck('focusing a county places its tooltip beside it, not at the origin',
+    focTip.shown && focTip.near && (focTip.tip.x > 0 || focTip.tip.y > 0),
+    JSON.stringify(focTip));
 
   /* ── first Tokovi entry lands on measured 2018 (even from default cum) ── */
   await fresh('');
