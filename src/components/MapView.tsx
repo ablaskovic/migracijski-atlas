@@ -582,20 +582,12 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           </g>
         </svg>
       )}
-      {/* aria-expanded + haspopup, not aria-pressed. This opens a role=dialog;
-          "pressed" describes a toggle button that stays down, and a screen reader
-          announced the glossary's own open state as if the "?" were a setting.
-          The title duplicated the aria-label word for word, which is a second
-          announcement of the same string — it says what the control opens now,
-          and the name stays the name. */}
-      <button className={'helpbtn' + (S.help ? ' on' : '')} id="helpBtn"
-        aria-expanded={S.help} aria-haspopup="dialog" aria-controls="helpCard"
-        title={L('Otvori pojmovnik', 'Open the glossary')}
-        aria-label={L('Kako čitati atlas', 'How to read the atlas')} onClick={toggleHelp}>?</button>
-      {hasLabels && (
-        <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
-          onClick={() => setS({ labels: !S.labels })}>{L('Aa oznake', 'Aa labels')}</button>
-      )}
+      {/* Source order = paint order, left to right: zoom reset (right:138),
+          help (right:108), labels (right:16). All three are absolutely
+          positioned, so nothing moves on screen — but Tab followed the DOM,
+          which ran the other way, and a sighted keyboard reader watched focus
+          jump right, left, further left across one row of three buttons
+          (2.4.3). */}
       {zoom.zoomed && (() => { const zk = Math.round(zoom.t.k * 10) / 10; return (
         /* Resetting the zoom unmounts this button, so focus had nowhere to go;
            hand it to the neighbouring map control. The title and the aria-label
@@ -611,6 +603,20 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           ⤢ {fmtR.format(zk)}×
         </button>
       ); })()}
+      {/* aria-expanded + haspopup, not aria-pressed. This opens a role=dialog;
+          "pressed" describes a toggle button that stays down, and a screen reader
+          announced the glossary's own open state as if the "?" were a setting.
+          The title duplicated the aria-label word for word, which is a second
+          announcement of the same string — it says what the control opens now,
+          and the name stays the name. */}
+      <button className={'helpbtn' + (S.help ? ' on' : '')} id="helpBtn"
+        aria-expanded={S.help} aria-haspopup="dialog" aria-controls="helpCard"
+        title={L('Otvori pojmovnik', 'Open the glossary')}
+        aria-label={L('Kako čitati atlas', 'How to read the atlas')} onClick={toggleHelp}>?</button>
+      {hasLabels && (
+        <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
+          onClick={() => setS({ labels: !S.labels })}>{L('Aa oznake', 'Aa labels')}</button>
+      )}
       {/* The 475 KB municipal geometry is its own chunk, so "not here yet" and
           "never arriving" are two different states and the view has to name
           both. It used to name neither: `jlsGeo()` returns null before the
