@@ -138,7 +138,19 @@ function useModalWhenNarrow(open: boolean, view: State['view']): boolean {
     }
     return () => {
       touched.forEach(el => el.removeAttribute('inert'));
-      moved.forEach(([el, v]) => el.setAttribute('tabindex', v));
+      /* Only put a value back on a node that is still the one that was
+         suspended. The write-back used to be unconditional, and this dialog is
+         deliberately non-modal above 900 px — so the reader can move the grid's
+         roving stop while it is open (click a corridor row in Matrica and
+         MatrixView's effect re-arms a *different* cell). Closing then wrote
+         tabindex="0" back onto the cell React had since set to -1, leaving two
+         tabindex="0" cells in a roving-tabindex grid; the stale one is first in
+         document order, so every arrow press re-focused the cell the reader was
+         already on while `fc` advanced invisibly and the 420-cell grid stopped
+         being navigable at all until a view change remounted it. */
+      moved.forEach(([el, v]) => {
+        if (el.isConnected && el.getAttribute('tabindex') === '-1') el.setAttribute('tabindex', v);
+      });
     };
     /* `view` is a dependency because a view change mounts a whole new grid with
        fresh tabindex=0 cells — and above 900 px the dialog is not modal, so the

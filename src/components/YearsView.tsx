@@ -86,11 +86,17 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   const [cellFoc, setCellFoc] = useState(false);
   const navRef = useRef(false);
   const gridRef = useRef<SVGGElement>(null);
+  /* By the cell's own identity, for the reason the matrix twin gives: a second
+     tabindex="0" left behind by an outside writer made this re-focus the cell the
+     reader had already left. Built during render and depended on as a string,
+     because `order` and `cols` are rebuilt on every render and would otherwise
+     drag the effect along with them. */
+  const focusSel = `.yrc[data-iso="${order[fc[0]]}"][data-y="${YEARS[cols[fc[1]]]}"]`;
   useEffect(() => {
     if (!navRef.current) return;
     navRef.current = false;
-    gridRef.current?.querySelector<SVGRectElement>('.yrc[tabindex="0"]')?.focus();
-  }, [fc]);
+    gridRef.current?.querySelector<SVGRectElement>(focusSel)?.focus();
+  }, [focusSel]);
   /* Changing Sastavnica reorders the rows and changing mode drops nine columns,
      so a stop parked at [20, 27] can end up outside the grid it belongs to. */
   useEffect(() => {

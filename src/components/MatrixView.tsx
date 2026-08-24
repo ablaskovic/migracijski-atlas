@@ -78,7 +78,13 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
   useEffect(() => {
     if (!navRef.current) return;
     navRef.current = false;
-    gridRef.current?.querySelector<SVGRectElement>('.mxc[tabindex="0"]')?.focus();
+    /* By the cell's own identity, not by `[tabindex="0"]`. "Exactly one cell is
+       tabbable" is an invariant any outside writer can break — the glossary's
+       tab-stop suspension did, restoring a stale cell on close — and a duplicate
+       made this line re-focus whichever came first in document order, i.e. the
+       cell the reader had just left, while `fc` walked on invisibly. */
+    gridRef.current?.querySelector<SVGRectElement>(
+      `.mxc[data-a="${MXORD[fc[0]]}"][data-b="${MXORD[fc[1]]}"]`)?.focus();
   }, [fc]);
   /* Move the roving tab stop onto the selected corridor, so the grid's one tab
      stop is the cell the open card describes — and so Escape / the card's ×,

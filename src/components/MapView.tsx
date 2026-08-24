@@ -51,7 +51,11 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
   useEffect(() => {
     if (!jNav.current) return;
     jNav.current = false;
-    jgRef.current?.querySelector<SVGPathElement>('.jl[tabindex="0"]')?.focus();
+    /* by position, not by `[tabindex="0"]`: that invariant is the roving stop's
+       own bookkeeping and an outside writer can leave a second one behind (see
+       the glossary's suspension), after which this focused whichever came first
+       in document order rather than the feature the arrow key just reached */
+    jgRef.current?.querySelectorAll<SVGPathElement>('.jl')[jf]?.focus();
   }, [jf]);
 
   /* wheel/pinch zoom + drag pan; identity by default so nothing else shifts */
