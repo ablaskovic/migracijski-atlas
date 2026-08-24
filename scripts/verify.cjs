@@ -3253,7 +3253,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     }
     void before;
   }
-  await fresh('#v=jmap&dir=net');
+  /* Back into the blocked jmap state the retry below needs: the speculative-warm
+     probe above navigated away from it, and #jretry only exists while the chunk
+     is failing. blockGeoChunk is still true at this point, so this reload
+     reproduces the failure the section is about. */
+  blockGeoChunk = true;
+  await page.goto('about:blank');
+  await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!document.querySelector('#jerror'), { timeout: 15000 })
+    .catch(() => {});
   /* jmapMax()'s `if (!g) return 1` is a harmless domain for a map that draws
      nothing, and the legend rendered it as a real axis: "0" and "1" under
      "Gradovi i općine · dolasci u JLS · 2018.", a published claim that the
