@@ -325,7 +325,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    changes what Klasifikacija classifies. #scrubTog was raised for exactly this
    rule and the segments and rail rows were re-padded to 44 px; the range input
    was never revisited and measured 110×16. */
-@media (pointer:coarse){.thr input[type=range]{height:24px}}
+@media (any-pointer:coarse){.thr input[type=range]{height:24px}}
 .thr-val{font-family:var(--mono);font-size:0.75rem;min-width:52px}
 
 .main{flex:1;display:flex;min-height:0}
@@ -1159,7 +1159,13 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 /* Touch: min-height 44 px, the iOS/Material convention. The previous rule aimed
    at 32 px, which clears the WCAG 2.5.8 floor but is short of what a thumb
    actually hits — and these are the controls that open and dismiss every panel. */
-@media (pointer:coarse){
+/* `any-pointer`, not `pointer`. `pointer` describes the PRIMARY input, so a
+   Surface or a touch laptop — a device with both a mouse and a touchscreen —
+   reports fine and got none of this, although a thumb is exactly what reaches
+   these controls there. `any-pointer:coarse` is true when ANY available input is
+   coarse, which is the sentence written above this block, and it leaves a
+   mouse-only desktop untouched. */
+@media (any-pointer:coarse){
   .seg button{padding:9px 8px;min-height:44px}
   .jtabs button{padding:10px 12px;min-height:44px}
   .chip-hd{padding:10px 12px;min-height:44px}
