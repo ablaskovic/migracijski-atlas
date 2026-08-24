@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 441;
+const EXPECTED_CHECKS = 442;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -801,7 +801,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const defLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
   ck('default legend states blue=gain / red=loss',
     defLeg.includes('dobiva stanovnike') && defLeg.includes('gubi ih'), defLeg.slice(0, 80));
-
+  /* An empty live region must still be IN the accessibility tree. `:empty
+     {display:none}` is equivalent to not being in the DOM for live-region
+     registration, so the mitigation StoryBar's own comment describes — "a live
+     region that enters the DOM already populated is not guaranteed to announce" —
+     was cancelled by the stylesheet. Measured with CDP: empty, #storyBar and
+     #citzClamp and #jstatus each reported {role:"none", ignored:true,
+     reason:["notRendered"]}. So picking a Nalaz, or hitting a failed geometry
+     chunk — which surfaces the only retry button in the app — announced nothing. */
+  await fresh('#cz=1');
+  const liveEmpty = await page.evaluate(() => ['#storyBar', '#citzClamp'].map(sel => {
+    const e = document.querySelector(sel);
+    return { sel, there: !!e, display: e ? getComputedStyle(e).display : null,
+      role: e ? e.getAttribute('role') : null,
+      empty: e ? e.textContent.trim() === '' : null };
+  }));
+  ck('an empty live region stays rendered, so it is registered before it speaks',
+    liveEmpty.every(r => r.there && r.empty && r.display !== 'none' && r.role === 'status'),
+    JSON.stringify(liveEmpty));
+  await fresh('');
   /* ── Space on a focused button activates it, not the play loop ── */
   const spaceKey = await page.evaluate(() => {
     const b = document.querySelector('#segView button[data-v="reg"]');

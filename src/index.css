@@ -768,7 +768,24 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    "Dob i spol" chip was unclickable at 1200–1600 px for every preset.
    `:empty` is what lets the live region stay mounted while it has nothing to
    say — see StoryBar. Same for the citizenship clamp and the geometry status. */
-.storybar:empty,.citz-clamp:empty,.geostat:empty{display:none}
+/* NOT display:none. All three are live regions, and display:none is equivalent
+   to not being in the DOM as far as live-region registration goes — so the very
+   mitigation StoryBar's own comment describes ("a live region that enters the DOM
+   already populated is not guaranteed to announce") was cancelled by this rule.
+   Measured with CDP Accessibility.getPartialAXTree: empty, #storyBar and
+   #citzClamp and #jstatus each report {role:"none", ignored:true,
+   reason:["notRendered"]}; filled, #storyBar becomes role=status with
+   live="polite". So picking a Nalaz, or hitting a failed geometry chunk — which
+   surfaces the only retry button in the app — announced nothing.
+   #citzClamp and #jstatus paint nothing when empty anyway, so they simply come
+   off the rule. .storybar would otherwise paint an empty ink pill, so it is
+   zeroed out instead of removed: rendered and registered, showing nothing. */
+.storybar:empty{padding:0;border:0;background:none;box-shadow:none;margin:0;height:0;overflow:hidden}
+/* .geostat has a border, a padding and a panel background, so empty it would
+   paint a small bordered box in the middle of the map — zeroed out for the same
+   reason .storybar is, rather than removed. .citz-clamp carries only type styles
+   and collapses to nothing on its own. */
+.geostat:empty{padding:0;border:0;background:none;width:0;height:0;overflow:hidden}
 .storybar{display:flex;align-items:baseline;gap:10px;max-width:560px;margin:8px auto 0;
   background:var(--ink);color:#F2F3EF;
   border-radius:3px;padding:8px 12px;box-shadow:0 2px 12px rgba(32,38,43,.25)}
