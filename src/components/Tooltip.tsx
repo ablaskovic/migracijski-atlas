@@ -88,7 +88,11 @@ function countyBlock(S: State, iso: string, yi: number): string {
   const c = D[iso], y = YEARS[yi];
   const cum = S.cum || S.view === 'klas';
   let ii = 0, oi = 0, ie = 0, oe = 0;
-  if (cum) { for (let i = IX2011; i <= Math.max(yi, IX2011); i++) { ii += c.ii[i]; oi += c.oi[i]; ie += c.ie[i]; oe += c.oe[i]; } }
+  /* Explicitly zero before the window opens, like val() and fsum(). The
+     `Math.max(yi, IX2011)` clamp made the loop run once for any earlier year and
+     report 2011's figures under a "2011.–2005." heading — the exact asymmetry
+     metrics.fsum removed, left standing in the third cumulative primitive. */
+  if (cum && yi >= IX2011) { for (let i = IX2011; i <= yi; i++) { ii += c.ii[i]; oi += c.oi[i]; ie += c.ie[i]; oe += c.oe[i]; } }
   else { ii = c.ii[yi]; oi = c.oi[yi]; ie = c.ie[yi]; oe = c.oe[yi]; }
   const vi = ii - oi, ve = ie - oe, vt = vi + ve;
   /* Against the denominator the reader actually chose, not against the 2011
@@ -105,7 +109,7 @@ function countyBlock(S: State, iso: string, yi: number): string {
   const dn = S.den === 'abs' ? 'rel11' : S.den;
   const rt = vt / denom(iso, yi, dn) * 100;
   const rtLab = dn === 'relest' ? L(' % tek. procjene)', ' % of current est.)') : L(' % pop. 2011.)', ' % of 2011 pop.)');
-  let nt = 0; if (cum) { for (let i = IX2011; i <= Math.max(yi, IX2011); i++) nt += natAt(iso, i); } else nt = natAt(iso, yi);
+  let nt = 0; if (cum) { if (yi >= IX2011) for (let i = IX2011; i <= yi; i++) nt += natAt(iso, i); } else nt = natAt(iso, yi);
   const per = cum ? yrSpan(2011, y) : yrOf(y);
   let h = '<div class="tip-name">' + esc(c.n) + (S.view === 'reg' ? ' · ' + esc(REG[REGOF[iso]].name) : '') + '</div><table>' +
     '<tr><td>' + L('doseljeni iz žup.', 'in from counties') + '</td><td>+' + fmtI.format(ii) + '</td></tr>' +
@@ -119,8 +123,14 @@ function countyBlock(S: State, iso: string, yi: number): string {
     /* not "ukupna promjena": this is the identity sum of two published
        components, not DZS total population change */
     '<tr class="tip-net"><td>' + L('mig. + prirodno', 'mig. + natural') + '</td><td class="' + ((vt + nt) < 0 ? 'neg' : 'pos') + '">' + sgn(vt + nt, fmtI) + '</td></tr></table>' +
-    (S.flow === 'all' ? '<div class="tip-hint">' + L('zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika',
-      'the sum of two published components — not total population change') + '</div>' : '');
+    /* Unconditional, like DetailCard's identical #cardNote. It was keyed on
+       S.flow === 'all', and the "mig. + prirodno" row it describes is rendered in
+       every view — including Klasifikacija, where the Sastavnica control is
+       locked and S.flow is whatever the reader last chose elsewhere, so the same
+       row carried the caveat or not depending on a control that view does not
+       have. */
+    '<div class="tip-hint">' + L('zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika',
+      'the sum of two published components — not total population change') + '</div>';
   if (S.view === 'klas') {
     const k = klasOf(iso, yi, S.thr, S.thrRel, S.thrPct);
     h += '<span class="cls-tag" style="color:' + (k === 'neu' ? '#20262B' : '#fff') + ';background:' + KCOL[k] + '">' + esc(KLAB[k]) + '</span>';
