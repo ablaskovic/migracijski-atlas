@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 435;
+const EXPECTED_CHECKS = 436;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -630,7 +630,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     mxRail.n + ' ' + mxRail.v);
   const mxLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
   ck('matrix legend labels izmjereno + diagonal note', mxLeg.includes('Izmjereno') && mxLeg.includes('Dijagonala'));
-
+  /* No in-cell number may be wider than the cell it belongs to. `cell >= 22` asks
+     whether a number could fit and never whether *this* number does — a
+     cumulative −12.169 is seven glyphs where an annual 87 is two. Measured at
+     1920×1080 in Kumulativno + Neto, 20 of the 420 numbers rendered wider than
+     their own cell and two pairs of adjacent numbers overlapped glyph boxes; the
+     figure carried the collision into both export formats. */
+  const mxFit = [];
+  for (const [vw, vh, h] of [[1920, 1080, '#v=mx&c=1&y=2024&dir=net'],
+    [1680, 1050, '#v=mx&c=1&y=2024&dir=net'], [1680, 1050, '#v=mx&c=1&y=2024&dir=out'],
+    [1440, 900, '#v=mx&c=1&y=2024&dir=net']]) {
+    await page.setViewport({ width: vw, height: vh });
+    await fresh(h);
+    const r = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll('.mxc')];
+      const cw = cells[0].getBoundingClientRect().width;
+      const wide = [...document.querySelectorAll('.mxnum')]
+        .map(t => ({ t: t.textContent, w: t.getBBox().width }))
+        .filter(o => o.w > cw);
+      return { cw: +cw.toFixed(1), n: document.querySelectorAll('.mxnum').length,
+        wide: wide.length, worst: wide.sort((a, b) => b.w - a.w)[0] || null };
+    });
+    if (r.wide > 0) mxFit.push(vw + 'x' + vh + ' ' + h.slice(1, 12) + ' ' + JSON.stringify(r));
+  }
+  ck('no matrix in-cell number is drawn wider than its own cell',
+    mxFit.length === 0, mxFit.slice(0, 2).join(' | '));
+  await page.setViewport({ width: 1440, height: 900 });
   /* ── Dob i spol panel (STAN I T3 / II T2, national 2025) ── */
   await fresh('#ag=1');
   const age = await page.evaluate(() => ({

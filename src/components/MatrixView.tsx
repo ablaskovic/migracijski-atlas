@@ -52,7 +52,21 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
   const x0 = box.left + (over <= 0 ? over / -2 : Math.max(2 - box.left, -over)), y0 = TOPL;
   const m = mxMax(S.dir, S.cum);
   const col = S.dir === 'net' ? divScale(m) : seqScale(m, S.dir);
+  /* Measured per cell, not assumed from the cell size. `cell >= 22` asks whether
+     a number could fit and never asks whether *this* number does: a cumulative
+     −12.169 is seven glyphs where an annual 87 is two. Measured at 1920×1080 in
+     Kumulativno + Neto (cell 30,14 px), 20 of the 420 in-cell numbers rendered
+     wider than their own cell and two pairs of horizontally adjacent numbers
+     overlapped glyph boxes — the Zagrebačka/Grad Zagreb cell drew "−12.169" at
+     36,6 px, 3,2 px of it on each neighbour's fill, over that neighbour's own
+     number and over the white cell border. Same at 1680×1050, and in
+     Odlasci + Kumulativno "42.146" spills a 28,1 px cell. .mxnum is baked into
+     both export formats with the same geometry, so the figure carried the
+     collision too. YearsView already solves exactly this per cell; this is its
+     test, with the same 0,6 em advance for the mono face. */
+  const numFs = Math.min(8.5, cell / 3);
   const showNum = cell >= 22;
+  const fitsNum = (str: string) => str.length * numFs * 0.6 <= cell - 3;
   const hl = S.pairHl;
   const hlR = hl ? MXORD.indexOf(hl[0]) : -1, hlC = hl ? MXORD.indexOf(hl[1]) : -1;
   /* The selected corridor — the one the card in the rail describes. Orthogonal to
@@ -253,7 +267,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
                phone, so a tap that navigates is a tap that misfires — touch
                reads the corridor instead (see the .mxhit overlay below). */
             onClick={() => { if (!COARSE) drill(a, b); }} />
-          {showNum && Math.abs(v) >= 1 && (
+          {showNum && Math.abs(v) >= 1 && fitsNum(fmtI.format(Math.round(v))) && (
             /* No ink/white flip any more: measured against the shipping Lab
                ramps there is no threshold that works, because there are bands
                where *neither* colour reaches the 4.5:1 this ≤8.5 px text owes.
@@ -264,7 +278,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
                ink on its own white outline is 15.29:1 over every fill, and the
                palette stays exactly as documented. */
             <text className="mxnum" x={x0 + c * cell + cell / 2} y={y0 + r * cell + cell / 2 + 2.5}
-              textAnchor="middle" fontSize={Math.min(8.5, cell / 3)} fontFamily={MONO}
+              textAnchor="middle" fontSize={numFs} fontFamily={MONO}
               fill="#20262B" pointerEvents="none">
               {fmtI.format(Math.round(v))}
             </text>
