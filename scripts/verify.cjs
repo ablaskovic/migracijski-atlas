@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 424;
+const EXPECTED_CHECKS = 425;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4328,6 +4328,51 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     cols: [...document.querySelectorAll('#map text')].map(t => t.textContent).filter(t => /^\d{4}\.?$/.test(t)),
     cell: document.querySelector('.yrc').getAttribute('aria-label'),
   }));
+  /* …and the same claim, swept, because the check below reads exactly three
+     things: one `.legend-note`, the `#map text` runs in Godine, and the first
+     `.yrc` label. The scrubber is `#spark`, not `#map`, so reverting either
+     Scrubber tick (`{yrL(t)}`) or the 46 px `#bigYear` to `t + '.'` — the exact
+     regression that block exists to catch — gives an English reader 28 Croatian
+     ordinals across the timeline and one in the headline, with every check green.
+     The tooltip, #card, #pairRow, the chip panels and the export band are in the
+     same blind spot.
+     Distinguishing an ordinal from an English sentence-final full stop is a
+     judgement, so this only claims the unambiguous shapes: a year-dot followed by
+     a separator, a digit or a lowercase word, and a run that is nothing but a
+     year and a dot (a standalone year label never ends a sentence). Content
+     marked lang="hr" and the paper's own citation are exempt by construction —
+     "Maras i Vinovrški (2026.)" is printed, not translated. */
+  const enOrd = [];
+  for (const h of ['#l=en&v=saldo&c=1&y=2024&s=HR-18', '#l=en&v=klas&c=1&y=2024',
+    '#l=en&v=yrs&f=int&c=0&y=2022', '#l=en&v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0',
+    '#l=en&v=mx&y=2018&c=0&dir=net', '#l=en&v=reg&c=1&y=2024', '#l=en&cz=1', '#l=en&ag=1']) {
+    await fresh(h);
+    const bad = await page.evaluate(() => {
+      const ORD = /\b(?:19|20)\d{2}\.(?=\s*[·–—,;:]|\s+[a-z]|\d)/;
+      const BARE = /^(?:19|20)\d{2}\.$/;
+      const isOrd = s => BARE.test(s.trim()) || ORD.test(s);
+      const exempt = el => !!(el && el.closest && el.closest('[lang="hr"], .paper-link, .help-cite, noscript'));
+      const out = [];
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        const s = (n.textContent || '').trim();
+        if (!s || !isOrd(s) || exempt(n.parentElement)) continue;
+        out.push('text «' + s.slice(0, 50) + '»');
+      }
+      for (const el of document.querySelectorAll('[aria-label],[title]')) {
+        if (exempt(el)) continue;
+        for (const a of ['aria-label', 'title']) {
+          const v = el.getAttribute(a);
+          if (v && isOrd(v)) out.push(a + ' «' + v.slice(0, 50) + '»');
+        }
+      }
+      return out;
+    });
+    if (bad.length) enOrd.push(h + ' → ' + bad.slice(0, 2).join(' ; '));
+  }
+  ck('no Croatian year ordinal survives into English, anywhere on the page',
+    enOrd.length === 0, enOrd.slice(0, 3).join(' | '));
+
   ck('no Croatian year ordinal survives into English',
     /for 2011–2024\. On the newer/.test(enKlas) && !/\d{4}\.\.|\d{4}\.–/.test(enKlas)
     && enYrs.cols.length >= 28 && enYrs.cols.every(t => !t.endsWith('.'))
