@@ -348,7 +348,18 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
        #ageHd and at the HR/EN switch returning #citzSvg. 0px reads as 0px now,
        and the floors added for the short-stage case keep it a small panel rather
        than a negative one. */
-    <div className={'map-wrap' + (size.h && size.h < 340 ? ' stage-short' : '')}
+    /* `stage-tight`: the stage is too short to hold the map's top strip and a
+       two-high chip dock at once. The strip runs from top:14 to 14 + --hbw and
+       the dock occupies 12 + 2 × --chiph from the bottom, so they collide below
+       their sum — 114 px with a fine pointer, 174 px with a coarse one, where
+       both tokens double. The strip is z-index 6 against the dock's 4, so it took
+       the tap: measured at 1024×600 with a coarse pointer, pressing the centre of
+       "Dob i spol" opened the glossary instead of the age panel, and at 901×600
+       elementFromPoint over #citzHd returned #helpBtn. Both thresholds are read
+       from the same COARSE flag the tokens are, so the class and the CSS cannot
+       disagree about which pointer this is. */
+    <div className={'map-wrap' + (size.h && size.h < 340 ? ' stage-short' : '')
+      + (size.h && size.h < (COARSE ? 174 : 114) ? ' stage-tight' : '')}
       style={{ '--stageh': size.h + 'px' } as CSSProperties}>
       <DetailCard S={S} setS={setS} />
       {/* outside .map-box on purpose: at ≤900 it leaves the overlay layer and

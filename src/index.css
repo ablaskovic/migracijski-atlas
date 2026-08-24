@@ -397,6 +397,14 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    body.panel-open for the same reason. `stage-short` comes from MapView, which
    measures the stage for --stageh anyway. */
 .map-wrap.stage-short:has(#card.show,#jcard.show,#helpCard) .legend{display:none}
+/* …and where the dock cannot clear the map's top strip at all, it lays itself out
+   as one row instead of a two-high stack. That halves the height it claims, which
+   is what the collision is about, and keeps both chip headers reachable — the
+   alternative, hiding the dock, would take the citizenship and age panels away on
+   an ordinary landscape tablet. The floating body is anchored above the stack, so
+   its offset follows: one header here, not two. */
+.map-wrap.stage-tight .chipdock{flex-direction:row;align-items:flex-end}
+.map-wrap.stage-tight .chipdock .chipcard.open .chip-body{bottom:calc(var(--chiph) + 16px)}
 
 /* Every one of these reserves is a subtraction against the map stage, and a
    negative calc() result is clamped to 0 at used-value time — so on a short
@@ -892,7 +900,16 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    *desktop* window keeps the pinned layout down to the sizes that are actually
    checked, and below that gets the scrolling one — which is the right answer
    there too. */
-@media (max-width:900px), (max-height:560px){
+/* …and a coarse pointer under 700 px of height, which is the same situation
+   arriving by a different route. The coarse block re-pads every control to a
+   44 px target, so the header and the scrubber grow by ~150 px together, and at
+   ≤960 px the corridor card is static and takes 40 % of what is left. Measured on
+   the desktop layout at a coarse pointer with a corridor open: .map-box came out
+   19 px at 901×600, 28 px at 960×600 and 80 px at 901×700 — a stage no
+   arrangement of a top strip, a two-high dock and a legend can fit, with both
+   chip headers returning .paircard from elementFromPoint. The scrolling layout
+   gives the map its own 288 px and lets the page grow instead. */
+@media (max-width:900px), (max-height:560px), ((pointer:coarse) and (max-height:700px)){
   /* Desktop pins the app to one viewport (body is a flex column, height:100%).
      On mobile the content is simply taller than the screen: leaving it flex made
      every child flex-shrink instead of overflow — the rail collapsed to 0 px and

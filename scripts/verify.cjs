@@ -1587,35 +1587,61 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      pass: raising the button above the dock without giving the stage its height
      back would only have swapped which control is dead (measured, #ageHd went
      4/5 → 2/5 that way). */
+  /* Widened in both dimensions and across both pointer types. This ran 901-960 x
+     700-820 with the suite's default fine pointer, so it was blind to every width
+     above 960 and to the coarse pointer entirely — where --hbw and --chiph both
+     double and the two lanes collide far sooner. Measured before the shared
+     budget, coarse: 901x600 #helpBtn x #citzHd = 1.452 px2 and #labBtn x #citzHd
+     = 1.728; 960x600 = 1.848; 1024x600 #helpBtn x #ageHd = 1.012; 1280x600 and
+     1440x600 = 440; 1920x500 = 1.056; and 901x700 — inside this sweep's own band
+     — 396 px2. The strip is z-index 6 against the dock's 4, so it took the tap:
+     at 1024x600 coarse, pressing the centre of "Dob i spol" opened the glossary. */
   const labBand = [];
-  for (const [w, h] of [[901, 700], [921, 700], [941, 700], [960, 700], [901, 768], [941, 820]]) {
-    await page.setViewport({ width: w, height: h });
+  for (const [w, h, touch] of [[901, 700, false], [921, 700, false], [941, 700, false],
+    [960, 700, false], [901, 768, false], [941, 820, false],
+    [901, 600, true], [960, 600, true], [1024, 600, true], [1280, 600, true],
+    [1440, 600, true], [901, 700, true], [1024, 700, true], [1440, 700, true]]) {
+    await page.setViewport({ width: w, height: h, hasTouch: touch, isMobile: touch });
     await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
     const reach = await page.evaluate(() => {
       const out = {};
       for (const id of ['#labBtn', '#ageHd', '#citzHd']) {
         const e = document.querySelector(id);
-        if (!e) { out[id] = 'absent'; continue; }
+        /* `display:none` in the scrolling layout is absent, not covered — and in
+           that layout the dock is in normal flow, so a control can simply be
+           below the fold. elementFromPoint is viewport-relative, so bring it into
+           view first, which is what a reader does. */
+        if (!e || !e.getClientRects().length) { out[id] = 'absent'; continue; }
+        e.scrollIntoView({ block: 'center' });
         const b = e.getBoundingClientRect();
         out[id] = [[0.1, 0.5], [0.3, 0.5], [0.5, 0.5], [0.7, 0.5], [0.9, 0.5]].filter(([fx, fy]) => {
           const hit = document.elementFromPoint(b.left + b.width * fx, b.top + b.height * fy);
           return hit && (hit === e || e.contains(hit));
         }).length;
       }
-      const b = document.querySelector('#labBtn').getBoundingClientRect();
+      const lb = document.querySelector('#labBtn');
+      const b = (lb || document.querySelector('#helpBtn')).getBoundingClientRect();
       out.at = [b.left + b.width / 2, b.top + b.height / 2];
       return out;
     });
     await page.mouse.click(reach.at[0], reach.at[1]);
     await settle(280);
     const after = await page.evaluate(() => ({ hash: location.hash,
-      lb: document.querySelector('#labBtn').getAttribute('aria-pressed') }));
-    if (reach['#labBtn'] !== 5 || reach['#ageHd'] !== 5 || reach['#citzHd'] !== 5
-      || after.lb !== 'true' || !/lb=1/.test(after.hash) || /[&#](ag|cz)=/.test(after.hash)) {
-      labBand.push(`${w}x${h} lab${reach['#labBtn']} age${reach['#ageHd']} citz${reach['#citzHd']} → ${after.hash}`);
+      lb: (document.querySelector('#labBtn') || {}).getAttribute?.('aria-pressed') ?? null }));
+    /* `.labbtn` is display:none in the scrolling layout, which some of the coarse
+       viewports below now take — so the rule is "every control that IS mounted
+       takes its own click", and the labels assertions only apply where the
+       button exists. */
+    const mounted = k => reach[k] === 'absent' || reach[k] === 5;
+    const hasLab = reach['#labBtn'] !== 'absent';
+    if (!mounted('#labBtn') || !mounted('#ageHd') || !mounted('#citzHd')
+      || reach['#ageHd'] === 'absent' || reach['#citzHd'] === 'absent'
+      || (hasLab && (after.lb !== 'true' || !/lb=1/.test(after.hash)))
+      || /[&#](ag|cz)=/.test(after.hash)) {
+      labBand.push(`${w}x${h}${touch ? ' touch' : ''} lab${reach['#labBtn']} age${reach['#ageHd']} citz${reach['#citzHd']} → ${after.hash}`);
     }
   }
-  ck('at 901–960 px the labels toggle takes its own click, and the chip headers keep theirs',
+  ck('the labels toggle and both chip headers each take their own click, fine and coarse',
     labBand.length === 0, labBand.slice(0, 3).join(' | '));
   await page.setViewport({ width: 1440, height: 900 });
 
