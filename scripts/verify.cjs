@@ -4384,7 +4384,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      reader checks against a DZS table. Everything the atlas *says about* them
      has to move. One sweep per feature class, so the next surface that forgets
      is caught by the check rather than by a reader. */
-  const CRO = /\b(doseljeno|odseljeno|neto|doseljeni|odseljeni|dijagonala|selidbe|županij\w*|godišnj\w*|vremensk\w*|prikaza|zumiranje|zatvori|reprodukcij\w*|koridor|nalaz)\b/i;
+  const CRO = /\b(doseljeno|odseljeno|neto|doseljeni|odseljeni|dijagonala|selidbe|županij\w*|godišnj\w*|vremensk\w*|prikaz\w*|zumiranj\w*|zatvori|reprodukcij\w*|koridor|nalaz)\b/i;
   await fresh('#l=en&v=jmap');
   const enJl = await page.evaluate(() => [...document.querySelectorAll('.jl')].map(p => p.getAttribute('aria-label') || ''));
   const jlBad = enJl.filter(s => CRO.test(s));
@@ -4415,9 +4415,18 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       tog: g('#scrubTog', 'aria-label'), zoom: g('#zoomRst', 'aria-label'), zoomT: g('#zoomRst', 'title'),
       zoomTxt: (document.querySelector('#zoomRst') || {}).textContent };
   });
+  /* A blacklist alone cannot tell "named in English" from "not named at all".
+     The probe returns '' for a missing attribute and null for a missing element,
+     and CRO.test('') is false while CRO.test(null) tests the string "null" — also
+     false — so `!CRO.test(...)` was TRUE for both. Delete aria-label from #play,
+     an icon-only button a screen reader then announces as a bare "button", or
+     rename any of these four ids, and this printed ok under a name claiming the
+     controls "name themselves in English". Require a real name first, then that
+     it is not Croatian. */
+  const hasName = s => typeof s === 'string' && s.trim().length > 3;
   ck('the year slider, play, timeline handle and zoom reset all name themselves in English',
-    !CRO.test(enCtl.spark) && !CRO.test(enCtl.play) && !CRO.test(enCtl.playT)
-    && !CRO.test(enCtl.tog) && !CRO.test(enCtl.zoom) && !CRO.test(enCtl.zoomT)
+    [enCtl.spark, enCtl.play, enCtl.playT, enCtl.tog, enCtl.zoom, enCtl.zoomT].every(hasName)
+    && ![enCtl.spark, enCtl.play, enCtl.playT, enCtl.tog, enCtl.zoom, enCtl.zoomT].some(s => CRO.test(s))
     && enCtl.zoom.startsWith(enCtl.zoomT) && /1\.6×/.test(NBSP(enCtl.zoomTxt)),
     JSON.stringify(enCtl));
 
