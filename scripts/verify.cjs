@@ -2025,25 +2025,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const m390 = await page.evaluate(() => {
     const de = document.documentElement;
     const segBad = [];
+    let seen = 0;
     for (const seg of document.querySelectorAll('.ctrls .seg')) {
       if (!seg.offsetParent) continue;   /* .only groups hidden in this view */
       const sr = seg.getBoundingClientRect();
       for (const b of seg.querySelectorAll('button')) {
         const br = b.getBoundingClientRect();
-        if (br.right > sr.right + 0.5 || br.width < 24) segBad.push((b.dataset.v || b.id) + ':' + Math.round(br.width));
+        /* both edges, not just the right one: `.seg` is overflow:hidden, so a
+           button pushed off the LEFT is clipped exactly as completely, and the
+           ≤560 grid is where a group can be pushed either way */
+        seen++;
+        if (br.right > sr.right + 0.5 || br.left < sr.left - 0.5 || br.width < 24) {
+          segBad.push((b.dataset.v || b.id) + ':' + Math.round(br.width));
+        }
       }
     }
     return {
       overflow: de.scrollWidth - de.clientWidth,
-      segBad,
+      segBad, seen,
       coarse: matchMedia('(pointer:coarse)').matches,
       viewBtns: document.querySelectorAll('#segView button').length,
     };
   });
   ck('390: page never scrolls sideways', m390.overflow <= 0, String(m390.overflow));
   ck('390: emulated device reports a coarse pointer', m390.coarse);
+  /* …and a floor, so an empty set cannot pass: every `.seg` group is in the DOM
+     in every view and six or seven are visible at 390, so ~19 buttons is the real
+     population. Without it a selector rename made this print ok having measured
+     nothing. */
   ck('390: every segment button stays inside its group and is not clipped',
-    m390.segBad.length === 0 && m390.viewBtns === 7, m390.segBad.join(' | '));
+    m390.segBad.length === 0 && m390.viewBtns === 7 && m390.seen >= 15,
+    m390.segBad.join(' | ') + ' (seen ' + m390.seen + ')');
 
   const tap390 = await page.evaluate(() => {
     const r = {};
@@ -2070,17 +2082,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await fresh('#v=mx&c=0&y=2018&dir=out');
   const mx390 = await page.evaluate(() => {
     const de = document.documentElement;
-    const lab = document.querySelector('#map text');
+    /* the MINIMUM over the whole set, and the size of that set. `querySelector`
+       took the first `#map text` — one of 42 axis labels, and not the smallest —
+       so a floor that only the sampled label happened to clear read as green, and
+       a selector rename would have read as green over nothing at all. */
+    const labs = [...document.querySelectorAll('#map text')];
+    const sizes = labs.map(t => parseFloat(getComputedStyle(t).fontSize));
     return {
       overflow: de.scrollWidth - de.clientWidth,
       cells: document.querySelectorAll('.mxc').length,
-      fs: parseFloat(getComputedStyle(lab).fontSize),
+      fs: sizes.length ? Math.min(...sizes) : 0,
+      nLab: labs.length,
       hit: document.querySelectorAll('.mxhit').length,
     };
   });
   ck('390: matrix renders all 420 cells without sideways scroll',
     mx390.cells === 420 && mx390.overflow <= 0, mx390.cells + ' / ' + mx390.overflow);
-  ck('390: matrix axis labels stay at or above the 6.5 px floor', mx390.fs >= 6.5, String(mx390.fs));
+  ck('390: matrix axis labels stay at or above the 6.5 px floor',
+    mx390.fs >= 6.5 && mx390.nLab >= 42, mx390.fs + ' px over ' + mx390.nLab + ' labels');
   ck('390: matrix gets the coarse-pointer tap overlay', mx390.hit === 1, String(mx390.hit));
 
   const hint390 = await page.evaluate(() => {
