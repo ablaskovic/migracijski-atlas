@@ -69,10 +69,29 @@ export function loadRegGeo(): Promise<void> {
    laziness: a failed module fetch is recorded in the browser's *module map*, so
    a second `import()` of the same specifier resolves to the cached rejection
    without touching the network. Measured — clearing `jlsP` alone still returned
-   0 of 556 features. The whole view state lives in the hash, so a reload costs
-   the user nothing and is the only thing that genuinely re-fetches. */
-export function retryGeo(): void {
+   0 of 556 features. The whole view state lives in the hash, so a reload is the
+   only thing that genuinely re-fetches.
+
+   But "a reload costs the user nothing" is only true while the connection is up,
+   and this button appears at the moment it is most likely to be down. Measured
+   with the network forced offline after first load: Saldo, Klasifikacija, Regije,
+   Tokovi, Matrica and Godine all switch, render and export — a full PNG export
+   offline returned successfully — with zero console errors and zero failed
+   requests, because everything except the two geometry chunks is already in the
+   entry bundle. Pressing retry there replaced that working app with Chrome's own
+   network-error page (url `chrome-error://chromewebdata/`), and took the zoom
+   transform and the per-view year memory with it — both deliberately outside the
+   hash, so a reload cannot restore them. The recovery control destroyed the
+   session in exactly the state it exists for.
+   So: reload when there is a network to reload over, and otherwise wait for one.
+   `offline` is the answer the caller renders instead of a dead button. */
+export function retryGeo(): 'reloading' | 'offline' {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    window.addEventListener('online', () => location.reload(), { once: true });
+    return 'offline';
+  }
   location.reload();
+  return 'reloading';
 }
 
 /* Called once from App. Loads what the current view needs immediately, and warms

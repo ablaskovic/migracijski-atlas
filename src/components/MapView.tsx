@@ -49,6 +49,8 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
   const [jFoc, setJFoc] = useState(false);
   /* roving tabindex over the 556 municipalities — see the .jl paths below */
   const [jf, setJf] = useState(0);
+  /* whether the last retry press found no network at all — see retryGeo */
+  const [offline, setOffline] = useState(false);
   const jNav = useRef(false);
   const jgRef = useRef<SVGGElement>(null);
   useEffect(() => {
@@ -570,7 +572,17 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
               <>
                 <span id="jerror">{jm ? L('Geometrija JLS nije učitana.', 'LAU geometry failed to load.')
                   : L('Geometrija regija nije učitana.', 'Region geometry failed to load.')}</span>
-                <button id="jretry" onClick={retryGeo}>{L('Pokušaj ponovno', 'Try again')}</button>
+                {/* The retry reloads, which is the only thing that re-fetches a
+                    module the browser has cached a rejection for — but offline
+                    that replaces a working app (every view but this one still
+                    renders and exports from the entry bundle) with the browser's
+                    network-error page. retryGeo says which happened; here we
+                    only have to render the answer, and the listener it armed
+                    reloads by itself when the connection comes back. */}
+                <button id="jretry" onClick={() => setOffline(retryGeo() === 'offline')}>
+                  {L('Pokušaj ponovno', 'Try again')}</button>
+                {offline && <span id="joffline">{L('Nema mreže — nastavit će se automatski kad se veza vrati.',
+                  'No connection — this will resume by itself when the network is back.')}</span>}
               </>
             ) : <span id="jloading">{jm ? L('Učitavanje geometrije JLS…', 'Loading LAU geometry…')
               : L('Učitavanje geometrije regija…', 'Loading region geometry…')}</span>}
