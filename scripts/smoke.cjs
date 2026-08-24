@@ -38,20 +38,45 @@ function readOrigin() {
   } catch { return null; }
 }
 
-function get(url) {
+/* Bounded, in both dimensions this used to be unbounded in.
+
+   TIME: node's HTTP client has no idle timeout, and this had none either. Point
+   smoke at an origin behind a DNS black hole or a firewall that drops packets
+   after the handshake — the exact state a broken deploy leaves an apex in, which
+   is the state this file exists for — and it printed "probing …" and hung
+   forever: no check line, no banner, no exit code, nothing for CI to act on but
+   its own job timeout. The response stream's own `error` is handled too now: an
+   ECONNRESET after headers emitted an unhandled 'error' on `res`, an uncaught
+   exception the .catch() at the bottom could not see, killing the process with
+   no summary at all.
+
+   HOPS: the comment said "one hop is enough" and nothing enforced it — `get`
+   took one parameter, so there was nowhere to carry a depth. A misconfigured
+   domain where the apex redirects to www and www redirects back (a routine
+   consequence of adding a redirect rule to a domain that already has an alias)
+   recursed between the two forever: no stack overflow, since each hop is a fresh
+   tick, just unbounded wall time and a growing chain of pending promises. */
+const TIMEOUT = 10000, MAXHOP = 3;
+function get(url, hop = 0) {
   return new Promise((resolve, reject) => {
-    (url.startsWith('https:') ? https : http).get(url, { headers: { 'user-agent': 'migracijski-atlas-smoke' } }, res => {
-      /* one hop is enough: the platform may redirect the apex to www or back */
+    const req = (url.startsWith('https:') ? https : http).get(url, {
+      headers: { 'user-agent': 'migracijski-atlas-smoke' }, timeout: TIMEOUT,
+    }, res => {
+      res.on('error', reject);
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        return resolve(get(new URL(res.headers.location, url).href));
+        if (hop >= MAXHOP) { reject(new Error(`more than ${MAXHOP} redirects, last hop ${url}`)); return; }
+        resolve(get(new URL(res.headers.location, url).href, hop + 1));
+        return;
       }
       let body = '';
       res.setEncoding('utf8');
       res.on('data', d => { body += d; });
       res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'] || '',
         headers: res.headers, body }));
-    }).on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error(`timeout after ${TIMEOUT / 1000}s: ${url}`)));
+    req.on('error', reject);
   });
 }
 
