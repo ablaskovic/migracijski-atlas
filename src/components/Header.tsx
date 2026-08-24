@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fmtI, fmtR, Y0, YEND } from '../lib/metrics.ts';
 import { exportPNG, exportSVG } from '../lib/exportPng.ts';
 import { ensureFonts } from '../lib/exportFonts.ts';
+import { jlsGeo, regGeo } from '../lib/geoAsync.ts';
 import { StorySelect } from './StoryBar.tsx';
 import { focusSoon } from '../lib/state.ts';
 import { PAPER, paperPending, paperSub } from '../lib/credits.ts';
@@ -97,6 +98,17 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
     finally { setBusySvg(false); focusSoon('#svgBtn'); }
   };
 
+  /* An export is the artifact that leaves the app under CC BY, so it must not
+     claim to show geometry it does not have. Block geo_jls and press SVG in the
+     JLS view and the download is a 265.934-byte document headed "GRADOVI I
+     OPĆINE: NETO PO JLS · UNUTARNJA MIGRACIJA (IZMJERENO)" containing 21
+     unfilled county outlines and none of the 556 municipalities the title names —
+     while the app itself, two hundred pixels away, reads "Geometrija JLS nije
+     učitana." The same is true through the ordinary load gap. Regije loses its
+     five outlines the same way, which MapView already says on screen. Both
+     buttons consult the payload now, so the figure cannot be minted at all in a
+     state the app is already reporting as incomplete. */
+  const geoMissing = (S.view === 'jmap' && !jlsGeo()) || (S.view === 'reg' && !regGeo());
   const lockFD = S.view === 'klas' || S.view === 'flow' || S.view === 'mx' || S.view === 'jmap';
   const lockT = S.view === 'klas' || S.view === 'jmap';
   return (
@@ -181,16 +193,17 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
                 switch: measured 47,7 → 38,1 px on #pngBtn at 1440, 46,7 → 37,1
                 on #svgBtn, moving both. Reserving the wider of the two makes the
                 box the same in HR and EN. Same reasoning as .hd-title[data-alt]. */}
-            <button id="pngBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busy} onClick={onPng} title={L('Preuzmi kartu kao PNG', 'Download the map as PNG')}
+            <button id="pngBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busy || geoMissing} onClick={onPng} title={L('Preuzmi kartu kao PNG', 'Download the map as PNG')}
               aria-label={L('Preuzmi trenutačnu kartu kao PNG', 'Download the current map as PNG')}>{err === 'png' ? L('greška', 'error') : busy ? '…' : 'PNG'}</button>
-            <button id="svgBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busySvg} onClick={onSvg} title={L('Preuzmi kartu kao SVG (vektor)', 'Download the map as SVG (vector)')}
+            <button id="svgBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busySvg || geoMissing} onClick={onSvg} title={L('Preuzmi kartu kao SVG (vektor)', 'Download the map as SVG (vector)')}
               aria-label={L('Preuzmi trenutačnu kartu kao SVG (vektor)', 'Download the current map as SVG (vector)')}>{err === 'svg' ? L('greška', 'error') : busySvg ? '…' : 'SVG'}</button>
           </div>
           {/* An aria-label overrides button text, so the busy and error states
               were invisible to AT — on the only error surface in the app. */}
           <span className="sr-only" id="expLive" role="status" aria-live="polite">
             {err === 'png' ? L('Izvoz PNG-a nije uspio.', 'PNG export failed.') : err === 'svg' ? L('Izvoz SVG-a nije uspio.', 'SVG export failed.')
-              : busy ? L('Priprema PNG-a…', 'Preparing the PNG…') : busySvg ? L('Priprema SVG-a…', 'Preparing the SVG…') : ''}
+              : busy ? L('Priprema PNG-a…', 'Preparing the PNG…') : busySvg ? L('Priprema SVG-a…', 'Preparing the SVG…')
+                : geoMissing ? L('Izvoz nije dostupan dok geometrija nije učitana.', 'Export is unavailable until the geometry has loaded.') : ''}
           </span>
         </div>
         {/* Izvoz sits before the two view-specific groups, not after them, and

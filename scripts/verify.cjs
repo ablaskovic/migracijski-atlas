@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 443;
+const EXPECTED_CHECKS = 444;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2951,6 +2951,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     geoFail.err && geoFail.retry && !geoFail.stillLoading, JSON.stringify(geoFail));
   ck('and it says so through a live region, not silent SVG text',
     geoFail.live === 'status', String(geoFail.live));
+  /* …and no figure can be minted from a map that has no geometry. An export
+     leaves the app under CC BY, and with the chunk blocked pressing SVG produced
+     a 265.934-byte document headed "GRADOVI I OPĆINE: NETO PO JLS · UNUTARNJA
+     MIGRACIJA (IZMJERENO)" holding 21 unfilled county outlines and none of the
+     556 municipalities its title names — while the app two hundred pixels away
+     read "Geometrija JLS nije učitana." */
+  const expLocked = await page.evaluate(() => ({
+    png: document.querySelector('#pngBtn').disabled,
+    svg: document.querySelector('#svgBtn').disabled,
+    said: (document.querySelector('#expLive') || {}).textContent || '',
+  }));
+  ck('both exporters are held while the geometry the figure claims is absent',
+    expLocked.png && expLocked.svg && /geometrija/i.test(expLocked.said),
+    JSON.stringify(expLocked));
   /* jmapMax()'s `if (!g) return 1` is a harmless domain for a map that draws
      nothing, and the legend rendered it as a real axis: "0" and "1" under
      "Gradovi i općine · dolasci u JLS · 2018.", a published claim that the
