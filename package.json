@@ -2,7 +2,7 @@
   "name": "migracijski-atlas",
   "private": true,
   "version": "2.5.1",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {
     "node": ">=22.12"

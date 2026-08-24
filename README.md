@@ -70,7 +70,9 @@ is 555.044 B / 182.659 B gzip rather than ~1.048.000 B / ~301.000 B, plus a
 28.221 B / 5.775 B gzip stylesheet (measured on the current build; `npm run
 verify` asserts the entry stays under 600 kB).
 
-Requires Node ≥ 20.19 (vite 8).
+Requires Node ≥ 22.12 — the `engines.node` range in `package.json`, which is
+also what Vercel reads to choose the build image's Node major. (This line used
+to say 20.19, vite's own floor, which is not the floor this project sets.)
 
 `CLAUDE.md` carries general behavioural guidelines. The project's own hard rules
 — the verification protocol, the DOM contract, honesty labelling and the design
@@ -135,6 +137,12 @@ its own.
   author has no connection to the study's authors or their institutions, and
   they have neither reviewed nor endorsed it. Stated in the footer, the
   glossary, and on exports of the two views that use the study's method.
+- **Fonts** — Oswald and IBM Plex Sans/Mono, self-hosted from `src/fonts/`,
+  under the **SIL Open Font License 1.1**. The licence text ships with the build
+  at `./fonts/OFL-*.txt`, as OFL §2 requires of anything redistributing the font
+  files, and both holders are named and linked in the glossary's "Licencije i
+  izvori" section. `src/fonts/` is carved out of the MIT grant in LICENSE §1 for
+  exactly this reason.
 - **The atlas itself** — built by Ante Blašković, © 2026, code under **MIT**,
   source at
   [github.com/ablaskovic/migracijski-atlas](https://github.com/ablaskovic/migracijski-atlas).
@@ -143,7 +151,7 @@ its own.
   upstream source above is credited by name; this is the atlas returning the
   favour for itself, which for a long time it did not.
 
-See [LICENSE](LICENSE) for the full terms of all three.
+See [LICENSE](LICENSE) for the full terms of all five.
 
 ### Where the citation lives
 
