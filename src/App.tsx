@@ -111,7 +111,13 @@ export default function App() {
        drop both halves rather than leave a card-less flag that still eats an
        Escape press and still ships in the hash. */
     const corr = (w: View) => w === 'flow' || w === 'mx';
-    if (corr(s.view) && !corr(v)) { p.sel = null; p.pair = null; }
+    /* Only when `sel` was HALF A CORRIDOR. It is also the hub in Tokovi and the
+       detail-card selection everywhere else, so dropping it unconditionally on
+       the way out threw away a plain county selection that the destination can
+       render perfectly well: pick a county in Saldo, look at Tokovi, come back,
+       and the card was gone though nothing about it had become unrenderable. The
+       `pair` half goes either way — no other view can describe it. */
+    if (corr(s.view) && !corr(v)) { if (s.pair) p.sel = null; p.pair = null; }
     /* `sel` alone is a hub in Tokovi and a detail-card selection in Saldo /
        Klasifikacija / Regije. Matrica and the JLS map have neither: a county
        picked in Saldo used to keep its 1998–2025 card painted over the 21×21
