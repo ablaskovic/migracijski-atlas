@@ -78,8 +78,20 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      dimmed with opacity + pointer-events:none — the pattern the house rules ban,
      escaping the letter of the invariant only because tabIndex was already −1.
      The handlers come off instead, and the slider says so: a screen reader met an
-     operable-looking role=slider with aria-valuenow="2018" and no way to work it. */
-  const inert = S.view === 'jmap';
+     operable-looking role=slider with aria-valuenow="2018" and no way to work it.
+
+     The open glossary is the same state wearing a different hat, and it had none
+     of this treatment. Above 900 px that dialog is deliberately non-modal, so
+     #spark stays reachable — measured, 58 of 67 focusable elements are, and it is
+     one of them — keeping tabindex="0", role="slider", aria-valuenow and no
+     aria-disabled, while App's window handler returns on `s.help` before it
+     reaches either the #spark jump keys or the bare-arrow year step, and the
+     slider has no key handler of its own. Measured at 1440×900 from
+     `#v=saldo&y=2018&c=0`: press ?, focus #spark, press ArrowRight then End, and
+     #bigYear stays "2018." with aria-valuenow unchanged. An operable-looking
+     slider on the app's primary control that answers nothing — which is the exact
+     defect the note above describes, so it takes the same answer. */
+  const inert = S.view === 'jmap' || S.help;
   const yr = YEARS[S.yi];
   const sub = S.view === 'jmap' ? L('JLS · samo 2018. · izmjereno', 'LAU · 2018 only · measured')
     : S.view === 'flow' || S.view === 'mx'

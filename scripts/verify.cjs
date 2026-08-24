@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 439;
+const EXPECTED_CHECKS = 440;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1075,6 +1075,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     help.includes('saldo') && help.includes('iterativno') && help.includes('gradovi i općine'), help.slice(0, 60));
   ck('help panel states the mig+prirodno caveat',
     help.includes('nije jednako ukupnoj promjeni'), '');
+  /* …and while it is open the year slider says so. App's keydown returns on
+     `s.help` before it reaches the #spark jump keys or the bare-arrow year step,
+     and #spark has no handler of its own — but above 900 px the dialog is
+     non-modal, so it stayed reachable with tabindex="0", role="slider",
+     aria-valuenow and no aria-disabled. Measured: focus it with the glossary
+     open, press ArrowRight then End, and #bigYear does not move. */
+  const sparkFrozen = await page.evaluate(async () => {
+    const sp = document.querySelector('#spark');
+    const before = document.querySelector('#bigYear').textContent;
+    return { dis: sp.getAttribute('aria-disabled'), ti: sp.getAttribute('tabindex'),
+      before, after: (await new Promise(r => setTimeout(() => r(document.querySelector('#bigYear').textContent), 50))) };
+  });
+  ck('the year slider reports itself disabled while the glossary owns the keyboard',
+    sparkFrozen.dis === 'true' && sparkFrozen.ti === '-1', JSON.stringify(sparkFrozen));
   /* The page mounts Vercel Web Analytics and Speed Insights and said so nowhere
      a reader could see it: grepping every source file for privatnost|privacy|
      GDPR|cookie|consent|analytics returned the package name and the two mounts
