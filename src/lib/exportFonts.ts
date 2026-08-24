@@ -30,16 +30,20 @@ import mono5LatinExt from '../fonts/ibm-plex-mono-500-latin-ext.woff2';
 import oswaldLatin from '../fonts/oswald-latin.woff2';
 import oswaldLatinExt from '../fonts/oswald-latin-ext.woff2';
 
-type Face = { family: string; weight: number; url: string };
+type Face = { family: string; weight: number | string; url: string };
 const FACES: Face[] = [
   { family: 'IBM Plex Mono', weight: 400, url: monoLatin },
   { family: 'IBM Plex Mono', weight: 400, url: monoLatinExt },
   { family: 'IBM Plex Mono', weight: 500, url: mono5Latin },
   { family: 'IBM Plex Mono', weight: 500, url: mono5LatinExt },
-  { family: 'Oswald', weight: 500, url: oswaldLatin },
-  { family: 'Oswald', weight: 500, url: oswaldLatinExt },
-  { family: 'Oswald', weight: 600, url: oswaldLatin },
-  { family: 'Oswald', weight: 600, url: oswaldLatinExt },
+  /* One entry per FILE, with the weight range in the descriptor. Oswald was
+     listed four times over two files, so every export embedded both Oswald
+     subsets twice — the same base64 payload, byte for byte, in two @font-face
+     rules that differ only in `font-weight`. CSS Fonts 4 accepts a range there,
+     and the atlas uses Oswald at 500 and 600 from a variable file, so one rule
+     per subset covers both. */
+  { family: 'Oswald', weight: '500 600', url: oswaldLatin },
+  { family: 'Oswald', weight: '500 600', url: oswaldLatinExt },
 ];
 
 let css = '';
