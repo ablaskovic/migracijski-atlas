@@ -16,6 +16,14 @@ import type { Patch, State } from '../lib/types.ts';
    study's window in whatever language happened to be default at import time */
 const PW = (): string => yrSpan(PAPER_WINDOW.from, PAPER_WINDOW.to);
 
+/* Croatian has three plural forms and this file implemented two. 1 → osobu,
+   2–4 → osobe, everything else → osoba — and the teens (11–14) take the 5+ form,
+   which is why the %100 test has to come before the %10 one. */
+const plHr = (n: number, one: string, few: string, many: string): string => {
+  const a = Math.abs(n) % 100, b = a % 10;
+  return b === 1 && a !== 11 ? one : b >= 2 && b <= 4 && (a < 12 || a > 14) ? few : many;
+};
+
 /* The legend has room for the names; this has room for the reason. Grouped by
    transition rather than listed per county, so the sentence stays one clause
    however many counties move — and derived from PAPER_KLAS_DIFF rather than
@@ -42,11 +50,23 @@ function klasDiffSentence(): string {
      false of the distance to the study's own figures (measured: 606 and 302
      against the threshold, 1.593 and 583 against the paper). Only the first is
      recomputable here, so it is the only one stated. */
+  /* The noun goes with the number it follows, not with the length of the list.
+     The form used to be chosen once, from `over.length` — the count of counties —
+     and then printed after every value: today that is "za 606 odnosno 302 osoba",
+     where 302 needs the 2–4 form and 606 the 5+ one, so one of the two is always
+     wrong. And the singular branch is live the moment a DZS revision leaves a
+     single county differing (PAPER_KLAS_DIFF is derived for exactly that reason),
+     at which point any value at all took the accusative singular — "za 606
+     osobu." — while English got "by 606 person respectively", which is wrong
+     twice. Croatian's 2–4 form was never produced by either branch. */
   const over = PAPER_KLAS_DIFF.filter(d => d.here === 'loss')
-    .map(d => fmtI.format(Math.abs(Math.round(d.v)) - PAPER_THR));
+    .map(d => Math.abs(Math.round(d.v)) - PAPER_THR);
+  const each = over.map(v => `${fmtI.format(v)} ${plHr(v, 'osobu', 'osobe', 'osoba')}`);
   const tail = over.length === PAPER_KLAS_DIFF.length
-    ? L(` Na ovoj seriji prelaze prag od −${fmtI.format(PAPER_THR)} za ${over.join(' odnosno ')} ${over.length > 1 ? 'osoba' : 'osobu'}.`,
-      ` On this series they pass the −${fmtI.format(PAPER_THR)} line by ${over.join(' and ')} ${over.length > 1 ? 'people' : 'person'} respectively.`)
+    ? L(` Na ovoj seriji prelaze prag od −${fmtI.format(PAPER_THR)} za ${each.join(' odnosno ')}.`,
+      ` On this series they pass the −${fmtI.format(PAPER_THR)} line by `
+      + `${over.map(v => `${fmtI.format(v)} ${Math.abs(v) === 1 ? 'person' : 'people'}`).join(' and ')}`
+      + `${over.length > 1 ? ' respectively' : ''}.`)
     : '';
   return L(`Razlikuju se: ${parts.join('; ')}.${tail}`, `The differences: ${parts.join('; ')}.${tail}`);
 }
