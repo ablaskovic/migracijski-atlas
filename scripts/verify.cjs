@@ -3003,14 +3003,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     strokes.on.opaque > 10000 && strokes.on.median <= 3 && strokes.off.median >= 6
     && strokes.attrs > 500,
     JSON.stringify({ attrs: strokes.attrs, on: strokes.on.median, off: strokes.off.median }));
+  /* `.focusring` is rendered only while a feature holds *keyboard* focus, and at
+     this point in the run nothing is focused at all — the very next block asserts
+     exactly that. So `q('.focusring path').length === 0 || all(...)` took its
+     left operand on every run and never inspected an element: strip
+     vector-effect="non-scaling-stroke" from MapView's .fr-halo, which this
+     section's own comment measures at 29,5 px of white under 13,1 px of dashed
+     ink at k=6,55 — the most visible case of the bug the whole block exists for
+     — and the check still printed ok. Bring the ring up first and drop the
+     escape hatch, so an absent ring fails the way an absent .jl already does.
+     After the differential scan above, so the ring's ink cannot move its medians. */
+  await page.evaluate(() => document.querySelector('.jl[tabindex="0"]').focus());
+  await page.keyboard.press('ArrowRight');
+  await settle(300);
   const declared = await page.evaluate(() => {
     const q = s => [...document.querySelectorAll(s)];
     const all = sel => q(sel).length > 0 && q(sel).every(e => e.getAttribute('vector-effect') === 'non-scaling-stroke');
     return { jl: all('.jl'), jbord: all('.jbord'), nJl: q('.jl').length,
-      ring: q('.focusring path').length === 0 || all('.focusring path') };
+      nRing: q('.focusring path').length, ring: all('.focusring path') };
   });
   ck('every stroked feature on the JLS map declares it, not a stylesheet rule',
-    declared.jl && declared.jbord && declared.ring && declared.nJl === 556,
+    declared.jl && declared.jbord && declared.ring && declared.nJl === 556
+    && declared.nRing === 2,
     JSON.stringify(declared));
 
   /* The two-tone ring is a *keyboard* affordance and was drawn from the `focus`
