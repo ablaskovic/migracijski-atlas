@@ -290,6 +290,33 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await settle(500);
   const click = async sel => { await page.click(sel); await settle(80); };
 
+  /* fresh boot helper: hash state is read at module init, so force a real reload */
+  const fresh = async h => {
+    await page.goto('about:blank');
+    await page.goto(url + h, { waitUntil: 'networkidle0' });
+    /* Wait for the app, not for a stopwatch. `networkidle0` says the network went
+       quiet, which is not the same as React having mounted — and every block
+       after a fresh() reads the DOM straight away, so a slow mount surfaces as
+       `Cannot read properties of null` from inside an evaluate, i.e. as a harness
+       abort rather than as a failed check. Every view renders svg#map, so it is
+       the one marker that means "the tree is up". */
+    await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 })
+      .catch(() => {});
+    await settle(400);
+    /* geo_jls.json (464 kB) loads via a dynamic import() fired from a useEffect,
+       i.e. *after* networkidle0 can already have resolved — so every #v=jmap
+       check was racing the chunk against a fixed 400 ms. Wait on the condition
+       instead of on a stopwatch. */
+    if (/v=jmap/.test(h)) {
+      /* `.catch`, like every other jmap wait in this file. Without it a loaded
+         box that misses 15 s on the 464 kB chunk rejected here, which killed the
+         whole run from inside a helper — a hard abort where a normal FAIL on the
+         checks that follow is both truer and readable. */
+      await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 })
+        .catch(() => {});
+    }
+  };
+
   /* ── geometry (winding-bug guards) ── */
   const geo = await page.evaluate(() => {
     const svg = document.querySelector('#map');
@@ -545,32 +572,6 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     tick.found === 1 && tick.right <= tick.max + 0.5 && tick.left >= tick.min - 0.5,
     JSON.stringify(tick));
 
-  /* fresh boot helper: hash state is read at module init, so force a real reload */
-  const fresh = async h => {
-    await page.goto('about:blank');
-    await page.goto(url + h, { waitUntil: 'networkidle0' });
-    /* Wait for the app, not for a stopwatch. `networkidle0` says the network went
-       quiet, which is not the same as React having mounted — and every block
-       after a fresh() reads the DOM straight away, so a slow mount surfaces as
-       `Cannot read properties of null` from inside an evaluate, i.e. as a harness
-       abort rather than as a failed check. Every view renders svg#map, so it is
-       the one marker that means "the tree is up". */
-    await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 })
-      .catch(() => {});
-    await settle(400);
-    /* geo_jls.json (464 kB) loads via a dynamic import() fired from a useEffect,
-       i.e. *after* networkidle0 can already have resolved — so every #v=jmap
-       check was racing the chunk against a fixed 400 ms. Wait on the condition
-       instead of on a stopwatch. */
-    if (/v=jmap/.test(h)) {
-      /* `.catch`, like every other jmap wait in this file. Without it a loaded
-         box that misses 15 s on the 464 kB chunk rejected here, which killed the
-         whole run from inside a helper — a hard abort where a normal FAIL on the
-         checks that follow is both truer and readable. */
-      await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 })
-        .catch(() => {});
-    }
-  };
 
   /* Focus must PLACE the tip, not merely show it. moveTip replays the last
      pointer position and there may not have been one: measured on a fresh load
