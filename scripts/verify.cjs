@@ -2677,12 +2677,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const paths = [...document.querySelectorAll('#pairSvg path')].filter(p => p.getAttribute('stroke'));
     const ins = paths.find(p => p.getAttribute('stroke') === '#1D4E89');
     const outs = paths.find(p => p.getAttribute('stroke') === '#B5341F');
-    return { ins: ins && ins.getAttribute('stroke-dasharray'), outs: outs && outs.getAttribute('stroke-dasharray'),
+    /* Presence recorded separately from the dash. `outs && getAttribute(...)`
+       yields undefined when the solid series is not findable at all — swap
+       PairCard's stroke="#B5341F" for a custom property, delete its lineG, or
+       retune the colour — and `!pairShape.outs` is true either way, so a card
+       rendering only ONE series printed "corridor series differ by dash". These
+       lines are the only place in the file that inspects #pairSvg's encoding. */
+    return { n: paths.length, hasIns: !!ins, hasOuts: !!outs,
+      insDash: ins ? ins.getAttribute('stroke-dasharray') : null,
+      outsDash: outs ? outs.getAttribute('stroke-dasharray') : null,
       cap: document.querySelector('#pair .card-sub').textContent };
   });
   ck('corridor series differ by dash, and the caption names shape not colour',
-    !!pairShape.ins && !pairShape.outs && /crtkano/.test(pairShape.cap)
-    && !/crvena/.test(pairShape.cap), JSON.stringify(pairShape));
+    pairShape.hasIns && pairShape.hasOuts && !!pairShape.insDash && pairShape.outsDash === null
+    && /crtkano/.test(pairShape.cap) && !/crvena/.test(pairShape.cap), JSON.stringify(pairShape));
 
   /* ── P3: `den` — a whole segment group that had zero coverage ── */
   for (const [d, label] of [['rel11', '% popisa 2011.'], ['relest', '% tek. procjene']]) {
