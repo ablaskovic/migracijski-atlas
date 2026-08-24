@@ -436,6 +436,13 @@ export default function App() {
         if (ev.key === 'End') { jump(YEARS.length - 1); return; }
         if (ev.key === 'PageUp') { jump(Math.min(YEARS.length - 1, s.yi + 5)); return; }
         if (ev.key === 'PageDown') { jump(Math.max(min, s.yi - 5)); return; }
+        /* role=slider owes ArrowUp/ArrowDown as well as left/right — the APG
+           pattern lists all four, and a reader who reaches for up/down on a
+           control that calls itself a slider got nothing. The bare arrows below
+           handle left/right for the whole document; these two are scoped to the
+           slider, like Home/End above. */
+        if (!ev.shiftKey && ev.key === 'ArrowUp') { jump(Math.min(YEARS.length - 1, s.yi + 1)); return; }
+        if (!ev.shiftKey && ev.key === 'ArrowDown') { jump(Math.max(min, s.yi - 1)); return; }
       }
       /* Shift+arrows pan the map (useZoom) — bare arrows step the year */
       if (!ev.shiftKey && ev.key === 'ArrowRight' && s.yi < YEARS.length - 1) up({ yi: s.yi + 1 });

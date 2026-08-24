@@ -84,7 +84,14 @@ export function decodeHash(hash: string): Patch {
      the slider quantises to 0,1, so a link cannot mint a value it could not
      produce either. */
   const thr = Number(p.get('t'));
-  if (Number.isInteger(thr) && thr >= 500 && thr <= 15000) o.thr = thr;
+  /* …and quantised to the slider's own 250-person step, the way `tp` already is
+     to its 0,1. The promise one line up is that a link cannot mint a value the
+     control could not produce, and an integer alone does not keep it: `t=4501`
+     decoded, rendered "−4.501" in the readout and the aria-valuetext, and left
+     the range input on a value it silently snaps away from the moment the reader
+     touches it. */
+  const thrQ = Math.round(thr / 250) * 250;
+  if (Number.isInteger(thr) && thrQ >= 500 && thrQ <= 15000) o.thr = thrQ;
   if (p.get('tr') === '1') o.thrRel = true;
   const tp = Math.round(Number(p.get('tp')) * 10) / 10;
   if (tp >= 0.5 && tp <= 5) o.thrPct = tp;
