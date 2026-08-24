@@ -2108,11 +2108,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     mx390.fs >= 6.5 && mx390.nLab >= 42, mx390.fs + ' px over ' + mx390.nLab + ' labels');
   ck('390: matrix gets the coarse-pointer tap overlay', mx390.hit === 1, String(mx390.hit));
 
+  /* The box and the paint, not the `display` keyword. `display !== 'none'` is
+     true of an element with zero height, zero opacity, visibility:hidden, or one
+     scrolled entirely out of its own container — and this hint is the ONLY thing
+     telling a touch reader that the rail, not the grid, is the way through. */
   const hint390 = await page.evaluate(() => {
     const h = document.querySelector('.rail-hint');
-    return h ? getComputedStyle(h).display : 'absent';
+    if (!h) return { absent: true };
+    const cs = getComputedStyle(h), r = h.getBoundingClientRect();
+    return { display: cs.display, vis: cs.visibility, op: +cs.opacity,
+      w: Math.round(r.width), h: Math.round(r.height), text: h.textContent.trim().length };
   });
-  ck('390: the rail hint that explains touch navigation is visible', hint390 !== 'none' && hint390 !== 'absent', hint390);
+  ck('390: the rail hint that explains touch navigation is visible',
+    !hint390.absent && hint390.display !== 'none' && hint390.vis !== 'hidden'
+    && hint390.op > 0.1 && hint390.w > 40 && hint390.h > 8 && hint390.text > 10,
+    JSON.stringify(hint390));
 
   /* same overlay geometry, narrow: labels toggle drops out and the rest shift in */
   await fresh('#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net');
