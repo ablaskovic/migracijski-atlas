@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
   D, ISOS, SHORTN, YEARS, IX2011, REG, REGOF,
-  natAt, fsum, klasOf, denom, KCOL, KLAB, badgeText, flowKind, fmtI, fmtR, sgn,
+  natAt, fsum, klasOf, denom, regVal, KCOL, KLAB, badgeText, flowKind, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 
@@ -124,6 +124,25 @@ function countyBlock(S: State, iso: string, yi: number): string {
   if (S.view === 'klas') {
     const k = klasOf(iso, yi, S.thr, S.thrRel, S.thrPct);
     h += '<span class="cls-tag" style="color:' + (k === 'neu' ? '#20262B' : '#fff') + ';background:' + KCOL[k] + '">' + esc(KLAB[k]) + '</span>';
+  }
+  /* In Regije the number that painted the county is the REGION's, and this block
+     is the county's decomposition: the fill comes from regVal, the legend's "you
+     are here" tick marks regVal, and countyAria speaks regVal — three surfaces
+     agree and the fourth is the one under the cursor. Measured at
+     `#v=reg&c=1&y=2024` hovering Osječko-baranjska: the aria-label says
+     "−97.195", the legend tick marks −97.195 on a ±97.365 bar, and the tooltip's
+     closing rows said "migracije · 2011.–2024. −26.517" and "mig. + prirodno
+     −48.271" — nothing in it was −97.195, and nothing said the county figure is
+     not what coloured the county. A sighted reader and a screen-reader reader
+     were handed figures 3,7× apart for the same element at the same moment. The
+     county decomposition stays: it is what the reader hovered. The region's own
+     figure closes the readout, so the number the tick marks is present with it. */
+  if (S.view === 'reg') {
+    const rk = REGOF[iso];
+    const rv = regVal(rk, yi, S.flow, S.den, S.cum);
+    const rs = S.den === 'abs' ? sgn(Math.round(rv), fmtI) : sgn(rv, fmtR) + ' %';
+    h += '<table><tr class="tip-net"><td>' + esc(REG[rk].name) + ' · ' + per
+      + '</td><td class="' + (rv < 0 ? 'neg' : 'pos') + '">' + rs + '</td></tr></table>';
   }
   return h;
 }

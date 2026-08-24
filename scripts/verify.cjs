@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 449;
+const EXPECTED_CHECKS = 450;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -387,6 +387,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('regije rail values match reference set',
     regExp.every((e, i) => rows[i].n === e[0] && rows[i].v === e[1]),
     rows.map(r => r.n + ' ' + r.v).join(' | '));
+  /* The tooltip must carry the number that painted the county. In Regije the
+     fill comes from regVal, the legend's tick marks regVal and countyAria speaks
+     regVal — three surfaces agree and the fourth is the one under the cursor,
+     which showed the county's own decomposition and nothing else. Measured at
+     `#v=reg&c=1&y=2024` over Osječko-baranjska: aria −97.195, legend tick
+     −97.195, tooltip "migracije · 2011.–2024. −26.517" — 3,7× apart for the same
+     element at the same moment, with nothing saying the county figure is not
+     what coloured the county. */
+  await fresh('#v=reg&c=1&y=2024');
+  await page.hover('path[data-iso="HR-14"]');
+  await settle(160);
+  const regTip = await page.evaluate(() => ({
+    tip: document.querySelector('#tip').textContent,
+    aria: document.querySelector('path[data-iso="HR-14"]').getAttribute('aria-label') || '',
+  }));
+  const regNum = (NBSP(regTip.aria).match(/[+−][\d.]+/) || [''])[0];
+  ck('the Regije tooltip carries the region figure that painted the county',
+    !!regNum && NBSP(regTip.tip).includes(regNum) && /Istočna/.test(regTip.tip),
+    JSON.stringify({ regNum, aria: regTip.aria, tip: NBSP(regTip.tip).slice(-80) }));
+  await fresh('');
 
   /* ── tokovi 2018 godišnje, HR-21 odlasci ── */
   await click('#segMode button[data-v="yr"]');
