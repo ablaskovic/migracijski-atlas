@@ -2664,13 +2664,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     faces.every(f => f.ok), JSON.stringify(faces));
   /* The subset that carries č ć š ž đ. Dropping latin-ext would render Croatian
      in the fallback face and look almost right. */
+  /* Per family, not as one total. `extLoaded > 0` let five of the six ext faces
+     vanish and still pass: drop Oswald's latin-ext subset and it is --disp, so
+     .hd-title, .rail-year, .card-name and .tip-name — every county name shown as
+     a heading — render 'Osječko-baranjska' and 'Šibensko-kninska' with their
+     accented glyphs from Arial Narrow and the rest in Oswald, visibly mixed. The
+     sibling family check passes too, because the surviving latin-only face
+     satisfies it. All three self-hosted families set Croatian text, so all three
+     owe an ext face. */
   const extLoaded = await page.evaluate(async () => {
     await document.fonts.ready;
-    return [...document.fonts].filter(f => f.status === 'loaded'
-      && /U\+100|U\+0100/i.test(f.unicodeRange || '')).length;
+    const by = {};
+    for (const f of document.fonts) {
+      if (f.status !== 'loaded' || !/U\+100|U\+0100/i.test(f.unicodeRange || '')) continue;
+      by[f.family] = (by[f.family] || 0) + 1;
+    }
+    return by;
   });
-  ck('the latin-ext subset is among the loaded faces (č ć š ž đ)',
-    extLoaded > 0, String(extLoaded));
+  ck('every self-hosted family has a loaded latin-ext face (č ć š ž đ)',
+    ['IBM Plex Mono', 'IBM Plex Sans', 'Oswald'].every(f => extLoaded[f] > 0),
+    JSON.stringify(extLoaded));
 
   /* ══════════ v2.0.6 — the companion study is unpublished ══════════
      The paper this atlas is a companion to is not published yet, so three
