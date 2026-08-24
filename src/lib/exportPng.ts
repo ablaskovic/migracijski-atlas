@@ -1,6 +1,6 @@
 import {
   ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
-  klasOf, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc,
+  klasOf, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc, marginFlow,
 } from './metrics.ts';
 import { ensureFonts, fontCss } from './exportFonts.ts';
 import { paperCaveatLine, paperExportLine } from './credits.ts';
@@ -164,7 +164,7 @@ function legendNote(S: State): string {
   /* Godine is the only view that renders 1998–2006 beside the rest, so it is the
      only one whose *image* can carry those columns off into a slide — the hatch
      that marks them on screen has no caption of its own, so the words go here. */
-  if (S.view === 'yrs' && !S.cum) {
+  if (S.view === 'yrs' && !S.cum && marginFlow(S.flow)) {
     return L('Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju.',
       'Hatched before 2007: the inter-county margins do not close before then.')
       + (S.flow === 'all' ? ' ' + all : '');

@@ -1,6 +1,6 @@
 import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
-  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, fmtI, fmtR,
+  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, fmtI, fmtR,
 } from '../lib/metrics.ts';
 import { PAPER_THR, PAPER_WINDOW } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
@@ -98,8 +98,13 @@ const PW = (): string => yrSpan(PAPER_WINDOW.from, PAPER_WINDOW.to);
    the view is cumulative or klas — precisely the modes that exclude these years
    anyway — so in godišnje mode, the only mode where 1998–2006 actually renders
    values, there was no marking at all. */
-const preNote = (S: State): string =>
-  !S.cum && YEARS[S.yi] < 2007
+/* `inter` — does the series on screen even have an inter-county margin? See
+   metrics.marginFlow: on `ext` and `nat` this caveat described nothing, and the
+   two corridor views, which are drawn from the very matrix that does not close,
+   returned before it and carried none. Both halves were wrong in opposite
+   directions. */
+const preNote = (S: State, inter: boolean): string =>
+  !S.cum && YEARS[S.yi] < 2007 && inter
     ? L(' Prije 2007. međužupanijske margine ne zatvaraju se točno — v. „Kako čitati”.',
       ' Before 2007 the inter-county margins do not close exactly — see “How to read”.') : '';
 function klasNote(S: State): string {
@@ -167,7 +172,7 @@ export default function Legend({ S }: { S: State }) {
             'A row is a county, a column a year; rows are ordered by the period total. The teal column is the selected year — clicking a cell sets it.')}
           {S.flow === 'all' && L(' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
             ' The sum of two published components — not total population change.')}
-          {!S.cum && L(' Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju — v. „Kako čitati”.',
+          {!S.cum && marginFlow(S.flow) && L(' Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju — v. „Kako čitati”.',
             ' Hatched before 2007: the inter-county margins do not close before then — see “How to read”.')}
         </div>
       </div>
@@ -187,7 +192,7 @@ export default function Legend({ S }: { S: State }) {
             one footnote's worth of it. The per-county detail is in the glossary;
             this line has to fit above the map. */}
         <div className="legend-note">{L('Plavo: regija dobiva stanovnike · crveno: gubi ih. Rad predlaže pet regija i njihova središta, ali ne objavljuje popis županija — raspored po županijama je tumačenje atlasa; v. „Kako čitati”.',
-          'Blue: the region gains people · red: it loses them. The paper proposes five regions and their centres but publishes no county list — assigning counties to them is the atlas’s reading; see “How to read”.')}{preNote(S)}</div>
+          'Blue: the region gains people · red: it loses them. The paper proposes five regions and their centres but publishes no county list — assigning counties to them is the atlas’s reading; see “How to read”.')}{preNote(S, marginFlow(S.flow))}</div>
       </div>
     );
   }
@@ -243,7 +248,7 @@ export default function Legend({ S }: { S: State }) {
           ? <GradBar scale={divScale(m)} m={m} rel={false} mark={mark} />
           : <SeqBar scale={seqScale(m, S.dir)} m={m} mark={mark} />}
         <div className="legend-note">{L('Dijagonala (selidbe unutar županije) nije dio međužupanijske matrice. ',
-          'The diagonal (moves within a county) is not part of the inter-county matrix. ')}{src}</div>
+          'The diagonal (moves within a county) is not part of the inter-county matrix. ')}{src}{preNote(S, true)}</div>
       </div>
     );
   }
@@ -262,7 +267,7 @@ export default function Legend({ S }: { S: State }) {
           <div className="legend-title">{L('Neto tokovi: ', 'Net flows: ')}{D[S.sel!]?.n || ''}{L(' ↔ partneri · ', ' ↔ partners · ')}{per}</div>
           <GradBar scale={divScale(m)} m={m} rel={false} mark={mark} />
           <div className="legend-note">{L('Plavo: odabrana županija dobiva od partnera. Strelica pokazuje smjer selidbe. ',
-            'Blue: the selected county gains from the partner. The arrowhead shows the direction of the move. ')}{src}</div>
+            'Blue: the selected county gains from the partner. The arrowhead shows the direction of the move. ')}{src}{preNote(S, true)}</div>
         </div>
       );
     }
@@ -280,7 +285,7 @@ export default function Legend({ S }: { S: State }) {
             dominance reads at half. The JLS legend has always stated its √ scale;
             this one now says the same thing about itself. */}
         <div className="legend-note">{L('Debljina luka po korijenskoj (√) skali, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. ',
-          'Arc width on a square-root (√) scale, relative to the selected county (not comparable between counties). The arrowhead shows the direction of the move. ')}{src}</div>
+          'Arc width on a square-root (√) scale, relative to the selected county (not comparable between counties). The arrowhead shows the direction of the move. ')}{src}{preNote(S, true)}</div>
       </div>
     );
   }
@@ -297,7 +302,7 @@ export default function Legend({ S }: { S: State }) {
           'Blue: the county gains people · red: it loses them · 0 = balance.')}
         {S.flow === 'all' && L(' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
           ' The sum of two published components — not total population change.')}
-        {preNote(S)}
+        {preNote(S, marginFlow(S.flow))}
       </div>
     </div>
   );

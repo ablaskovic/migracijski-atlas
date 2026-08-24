@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  D, SHORTN, YEARS, DOM, IX2007, val, yrsCols, yrsOrder, divScale, fmtI, fmtR, sgn,
+  D, SHORTN, YEARS, DOM, IX2007, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE } from '../lib/tip.ts';
@@ -204,7 +204,12 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
     rows.push(<g key={iso} role="row" aria-rowindex={r + 1} aria-label={D[iso].n}>{cells}</g>);
   }
 
-  const preW = S.cum ? 0 : Math.max(0, (IX2007 - cols[0]) * cw);
+  /* …and only for a series that has an inter-county margin. Nalaz 15 opens this
+     grid on `nat` — births minus deaths, whose county sums equal the national
+     figure exactly in all 28 years — and drew a hatched rule over its first nine
+     columns anyway, with the legend and the exported caption repeating the
+     claim. See metrics.marginFlow. */
+  const preW = S.cum || !marginFlow(S.flow) ? 0 : Math.max(0, (IX2007 - cols[0]) * cw);
 
   return (
     /* tabIndex -1 for the skip link — see the county map in MapView */

@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 434;
+const EXPECTED_CHECKS = 435;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3847,6 +3847,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('godišnje mode renders all 28 years and hatches the pre-2007 span',
     yann.cells === 588 && yann.pre === 1 && yann.first === '1998'
     && /Šrafirano do 2007/.test(yann.note), JSON.stringify(yann).slice(0, 160));
+
+  /* …and only for a series that has an inter-county margin. The gap lives in the
+     `ii`/`oi` arrays: Σ(doseljeni) − Σ(odseljeni) is −550…−490 for 2002–06 and
+     exactly 0 from 2007. `ext` is cross-border and balances against nothing;
+     `nat` is a separate table whose county sums equal the national figure in all
+     28 years — yet Nalaz 15 opens this grid on `nat` and it drew the hatch, the
+     legend clause and the exported caption anyway. The corridor views, drawn from
+     the very matrix that does not close, carried no caveat at all. */
+  const preGate = [];
+  for (const [h, want] of [['#v=yrs&c=0&y=2024&f=nat', false], ['#v=yrs&c=0&y=2024&f=ext', false],
+    ['#v=yrs&c=0&y=2024&f=int', true], ['#v=saldo&c=0&y=2004&f=nat', false],
+    ['#v=saldo&c=0&y=2004', true], ['#v=flow&s=HR-21&c=0&y=2004&dir=out', true],
+    ['#v=mx&c=0&y=2004&dir=out', true]]) {
+    await fresh(h);
+    const r = await page.evaluate(() => ({
+      note: document.querySelector('#legend .legend-note').textContent || '',
+      hatch: document.querySelectorAll('#map .yrpre').length,
+    }));
+    const said = /margine ne zatvaraju/.test(r.note);
+    if (said !== want || (/v=yrs/.test(h) && (r.hatch > 0) !== want)) {
+      preGate.push(h + ' said=' + said + ' hatch=' + r.hatch + ' want=' + want);
+    }
+  }
+  ck('the pre-2007 margin caveat is shown exactly where it is true',
+    preGate.length === 0, preGate.slice(0, 3).join(' | '));
 
   /* clicking a cell is how the grid doubles as a year picker: it drives the same
      S.yi the scrubber and every other view read */

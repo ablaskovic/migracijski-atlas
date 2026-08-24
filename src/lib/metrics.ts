@@ -348,6 +348,15 @@ export function yrsOrder(flow: Flow, den: Den, cols: number[]): string[] {
    next to the rest instead of one at a time, so it is the first that can mark
    where they stop — see the rule the grid draws at this column. */
 export const IX2007 = YEARS.indexOf(2007);
+/* …and which series that mark is actually about. The gap lives in the
+   inter-county `ii`/`oi` arrays alone: Σ(doseljeni) − Σ(odseljeni) across the 21
+   counties is +218/−122/−61/+27 for 1998–2001, −550/−519/−464/−489/−490 for
+   2002–06 and exactly 0 from 2007. `ext` is cross-border migration, which is not
+   required to balance against anything in any year, and `nat` is a separate DZS
+   table whose county sums equal the national figure exactly in all 28 — so on
+   those two the caveat described nothing at all, while the two corridor views,
+   which are built from that very matrix, carried no caveat at all. */
+export const marginFlow = (f: Flow): boolean => f === 'tot' || f === 'int' || f === 'all';
 
 /* ── JLS map (measured 2018, internal moves only) ── */
 export function jlsVal(p: JlsProps, dir: Dir): number {
