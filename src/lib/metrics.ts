@@ -252,6 +252,15 @@ export const PAPER_KLAS_DIFF: { iso: string; here: Klas; paper: Klas; v: number 
    threshold, off its endpoint or in relative mode the two measure different
    things, and a "differs from the study" note would be noise rather than
    honesty. */
+/* The "gubitnice" threshold as the reader sees it, signed. One expression, three
+   consumers, for the reason badgeText settled for the honesty labels: the legend
+   title printed it UNSIGNED ("prag 4.500") while the export caption, the glossary
+   and the aria-valuetext all sign it, so the one surface a reader reads the
+   threshold off was the one that dropped the minus — on a control whose whole
+   job is "how far below zero counts as losing". U+2212 is the house minus. */
+export const pragText = (S: State): string =>
+  '−' + (S.thrRel ? fmtR.format(S.thrPct) + L(' % popisa 2011.', ' % of 2011 census') : fmtI.format(S.thr));
+
 export function paperKlasComparable(S: State): boolean {
   return !S.thrRel && S.thr === PAPER_THR && YEARS[S.yi] === PAPER_WINDOW.to;
 }
@@ -471,9 +480,9 @@ export function exportDesc(S: State): [string, string] {
   const den = S.den === 'rel11' ? L(' · % popisa 2011.', ' · % of 2011 census')
     : S.den === 'relest' ? L(' · % tek. procjene', ' · % of current estimate') : '';
   if (S.view === 'klas') {
-    const prag = S.thrRel ? fmtR.format(S.thrPct) + L(' % popisa 2011.', ' % of 2011 census') : fmtI.format(S.thr);
-    return [L('Klasifikacija: pobjednice · neutralne · gubitnice (prag −' + prag + ')',
-      'Classification: gaining · neutral · losing (threshold −' + prag + ')'), per];
+    const prag = pragText(S);
+    return [L('Klasifikacija: pobjednice · neutralne · gubitnice (prag ' + prag + ')',
+      'Classification: gaining · neutral · losing (threshold ' + prag + ')'), per];
   }
   if (S.view === 'mx') {
     const d = {

@@ -1,6 +1,6 @@
 import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
-  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, fmtI, fmtR,
+  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, pragText, fmtI, fmtR,
 } from '../lib/metrics.ts';
 import { PAPER_THR, PAPER_WINDOW, paperSplit } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
@@ -125,8 +125,8 @@ function klasNote(S: State): string {
     return L(`Prag u % popisa 2011. — rad koristi apsolutni prag (${fmtI.format(PAPER_THR)}, ${PW()}), a argumentira relativno.`,
       `Threshold as % of the 2011 census — the paper uses an absolute threshold (${fmtI.format(PAPER_THR)}, ${PW()}) but argues in relative terms.`);
   }
-  return L(`Prag i tri razreda iz rada; rad ih računa za ${PW()} pragom ${fmtI.format(PAPER_THR)}.`,
-    `Threshold and the three classes are the paper's; it computes them for ${PW()} at a threshold of ${fmtI.format(PAPER_THR)}.`);
+  return L(`Prag i tri razreda iz rada; rad ih računa za ${PW()} pragom −${fmtI.format(PAPER_THR)}.`,
+    `Threshold and the three classes are the paper's; it computes them for ${PW()} at a threshold of −${fmtI.format(PAPER_THR)}.`);
 }
 
 export default function Legend({ S }: { S: State }) {
@@ -141,7 +141,7 @@ export default function Legend({ S }: { S: State }) {
   if (S.view === 'klas') {
     const counts: Record<Klas, number> = { gain: 0, neu: 0, loss: 0 };
     ISOS.forEach(iso => counts[klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct)]++);
-    const prag = S.thrRel ? fmtR.format(S.thrPct) + L(' % popisa 2011.', ' % of 2011 census') : fmtI.format(S.thr);
+    const prag = pragText(S);
     return (
       <div className="legend" id="legend">
         <div className="legend-title">{L('Klasifikacija iz rada · prag ', 'Classification from the paper · threshold ')}{prag}</div>

@@ -3,7 +3,7 @@ import { max } from 'd3-array';
 import { CIT, cgroups, countryName, DEMO, YEARS, fmtI, sgn } from '../lib/metrics.ts';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react';
 import type { Patch, State } from '../lib/types.ts';
-import { L, yr, yrSpan } from '../lib/i18n.ts';
+import { L, yr as yrOf, yrSpan } from '../lib/i18n.ts';
 
 export default function CitzPanel({ S, setS, toggleCitz }: {
   S: State; setS: (p: Patch) => void; toggleCitz: () => void;
@@ -63,8 +63,8 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
           </div>
           {/* one panel, two time behaviours: Skupine follows the scrubber,
               Zemlje is frozen — make the frozen one say so up front */}
-          {zem && <div className="citz-clamp" id="zemFixed">{L(`Fiksno ${yr(DEMO.year)} — vremenska vrpca ne mijenja ovaj popis.`,
-            `Fixed at ${yr(DEMO.year)} — the time scrubber does not change this list.`)}</div>}
+          {zem && <div className="citz-clamp" id="zemFixed">{L(`Fiksno ${yrOf(DEMO.year)} — vremenska vrpca ne mijenja ovaj popis.`,
+            `Fixed at ${yrOf(DEMO.year)} — the time scrubber does not change this list.`)}</div>}
           {zem ? (
             <>
               <div id="zemList">
@@ -93,23 +93,27 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   <span className="jv">{'−' + fmtI.format(DEMO.cTot[1] - DEMO.countries.reduce((a, c) => a + c[2], 0))}</span>
                 </div>
                 <div className="jrow zt">
-                  <span className="jn">{L('Ukupno — sve zemlje ', 'Total — all countries ') + yr(DEMO.year)}</span>
+                  <span className="jn">{L('Ukupno — sve zemlje ', 'Total — all countries ') + yrOf(DEMO.year)}</span>
                   <span className="zbar" />
                   <span className="jv">{'+' + fmtI.format(DEMO.cTot[0])}</span>
                   <span className="jv">{'−' + fmtI.format(DEMO.cTot[1])}</span>
                 </div>
               </div>
-              <div className="citz-note">{L(`Prema zemlji podrijetla/odredišta (ne državljanstvu) · DZS STAN-2026-2-1 (t. I 4) · objavljeno samo za ${yr(DEMO.year)}`,
-                `By country of origin/destination (not citizenship) · CBS STAN-2026-2-1 (t. I 4) · published for ${yr(DEMO.year)} only`)}</div>
+              <div className="citz-note">{L(`Prema zemlji podrijetla/odredišta (ne državljanstvu) · DZS STAN-2026-2-1 (t. I 4) · objavljeno samo za ${yrOf(DEMO.year)}`,
+                `By country of origin/destination (not citizenship) · CBS STAN-2026-2-1 (t. I 4) · published for ${yrOf(DEMO.year)} only`)}</div>
             </>
           ) : (
             <>
               <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={L('Doseljeni i odseljeni prema državljanstvu', 'Arrivals and departures by citizenship')}>
                 {bars}
-                {yy.map(yr => (
-                  <text key={yr} x={x(yr)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize={9}
-                    fontFamily="var(--mono)" fontWeight={yr === y ? 600 : 400}
-                    fill={yr === y ? 'var(--acc)' : 'var(--mut)'}>{yr}.</text>
+                {/* through the formatter, not `{yr}.` — the trailing dot is a
+                    Croatian ordinal and this axis printed it in both languages.
+                    The parameter was shadowing the imported `yr` helper, which is
+                    why the literal was reached for in the first place. */}
+                {yy.map(v => (
+                  <text key={v} x={x(v)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize={9}
+                    fontFamily="var(--mono)" fontWeight={v === y ? 600 : 400}
+                    fill={v === y ? 'var(--acc)' : 'var(--mut)'}>{yrOf(v)}</text>
                 ))}
                 <line x1={mL} x2={w - mR} y1={y0} y2={y0} stroke="var(--ink)" strokeWidth={0.8} />
               </svg>
@@ -118,7 +122,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   <FragmentRow key={k} col={col} lab={lab} d={CIT.g[k].d[ci]} o={CIT.g[k].o[ci]} />
                 ))}
                 <span />
-                <span className="ct">{L('Ukupno ', 'Total ') + yr(y) + L(' · saldo ', ' · net ') + sgn(ts, fmtI)}</span>
+                <span className="ct">{L('Ukupno ', 'Total ') + yrOf(y) + L(' · saldo ', ' · net ') + sgn(ts, fmtI)}</span>
                 <span className="cv ct">{'+' + fmtI.format(td)}</span>
                 <span className="cv ct">{'−' + fmtI.format(to)}</span>
               </div>
@@ -131,8 +135,8 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   is the pattern #srLive follows and this one did not. Empty it
                   paints nothing — see .citz-clamp:empty. */}
               <div className="citz-clamp" id="citzClamp" role="status" aria-live="polite">
-                {!inRange && L(`Vremenska vrpca je na ${yr(YEARS[S.yi])} — izvan objavljenog raspona, prikazano ${yr(y)}`,
-                  `The time scrubber is at ${yr(YEARS[S.yi])} — outside the published range, showing ${yr(y)}`)}
+                {!inRange && L(`Vremenska vrpca je na ${yrOf(YEARS[S.yi])} — izvan objavljenog raspona, prikazano ${yrOf(y)}`,
+                  `The time scrubber is at ${yrOf(YEARS[S.yi])} — outside the published range, showing ${yrOf(y)}`)}
               </div>
               <div className="citz-note" id="citzNote">{L(`Prema zemlji državljanstva · DZS STAN-2026-2-1 (t. 2) · odabir godine prati vremensku vrpcu unutar ${yrSpan(yy[0], yy[yy.length - 1])}`,
                 `By country of citizenship · CBS STAN-2026-2-1 (t. 2) · the year follows the time scrubber within ${yrSpan(yy[0], yy[yy.length - 1])}`)}</div>

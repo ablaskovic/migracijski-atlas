@@ -935,7 +935,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const relLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
   ck('klas rel threshold 1,5 % → 7 / 3 / 11',
     relLeg.includes('pobjednice · 7') && relLeg.includes('neutralne · 3') && relLeg.includes('gubitnice · 11'), relLeg);
-  ck('klas rel legend states % prag', relLeg.includes('1,5 % popisa 2011.'), relLeg);
+  /* signed, like every other surface that states this threshold. The legend
+     title printed it bare ("prag 4.500" / "prag 1,5 % popisa 2011.") while the
+     export caption, the glossary and the aria-valuetext all carry the minus — on
+     the one control whose whole job is "how far below zero counts as losing". */
+  ck('klas rel legend states % prag', relLeg.includes('−1,5 % popisa 2011.'), relLeg);
 
   /* ══════════ UX / a11y remediation checks ══════════ */
 
