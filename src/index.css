@@ -66,7 +66,7 @@
    these cost nothing and work on a slow connection too, which is the case that
    actually shifts.
 
-   Every number below is measured, not copied: scratchpad font-metrics.cjs renders
+   Every number below is measured, not copied: tools/font-metrics.cjs renders
    a Croatian sample string in the real face and in the local one at 100 px, takes
    size-adjust as the width ratio, takes ascent/descent from the real face's
    fontBoundingBox (divided by size-adjust, which the overrides are relative to),
