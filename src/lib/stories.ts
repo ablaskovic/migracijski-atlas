@@ -63,7 +63,7 @@ export const STORIES: Story[] = [
        surface still writing out a pair that PAPER_KLAS_DIFF exists to derive, and
        so the one that would keep asserting the difference after a DZS revision
        closed it. The legend below the caption names them, from the data. */
-    get cap() { return L('Prag −4.500 iz rada, primijenjen na noviju DZS seriju, ne razvrstava županije isto kao rad — legenda imenuje one koje se razlikuju. Pomakni prag i prati kako se klase mijenjaju.', 'The paper’s −4,500 threshold, applied to the newer CBS series, does not classify the counties the way the paper does — the legend names the ones that differ. Move the threshold and watch the classes change.'); },
+    get cap() { return L('Prag −4.500 iz rada, primijenjen na noviju DZS seriju, ne razvrstava županije isto kao rad — legenda imenuje one koje se razlikuju. Pomakni prag i prati legendu — ova se napomena tada miče, jer više ne opisuje ono što je na ekranu.', 'The paper’s −4,500 threshold, applied to the newer CBS series, does not classify the counties the way the paper does — the legend names the ones that differ. Move the threshold and watch the legend — this note then steps aside, because it no longer describes what is on screen.'); },
     patch: { view: 'klas', thr: 4500, thrRel: false, cum: true, yi: Y24 },
   },
   {
