@@ -22,9 +22,10 @@ const BLOCKS: number[] = [];
   for (const k of Object.keys(REG)) { acc += REG[k].c.length; BLOCKS.push(acc); }
 }
 
-export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
+export default function MatrixView({ S, setS, size, legend, panel, zoom, openCorridor }: {
   S: State; setS: (p: Patch) => void; size: { w: number; h: number };
   legend: { w: number; h: number }; panel: { w: number; h: number }; zoom: ReturnType<typeof useZoom>;
+  openCorridor: (a: string, b: string) => void;
 }) {
   const n = MXORD.length;
   /* PADB is the plain bottom margin when the legend is not in the way. The
@@ -157,10 +158,14 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom }: {
      the cell — it is no longer unmounted, and `aria-expanded` on the cell is
      what says a card opened, the same contract `.cnt` uses for its county card.
      A second activation closes it, so the cell is a toggle both ways. */
-  const drill = (a: string, b: string) => {
-    const open = S.sel === a && S.pair === b;
-    setS(open ? { sel: null, pair: null } : { sel: a, pair: b });
-  };
+  /* The one implementation, handed down rather than copied. This used to
+     re-derive App.openCorridor's toggle and drop its `playing: false`, so opening
+     a corridor from a cell left the film running: measured, #play kept
+     aria-pressed="true" and the card's readout stepped from "2012. · → 2.457 ·
+     ← 2.010 · neto −447" to 2014's figures 1,4 s later, with the badge flipping
+     as 2018 went past — while clicking the identical corridor in the rail 40 px
+     away stopped it. Two routes to one action, two behaviours. */
+  const drill = openCorridor;
   /* keyboard focus must place the tip itself — moveTip otherwise replays the
      last pointer position, which has nothing to do with the focused cell */
   const onCellFocus = (e: ReactFocusEvent<SVGRectElement>, a: string, b: string) => {

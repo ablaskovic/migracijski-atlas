@@ -481,7 +481,7 @@ export default function App() {
         {L('Prijeđi na kartu', 'Skip to the map')}</a>
       <Header S={S} setS={up} setView={setView} setMode={setMode} applyStory={applyStory} resetAll={resetAll} />
       <main className="main">
-        <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL} resetSeq={resetSeq}
+        <MapView S={S} setS={up} selectCounty={selectCounty} setHL={setHL} resetSeq={resetSeq} openCorridor={openCorridor}
           toggleCitz={toggleCitz} toggleJls={toggleJls} toggleAge={toggleAge} toggleHelp={toggleHelp} />
         <Rail S={S} setS={up} selectCounty={selectCounty} setHL={setHL} openPair={openPair} openCorridor={openCorridor} setJlsHl={setJlsHl} />
       </main>

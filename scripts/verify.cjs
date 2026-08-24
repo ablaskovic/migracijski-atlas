@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 437;
+const EXPECTED_CHECKS = 438;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -630,7 +630,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     mxRail.n + ' ' + mxRail.v);
   const mxLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
   ck('matrix legend labels izmjereno + diagonal note', mxLeg.includes('Izmjereno') && mxLeg.includes('Dijagonala'));
-  /* No in-cell number may be wider than the cell it belongs to. `cell >= 22` asks
+  /* Both routes into a corridor must be the same action. MatrixView re-derived
+     App.openCorridor's toggle and dropped its `playing: false`, so pressing a
+     cell mid-playback left the film running under the card it had just opened —
+     #play stayed pressed and the readout stepped a year every 1,4 s, the badge
+     flipping as 2018 went past — while the identical corridor in the rail 40 px
+     away stopped it. */
+  const drillStop = await page.evaluate(async () => {
+    document.querySelector('#play').click();
+    await new Promise(r => setTimeout(r, 250));
+    const playing = document.querySelector('#play').getAttribute('aria-pressed');
+    document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').dispatchEvent(
+      new MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { playing, after: document.querySelector('#play').getAttribute('aria-pressed'),
+      card: !!document.querySelector('#pair') };
+  });
+  ck('opening a corridor from a matrix cell stops playback, like every other route',
+    drillStop.playing === 'true' && drillStop.after === 'false' && drillStop.card,
+    JSON.stringify(drillStop));
+  await fresh('#v=mx&y=2018&c=0&dir=out');  /* No in-cell number may be wider than the cell it belongs to. `cell >= 22` asks
      whether a number could fit and never whether *this* number does — a
      cumulative −12.169 is seven glyphs where an annual 87 is two. Measured at
      1920×1080 in Kumulativno + Neto, 20 of the 420 numbers rendered wider than

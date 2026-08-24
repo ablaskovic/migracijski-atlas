@@ -24,9 +24,11 @@ import { useSuspendMapStops } from '../lib/suspendMap.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
 
-export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggleCitz, toggleJls, toggleAge, toggleHelp }: {
+export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCorridor, toggleCitz, toggleJls, toggleAge, toggleHelp }: {
   S: State; setS: (p: Patch) => void; selectCounty: (iso: string) => void;
-  setHL: (iso: string | null) => void; resetSeq: number; toggleCitz: () => void; toggleJls: () => void;
+  setHL: (iso: string | null) => void; resetSeq: number;
+  openCorridor: (a: string, b: string) => void;
+  toggleCitz: () => void; toggleJls: () => void;
   toggleAge: () => void; toggleHelp: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -311,7 +313,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
       <div className="map-stage">
       <div className="map-box" ref={wrapRef}>
       {S.view === 'mx' ? (
-        <MatrixView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} />
+        <MatrixView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} openCorridor={openCorridor} />
       ) : S.view === 'yrs' ? (
         <YearsView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} />
       ) : S.view === 'jmap' ? (
