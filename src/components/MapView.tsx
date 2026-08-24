@@ -156,12 +156,23 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
      projected path cache has to rebuild when they land — hence the identities in
      the dep list. `p(f) || ''` keeps a missing payload from throwing. */
   const JGEO = jlsGeo(), REGGEO = regGeo();
-  const { drawn, cent, cds, rds, box, jds } = useMemo(() => {
+  /* Three memos, not one. The single memo projected the 21 counties AND the 556
+     JLS polygons AND the 5 region outlines on every re-run and then threw two of
+     the three away, because only one view draws each — and its dep list, correct
+     and stable in itself, carried no view term while geoAsync warms both chunks
+     on a timer, so `JGEO` is non-null in every view. Every observed resize frame
+     paid for all of it: measured at 1440×900 over 40 resize steps, 46,2 ms of
+     script per resize with the chunks warmed against 19,7 ms with them blocked —
+     ~25 ms a frame of pure waste, capping a window drag at about 21 fps. A Nalaz
+     press does it too, since StoryBar is an in-flow sibling of .map-stage and
+     mounting it fires the same ResizeObserver. Split, entering Tokovi or the JLS
+     map pays a one-off projection at a moment that is already a layout change. */
+  const { drawn, cent, cds, box, p } = useMemo(() => {
     if (!size.w || !size.h) {
       return {
         drawn: false, cent: {} as Record<string, [number, number]>,
-        cds: {} as Record<string, string>, rds: [] as string[],
-        box: {} as Record<string, [number, number]>, jds: [] as string[],
+        cds: {} as Record<string, string>,
+        box: {} as Record<string, [number, number]>, p: null as ReturnType<typeof geoPath> | null,
       };
     }
     const proj = geoConicEqualArea().parallels([43.2, 46.2]).rotate([-16.4, 0])
@@ -174,10 +185,15 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
       cds[iso] = p(f)!; cent[iso] = p.centroid(f);
       const b = p.bounds(f); box[iso] = [b[1][0] - b[0][0], b[1][1] - b[0][1]];
     });
-    const rds = REGGEO ? REGGEO.features.map(f => p(f) || '') : [];
-    const jds = JGEO ? JGEO.features.map(f => p(f) || '') : [];  /* same projection as counties */
-    return { drawn: true, cent, cds, rds, box, jds };
-  }, [size, JGEO, REGGEO]);
+    return { drawn: true, cent, cds, box, p };
+  }, [size]);
+  /* the same projection as the counties, built only for the view that draws it */
+  const jds = useMemo(
+    () => (p && JGEO && S.view === 'jmap' ? JGEO.features.map(f => p(f) || '') : [] as string[]),
+    [p, JGEO, S.view]);
+  const rds = useMemo(
+    () => (p && REGGEO && S.view === 'reg' ? REGGEO.features.map(f => p(f) || '') : [] as string[]),
+    [p, REGGEO, S.view]);
 
   /* county fill per state — port of update().
      The scale is built once per render, not once per county: `fill` runs 21 times
@@ -481,7 +497,10 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           </g>
           <g>
             {drawn && rds.map((d, i) => (
-              <path key={i} className="regline" d={d} vectorEffect="non-scaling-stroke" style={{ display: S.view === 'reg' ? undefined : 'none' }} />
+              /* `rds` is now empty outside Regije, so the display:none this
+                 carried — which existed to keep the projected paths mounted
+                 across a view change — has nothing left to hide */
+              <path key={i} className="regline" d={d} vectorEffect="non-scaling-stroke" />
             ))}
           </g>
           <g>
