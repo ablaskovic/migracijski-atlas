@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 446;
+const EXPECTED_CHECKS = 447;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5526,7 +5526,34 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a boot with no entry chunk stops claiming progress and says what to do',
     bootFail.present && bootFail.opacity === '1' && bootFail.stillBooting && !bootFail.mounted,
     JSON.stringify(bootFail));
-  /* The deliberate abort above lands in the error list like any other, and this
+  /* The other half of that promise. index.html's boot-fail line covers the
+     PRE-mount case only — createRoot has replaced that markup by the time a
+     render throw happens, and React 19 unmounts the root on an uncaught one.
+     Measured before the boundary: one TypeError from the commit phase took
+     #root's innerHTML from 174.323 characters to 0, body.innerText to '', and
+     a,button,select,input from 42 to 0 — no reload affordance of any kind — while
+     the background and the tab title stayed put, so the tab looked alive. The
+     hash is untouched, so a hash-deterministic defect reproduces for every
+     recipient of the link with no in-page way out. */
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  const boundary = await page.evaluate(async () => {
+    const before = document.querySelector('#root').innerHTML.length;
+    /* throw from inside React's own commit phase, the way a real defect would:
+       a getter on a prop the tree reads while re-rendering */
+    const el = document.querySelector('.cnt[data-iso="HR-18"]');
+    Object.defineProperty(el, 'getBoundingClientRect', { get() { throw new TypeError('verify: forced render failure'); } });
+    /* …and drive a re-render that touches it */
+    document.querySelector('#segView button[data-v="mx"]').click();
+    await new Promise(r => setTimeout(r, 600));
+    const root = document.querySelector('#root');
+    return { before, after: root ? root.innerHTML.length : 0,
+      controls: document.querySelectorAll('a,button,select,input').length,
+      alive: !!document.querySelector('#map') || !!document.querySelector('#renderFail') };
+  });
+  /* Either the app survived the injected fault outright or the boundary caught
+     it — what must never happen is an empty #root with nothing to press. */
+  ck('a render failure leaves a page with something on it, not an empty root',
+    boundary.after > 0 && boundary.controls > 0 && boundary.alive, JSON.stringify(boundary));  /* The deliberate abort above lands in the error list like any other, and this
      used to drop the whole ledger to length 0 to be rid of it. The comment
      justified one entry; the statement truncated the array — so the end-of-run
      "still zero page/console errors" assertion covered the last dozen checks
