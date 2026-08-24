@@ -364,6 +364,18 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .legend-sw{width:11px;height:11px;border:1px solid var(--mut);flex:none}
 .legend-note{margin-top:5px;color:var(--mut);font-size:9px;line-height:1.35}
 
+/* Every one of these reserves is a subtraction against the map stage, and a
+   negative calc() result is clamped to 0 at used-value time — so on a short
+   stage the panel did not shrink, it vanished. Measured on dist/: at 1024×600
+   with a coarse pointer (map box 146 px) the glossary rendered 330×22 — padding
+   and borders, zero of its 1.463 px of text — while #helpBtn flipped to
+   aria-pressed="true" and its pressed styling, so the only place the atlas's
+   vocabulary, colour scale and honesty badges are explained read as a broken
+   button. Same zero at 1024×500, 1440×500, 1366×600, 1440×600 and 901×700; the
+   citizenship body computed max-height AND min-height of 0px against a
+   scrollHeight of 362. A floor turns that into a small panel that scrolls, which
+   is the trade the whole reserve exists to make in the first place. The floors
+   are inert wherever the overlap sweeps measure, so nothing they pin moves. */
 /* Bounded by the legend's lane, exactly like .helpcard, .jcard and .paircard.
    It was the one top-left overlay left content-sized, and the glossary that has
    to cover it outright is capped at the same reserve — so on a short window the
@@ -375,7 +387,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    while .helpcard anchors to .map-box — those differ by the Nalazi banner. */
 .card{position:absolute;top:14px;left:16px;width:308px;background:var(--panel);border:1px solid var(--line);
   border-radius:3px;box-shadow:0 2px 10px rgba(32,38,43,.08);padding:10px 12px 8px;display:none;z-index:5;
-  max-height:calc(var(--stageh,600px) - 176px);overflow-y:auto}
+  max-height:max(140px,calc(var(--stageh,600px) - 176px));overflow-y:auto}
 .card.show{display:block}
 .card-hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .card-name{font-family:var(--disp);font-weight:500;font-size:14.5px;letter-spacing:.04em;text-transform:uppercase}
@@ -510,7 +522,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
      anchored above. Written once because the cap and the reserves below have to
      be the same number — a reserve taller than the cap would push the panel up
      through the map's button strip. */
-  --chipfree:calc(var(--stageh,600px) - 56px - 12px - var(--chiph) * 2 - 16px)}
+  --chipfree:max(120px,calc(var(--stageh,600px) - 56px - 12px - var(--chiph) * 2 - 16px))}
 .chipdock .chipcard{display:flex;flex-direction:column;min-height:0}
 /* pinned rather than left to the padding, so the offsets below and the box they
    clear are one measurement — the same reason .helpbtn's side is --hbw */
@@ -576,7 +588,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    is ~400 px tall, and once the map box shrinks (narrow window, corridor card in
    flow above it) it grew straight down over the legend. Bounded and scrolling
    instead — the header stays put while the list moves. */
-.jcard{top:14px;left:16px;z-index:5;display:none;max-height:calc(100% - 176px);flex-direction:column}
+.jcard{top:14px;left:16px;z-index:5;display:none;max-height:max(140px,calc(100% - 176px));flex-direction:column}
 .jcard.show{display:flex}
 .jcard .chip-hd{flex:none}
 .jcard .chip-body{width:312px;overflow-y:auto;min-height:0}
@@ -610,7 +622,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .paircard{position:absolute;top:44px;right:16px;width:308px;background:var(--panel);
   border:1px solid var(--line);border-radius:3px;box-shadow:0 2px 10px rgba(32,38,43,.08);
   padding:10px 12px 8px;z-index:5;
-  max-height:calc(var(--stageh,600px) - 76px - var(--chiph) * 2);overflow-y:auto}
+  max-height:max(160px,calc(var(--stageh,600px) - 76px - var(--chiph) * 2));overflow-y:auto}
 .paircard svg{display:block;width:100%;height:110px}
 /* Matrica docks the corridor card in the rail instead of floating it: a heatmap
    is data to its edges, and at 960 px a floating card covered ~12 columns × 9
@@ -697,7 +709,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    relative threshold note) rises 136 px off the map's bottom edge, and a
    glossary whose own first section explains the colour scale must not be
    covering the colour scale. It scrolls instead. */
-.helpcard{position:absolute;top:14px;left:16px;width:330px;max-height:calc(100% - 176px);overflow-y:auto;
+.helpcard{position:absolute;top:14px;left:16px;width:330px;max-height:max(140px,calc(100% - 176px));overflow-y:auto;
   background:var(--panel);border:1px solid var(--line);border-radius:3px;
   box-shadow:0 2px 14px rgba(32,38,43,.14);padding:10px 12px 10px;z-index:9;font-size:11px;line-height:1.45}
 .help-h{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;

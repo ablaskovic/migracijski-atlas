@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 427;
+const EXPECTED_CHECKS = 428;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1275,6 +1275,36 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('a landscape phone gets the scrolling layout and a map with height in it',
     landsc.length === 0, landsc.join(' | '));
+
+  /* ── a reserve that resolves to nothing is not a reserve ──
+     Every floating panel is capped by a subtraction against the map stage, and a
+     negative calc() is clamped to 0 at used-value time — so on a short stage the
+     panel did not shrink, it disappeared. Measured before the floors: at
+     1024×600 with a coarse pointer the glossary rendered 330×22, padding and
+     borders and none of its 1.463 px of text, while #helpBtn reported
+     aria-pressed="true"; the citizenship body computed 0px of max-height against
+     362 px of content. Assert the *resolved* height of each panel instead of the
+     expression that produced it. */
+  const sliver = [];
+  for (const [vw, vh] of [[1024, 600], [1440, 600], [1366, 600], [1024, 700], [901, 700], [1280, 620]]) {
+    await page.setViewport({ width: vw, height: vh });
+    for (const [h, sel] of [['#s=HR-18', '#helpCard'], ['#cz=1', '#citz .chip-body'],
+      ['#v=flow&s=HR-17&pp=HR-21&y=2018&c=0', '.paircard'],
+      ['#v=flow&s=HR-21&jl=1', '.jcard']]) {
+      await fresh(h);
+      if (sel === '#helpCard') await click('#helpBtn');
+      const box = await page.evaluate(s => {
+        const e = document.querySelector(s);
+        if (!e) return null;
+        const r = e.getBoundingClientRect();
+        return { h: Math.round(r.height), scroll: e.scrollHeight, vis: getComputedStyle(e).display !== 'none' };
+      }, sel);
+      /* one row of content, not merely non-zero: a 22 px box is the empty case */
+      if (box && box.vis && box.h < 60) sliver.push(vw + 'x' + vh + ' ' + sel + ' ' + JSON.stringify(box));
+    }
+  }
+  ck('no floating panel collapses to an empty sliver on a short stage',
+    sliver.length === 0, sliver.slice(0, 3).join(' | '));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── the same two boxes, swept by HEIGHT ──
