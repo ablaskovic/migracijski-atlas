@@ -56,7 +56,17 @@ for yi,y in enumerate(YRS):
         print(f'  {y}: col drift max {cdev.max():.2f}, total {cdev.sum():.0f}')
     for i,a in enumerate(ISOS):
         for j,b in enumerate(ISOS):
-            v=int(Mi[i,j])
-            if v>0: OUT[a].setdefault(b,[0]*len(YRS))[yi]=v
+            # Every off-diagonal pair, not only the non-zero ones. `if v>0`
+            # dropped the key entirely rather than shipping 28 zeros, and the fit
+            # is multiplicative (M *= r/rs, M *= c/cs), so a seed cell of 0 is 0
+            # in every iteration of every year: DZS measured no moves at all on
+            # Medjimurska -> Pozesko-slavonska in 2018, and that one corridor
+            # vanished from all 28. getOD() cannot tell a missing row from a
+            # present zero, so the atlas asserted, as an estimate, that nobody
+            # moved along it in 28 consecutive years, while the mirror corridor
+            # carries 1-2 people in every one of them. 2009 proves the two states
+            # are distinct: it has a genuine present-and-zero cell. OdMatrix is
+            # typed as a dense 21x21 in types.ts; this makes the file match.
+            if i!=j: OUT[a].setdefault(b,[0]*len(YRS))[yi]=int(Mi[i,j])
 json.dump(OUT,open('../../src/data/odm.json', 'w', encoding='utf-8'),separators=(',',':'))
 print('odm.json rebuilt')
