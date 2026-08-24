@@ -14,7 +14,7 @@ def fold(s):
     return re.sub(r'\s+', ' ', s).strip()
 def k2(s): return fold(s).replace(' ','').replace('-','')
 
-atlas = json.load(open('../../src/data/atlas_data2.json'))
+atlas = json.load(open('../../src/data/atlas_data2.json', encoding='utf-8'))
 ISOS = list(atlas['c'].keys())
 CNAMES = {atlas['c'][iso]['n']: iso for iso in ISOS}
 
@@ -76,7 +76,7 @@ for si, ti, w in edges:
     else: inter += w; M[(a,b)] += w
 assert sum(w for _,_,w in edges) == 57465, sum(w for _,_,w in edges)
 assert inter == 30384 and intra == 27081, (inter, intra)
-od = json.load(open('ref/od2018.json'))
+od = json.load(open('ref/od2018.json', encoding='utf-8'))
 for a in ISOS:
     for b in ISOS:
         if a != b:
@@ -102,7 +102,7 @@ for regidx, j in used.items():
     iso, name = reg[regidx]
     names[j] = [name, ISOS.index(iso)]
 out = {'names': names, 'c': drill}
-json.dump(out, open('../../src/data/jls_drill.json','w'), ensure_ascii=False, separators=(',',':'))
+json.dump(out, open('../../src/data/jls_drill.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
 print('jls_drill.json bytes:', len(open('../../src/data/jls_drill.json','rb').read()), '| names used:', len(names))
 top = drill['HR-21']['out'][:3]
 print('HR-21 top out:', [(names[s][0],'->',names[t][0],w) for s,t,w in top])

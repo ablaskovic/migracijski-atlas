@@ -16,7 +16,7 @@ def fold(s):
     return re.sub(r'\s+', ' ', s).strip()
 def k2(s): return fold(s).replace(' ','').replace('-','')
 
-atlas = json.load(open('../../src/data/atlas_data2.json'))
+atlas = json.load(open('../../src/data/atlas_data2.json', encoding='utf-8'))
 ISOS = list(atlas['c'].keys())
 CNAMES = {atlas['c'][iso]['n']: iso for iso in ISOS}
 
@@ -74,7 +74,7 @@ assert tot == 57465 and inter == 30384 and intra == 27081, (tot, inter, intra)
 assert sum(IN.values()) == sum(OUT.values()) == tot
 
 # per-county out-to-other-counties must equal od2018 row sums (margin cross-check)
-od = json.load(open('ref/od2018.json'))
+od = json.load(open('ref/od2018.json', encoding='utf-8'))
 by_cty_out = defaultdict(int)
 for i, w in OUT.items(): by_cty_out[reg[i][0]] += w
 by_cty_intra = defaultdict(int)
@@ -89,7 +89,7 @@ for iso in ISOS:
     assert by_cty_out[iso] - by_cty_intra[iso] == row, (iso, by_cty_out[iso], by_cty_intra[iso], row)
 
 out = [[name, ISOS.index(iso), IN.get(i, 0), OUT.get(i, 0)] for i, (iso, name) in enumerate(reg)]
-json.dump(out, open('ext/jls_stats.json', 'w'), ensure_ascii=False, separators=(',',':'))
+json.dump(out, open('ext/jls_stats.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
 
 net = sorted(out, key=lambda r: (r[2]-r[3]))
 print('556 JLS · movers', tot, '· inter', inter, '· intra', intra)

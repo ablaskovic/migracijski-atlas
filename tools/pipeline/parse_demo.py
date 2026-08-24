@@ -53,7 +53,7 @@ assert len(intm) == 16, len(intm)
 assert sum(intm) == int_tot, (sum(intm), int_tot)
 
 # cross-source: among-counties total == sum of oi margins for 2025 (closed system)
-atlas = json.load(open('../../src/data/atlas_data2.json'))
+atlas = json.load(open('../../src/data/atlas_data2.json', encoding='utf-8'))
 yi25 = atlas['years'].index(2025)
 oi25 = sum(c['oi'][yi25] for c in atlas['c'].values())
 assert int_cty == oi25, ('II T2 among-counties vs 7.4.2 oi margins', int_cty, oi25)
@@ -76,7 +76,7 @@ countries = sorted(((k,) + v for k, v in R.items() if k not in AGG),
                    key=lambda t: -t[1])[:12]
 
 # cross-source: citizen.json 2025 totals
-cit = json.load(open('../../src/data/citizen.json'))
+cit = json.load(open('../../src/data/citizen.json', encoding='utf-8'))
 i25 = cit['years'].index(2025)
 assert cit['tot']['d'][i25] == tot_d and cit['tot']['o'][i25] == tot_o
 
@@ -91,8 +91,8 @@ out = {
     'countries': [list(c) for c in countries],
     'cTot': [tot_d, tot_o],
 }
-json.dump(out, open('../../src/data/demo.json', 'w'), ensure_ascii=False, separators=(',', ':'))
+json.dump(out, open('../../src/data/demo.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
 print('vanjska 2025: %d / %d (muskarci %.0f%% / %.0f%%)' % (tot_d, tot_o, 100*dm/tot_d, 100*om/tot_o))
 print('unutarnja 2025: %d preseljenih (medu zupanijama %d == oi margins)' % (int_tot, int_cty))
 print('top countries:', ', '.join('%s %d' % (c[0], c[1]) for c in countries[:5]))
-print('bytes:', len(open('../../src/data/demo.json').read()))
+print('bytes:', len(open('../../src/data/demo.json', encoding='utf-8').read()))

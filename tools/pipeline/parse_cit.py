@@ -33,11 +33,11 @@ for i in range(5):
     assert sum(G[k]['d'][i] for k in G) == tot['d'][i]
     assert sum(G[k]['o'][i] for k in G) == tot['o'][i]
 out = {'years': years, 'tot': tot, 'g': G}
-json.dump(out, open('../../src/data/citizen.json','w'), ensure_ascii=False, separators=(',',':'))
+json.dump(out, open('../../src/data/citizen.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
 # headline checks
 i24, i25 = years.index(2024), years.index(2025)
 print('foreign share of doseljeni 2024: %.1f%%' % (100*(1-G['hr']['d'][i24]/tot['d'][i24])))
 print('Azija dos 2024 vs sus+ukr:', G['az']['d'][i24], 'vs', G['sus']['d'][i24]+G['ukr']['d'][i24])
 print('HR-citizen saldo 2024, 2025:', G['hr']['d'][i24]-G['hr']['o'][i24], G['hr']['d'][i25]-G['hr']['o'][i25])
 print('Azija saldo 2024, 2025:', G['az']['d'][i24]-G['az']['o'][i24], G['az']['d'][i25]-G['az']['o'][i25])
-print('bytes:', len(open('../../src/data/citizen.json').read()))
+print('bytes:', len(open('../../src/data/citizen.json', encoding='utf-8').read()))

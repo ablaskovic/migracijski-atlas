@@ -5,7 +5,7 @@ Also stores national row as top-level `natRH` for cross-checks.
 Idempotent: overwrites nat arrays on each run."""
 import json, openpyxl
 
-atlas = json.load(open('../../src/data/atlas_data2.json'))
+atlas = json.load(open('../../src/data/atlas_data2.json', encoding='utf-8'))
 YEARS = atlas['years']; C = atlas['c']
 NAMES = {C[iso]['n']: iso for iso in C}
 
@@ -52,7 +52,7 @@ for yi, y in enumerate(YEARS):
         assert sum(col) == natRH[yi], (y, sum(col), natRH[yi])
 
 atlas['natRH'] = (natRH + [None]*n)[:n]
-json.dump(atlas, open('../../src/data/atlas_data2.json','w'), ensure_ascii=False, separators=(',',':'))
+json.dump(atlas, open('../../src/data/atlas_data2.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
 missing = {iso: [YEARS[i] for i,v in enumerate(C[iso]['nat']) if v is None] for iso in got if any(v is None for v in C[iso]['nat'])}
 print('nat patched. years in sheet:', years_in_sheet[0], '-', years_in_sheet[-1])
 print('missing cells:', missing or 'none')
