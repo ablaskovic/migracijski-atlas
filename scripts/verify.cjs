@@ -5390,7 +5390,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       JSON.stringify({ dropped: before - errors.length, left: errors.slice(0, 2) }));
   }
   /* and the rewrite must not turn that 404 into a 200 text/html */
-  const vercelCfg = JSON.parse(fs.readFileSync(path.resolve('vercel.json'), 'utf8'));
+  /* __dirname, like the CSP read at the top of this file and the LICENCE read
+     further down. This was the one cwd-relative readFileSync in 5.000 lines, so
+     `node ../scripts/verify.cjs C:/repo/dist` from anywhere but the repo root
+     threw ENOENT here, unwound to the outer handler, and skipped the 19 checks
+     after it — the count invariant that exists to catch a short run among them. */
+  const vercelCfg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../vercel.json'), 'utf8'));
   /* `destination` was never read, and a destination is the half of a rewrite that
      can be dead. It has to name a file the build actually emits. */
   ck('the catch-all rewrite excludes the build’s own asset directories',
