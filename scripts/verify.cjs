@@ -1401,8 +1401,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
   /* every preset must survive a round trip through its own permalink, or the
      stricter guard would silently stop shipping captions at all */
+  /* Driven from the picker rather than from a literal 15. Nothing asserted
+     STORIES.length, so deleting a preset simply meant the loop stopped at the
+     one before it and the check went on printing "all 15" over 14. */
+  await fresh('');
+  const nStory = await page.evaluate(() => document.querySelectorAll('#story option').length - 1);
   const trip = [];
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < nStory; i++) {
     await fresh('');
     await page.select('#story', String(i));
     await settle(260);
@@ -1411,7 +1416,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const kept = await page.evaluate(() => !!document.querySelector('#storyCap'));
     if (!kept) trip.push((i + 1) + ':' + h);
   }
-  ck('all 15 Nalazi round-trip through their own permalink', trip.length === 0, trip.join(' | '));
+  ck('every Nalaz round-trips through its own permalink, and there are still 15',
+    trip.length === 0 && nStory === 15, nStory + ' presets · ' + trip.join(' | '));
 
   /* Nalaz 4's claim is about the Državljanstvo panel, so closing it must kill
      the caption — the app used to emit `…&st=4` with `cz=1` already dropped */

@@ -135,9 +135,12 @@ function localEntry() {
     'deployed ' + served + ' · local ' + (local || 'no dist — run `npm run build`'));
   if (served) {
     const asset = await get(ORIGIN.replace(/\/$/, '') + served);
+    /* the status too: a 404 has headers and a body like any other response, and
+       every assertion here was reading those without ever asking whether the
+       fetch succeeded */
     ck('content-hashed assets are served immutable',
-      /immutable/.test(asset.headers['cache-control'] || ''),
-      asset.headers['cache-control'] || 'absent');
+      asset.status === 200 && /immutable/.test(asset.headers['cache-control'] || ''),
+      asset.status + ' ' + (asset.headers['cache-control'] || 'absent'));
   }
 
   /* Staleness, asked monotonically. This used to be marker analysis: three
@@ -164,7 +167,8 @@ function localEntry() {
   if (sheet) {
     const css = await get(ORIGIN.replace(/\/$/, '') + sheet);
     ck('the deployed stylesheet carries v2.1.1 — the metric-matched font fallbacks',
-      css.body.includes('ascent-override'), 'missing "ascent-override"');
+      css.status === 200 && css.body.includes('ascent-override'),
+      css.status + ' · missing "ascent-override"');
   } else {
     ck('the home page links a built stylesheet', false, 'no /assets/index-*.css in the served HTML');
   }
