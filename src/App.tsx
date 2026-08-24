@@ -9,6 +9,7 @@ import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperPending, paperRefNote, paperRefTail } from './lib/credits.ts';
 import { ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from './lib/licences.ts';
+import { privacyShort } from './lib/privacy.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
@@ -520,6 +521,11 @@ export default function App() {
               aria-label={`${PAPER.short} — ${PAPER.citation} ${NEWTAB()}`}>{PAPER.short}</a>{paperRefTail()} </>
           )}
           {NO_AFFIL()}{L(" DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.", " CBS revises its series afterwards, so some values differ from those in the paper.")}
+          {/* The page measures its own use, and said so nowhere a reader could
+              see. One clause here — the fixed lane has no room for more — and the
+              full statement in the glossary, both from lib/privacy.ts so they
+              cannot drift. */}
+          {' '}{privacyShort()}
           {/* Who made it, and where to check it. Every upstream source on this
               page is credited by name and linked; the atlas itself said only
               "autor atlasa" and linked nothing, which was the one attribution

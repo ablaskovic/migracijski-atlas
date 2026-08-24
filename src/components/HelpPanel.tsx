@@ -8,6 +8,7 @@ import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
 import {
   ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE, REPO, sources,
 } from '../lib/licences.ts';
+import { ANALYTICS_URL, ANALYTICS_VENDOR, privacyNote, privacyState } from '../lib/privacy.ts';
 import { L, NEWTAB, t, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
@@ -325,6 +326,18 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         {L('IPF procjene su izračun ovog atlasa, a ne objavljena statistika — ne prosljeđujte ih kao DZS-ove brojke.',
           'The IPF estimates are this atlas’s computation, not published statistics — do not pass them on as CBS figures.')}
       </div>
+
+      {/* The ninth section, and the one fact on this page a reader could not
+          check for themselves. Everything else the glossary explains is visible
+          in the app; that the page measures its own use is not. See
+          lib/privacy.ts for why this is a disclosure rather than a banner. */}
+      <h3 className="help-h">{L('Privatnost', 'Privacy')}</h3>
+      <div className="help-p">{privacyNote()}{' '}
+        <a className="paper-link" href={ANALYTICS_URL} target="_blank" rel="noopener noreferrer"
+          aria-label={`${ANALYTICS_VENDOR} — ${L('pravila privatnosti za Web Analytics', 'the Web Analytics privacy policy')}. ${NEWTAB()}`}>
+          {L('Vercelova pravila privatnosti', 'Vercel’s privacy policy')}</a>{'.'}
+      </div>
+      <div className="help-p">{privacyState()}</div>
 
       <div className="help-note">
         {L('Vremenska vrpca ne mijenja panele Državljanstvo (2021.–2025.), Zemlje i Dob i spol (samo 2025.) ni prikaz JLS 2018. — njihov je opseg ispisan u zaglavlju svakog panela.',
