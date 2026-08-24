@@ -2,7 +2,9 @@
 """Build data/citizen.json: national external migration by citizenship group, 2021-2025.
 Source: data/raw/stan-2026-2-1_tablice-hr.xlsx sheet 'I T2' (DZS priopcenje STAN-2026-2-1).
 Groups: hr=Hrvatska, sus=BiH+Srbija+Kosovo+Sj.Makedonija+Albanija+Crna Gora,
-ukr=Ukrajina, eu=Europska unija, az=Azija, ost=residual (checksum-verified)."""
+ukr=Ukrajina, eu=Europska unija, az=Azija, ost=residual.
+The sheet's own hierarchy is checked before the residual is derived: Europa ==
+EU + ostale europske, and Ukupno == the eight top-level rows."""
 import json, openpyxl
 wb = openpyxl.load_workbook('raw/stan-2026-2-1_tablice-hr.xlsx', read_only=True, data_only=True)
 ws = wb['I T2']
@@ -29,9 +31,23 @@ tot = R['Ukupno']
 G['ost'] = {'d':[tot['d'][i]-sum(G[k]['d'][i] for k in G) for i in range(5)],
             'o':[tot['o'][i]-sum(G[k]['o'][i] for k in G) for i in range(5)]}
 assert all(v >= 0 for k in G for v in G[k]['d']+G[k]['o']), 'negative residual'
+# The checksum the docstring advertises, against the sheet's OWN hierarchy.
+# It used to be `sum(G[k] for k in G) == tot` over all six groups — but 'ost' is
+# defined two lines up as tot minus the other five, so that expands to
+# (five) + (tot - five) == tot: true for any inputs whatsoever, and it could not
+# fail. So nothing reconciled the groups against the DZS 'Ukupno' row at all.
+# Concretely: if a republication renamed a row so 'Europska unija' picked up a
+# differently-scoped aggregate that double-counted movers already in 'sus', the
+# double count would flow straight into a smaller 'ost', and the only assert that
+# could catch it is the non-negativity one above — which fires only once the
+# double count exceeds the whole residual.
+# These two identities are the sheet's own and are checked, not derived:
 for i in range(5):
-    assert sum(G[k]['d'][i] for k in G) == tot['d'][i]
-    assert sum(G[k]['o'][i] for k in G) == tot['o'][i]
+    for f in ('d','o'):
+        assert R['Europa'][f][i] == R['Europska unija'][f][i] + R['Ostale europske zemlje'][f][i],             ('Europa != EU + ostale europske', years[i], f)
+        assert tot[f][i] == sum(R[n][f][i] for n in
+            ('Hrvatska','Europa','Azija','Afrika','Sjeverna i Srednja Amerika',
+             'Južna Amerika','Oceanija','Nepoznato')), ('Ukupno != sum of continents', years[i], f)
 out = {'years': years, 'tot': tot, 'g': G}
 json.dump(out, open('../../src/data/citizen.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
 # headline checks
