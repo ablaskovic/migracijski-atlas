@@ -230,6 +230,19 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    below re-pads to its own 44 px target. */
 .seg button{padding:5px 5px;font-size:12px;color:var(--mut);border-right:1px solid var(--line);white-space:nowrap}
 .seg button:last-child{border-right:none}
+/* Drawn INSIDE the button. `.seg` and `.jtabs` are overflow:hidden — that clip is
+   what rounds the first and last button's corners, so it stays — and the buttons
+   fill the padding box exactly, which left the blanket outset ring clipped away
+   on ~30 header controls and all three chip-panel tab rows. Measured at 1440×900
+   by counting teal pixels in each band outside the focused button: #segView
+   "Saldo" kept 0 above, 0 below, 0 left and 50 right, and that surviving strip
+   lands exactly on the group's own border-right divider, so it does not read as a
+   focus state at all; #pngBtn kept only its right edge, #segLang "EN" only its
+   left. At 390 px, where the group wraps with a 1 px gap and the neighbour's
+   opaque background paints over the ring, the first Prikaz button kept four teal
+   pixels in total. Same outline-offset:-2px that #spark and svg#map already take
+   in this file, for the same reason. */
+.seg button:focus-visible,.jtabs button:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:500}
 /* Pressing a button must not resize it. `aria-pressed` adds font-weight:500,
    which is 0,4–2,3 px wider per label (measured, per label, at 12 px): the
