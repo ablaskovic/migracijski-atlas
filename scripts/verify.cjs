@@ -1763,8 +1763,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   for (const dir of ['out', 'in', 'net']) {
     await fresh('#v=flow&s=HR-21&dir=' + dir + '&c=0&y=2018');
     const fLab = await page.evaluate(() => document.querySelector('.cnt[data-iso="HR-01"]').getAttribute('aria-label'));
+    /* the honesty badge is part of the accessible name now — the tooltip has
+       always carried it and this string is the AT rendering of that tooltip */
     ck(`Tokovi county label reads 2.311 from the hub and 1.977 to it (dir=${dir})`,
-      NBSP(fLab) === 'Zagrebačka: iz Grad Zagreb 2.311, u Grad Zagreb 1.977, neto (Grad Zagreb) −334 · 2018.', fLab);
+      NBSP(fLab) === 'Zagrebačka: iz Grad Zagreb 2.311, u Grad Zagreb 1.977, neto (Grad Zagreb) −334 · 2018. · izmjereno', fLab);
   }
 
   /* ══════════ Matrica: rail, cell and tooltip agree on one sign ══════════ */
@@ -1993,9 +1995,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await fresh('#v=mx&c=0&y=2018&dir=net');
   const aNet = await page.evaluate(() => document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').getAttribute('aria-label'));
   ck('matrix cell label states Odlasci as Grad Zagreb → Zagrebačka 2.311',
-    NBSP(aOut) === 'Grad Zagreb → Zagrebačka: 2.311', aOut);
+    NBSP(aOut) === 'Grad Zagreb → Zagrebačka: 2.311 · izmjereno', aOut);
   ck('matrix cell label flips direction for Dolasci (1.977 is Zagrebačka → Grad Zagreb)',
-    NBSP(aIn) === 'Zagrebačka → Grad Zagreb: 1.977', aIn);
+    NBSP(aIn) === 'Zagrebačka → Grad Zagreb: 1.977 · izmjereno', aIn);
   ck('matrix cell label calls a net balance a net, not a directed flow',
     aNet.includes('↔') && aNet.includes('neto') && NBSP(aNet).includes('−334'), aNet);
   /* the hatched diagonal's explanation was pointer-only: the roving tabindex
@@ -3022,6 +3024,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('a failed geometry chunk reports an error instead of an eternal spinner',
     geoFail.err && geoFail.retry && !geoFail.stillLoading, JSON.stringify(geoFail));
+  /* …and no figure can be minted from a map that has no geometry. An export
+     leaves the app under CC BY, and with the chunk blocked pressing SVG produced
+     a 265.934-byte document headed "GRADOVI I OPĆINE: NETO PO JLS · UNUTARNJA
+     MIGRACIJA (IZMJERENO)" holding 21 unfilled county outlines and none of the
+     556 municipalities its title names — while the app two hundred pixels away
+     read "Geometrija JLS nije učitana." */
+  const expLocked = await page.evaluate(() => ({
+    png: document.querySelector('#pngBtn').disabled,
+    svg: document.querySelector('#svgBtn').disabled,
+    said: (document.querySelector('#expLive') || {}).textContent || '',
+  }));
+  ck('both exporters are held while the geometry the figure claims is absent',
+    expLocked.png && expLocked.svg && /geometrija/i.test(expLocked.said),
+    JSON.stringify(expLocked));
   ck('and it says so through a live region, not silent SVG text',
     geoFail.live === 'status', String(geoFail.live));
   /* A failure the reader never asked for must not latch the failure UI. The warm
@@ -3038,15 +3054,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await page.goto(url, { waitUntil: 'networkidle0' });
   await settle(2200);
   blockGeoChunk = false;
-  await page.evaluate(() => document.querySelector('#segView button[data-v="reg"]').click());
-  await page.waitForFunction(() => document.querySelectorAll('.regline').length === 5, { timeout: 15000 })
-    .catch(() => {});
+  /* Still in Saldo, which needs neither chunk. Before the speculative flag the
+     warm's rejection ran through the same catch as a real request and latched
+     regErr here, so the reader was carrying a failure for a view they had not
+     opened. (Opening it afterwards still fails, and correctly shows the error
+     and the retry: a rejected module fetch is cached in the browser's module
+     map, which is why retryGeo reloads. What this asserts is that the app does
+     not claim a failure nobody has asked it to have.) */
   const warmLatch = await page.evaluate(() => ({
-    lines: document.querySelectorAll('.regline').length,
+    view: (document.querySelector('#segView button[aria-pressed="true"]') || {}).textContent,
     err: !!document.querySelector('#jerror'),
+    status: (document.querySelector('#jstatus') || {}).textContent || '',
   }));
   ck('a failed speculative warm does not latch the failure UI for a view nobody opened',
-    warmLatch.lines === 5 && !warmLatch.err, JSON.stringify(warmLatch));
+    warmLatch.view === 'Saldo' && !warmLatch.err && warmLatch.status.trim() === '',
+    JSON.stringify(warmLatch));
   {
     const before = errors.length;
     for (let i = errors.length - 1; i >= 0; i--) {
@@ -3055,20 +3077,6 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     void before;
   }
   await fresh('#v=jmap&dir=net');
-  /* …and no figure can be minted from a map that has no geometry. An export
-     leaves the app under CC BY, and with the chunk blocked pressing SVG produced
-     a 265.934-byte document headed "GRADOVI I OPĆINE: NETO PO JLS · UNUTARNJA
-     MIGRACIJA (IZMJERENO)" holding 21 unfilled county outlines and none of the
-     556 municipalities its title names — while the app two hundred pixels away
-     read "Geometrija JLS nije učitana." */
-  const expLocked = await page.evaluate(() => ({
-    png: document.querySelector('#pngBtn').disabled,
-    svg: document.querySelector('#svgBtn').disabled,
-    said: (document.querySelector('#expLive') || {}).textContent || '',
-  }));
-  ck('both exporters are held while the geometry the figure claims is absent',
-    expLocked.png && expLocked.svg && /geometrija/i.test(expLocked.said),
-    JSON.stringify(expLocked));
   /* jmapMax()'s `if (!g) return 1` is a harmless domain for a map that draws
      nothing, and the legend rendered it as a real axis: "0" and "1" under
      "Gradovi i općine · dolasci u JLS · 2018.", a published claim that the

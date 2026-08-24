@@ -564,7 +564,15 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
      anchored above. Written once because the cap and the reserves below have to
      be the same number — a reserve taller than the cap would push the panel up
      through the map's button strip. */
-  --chipfree:max(120px,calc(var(--stageh,600px) - 56px - 12px - var(--chiph) * 2 - 16px))}
+  /* The floor is 64, not 120. This expression's own `56` IS the top strip's lane
+     — 12 px of bottom offset plus the 44 px the "Aa oznake" / "?" pair occupies —
+     so a floor large enough to override it puts the panel back through the strip,
+     which is the collision the overlay sweep caught at 960×700 and 1000×700 with
+     the citizenship panel and a Nalaz banner open: stage 230, calc 96, floored to
+     120, and 5 px of #labBtn × the dock. 64 clears the reserve at every stage the
+     sweeps measure while still turning the empty-sliver case into two rows that
+     scroll, which is all the floor was ever for. */
+  --chipfree:max(64px,calc(var(--stageh,600px) - 56px - 12px - var(--chiph) * 2 - 16px))}
 .chipdock .chipcard{display:flex;flex-direction:column;min-height:0}
 /* pinned rather than left to the padding, so the offsets below and the box they
    clear are one measurement — the same reason .helpbtn's side is --hbw */
