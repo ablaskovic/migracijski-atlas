@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 433;
+const EXPECTED_CHECKS = 434;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2757,14 +2757,27 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     .catch(() => {});
   const geoFail = await page.evaluate(() => {
     const st = document.querySelector('#jstatus');
+    const leg = document.querySelector('#legend');
     return { err: !!document.querySelector('#jerror'), retry: !!document.querySelector('#jretry'),
       stillLoading: !!document.querySelector('#jloading'),
-      live: st ? st.getAttribute('role') : null };
+      live: st ? st.getAttribute('role') : null,
+      /* the key, and whether it is claiming a domain it cannot know */
+      bar: !!(leg && leg.querySelector('.legend-bar')),
+      lbls: leg ? (leg.querySelector('.legend-lbls') || {}).textContent || '' : '' };
   });
   ck('a failed geometry chunk reports an error instead of an eternal spinner',
     geoFail.err && geoFail.retry && !geoFail.stillLoading, JSON.stringify(geoFail));
   ck('and it says so through a live region, not silent SVG text',
     geoFail.live === 'status', String(geoFail.live));
+  /* jmapMax()'s `if (!g) return 1` is a harmless domain for a map that draws
+     nothing, and the legend rendered it as a real axis: "0" and "1" under
+     "Gradovi i općine · dolasci u JLS · 2018.", a published claim that the
+     largest municipal inflow measured in 2018 was one person — against 9.606 in,
+     6.193 out and ±3.413 net. A failed module fetch is cached, so this was not a
+     flash: the false key sat permanently beside the error message, and both
+     exporters read the same scale. */
+  ck('a JLS map with no geometry draws no colour key at all',
+    !geoFail.bar && !/1/.test(geoFail.lbls), JSON.stringify({ bar: geoFail.bar, lbls: geoFail.lbls }));
   blockGeoChunk = false;
   /* The retry reloads, because a failed module fetch is cached in the browser's
      module map and a second import() of the same specifier never hits the

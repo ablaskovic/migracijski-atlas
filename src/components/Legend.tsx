@@ -199,10 +199,22 @@ export default function Legend({ S }: { S: State }) {
       in: L('dolasci u JLS', 'moves into the LAU'),
       net: L('neto po JLS', 'net per LAU'),
     }[S.dir];
+    /* No key until the payload it would describe has arrived. jmapMax()'s
+       `if (!g) return 1` is a harmless domain for the map — which draws nothing
+       anyway — but the legend rendered it as a real axis: "0" and "1" under
+       "Gradovi i općine · dolasci u JLS · 2018.", i.e. a published claim that the
+       largest municipal inflow measured in 2018 was one person, against true
+       maxima of 9.606 in, 6.193 out and ±3.413 net (−1 / 0 / +1 for Neto). On a
+       *failed* fetch the module map caches the rejection, so it is not a flash:
+       the false key sat permanently beside "Geometrija JLS nije učitana", and
+       both exporters read the same scale and would have baked m=1 into a figure.
+       The title stays — it names the view, and it is true with or without the
+       geometry; the status region below says why the map is empty. */
+    const ready = !!jlsGeo();
     return (
       <div className="legend" id="legend">
         <div className="legend-title">{L('Gradovi i općine · ', 'Towns and municipalities · ')}{ttl} · {yr(2018)}</div>
-        {S.dir === 'net'
+        {!ready ? null : S.dir === 'net'
           ? <GradBar scale={scale} m={m} rel={false} mark={mark} />
           : <SeqBar scale={scale} m={m} mark={mark} />}
         <div className="legend-note">{L('Boja po korijenskoj (√) skali. Samo preseljenja unutar RH (selidbe između JLS, bez inozemstva). Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY). Granice: OSM/ODbL.',
