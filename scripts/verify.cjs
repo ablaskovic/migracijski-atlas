@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 448;
+const EXPECTED_CHECKS = 449;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -606,6 +606,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('pair card opens: Grad Zagreb ⇄ Zagrebačka', pair.name.includes('Grad Zagreb') && pair.name.includes('Zagrebačka'), pair.name);
   ck('pair card 2018 readout 2.311 / 1.977 / −334 izmjereno',
     pair.row.includes('2.311') && pair.row.includes('1.977') && pair.row.includes('−334') && pair.row.includes('izmjereno'), pair.row);
+  /* …and in a cumulative view it is scoped to that window. The row read the raw
+     annual ODM cell and hardcoded `false` for cum in both flowKind and flowBadge,
+     while every sibling passes S.cum. Measured at
+     `#v=mx&c=1&y=2024&s=HR-14&pp=HR-21`: the rail docked directly above the card
+     reads +5.539 and the legend "2011.–2024.", while the card printed
+     "2024. · → 463 · ← 213 · neto −250" — 22× smaller, with the cumulative figure
+     the reader clicked on no surface of the card, under a solid IZMJERENO pill
+     two centimetres from a legend calling the view an estimate. */
+  await fresh('#v=mx&c=1&y=2024&s=HR-14&pp=HR-21');
+  const pairCum = await page.evaluate(() => (document.querySelector('#pairRow') || {}).textContent || '');
+  ck('the corridor card is scoped to the window the view is in',
+    /2011\.–2024\./.test(NBSP(pairCum)) && NBSP(pairCum).includes('7.948')
+    && NBSP(pairCum).includes('2.409') && NBSP(pairCum).includes('−5.539')
+    && /kumulativna procjena/.test(pairCum), pairCum);
 
   /* ── arcs: measured year solid, IPF years dashed ── */
   let adash = await page.evaluate(() => [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));

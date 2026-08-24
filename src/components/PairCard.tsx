@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
-import { YEARS, Y0, YEND, IX2018, SHORTN, getOD, flowBadge, flowKind, fmtI, sgn } from '../lib/metrics.ts';
+import { YEARS, Y0, YEND, IX2018, SHORTN, getOD, fsum, badgeText, flowBadge, flowKind, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -83,9 +83,22 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
           fontFamily="var(--mono)" fill="var(--mut)">{'±' + fmtI.format(m)}</text>
         <line y1={mT} y2={h - mB} stroke="var(--acc)" strokeWidth={1.4} x1={cx} x2={cx} />
       </svg>
+      {/* The readout row is the figure the reader compares against the rail row
+          they clicked, so it has to be scoped the way that ranking is. It read
+          `outs[S.yi]` — the raw annual ODM cell — and hardcoded `false` for cum
+          in both flowKind and flowBadge, while every sibling passes S.cum
+          (Legend's mxMax, Rail's mxCell, Tooltip's fsum). Measured at
+          `#v=mx&c=1&y=2024&s=HR-14&pp=HR-21`: the rail directly above the card
+          reads "+5.539", the legend "2011.–2024." and the scrubber "kumulativna
+          procjena", while the card printed "2024. · → 463 · ← 213 · neto −250" —
+          the cumulative figure the reader clicked on no surface of the card, and
+          −250 is 22× smaller. At y=2018 in the same mode it printed a solid
+          IZMJERENO pill two centimetres from a legend saying the view is an
+          estimate. The plotted series stays annual: it is a time series and its
+          sub-caption says so. */}
       <div className="pair-row" id="pairRow">
-        <span>{yr(YEARS[S.yi])} · → {fmtI.format(outs[S.yi])} · ← {fmtI.format(ins[S.yi])}{L(' · neto ', ' · net ')}{sgn(nets[S.yi], fmtI)}</span>
-        <span className={'cls-tag ' + flowKind(S.yi, false)}>{flowBadge(S.yi, false)}</span>
+        <span>{S.cum ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi])} · → {fmtI.format(fsum(sel, pair, S.yi, S.cum))} · ← {fmtI.format(fsum(pair, sel, S.yi, S.cum))}{L(' · neto ', ' · net ')}{sgn(fsum(pair, sel, S.yi, S.cum) - fsum(sel, pair, S.yi, S.cum), fmtI)}</span>
+        <span className={'cls-tag ' + (S.cum ? 'est' : flowKind(S.yi, S.cum))}>{S.cum ? badgeText('cum') : flowBadge(S.yi, S.cum)}</span>
       </div>
       {/* only one branch of this ternary used to be localized — and the flow
           first-entry jump lands on 2018, so the untranslated one is the branch an
