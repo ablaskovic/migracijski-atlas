@@ -804,7 +804,23 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   .paircard{max-height:40%;overflow-y:auto}
 }
 
-@media (max-width:900px){
+/* Height as well as width. The scrolling layout was gated on width alone, and
+   the pinned one-viewport column above it gives .map-box `flex:1;min-height:0`
+   with no desktop floor — so a flagship phone held sideways (iPhone 15 Pro Max
+   932×430, Galaxy S23 Ultra 915×412) missed the breakpoint by a handful of
+   pixels and collapsed the map to nothing. Measured at 901×430 with a coarse
+   pointer: .hd is 0,0,901,324 and .map-box is 0,324,609,**0** — the choropleth,
+   the whole point of the page, 0 px tall — the rail list gets 4 px for 21 rows,
+   and .ft starts at y=439 in a 430 px viewport under `overflow:hidden`, so the
+   sources and the non-affiliation statement cannot be reached by wheel or touch
+   at all. The legend, bottom-anchored inside a 0-height stage, rises out of it
+   and paints 24.719 px² of near-opaque panel over the header's controls. One
+   pixel narrower, at 900×430, everything works. The cliff was one CSS pixel wide.
+   560 px is under every viewport this project's suite measures, so a short
+   *desktop* window keeps the pinned layout down to the sizes that are actually
+   checked, and below that gets the scrolling one — which is the right answer
+   there too. */
+@media (max-width:900px), (max-height:560px){
   /* Desktop pins the app to one viewport (body is a flex column, height:100%).
      On mobile the content is simply taller than the screen: leaving it flex made
      every child flex-shrink instead of overflow — the rail collapsed to 0 px and

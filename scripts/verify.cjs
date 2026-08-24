@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 426;
+const EXPECTED_CHECKS = 427;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1251,6 +1251,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const pcWide = await page.evaluate(() => getComputedStyle(document.querySelector('.paircard')).position);
   ck('.paircard drops to static below 960 px and floats above it',
     pcNarrow === 'static' && pcWide === 'absolute', pcNarrow + ' / ' + pcWide);
+
+  /* ── a phone held sideways is not a desktop ──
+     The scrolling layout used to be gated on width alone, and the pinned
+     one-viewport column above it gives .map-box `flex:1;min-height:0` with no
+     desktop floor. A flagship phone in landscape (iPhone 15 Pro Max 932×430,
+     Galaxy S23 Ultra 915×412) clears 900 px by a handful of pixels: measured at
+     901×430, #map came out 609×**0** — the choropleth, the whole page, gone —
+     the rail list got 4 px for 21 rows, and .ft started at y=439 inside a 430 px
+     viewport under `overflow:hidden`, unreachable by wheel or touch. */
+  const landsc = [];
+  for (const [vw, vh] of [[901, 430], [932, 430], [915, 412]]) {
+    await page.setViewport({ width: vw, height: vh });
+    await fresh('');
+    const r = await page.evaluate(() => {
+      const b = document.querySelector('.map-box').getBoundingClientRect();
+      const f = document.querySelector('.ft').getBoundingClientRect();
+      return { map: Math.round(b.height),
+        scrolls: document.documentElement.scrollHeight > window.innerHeight + 1,
+        reach: f.top < document.documentElement.scrollHeight };
+    });
+    if (r.map < 240 || !r.scrolls || !r.reach) landsc.push(vw + 'x' + vh + ' ' + JSON.stringify(r));
+  }
+  ck('a landscape phone gets the scrolling layout and a map with height in it',
+    landsc.length === 0, landsc.join(' | '));
+  await page.setViewport({ width: 1440, height: 900 });
 
   /* ── the same two boxes, swept by HEIGHT ──
      Every sweep above varies the width at a fixed height of 900, and this
