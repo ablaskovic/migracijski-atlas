@@ -854,10 +854,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const jkey = await page.evaluate(() => ({
     zero: document.querySelectorAll('.jl[tabindex="0"]').length,
     lab: document.querySelector('.jl[tabindex="0"]').getAttribute('aria-label') || '',
+    /* a named feature, not whichever one holds the roving stop: j=451 is Split,
+       already the fixture the tooltip check above hovers */
+    split: (document.querySelector('.jl[data-j="451"]') || {}).getAttribute?.('aria-label') || '',
     role: document.querySelector('#map').getAttribute('role') }));
   ck('JLS map exposes one roving tab stop', jkey.zero === 1, String(jkey.zero));
+  /* The message names three things and the assertion tested two substrings, both
+     of them value words. Drop the `${p.n}, ${SHORTN[…]}: ` prefix from MapView's
+     label — an ordinary edit when refactoring the builder — and all 556
+     municipalities announce themselves as an anonymous "doseljeno 12, odseljeno
+     18, neto −6", which makes the municipal map unusable without sight; this was
+     the only check guarding that label, and it still printed ok. Anchor the whole
+     shape on a named feature so the name and the county are pinned too. */
   ck('JLS feature carries name, county and values in its label',
-    jkey.lab.includes('doseljeno') && jkey.lab.includes('neto'), jkey.lab.slice(0, 70));
+    /^Split, Splitsko-dalm\.: doseljeno [\d.]+, odseljeno [\d.]+, neto [+−]?[\d.]+$/.test(jkey.split),
+    jkey.split);
   ck('interactive maps are not role=img (children stay exposed)', jkey.role === 'group', String(jkey.role));
 
   /* ── zoom reset stays reachable with a corridor card open ── */
