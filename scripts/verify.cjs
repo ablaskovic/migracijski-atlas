@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 418;
+const EXPECTED_CHECKS = 419;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2363,13 +2363,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     struct.arrN >= 3 && struct.arrHidden, JSON.stringify({ n: struct.arrN, hidden: struct.arrHidden }));
 
   /* ── P3: the threshold slider says what the readout says ── */
-  await fresh('#v=klas&c=1&y=2024&tr=1&tp=1.5');
-  const thrVt = await page.evaluate(() => ({
-    vt: document.querySelector('#thr').getAttribute('aria-valuetext'),
-    seen: document.querySelector('#thrVal').textContent,
-  }));
-  ck('the % threshold slider carries an aria-valuetext matching its readout',
-    !!thrVt.vt && thrVt.vt.includes('1,5') && thrVt.vt.includes('−'), JSON.stringify(thrVt));
+  /* `seen` — the visible #thrVal string — used to be collected and then used in
+     no clause of the assertion, which matched two hardcoded literals against the
+     aria string alone. Drop the sign from the readout, or let fmtR regress to an
+     ASCII hyphen, and the sighted and the announced value disagree while this
+     prints ok: precisely the mismatch Header's own comment exists to prevent.
+     The absolute unit had no coverage anywhere in the file either. Assert the
+     containment the check's name promises — the announced string must carry the
+     visible one verbatim, sign and separator included — and do it in both units. */
+  for (const [h, unit, lab] of [['#v=klas&c=1&y=2024&tr=1&tp=1.5', '%', '%'],
+    ['#v=klas&c=1&y=2024&t=3000', 'osoba', 'osobe']]) {
+    await fresh(h);
+    const thrVt = await page.evaluate(() => ({
+      vt: document.querySelector('#thr').getAttribute('aria-valuetext'),
+      seen: document.querySelector('#thrVal').textContent.trim(),
+    }));
+    const vt = NBSP(thrVt.vt || ''), seen = NBSP(thrVt.seen);
+    ck(`the ${lab} threshold slider announces the value its readout shows`,
+      !!thrVt.vt && seen.includes('−') && vt.includes(seen) && vt.includes(unit),
+      JSON.stringify(thrVt));
+  }
 
   /* ── P3: the citizenship clamp is a live status, not silent text ── */
   await fresh('#cz=1&y=2015&v=saldo&c=0');
