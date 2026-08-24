@@ -114,11 +114,22 @@ const k2 = s => fold(s).replace(/[\s-]/g, '');
   /* every feature must be tiny relative to the sphere after rewinding */
   for (const f of feats) if (geoArea(f) > Math.PI) throw new Error('winding fail: ' + f.properties.n);
 
-  const outFC = { type: 'FeatureCollection', features: feats };
-  fs.writeFileSync(P('../../src/data/geo_jls.json'), JSON.stringify(outFC));
+  /* Every validation in this pipeline is pre-write and this one was not: the
+     1:1 cover check and the winding check above both precede the write, and the
+     totals check sat AFTER it. A run that tripped the throw had already replaced
+     the shipped 475 kB payload with the unvalidated one and then exited
+     non-zero — so a maintainer seeing "stat totals drifted" reasonably assumes
+     nothing was written, reverts the stats file and reruns, while the working
+     tree already holds the new geometry and the next build bundles it. The file
+     header says "Asserts a perfect 1:1 cover of all 556 JLS before writing
+     anything", which is the mental model this restores. The totals come from
+     `feats`, which already exists here, so it is a reorder and nothing else. */
   const totIn = feats.reduce((a, f) => a + f.properties.i, 0);
   const totOut = feats.reduce((a, f) => a + f.properties.o, 0);
   if (totIn !== 57465 || totOut !== 57465) throw new Error('stat totals drifted: ' + totIn + '/' + totOut);
+
+  const outFC = { type: 'FeatureCollection', features: feats };
+  fs.writeFileSync(P('../../src/data/geo_jls.json'), JSON.stringify(outFC));
   console.log('geo_jls.json:', feats.length, 'features,',
     (fs.statSync(P('../../src/data/geo_jls.json')).size / 1024).toFixed(0) + ' KB · totals in/out = 57465 OK');
 })();
