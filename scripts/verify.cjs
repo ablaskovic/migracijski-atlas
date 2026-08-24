@@ -67,6 +67,25 @@ function policyFor(p) {
   return out;
 }
 
+/* The deploy's catch-all rewrite, read from the file that deploys it and applied
+   by the server below — the same treatment the header policy already gets, for
+   the same reason. The check guarding this rule used to grep the *source string*
+   for two substrings; it never read `destination`, never issued a request, and
+   this server implemented no rewrite at all — it 404'd every sub-path. So the
+   destination could be changed to `/index`, a file that does not exist and would
+   leave every deep link dead on the deployed site, and the check still passed.
+   Vercel anchors a rewrite source against the whole path, hence the ^…$. */
+const REWRITE = (() => {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../vercel.json'), 'utf8'));
+    const r = (cfg.rewrites || [])[0];
+    return r ? { re: new RegExp('^' + r.source + '$'), to: r.destination } : null;
+  } catch { return null; }
+})();
+/* paths this run asks for on purpose expecting a 404 — kept out of the
+   end-of-run "the only paths dist cannot answer are the two platform routes" */
+const probe404 = new Set();
+
 function serve(dir) {
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
@@ -82,7 +101,21 @@ function serve(dir) {
       /* localhost-only and test-scoped, but `..%2f..%2f` still read outside dist */
       if (f !== dir && !f.startsWith(dir + path.sep)) { res.writeHead(403); res.end('no'); return; }
       fs.readFile(f, (err, data) => {
-        if (err) { notFound.push(p); res.writeHead(404); res.end('nope'); return; }
+        if (err) {
+          /* the deploy answers an unknown path with the app itself, so the
+             harness does — and only for the paths the real rule matches, so a
+             missing asset or font still 404s here exactly as it would there */
+          if (REWRITE && REWRITE.re.test(p)) {
+            const idx = path.resolve(dir, '.' + REWRITE.to);
+            fs.readFile(idx, (e2, d2) => {
+              if (e2) { notFound.push(p + ' → ' + REWRITE.to); res.writeHead(404); res.end('nope'); return; }
+              res.writeHead(200, { 'content-type': 'text/html', ...policyFor(p) });
+              res.end(d2);
+            });
+            return;
+          }
+          notFound.push(p); res.writeHead(404); res.end('nope'); return;
+        }
         res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream', ...policyFor(p) });
         res.end(data);
       });
@@ -100,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 422;
+const EXPECTED_CHECKS = 423;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4954,9 +4987,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   /* and the rewrite must not turn that 404 into a 200 text/html */
   const vercelCfg = JSON.parse(fs.readFileSync(path.resolve('vercel.json'), 'utf8'));
+  /* `destination` was never read, and a destination is the half of a rewrite that
+     can be dead. It has to name a file the build actually emits. */
   ck('the catch-all rewrite excludes the build’s own asset directories',
     vercelCfg.rewrites.length === 1 && /\(\?!assets\//.test(vercelCfg.rewrites[0].source)
-    && /fonts\//.test(vercelCfg.rewrites[0].source), JSON.stringify(vercelCfg.rewrites));
+    && /fonts\//.test(vercelCfg.rewrites[0].source)
+    && vercelCfg.rewrites[0].destination === '/index.html'
+    && (URLMODE || fs.existsSync(path.resolve(arg, 'index.html'))),
+    JSON.stringify(vercelCfg.rewrites));
+  /* …and then exercise the rule instead of grepping it. serve() applies the real
+     source regex now (see REWRITE), so this is a request, not a string: a
+     sub-path and a two-segment sub-path must both boot the app, and a missing
+     asset or font must still 404 rather than being handed an HTML body that the
+     browser would then refuse to execute as a script. */
+  const httpGet = u => new Promise((resolve, reject) => {
+    http.get(u, r => {
+      let b = '';
+      r.on('data', d => { b += d; });
+      r.on('end', () => resolve({ status: r.statusCode, body: b }));
+    }).on('error', reject);
+  });
+  const base = url.replace(/\/$/, '');
+  for (const p of ['/assets/verify-missing.js', '/fonts/verify-missing.woff2']) probe404.add(p);
+  const rw = {
+    sub: await httpGet(base + '/nalaz'),
+    deep: await httpGet(base + '/a/b'),
+    asset: await httpGet(base + '/assets/verify-missing.js'),
+    font: await httpGet(base + '/fonts/verify-missing.woff2'),
+  };
+  ck('a sub-path boots the app through the rewrite while a missing asset still 404s',
+    rw.sub.status === 200 && /id="root"/.test(rw.sub.body)
+    && rw.deep.status === 200 && /id="root"/.test(rw.deep.body)
+    && rw.asset.status === 404 && rw.font.status === 404,
+    JSON.stringify({ sub: rw.sub.status, deep: rw.deep.status, asset: rw.asset.status, font: rw.font.status }));
 
   /* ── M-8: the exported JLS figure must state its direction ──
      Odlasci, Dolasci and Neto shared one title, one badge and one filename, so
@@ -5309,7 +5372,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('and the page still reaches no third-party origin at end of run',
     thirdParty.length === 0, thirdParty.slice(0, 4).join(' , ') || 'none');
   ck('the only paths dist cannot answer are the two Vercel platform routes',
-    stubHits.size === 2 && (URLMODE || notFound.length === 0),
+    /* the two deliberate 404 probes from the rewrite check are excluded by name;
+       everything else dist cannot answer is still a failure */
+    stubHits.size === 2 && (URLMODE || notFound.filter(p => !probe404.has(p)).length === 0),
     JSON.stringify({ stubbed: [...stubHits], missing: notFound.slice(0, 5) }));
 
   /* The suite is a fixed protocol, so its size is itself an invariant: three
