@@ -284,7 +284,20 @@ export default function Legend({ S }: { S: State }) {
             a 4,9× flow ratio draws about 2,2× the width and the top corridor's
             dominance reads at half. The JLS legend has always stated its √ scale;
             this one now says the same thing about itself. */}
-        <div className="legend-note">{L('Debljina luka po korijenskoj (√) skali, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. ',
+        {/* The colour sentence the net twin has always carried, and this one did
+            not. These two directions fill from a MAGNITUDE ramp over [0, m], so
+            the deepest county is the one with the largest one-way flow — in
+            Odlasci the one that received most from the hub, in Dolasci the one
+            that lost most to it. Both are the exact inverse of the glossary's
+            unconditional "plavo dobiva / crveno gubi", and with no colour
+            sentence here the glossary was the reader's only source for two of
+            Tokovi's three directions. */}
+        <div className="legend-note">{S.dir === 'out'
+          ? L('Boja: koliko je ljudi otišlo iz odabrane županije u tu županiju — veličina jednosmjernog toka, a ne saldo obojene županije. ',
+            'Colour: how many people left the selected county for that one — the size of the one-way flow, not the coloured county’s own balance. ')
+          : L('Boja: koliko je ljudi došlo iz te županije u odabranu — veličina jednosmjernog toka, a ne saldo obojene županije. ',
+            'Colour: how many people came from that county to the selected one — the size of the one-way flow, not the coloured county’s own balance. ')}
+        {L('Debljina luka po korijenskoj (√) skali, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. ',
           'Arc width on a square-root (√) scale, relative to the selected county (not comparable between counties). The arrowhead shows the direction of the move. ')}{src}{preNote(S, true)}</div>
       </div>
     );

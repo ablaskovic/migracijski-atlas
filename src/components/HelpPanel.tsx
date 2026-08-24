@@ -176,6 +176,15 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <b className="help-red">{L('Crveno', 'Red')}</b>
         {L(' — gubi ih (negativna). Sredina skale je 0, tj. ravnoteža. Krajevi skale su isti za sve godine da bi se godine mogle uspoređivati, pa rane godine izgledaju blijedo jer su vrijednosti male.',
           ' — it loses them (a negative value). The middle of the scale is 0, i.e. balance. The ends of the scale are the same for every year so that years can be compared, which is why early years look pale: their values are small.')}
+        {/* …and where that rule does NOT hold. Tokovi and Matrica fill from a
+            magnitude ramp over [0, m] in Odlasci and Dolasci, so there is no
+            negative value on the scale and no zero in its middle: the deepest
+            county or cell is simply the largest one-way flow. Stated
+            unconditionally, the paragraph above was the exact inverse of what
+            those two directions paint, and it was the reader's only source for
+            them until the legend gained its own colour sentence. */}
+        {L(' To vrijedi za Saldo, Regije, Godine i smjer Neto. U Odlascima i Dolascima (Tokovi, Matrica) boja pokazuje veličinu jednosmjernog toka prema odabranoj županiji — skala ide od nule prema najvećem toku i ne označava dobitak ni gubitak.',
+          ' That holds for Saldo, Regije, Godine and the Neto direction. In Odlasci and Dolasci (Tokovi, Matrica) the colour shows the size of the one-way flow to or from the selected county — the scale runs from zero to the largest flow and marks neither gain nor loss.')}
       </div>
 
       <h3 className="help-h">{L('Izmjereno ili procjena', 'Measured or estimated')}</h3>
