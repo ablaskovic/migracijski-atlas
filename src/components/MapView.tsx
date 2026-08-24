@@ -242,7 +242,13 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
      reveals its name; type is counter-scaled so it stays 9 px on screen at any
      k instead of growing to 72 px with its halo. */
   const k = zoom.t.k;
-  const labels = S.labels && drawn && S.view !== 'mx'
+  /* One predicate for the label layer and for the button that toggles it, so the
+     two cannot drift apart again. `labelG` is mounted only by the two geometry
+     branches below, and Godine renders YearsView instead — which never reads
+     S.labels — so in that view the toggle flipped to .on, announced "pressed",
+     appended `lb=1` to the shared permalink, and changed nothing on screen. */
+  const hasLabels = S.view !== 'mx' && S.view !== 'yrs';
+  const labels = S.labels && drawn && hasLabels
     ? ISOS.filter(iso => box[iso][0] * k > 70 && box[iso][1] * k > 34)
     : [];
   const labelG = (
@@ -455,7 +461,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
       )}
       <button className={'helpbtn' + (S.help ? ' on' : '')} id="helpBtn" aria-pressed={S.help}
         title={L('Kako čitati atlas', 'How to read the atlas')} aria-label={L('Kako čitati atlas', 'How to read the atlas')} onClick={toggleHelp}>?</button>
-      {S.view !== 'mx' && (
+      {hasLabels && (
         <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
           onClick={() => setS({ labels: !S.labels })}>{L('Aa oznake', 'Aa labels')}</button>
       )}

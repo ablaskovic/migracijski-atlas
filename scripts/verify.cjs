@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 431;
+const EXPECTED_CHECKS = 432;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -496,6 +496,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await click('#labBtn');
   labN = await page.evaluate(() => document.querySelectorAll('#map .clab').length);
   ck('labels toggle off removes labels', labN === 0, String(labN));
+
+  /* …and the toggle is mounted only where something consumes it. `labelG` is
+     rendered by the two geometry branches, and Godine renders YearsView, which
+     never reads S.labels — so in that view the button flipped to .on, announced
+     "pressed", appended `lb=1` to the shared permalink, and changed nothing on
+     screen. The old check exercised only the default Saldo view and counted only
+     `#map .clab`, so it excluded the culprit view by construction. */
+  const labViews = [];
+  for (const [h, want] of [['#v=saldo', true], ['#v=klas', true], ['#v=reg', true],
+    ['#v=flow&s=HR-21', true], ['#v=jmap', true], ['#v=mx&y=2018&c=0', false], ['#v=yrs', false]]) {
+    await fresh(h);
+    const has = await page.evaluate(() => !!document.querySelector('#labBtn'));
+    if (has !== want) labViews.push(h + ' has=' + has + ' want=' + want);
+  }
+  ck('the labels toggle is mounted exactly in the views that draw labels',
+    labViews.length === 0, labViews.join(' | '));
+  await fresh('');
 
   /* ── scrubber last tick not clipped ── */
   /* By content, not by DOM order. The year ticks are rendered before the EU
