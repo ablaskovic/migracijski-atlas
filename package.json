@@ -10,10 +10,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "oxlint",
+    "lint": "oxlint --deny-warnings",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "verify": "tsc --noEmit && oxlint && vite build && node scripts/verify.cjs dist",
+    "verify": "tsc --noEmit && oxlint --deny-warnings && vite build && node scripts/verify.cjs dist",
     "smoke": "node scripts/smoke.cjs"
   },
   "dependencies": {
