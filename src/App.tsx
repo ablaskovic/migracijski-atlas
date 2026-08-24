@@ -227,9 +227,29 @@ export default function App() {
     return () => mq.removeEventListener('change', sync);
   }, []);
 
+  /* Whether the tab is being looked at. The play loop is the one thing in the app
+     that advances state on a timer, and it had no such guard: measured with
+     Chrome's own background throttling left on, hiding the tab at 1998 with
+     playback running and coming back 40 s later found the year at 2025 and #play
+     already released — the loop had run to the end, set playing:false and
+     terminated, so the reader saw none of the animation they started and #srLive
+     read "2025. · saldo · godišnje". Throttled the pace is wrong too (one step a
+     second against the intended 650 ms), and every step runs the hash-sync
+     effect down the replaceState branch, so a reader who arrived on a shared
+     `y=2005` link has that very history entry rewritten to y=2025 in place —
+     with no earlier entry to go Back to. */
+  const [visible, setVisible] = useState(() => typeof document === 'undefined' || !document.hidden);
+  useEffect(() => {
+    const onVis = () => setVisible(!document.hidden);
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
   /* ── play loop (inert in jmap: single measured year) ── */
   useEffect(() => {
-    if (!S.playing) return;
+    /* torn down while hidden and re-created on return, so the year the reader
+       left on is the year they come back to, at the pace the app chose */
+    if (!S.playing || !visible) return;
     /* autoplay is the largest motion in the app — halve the pace rather than
        remove the feature, since the user asked for it explicitly */
     const t = setInterval(() => {
@@ -241,7 +261,7 @@ export default function App() {
       });
     }, reduced ? 1400 : 650);
     return () => clearInterval(t);
-  }, [S.playing, reduced]);
+  }, [S.playing, reduced, visible]);
   const togglePlay = () => {
     const s = ref.current;
     if (s.view === 'jmap') return;

@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 445;
+const EXPECTED_CHECKS = 446;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2915,6 +2915,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('the play loop really advances the year and clears the Nalaz caption',
     played.cap && played.y1 !== played.y0 && !played.capAfter, JSON.stringify(played));
+  /* …and it stops advancing while nobody is looking. Measured with Chrome's own
+     background throttling on: hidden at 1998 with playback running, 40 s later
+     the year was 2025 and #play released — the loop had run to the end and
+     terminated, so the reader saw none of it, and every step took the hash-sync
+     effect's replaceState branch, rewriting the `y=2005` entry they arrived on.
+     Driven here with a real visibilitychange, since CDP cannot hide a headless
+     page: the effect keys on document.hidden, which the override moves. */
+  await fresh('#v=saldo&f=int&c=0&y=2005');
+  const bgPlay = await page.evaluate(async () => {
+    document.querySelector('#play').click();
+    await new Promise(r => setTimeout(r, 200));
+    const y0 = document.querySelector('#bigYear').textContent;
+    Object.defineProperty(document, 'hidden', { get: () => true, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise(r => setTimeout(r, 2000));
+    const yHidden = document.querySelector('#bigYear').textContent;
+    Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise(r => setTimeout(r, 900));
+    const yBack = document.querySelector('#bigYear').textContent;
+    document.querySelector('#play').click();
+    return { y0, yHidden, yBack };
+  });
+  ck('a hidden tab does not burn through the year sequence',
+    bgPlay.yHidden === bgPlay.y0 && bgPlay.yBack !== bgPlay.y0, JSON.stringify(bgPlay));
 
   /* ── P3: reduced motion is honoured, and it is a live preference ── */
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
