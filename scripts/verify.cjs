@@ -2472,10 +2472,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('prefers-reduced-motion lands body.reduced and suppresses the transitions',
     await page.evaluate(() => document.body.classList.contains('reduced')
       && getComputedStyle(document.querySelector('.cnt')).transitionDuration === '0s'));
+  /* Deliberately NOT fresh(): "without a reload" is the whole property, and both
+     halves of this pair used to reload, so the media query was only ever read by
+     useState's initialiser and the mount-time sync(). Deleting
+     `mq.addEventListener('change', sync)` — the exact listener this block's own
+     comment says it guards — left a reader who flips the OS switch mid-session
+     with the animations they asked to stop, and both checks still printed ok
+     because each was measured on a brand-new document. emulateMediaFeatures
+     fires a real `change` on the live matchMedia list, so the running document
+     is what answers now. The computed duration goes with the class: a class
+     toggled without the stylesheet following would otherwise still pass. */
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
-  await fresh('');
+  await settle(200);
   ck('and it comes back off without a reload',
-    await page.evaluate(() => !document.body.classList.contains('reduced')));
+    await page.evaluate(() => !document.body.classList.contains('reduced')
+      && getComputedStyle(document.querySelector('.cnt')).transitionDuration !== '0s'));
 
   /* ── P3: the JLS chunk can fail, and the view says so and offers a retry ── */
   blockGeoChunk = true;
