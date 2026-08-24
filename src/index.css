@@ -401,7 +401,15 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   max-height:calc(100% - 24px);overflow-y:auto}
 .legend-title{font-family:var(--mono);font-size:0.5625rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:5px;white-space:normal}
 .legend-bar{width:180px;height:9px;border:1px solid var(--line);position:relative}
+/* Two-tone, for the reason .focusring is. A single ink rule sits directly on the
+   ramp it marks and has to clear 3:1 against every point of it: measured against
+   the shipping Lab ramp, ink bottoms out at 1.82:1 at the blue end. White and ink
+   are 15.29:1 apart, so at least one of the two clears at every point — the same
+   argument the focus-ring note two hundred lines up makes, applied to the other
+   mark drawn on this ramp. The white flanks are outset, so the ink bar keeps its
+   own 2 px and the tick reads at exactly the position it did. */
 .legend-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);
+  box-shadow:0 0 0 1px #fff;
   transform:translateX(-1px);pointer-events:none}
 .legend-lbls{display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.59375rem;color:var(--mut);margin-top:3px}
 .legend-cats{display:flex;flex-direction:column;gap:4px}
@@ -1251,7 +1259,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 @media (forced-colors:active){
   .legend-bar,.legend-sw,.citz-rows .sw,.zbar span{forced-color-adjust:none}
   .legend-bar,.legend-sw,.citz-rows .sw{border:1px solid CanvasText}
-  .legend-mark{background:CanvasText;width:3px;forced-color-adjust:none}
+  .legend-mark{background:CanvasText;width:3px;box-shadow:none;forced-color-adjust:none}
   /* pressed-by-background is invisible here; pressed-by-border is not */
   .seg button[aria-pressed="true"],.jtabs button[aria-pressed="true"],
   .helpbtn.on,.labbtn.on{outline:2px solid Highlight;outline-offset:-2px;color:Highlight}
