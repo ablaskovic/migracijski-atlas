@@ -4030,15 +4030,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await fresh('#v=yrs&c=1&y=2024&cz=1');
   const ydock = await page.evaluate(() => {
     const d = document.querySelector('.chipdock');
-    if (!d || getComputedStyle(d).position !== 'absolute') return { skip: true };
+    const pos = d ? getComputedStyle(d).position : null;
     /* union, not the dock's own rect: the open body is anchored above the
        header stack and is outside it — see the same note in the overlay sweep */
-    const bs = [...d.querySelectorAll('.chipcard, .chipcard.open .chip-body')]
+    const bs = !d ? [] : [...d.querySelectorAll('.chipcard, .chipcard.open .chip-body')]
       .filter(c => c.getClientRects().length).map(c => c.getBoundingClientRect());
     const b = { left: Math.min(...bs.map(r => r.left)), right: Math.max(...bs.map(r => r.right)),
       top: Math.min(...bs.map(r => r.top)), bottom: Math.max(...bs.map(r => r.bottom)) };
     const c0 = document.querySelector('#map .yrc').getBoundingClientRect();
     return {
+      pos,
+      /* the two things that made this vacuous: a dock that stopped being
+         absolute took the `skip` escape and asserted nothing, and an EMPTY box
+         list left Math.min/Math.max at ±Infinity, so `r.left < -Infinity` is
+         false for every cell and `under` came out 0 with a legitimate-looking
+         diagnostic */
+      boxes: bs.length,
+      open: d ? d.querySelectorAll('.chipcard.open').length : 0,
       under: [...document.querySelectorAll('#map .yrc')].filter(c => {
         const r = c.getBoundingClientRect();
         return r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top;
@@ -4047,7 +4055,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     };
   });
   ck('an open chip panel covers no cell, and the grid keeps a usable cell',
-    ydock.skip || (ydock.under === 0 && ydock.cw >= 12 && ydock.ch >= 12), JSON.stringify(ydock));
+    ydock.pos === 'absolute' && ydock.open === 1 && ydock.boxes >= 3
+    && ydock.under === 0 && ydock.cw >= 12 && ydock.ch >= 12, JSON.stringify(ydock));
 
   /* The dock covers cells when it is CLOSED too — the case nothing was watching.
      `panel` used to be reported only while a chip was open, so the collapsed
@@ -4079,7 +4088,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       if (bad) dockClosed.push(`${W}${h.slice(0, 8)}${sel}:${bad}`);
       dockProbed += await page.evaluate(s => {
         const d = document.querySelector('.chipdock');
+        /* the dock must be floating AND have rendered cards, or there is nothing
+           for the sweep above to have compared the cells against — a zero-area
+           rect overlaps nothing and would report a clean sweep */
         return d && getComputedStyle(d).position === 'absolute'
+          && [...d.querySelectorAll('.chipcard')].filter(c => c.getClientRects().length).length >= 2
           ? document.querySelectorAll('#map ' + s).length : 0;
       }, sel);
     }
