@@ -818,8 +818,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     root: getComputedStyle(document.documentElement).colorScheme,
     body: getComputedStyle(document.body).colorScheme,
   }));
+  /* Chrome normalises the computed value's word order, so match on both tokens
+     rather than on the authored spelling. */
   ck('the page declares its colour scheme, so a browser cannot re-tint the key alone',
-    /only light/.test(cs.root), JSON.stringify(cs));  /* An empty live region must still be IN the accessibility tree. `:empty
+    /only/.test(cs.root) && /light/.test(cs.root) && !/dark/.test(cs.root), JSON.stringify(cs));  /* An empty live region must still be IN the accessibility tree. `:empty
      {display:none}` is equivalent to not being in the DOM for live-region
      registration, so the mitigation StoryBar's own comment describes — "a live
      region that enters the DOM already populated is not guaranteed to announce" —
@@ -1025,7 +1027,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   for (const [h, sel, want] of [
     ['#v=mx&y=2018&c=0&dir=out', '.mxc[tabindex="0"]', 'izmjereno'],
     ['#v=mx&y=2003&c=0&dir=out', '.mxc[tabindex="0"]', 'procjena'],
-    ['#v=mx&y=2018&c=1', '.mxc[tabindex="0"]', 'kumulativno'],
+    ['#v=mx&y=2018&c=1', '.mxc[tabindex="0"]', 'kumulativna procjena'],
     ['#v=flow&s=HR-21&y=2018&c=0&dir=out', '.cnt[data-iso="HR-01"]', 'izmjereno'],
     ['#v=flow&s=HR-21&y=2003&c=0&dir=out', '.cnt[data-iso="HR-01"]', 'procjena'],
   ]) {
@@ -1035,6 +1037,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('the accessible name carries the same honesty badge the tooltip shows',
     ariaBadge.length === 0, ariaBadge.slice(0, 3).join(' | '));
+  /* the loop above ends on a Tokovi hash; put the matrix back for the block below */
+  await fresh('#v=mx&y=2018&c=0&dir=out');
   await page.evaluate(() => document.querySelector('.mxc[tabindex="0"]').focus());
   await page.keyboard.press('ArrowRight');
   await settle(120);

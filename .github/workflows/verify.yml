@@ -1,0 +1,37 @@
+# The suite the README's quality claim rests on, run by something other than a
+# person remembering to.
+#
+# Before this there was no workflow, no hook and no server-side gate: `git push`
+# succeeded whatever it carried, and Vercel's default build command is
+# `npm run build` — `vite build` alone — so `tsc --noEmit`, `oxlint` and
+# scripts/verify.cjs never ran at deploy time either. A commit that broke forty
+# checks reached production unchallenged, and the first signal was a reader
+# hitting it. `npm run smoke`, the one thing that probes the deployed origin,
+# was manual too.
+#
+# puppeteer is deliberately not a devDependency — the README explains that it is
+# to spare a fresh clone and a cold deploy the Chrome download. That argument is
+# about clones and deploys, not about a CI runner that installs once per job, so
+# it is added here with --no-save and nothing in package.json moves.
+name: verify
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # matches engines.node in package.json
+          node-version: '22.12'
+          cache: npm
+      - run: npm ci
+      # Chrome for the 448 puppeteer checks; --no-save keeps it out of the manifest
+      - run: npm i --no-save puppeteer
+      # tsc --noEmit && oxlint --deny-warnings && vite build && verify.cjs dist
+      - run: npm run verify
