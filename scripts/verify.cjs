@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 429;
+const EXPECTED_CHECKS = 430;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -446,6 +446,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     typeof svgDoc === 'string' && svgDoc.length > 20000 && (svgDoc.match(/class="cnt/g) || []).length === 21,
     String(svgDoc && svgDoc.length));
   ck('exportSVG carries title band + attribution', svgDoc.includes('MIGRACIJSKI ATLAS') && svgDoc.includes('geoBoundaries'));
+  /* The point of exportFonts is that the vector twin *embeds* the faces rather
+     than naming them, and nothing checked that it does. exportSVG is synchronous
+     by contract, so it can only embed what has already arrived — pressing SVG
+     inside the warm-fetch window shipped a figure with zero @font-face rules and
+     a band fitted against metrics the opening application does not have. The
+     button awaits ensureFonts now; this is what proves the payload lands. */
+  const svgFaces = await page.evaluate(() => {
+    const doc = window.__exportSVG(false);
+    return { faces: (doc.match(/@font-face/g) || []).length,
+      b64: (doc.match(/url\(data:font\/woff2;base64,/g) || []).length,
+      fams: ['IBM Plex Mono', 'IBM Plex Sans', 'Oswald'].filter(f => doc.includes("font-family:'" + f + "'")).length };
+  });
+  ck('the exported vector embeds its faces rather than naming them',
+    !!svgFaces && svgFaces.faces >= 6 && svgFaces.b64 === svgFaces.faces && svgFaces.fams === 3,
+    JSON.stringify(svgFaces));
 
   /* ── header budget (v4: 138 px, default view) ── */
   const hdH = await page.evaluate(() => Math.round(document.querySelector('.hd').getBoundingClientRect().height));

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fmtI, fmtR, Y0, YEND } from '../lib/metrics.ts';
 import { exportPNG, exportSVG } from '../lib/exportPng.ts';
+import { ensureFonts } from '../lib/exportFonts.ts';
 import { StorySelect } from './StoryBar.tsx';
 import { focusSoon } from '../lib/state.ts';
 import { PAPER, paperPending, paperSub } from '../lib/credits.ts';
@@ -41,6 +42,11 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
   setMode: (v: 'yr' | 'cum') => void; applyStory: (i: number) => void; resetAll: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  /* Its own flag, not PNG's. Header already learned that lesson for `err` — one
+     shared flag reported a failure against the control that did not fail — and
+     the same argument applies to busy: sharing it would leave one export button
+     dead while the other was working. */
+  const [busySvg, setBusySvg] = useState(false);
   /* Which exporter failed, not just "something did". One shared flag meant an
      SVG failure lit "greška" on the PNG button — an error reported against the
      control that did not fail, while the one that did looked untouched. */
@@ -66,10 +72,23 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
        element — so a keyboard export dropped focus to <body> every time */
     focusSoon('#pngBtn');
   };
-  const onSvg = () => {
-    setErr(null);
-    try { exportSVG(document.querySelector<SVGSVGElement>('#map')!, S, true); }
-    catch (e) { console.error('SVG export failed', e); fail('svg'); }
+  /* The SVG twin embeds the same faces the PNG twin does, and it can only embed
+     what has already arrived. exportSVG is synchronous by contract — App exposes
+     it as window.__exportSVG and the suite drives it synchronously in ~20 places
+     — so the wait belongs in the caller, which is what exportPNG already does.
+     Pressing SVG inside the window where the warm woff2 fetches are still in
+     flight shipped a figure with zero @font-face rules: every county label,
+     matrix number and band string in whatever substitute the opening
+     application had, and the band was fitted with canvas measureText against the
+     page's real Oswald/Plex metrics, so the wider substitute overran the 20 px
+     margins the fit was computed to respect. */
+  const onSvg = async () => {
+    setErr(null); setBusySvg(true);
+    try {
+      await ensureFonts();
+      exportSVG(document.querySelector<SVGSVGElement>('#map')!, S, true);
+    } catch (e) { console.error('SVG export failed', e); fail('svg'); }
+    finally { setBusySvg(false); focusSoon('#svgBtn'); }
   };
 
   const lockFD = S.view === 'klas' || S.view === 'flow' || S.view === 'mx' || S.view === 'jmap';
@@ -158,14 +177,14 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
                 box the same in HR and EN. Same reasoning as .hd-title[data-alt]. */}
             <button id="pngBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busy} onClick={onPng} title={L('Preuzmi kartu kao PNG', 'Download the map as PNG')}
               aria-label={L('Preuzmi trenutačnu kartu kao PNG', 'Download the current map as PNG')}>{err === 'png' ? L('greška', 'error') : busy ? '…' : 'PNG'}</button>
-            <button id="svgBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} onClick={onSvg} title={L('Preuzmi kartu kao SVG (vektor)', 'Download the map as SVG (vector)')}
-              aria-label={L('Preuzmi trenutačnu kartu kao SVG (vektor)', 'Download the current map as SVG (vector)')}>{err === 'svg' ? L('greška', 'error') : 'SVG'}</button>
+            <button id="svgBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busySvg} onClick={onSvg} title={L('Preuzmi kartu kao SVG (vektor)', 'Download the map as SVG (vector)')}
+              aria-label={L('Preuzmi trenutačnu kartu kao SVG (vektor)', 'Download the current map as SVG (vector)')}>{err === 'svg' ? L('greška', 'error') : busySvg ? '…' : 'SVG'}</button>
           </div>
           {/* An aria-label overrides button text, so the busy and error states
               were invisible to AT — on the only error surface in the app. */}
           <span className="sr-only" id="expLive" role="status" aria-live="polite">
             {err === 'png' ? L('Izvoz PNG-a nije uspio.', 'PNG export failed.') : err === 'svg' ? L('Izvoz SVG-a nije uspio.', 'SVG export failed.')
-              : busy ? L('Priprema PNG-a…', 'Preparing the PNG…') : ''}
+              : busy ? L('Priprema PNG-a…', 'Preparing the PNG…') : busySvg ? L('Priprema SVG-a…', 'Preparing the SVG…') : ''}
           </span>
         </div>
         {/* Izvoz sits before the two view-specific groups, not after them, and
