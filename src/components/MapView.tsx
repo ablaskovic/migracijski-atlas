@@ -273,7 +273,12 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
        which was the only box that needed it; the corridor card needs the same
        number to know where the dock's top edge is, and it is not inside the
        dock. Set on their common ancestor and inherited by both. */
-    <div className="map-wrap" style={{ '--stageh': size.h ? size.h + 'px' : undefined } as CSSProperties}>
+    /* `stage-short` when the stage cannot hold both a readable top-left panel and
+       the legend's 176 px lane; index.css lets the legend yield there. 340 is
+       14 (the panel's top offset) + its 140 px floor + 8 of clearance + the
+       tallest legend measured (148, the English klas one) + its 12 px offset. */
+    <div className={'map-wrap' + (size.h && size.h < 340 ? ' stage-short' : '')}
+      style={{ '--stageh': size.h ? size.h + 'px' : undefined } as CSSProperties}>
       <DetailCard S={S} setS={setS} />
       {/* outside .map-box on purpose: at ≤900 it leaves the overlay layer and
           sits in normal flow above the map, like the detail card. Floating, it
