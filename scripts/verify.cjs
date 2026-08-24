@@ -549,6 +549,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const fresh = async h => {
     await page.goto('about:blank');
     await page.goto(url + h, { waitUntil: 'networkidle0' });
+    /* Wait for the app, not for a stopwatch. `networkidle0` says the network went
+       quiet, which is not the same as React having mounted — and every block
+       after a fresh() reads the DOM straight away, so a slow mount surfaces as
+       `Cannot read properties of null` from inside an evaluate, i.e. as a harness
+       abort rather than as a failed check. Every view renders svg#map, so it is
+       the one marker that means "the tree is up". */
+    await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 })
+      .catch(() => {});
     await settle(400);
     /* geo_jls.json (464 kB) loads via a dynamic import() fired from a useEffect,
        i.e. *after* networkidle0 can already have resolved — so every #v=jmap
@@ -1843,9 +1851,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const s = window.__exportSVG(false);
     const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
     /* nothing that paints may rely on a stylesheet this document does not ship */
-    const naked = [...doc.querySelectorAll('rect,path,circle,line')]
-      .filter(e => !e.closest('defs') && !e.hasAttribute('fill') && !e.hasAttribute('stroke'))
+    /* Two holes. `!fill && !stroke` calls a shape naked only when BOTH are
+       missing, so a class whose stroke comes from the stylesheet alone — which
+       .mxband rect is, exactly — ships strokeless and therefore invisible the
+       moment a bake sets fill="none" and drops the stroke attribute, with this
+       green. And `naked.length === 0` had no population floor: if __exportSVG
+       ever emitted malformed XML, DOMParser returns a parsererror document,
+       querySelectorAll finds nothing, and the check prints ok having inspected
+       nothing at all. So: count what was inspected, refuse a parse failure, and
+       require an explicit stroke on the classes whose stroke IS the mark. */
+    const shapes = [...doc.querySelectorAll('rect,path,circle,line')].filter(e => !e.closest('defs'));
+    const naked = shapes
+      .filter(e => !e.hasAttribute('fill') && !e.hasAttribute('stroke'))
       .map(e => e.tagName + '.' + (e.parentElement?.getAttribute('class') || '?'));
+    const strokeOnly = ['.mxband rect', '.regline', '.jbord', '.arccase'];
+    const unstroked = strokeOnly.flatMap(sel => [...doc.querySelectorAll(sel)]
+      .filter(e => !e.getAttribute('stroke')).map(() => sel));
+    const parseErr = !!doc.querySelector('parsererror');
     /* and prove it by rasterising: the band used to render solid black */
     const img = new Image();
     await new Promise(r => { img.onload = r; img.onerror = r; img.src = URL.createObjectURL(new Blob([s], { type: 'image/svg+xml' })); });
@@ -1857,10 +1879,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const px = Math.round(+b.getAttribute('x') + +b.getAttribute('width') * 0.5);
     const py = Math.round(+b.getAttribute('y') + +b.getAttribute('height') / 2) + 86;   /* TOP band */
     const d = ctx.getImageData(px, py, 1, 1).data;
-    return { naked, band: [d[0], d[1], d[2]] };
+    return { naked, n: shapes.length, unstroked, parseErr, band: [d[0], d[1], d[2]] };
   });
   ck('exported document is self-contained (no CSS-only fill/stroke left)',
-    baked.naked.length === 0, baked.naked.slice(0, 5).join(','));
+    !baked.parseErr && baked.n >= 100 && baked.naked.length === 0 && baked.unstroked.length === 0,
+    JSON.stringify({ n: baked.n, naked: baked.naked.slice(0, 5), unstroked: baked.unstroked.slice(0, 5), parseErr: baked.parseErr }));
   ck('matrix trace band does not export as a solid black bar',
     baked.band[0] > 60 || baked.band[1] > 60 || baked.band[2] > 60, 'rgb(' + baked.band.join(',') + ')');
 
