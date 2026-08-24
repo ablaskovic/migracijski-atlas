@@ -346,7 +346,11 @@ export default function App() {
   useEffect(() => {
     const onDown = (ev: PointerEvent) => {
       const t = ev.target as Element | null;
-      if (t && t.closest && t.closest('.cnt,.mxc,.jl,.mxhit,.yrc,.yrhit')) return;
+      /* `.rrow` belongs on this list: a rail row owns a highlight exactly the way
+         a map feature does — it sets `hl` on pointerenter — so pressing one fired
+         this capture-phase handler first and cleared the very highlight the press
+         was about, taking the tooltip and the legend's tick with it. */
+      if (t && t.closest && t.closest('.cnt,.mxc,.jl,.mxhit,.yrc,.yrhit,.rrow')) return;
       const s = ref.current;
       if (s.hl || s.pairHl || s.yrHl || s.jlsHl != null) up({ hl: null, pairHl: null, yrHl: null, jlsHl: null });
     };
