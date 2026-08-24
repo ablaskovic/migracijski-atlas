@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 451;
+const EXPECTED_CHECKS = 452;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -548,6 +548,36 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* ── rail a11y + legend hover mark + detail card readout ── */
   const nFocus = await page.evaluate(() => document.querySelectorAll('#railList .rrow[tabindex="0"]').length);
   ck('rail rows keyboard-focusable (21)', nFocus === 21, String(nFocus));
+  /* Ctrl+P is a plausible thing to do with an atlas, and there was no print
+     stylesheet at all. The rail is an overflow-y:auto scroller inside a
+     viewport-locked column, so at the A4 landscape content box only 11 of the 21
+     county rows were on the sheet — no scrollbar, no ellipsis, nothing saying so,
+     and the reader cites a table they believe is the complete ranking. Chrome
+     also ships "Background graphics" unchecked, which prints the legend ramp as
+     an empty white rectangle beside a full-colour choropleth, since the polygons
+     are SVG fill attributes and the ramp is a CSS gradient. */
+  await page.setViewport({ width: 1047, height: 718 });
+  await fresh('');
+  await page.emulateMediaType('print');
+  await settle(250);
+  const printed = await page.evaluate(() => {
+    const l = document.querySelector('.rail-list');
+    const rows = [...document.querySelectorAll('#railList .rrow')];
+    const lb = document.querySelector('.legend-bar');
+    const box = l.getBoundingClientRect();
+    return { rows: rows.length,
+      inside: rows.filter(r => {
+        const a = r.getBoundingClientRect();
+        return a.top >= box.top - 1 && a.bottom <= box.bottom + 1;
+      }).length,
+      pca: lb ? (getComputedStyle(lb).printColorAdjust || getComputedStyle(lb).webkitPrintColorAdjust) : null };
+  });
+  await page.emulateMediaType(null);
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('');
+  ck('printing carries the whole ranking and keeps the colour key',
+    printed.rows === 21 && printed.inside === 21 && printed.pca === 'exact',
+    JSON.stringify(printed));
   await page.hover('path[data-iso="HR-18"]');
   await settle(80);
   const mark = await page.evaluate(() => !!document.querySelector('#legend .legend-mark'));

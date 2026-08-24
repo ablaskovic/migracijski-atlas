@@ -1155,6 +1155,42 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   .play{width:48px}
 }
 
+/* ── print ───────────────────────────────────────────────────────────────────
+   Ctrl+P is a plausible thing to do with an atlas that is a companion to a paper,
+   and there was no print stylesheet at all — enumerating conditional rules from
+   the built page returned only reduced-motion, pointer:coarse, the width
+   breakpoints and forced-colors.
+
+   Two things went wrong on the sheet. The rail is an `overflow-y:auto` scroller
+   inside a viewport-locked column, so at the A4 landscape content box (1047×718)
+   .rail-list had clientHeight 267 against scrollHeight 508: of 21 county rows
+   only 11 printed, with no scrollbar, no ellipsis and nothing on the page saying
+   so — the reader cites a table they believe is the complete ranking, and the
+   first missing row is "Virovitičko-podravska −10.379". Releasing the scrollports
+   and the viewport lock prints all 21.
+
+   And Chrome's print dialog ships with "Background graphics" unchecked, so the
+   county polygons print in full colour (they are SVG fill attributes) while the
+   legend ramp beside them prints as an empty white rectangle under
+   "−44.383 0 +44.383", and the three klasifikacija swatches print as blank
+   squares. The reader gets a coloured choropleth with no way to tell which end is
+   a gain — the one thing the legend exists to say. print-color-adjust:exact on
+   the five elements that ARE the key keeps them. */
+@media print{
+  html,body{height:auto;overflow:visible}
+  body{display:block;padding-bottom:0}
+  .main{display:block}
+  .map-wrap,.map-stage{display:block;height:auto}
+  .rail{width:100%;max-height:none;height:auto;display:block;border-left:none}
+  .rail-list{max-height:none;height:auto;overflow:visible;flex:none}
+  .scrub{position:static}
+  .helpcard,.jcard .chip-body,.paircard,.card,.chipdock .chipcard.open .chip-body{
+    max-height:none;overflow:visible}
+  /* the key is data, not decoration — it must survive "Background graphics: off" */
+  .legend-bar,.legend-sw,.legend-mark,.citz-rows .sw,.zbar span,.legend{
+    print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+
 /* React mount: #root must not create a box — body keeps the app layout */
 #root{display:contents}
 
