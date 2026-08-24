@@ -1827,9 +1827,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       vals: [...document.querySelectorAll('#railList .rrow .rval')].map(v => v.textContent.trim()),
       sub: document.querySelector('#bigYearSub').textContent,
     }));
-    const allZero = boot.vals.length > 0 && boot.vals.every(v => v === '0');
+    /* The population is its own conjunct, not a condition on allZero. Folded in,
+       `vals.length > 0 &&` made the strictly WORSE outcome — the rail rendering
+       no rows at all, a swallowed throw or a renamed selector — indistinguishable
+       from success: allZero went false, `!allZero` true, and the two remaining
+       conjuncts are hash and subtitle strings that hold either way. 21 rows for
+       saldo, 5 for reg. */
+    const allZero = boot.vals.every(v => v === '0');
     ck(`truncated pre-2011 link (${why}) is repaired, not booted into an all-zero atlas`,
-      !allZero && /y=2011/.test(boot.hash) && !/2011\.–20(0|10)/.test(boot.sub),
+      boot.vals.length >= 5 && !allZero && /y=2011/.test(boot.hash)
+      && !/2011\.–20(0|10)/.test(boot.sub),
       boot.hash + ' · ' + boot.sub + ' · ' + boot.vals.slice(0, 3).join(','));
   }
   /* and the map/tooltip divergence that made it invisible cannot recur */
@@ -1841,8 +1848,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       .find(r => r.dataset.iso === 'HR-21')?.querySelector('.rval').textContent.trim() || '',
     tip: document.querySelector('#tip').textContent,
   }));
+  /* `?.` short-circuits the whole chain to '' when the Grad Zagreb row is not in
+     the rail — it failed to render, the repair changed the sort, dataset.iso got
+     renamed — and then `'' !== '0'` is true and `includes('')` is true of ANY
+     tooltip, including an empty one. The check printed ok having compared
+     nothing, which is worse than the divergence it exists to catch. Require the
+     operand to exist before comparing it. */
+  const agreeNum = NBSP(agree.rail).replace(/^\+/, '');
   ck('map, rail and tooltip cannot disagree about a repaired year',
-    agree.rail !== '0' && NBSP(agree.tip).includes(NBSP(agree.rail).replace(/^\+/, '')),
+    /\d/.test(agreeNum) && agree.rail !== '0' && agree.tip.length > 0
+    && NBSP(agree.tip).includes(agreeNum),
     JSON.stringify(agree).slice(0, 160));
 
   /* ── P2: a cell label must state the direction of its own number ──
