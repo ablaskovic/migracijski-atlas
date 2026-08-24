@@ -129,7 +129,7 @@ export const STORIES: Story[] = [
      src/data/atlas_data2.json. */
   {
     get label() { return L('Zagreb je prestao dobivati iz Hrvatske', 'Zagreb stopped gaining from Croatia'); },
-    get cap() { return L('Unutarnjim migracijama Grad Zagreb dobiva sve do 2019. (vrh +4.420 u 2015.), a od 2021. gubi — 2022. −622. Zagrebačka istodobno ubrzava: +1.047 (2019.) → +2.238 (2022.). Redak grada mijenja boju, redak prstena tamni.', 'On internal migration the City of Zagreb gains until 2019 (peak +4,420 in 2015), then loses from 2021 — −622 in 2022. Zagrebačka accelerates at the same time: +1,047 (2019) → +2,238 (2022). The city’s row changes colour; the ring’s row darkens.'); },
+    get cap() { return L('Unutarnjim migracijama Grad Zagreb dobiva sve do 2020. (vrh +4.420 u 2015., posljednji plus +933 u 2020.), a od 2021. gubi — 2022. −622. Zagrebačka istodobno ubrzava: +1.047 (2019.) → +2.238 (2022.). Redak grada mijenja boju, redak prstena tamni.', 'On internal migration the City of Zagreb gains until 2020 (peak +4,420 in 2015, last surplus +933 in 2020), then loses from 2021 — −622 in 2022. Zagrebačka accelerates at the same time: +1,047 (2019) → +2,238 (2022). The city’s row changes colour; the ring’s row darkens.'); },
     patch: { view: 'yrs', flow: 'int', den: 'abs', cum: false, yi: YEARS.indexOf(2022) },
   },
   {
