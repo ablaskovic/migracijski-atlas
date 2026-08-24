@@ -82,11 +82,24 @@ export default function App() {
        focused county never gets the pointerleave that would have cleared it. */
     const p: Patch = { view: v, playing: false, hl: null, pairHl: null, yrHl: null, jlsHl: null, regHl: null };
     const mem = vmem.current[v];
+    /* The JLS map imposes 2018/godišnje on entry and *locks* the Vrijeme
+       control, so the pair it leaves behind in the shared state is the one pair
+       on the page the reader provably did not choose. The per-view memory only
+       restores a destination that has been visited before, so leaving jmap for a
+       fresh view carried the imposition into it: from the app's own Nalaz 7
+       permalink `#v=jmap&c=0&y=2018&st=7`, pressing Klasifikacija rendered the
+       2011.–2018. window — 3 / 9 / 9 against the 7 / 5 / 9 the same view shows
+       when reached any other way, twelve of twenty-one counties in a different
+       class — and pressing Saldo rendered annual 2018 on a ±7.490 domain instead
+       of the cumulative ±44.383. Fall back to the boot pair, which is the last
+       one the reader actually saw offered. */
+    const carried = s.view === 'jmap' ? { yi: BASE.yi, cum: BASE.cum } : null;
+    const restore = mem ?? carried;
     if (v === 'flow' || v === 'mx') {
       if (v === 'flow' && !s.sel) p.sel = 'HR-21';
       if (!s.flowSeen) { p.flowSeen = true; p.cum = false; p.yi = IX2018; }
-      else if (mem) { p.yi = mem.yi; p.cum = mem.cum; }
-    } else if (v !== 'jmap' && mem) { p.yi = mem.yi; p.cum = mem.cum; }
+      else if (restore) { p.yi = restore.yi; p.cum = restore.cum; }
+    } else if (v !== 'jmap' && restore) { p.yi = restore.yi; p.cum = restore.cum; }
     /* the JLS corridor chip only exists in Tokovi; leaving it set outside is a
        flag with no panel behind it that still sets body.panel-open (hiding the
        legend outright below 900 px) and still eats an Escape press */

@@ -130,7 +130,14 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
             opts={[['abs', t('den.abs')], ['rel11', t('den.rel11')], ['relest', t('den.relest')]]} />
         </div>
         <div className="ctrl" id="cMode"><span className="ctrl-lab" id="segModeLab">{t('ctrl.time')}</span>
-          <Seg id="segMode" labId="segModeLab" value={S.cum ? 'cum' : 'yr'} off={lockT} title={OFF_TIP()} onPick={setMode}
+          {/* Klasifikacija is unconditionally cumulative — klasOf() reads
+              val(..., true) whatever S.cum says — and eleven other surfaces
+              spell that as `S.cum || S.view === 'klas'`. This was the twelfth,
+              and the only one deriving the answer from S.cum alone: entering
+              klas from godišnje left the disabled group reporting "Godišnje"
+              pressed while #srLive, #bigYearSub and the legend all said
+              cumulative. `#v=klas&c=0&y=2024` boots straight into it. */}
+          <Seg id="segMode" labId="segModeLab" value={S.cum || S.view === 'klas' ? 'cum' : 'yr'} off={lockT} title={OFF_TIP()} onPick={setMode}
             opts={[['yr', t('time.year')], ['cum', t('time.cum')]]} />
         </div>
         {/* an id, not `.ctrls>.ctrl:last-child`: the narrow-width grid singles
