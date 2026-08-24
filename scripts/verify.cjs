@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 452;
+const EXPECTED_CHECKS = 453;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -582,6 +582,29 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await settle(80);
   const mark = await page.evaluate(() => !!document.querySelector('#legend .legend-mark'));
   ck('legend shows hover mark on gradient', mark);
+  /* The legend must stay inside the box it is anchored to. Under Chrome's
+     minimum-font-size setting — what a reader reaches for when nothing else
+     raises the type — every box in the header and footer grows and the stage is
+     what gives: measured at an ordinary 1440×900, .map-box went 570 → 365 → 299
+     → 108 → 0 px as the setting climbed, and at 108 the 201 px legend escaped
+     UPWARD and painted 94 px over the Sastavnica group, unreachable because body
+     is overflow:hidden and height-locked. Simulated here by shrinking the stage
+     directly, which is the condition the setting produces. */
+  const legEscape = await page.evaluate(async () => {
+    const box = document.querySelector('.map-box');
+    const prev = box.style.height;
+    box.style.height = '150px';
+    box.style.flex = 'none';
+    await new Promise(r => setTimeout(r, 250));
+    const b = box.getBoundingClientRect(), l = document.querySelector('.legend').getBoundingClientRect();
+    const c = document.querySelector('.ctrls').getBoundingClientRect();
+    const ov = Math.max(0, Math.min(l.right, c.right) - Math.max(l.left, c.left))
+      * Math.max(0, Math.min(l.bottom, c.bottom) - Math.max(l.top, c.top));
+    box.style.height = prev; box.style.flex = '';
+    return { escapes: l.top < b.top - 1, overCtrls: Math.round(ov), legH: Math.round(l.height) };
+  });
+  ck('the legend stays inside the map box when the stage is squeezed',
+    !legEscape.escapes && legEscape.overCtrls === 0, JSON.stringify(legEscape));
   await click('path[data-iso="HR-18"]');
   const cardRow = await page.evaluate(() => ({
     row: document.querySelector('#cardRow')?.textContent || '',

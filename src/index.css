@@ -327,7 +327,13 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    and this is what it anchors to: against .map-wrap its bottom edge measured
    past the in-flow Nalazi banner and covered it (see MapView). */
 .map-stage{flex:1;position:relative;min-height:0;min-width:0;display:flex;flex-direction:column}
-.map-box{flex:1;position:relative;min-height:0;min-width:0}
+/* A floor on the desktop side too, the way the ≤900 block already gives one.
+   `min-height:0` let the stage be squeezed to nothing by anything that grew
+   around it — measured under Chrome's minimum-font-size setting at 1440×900,
+   .map-box, #map, .main and .rail all reached 0 px and .ft's bottom edge sat
+   51 px below a viewport that cannot scroll. 180 is under every stage the sweeps
+   measure, so it only bites where the alternative is no map at all. */
+.map-box{flex:1;position:relative;min-height:180px;min-width:0}
 .map-box svg{display:block;width:100%;height:100%}
 /* Every stroke in the map lives inside the zoom transform, so its width was
    multiplied by k: measured on the JLS map at k=4,1 the county outlines drew
@@ -373,8 +379,18 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    of their own — see the note in MapView. Attributes for the width and the dash
    travel in the JSX, like every other exported stroke. */
 .arccase{fill:none;pointer-events:none;opacity:.82;stroke-linecap:round;stroke:#fff}
+/* Bounded by its own box. Under Chrome's minimum-font-size setting — the remedy
+   a reader reaches for when nothing else raises the type — every box in the
+   header and the footer grows and the map stage is what gives: measured at an
+   ordinary 1440×900, .map-box went 570 → 365 → 299 → 108 → 0 px as the setting
+   climbed. At 108 the legend was 201 px tall inside it and, being bottom-anchored
+   with nothing capping it, escaped UPWARD and painted 94 px over the Sastavnica
+   control group, so "Migracije / Unutarnje / Vanjske / Prirodno" were unreadable
+   behind it — and body is overflow:hidden and height-locked, so none of it could
+   be scrolled to. Capped and scrolling, the legend gives instead of the controls. */
 .legend{position:absolute;left:16px;bottom:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);
-  border:1px solid var(--line);border-radius:3px;padding:8px 10px;font-size:10.5px;pointer-events:none;max-width:280px}
+  border:1px solid var(--line);border-radius:3px;padding:8px 10px;font-size:10.5px;pointer-events:none;max-width:280px;
+  max-height:calc(100% - 24px);overflow-y:auto}
 .legend-title{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:5px;white-space:normal}
 .legend-bar{width:180px;height:9px;border:1px solid var(--line);position:relative}
 .legend-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);
