@@ -373,9 +373,11 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   const MAX_PX = 16_000_000;
   const SC = Math.max(1, Math.min(2, Math.sqrt(MAX_PX / Math.max(1, w * (h + TOP + BOT)))));
   const cv = document.createElement('canvas');
-  /* rounded: SC is only fractional once the clamp engages, and a canvas takes
-     integers — the reference window keeps an exact 2x, which the suite pins */
-  cv.width = Math.round(w * SC); cv.height = Math.round((h + TOP + BOT) * SC);
+  /* floored, not rounded: a canvas takes integers, and rounding UP can carry the
+     product back over MAX_PX (measured: 16.001.488 at 3840×2160). Flooring both
+     sides can only reduce the area. The reference window keeps an exact 2× either
+     way, which is what the suite pins. */
+  cv.width = Math.floor(w * SC); cv.height = Math.floor((h + TOP + BOT) * SC);
   const ctx = cv.getContext('2d')!; ctx.scale(SC, SC);
   ctx.fillStyle = '#F4F5F2'; ctx.fillRect(0, 0, w, h + TOP + BOT);
   ctx.fillStyle = '#5F6A72'; ctx.font = '500 ' + B.eyebrowFs + 'px ' + MONO_CSS;
