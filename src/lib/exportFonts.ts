@@ -46,7 +46,22 @@ let css = '';
 let pending: Promise<string> | null = null;
 
 async function dataUri(url: string): Promise<string> {
-  const b = await (await fetch(url)).blob();
+  const r0 = await fetch(url);
+  /* `.blob()` succeeds on a 404 body just as happily as on a font, and the
+     result is a perfectly valid data: URI for an HTML error page. The faces are
+     hashed assets under /assets/, which vercel.json deliberately does NOT rewrite
+     to index.html — so after a redeploy an open tab's filenames are gone and the
+     fetch really does 404. Without this check the six template strings below
+     still build, `css` is assigned a non-empty string, and from then on
+     `fontCss()` is truthy, every export embeds six broken faces, and the
+     short-circuit at the top of ensureFonts means the retry in its own `.catch`
+     can never fire again for the life of the tab. Rejecting restores the
+     documented degradation: '' , the families named, and a retry next time. */
+  if (!r0.ok) throw new Error('font fetch ' + r0.status + ': ' + url);
+  const b = await r0.blob();
+  /* an error page is small and a woff2 subset is not — the smallest face here is
+     13,3 kB — so this catches a 200-with-a-body-that-is-not-a-font too */
+  if (b.size < 1000) throw new Error('font fetch returned a non-font body: ' + url);
   return new Promise<string>((res, rej) => {
     const r = new FileReader();
     r.onload = () => res(String(r.result));
