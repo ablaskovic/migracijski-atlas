@@ -99,7 +99,14 @@
       <span class="boot-title">Migracijski atlas županija</span>
     </div>
     <div class="boot-bar"><i></i></div>
-    <p class="boot-fail" id="bootFail">Učitavanje predugo traje. Osvježite stranicu — možda je u međuspremniku stara verzija. / This is taking too long. <a href="./">Reload the page</a> — your browser may be holding a stale copy.</p>
+    <!-- An instruction, not a link. `href="./"` is built without location.hash, so
+       the one affordance offered to a reader stuck on this placeholder threw away
+       the very permalink that brought them here — and a reader who arrived on a
+       shared `#v=klas&c=1&y=2015&t=6000` link landed on the default view instead.
+       A manual reload re-requests the same URL with the fragment intact, and
+       `must-revalidate` on index.html is what makes it fetch fresh markup, which
+       is the whole point of the message. -->
+  <p class="boot-fail" id="bootFail">Učitavanje predugo traje. Osvježite stranicu (Ctrl-R / ⌘R) — možda je u međuspremniku stara verzija. / This is taking too long. Reload the page (Ctrl-R / ⌘R) — your browser may be holding a stale copy.</p>
   </div>
 </div>
 <!-- The attribution sentence below duplicates src/lib/credits.ts, which this
