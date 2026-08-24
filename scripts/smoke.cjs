@@ -18,7 +18,7 @@
         answer them with the SPA shell? (robots.txt answering as text/html is the
         exact "31 invalid directives" failure v2.1.1 documents as fixed)
      2. is the deployed entry chunk the one in ./dist?
-     3. does the deployed bundle contain the current release's markers at all?
+     3. is the deployed build the current release?
 
    Network-dependent by nature, so it is NOT part of `npm run verify` and never
    gates a build. It exits non-zero so CI can use it if it ever wants to. */
@@ -140,17 +140,26 @@ function localEntry() {
       asset.headers['cache-control'] || 'absent');
   }
 
-  /* Marker analysis, so a stale deploy is legible even without a local build:
-     these strings entered the bundle in v2.2.0 (English) and v2.1.1, and the
-     two files are probed separately because the fallback metrics live in the
-     stylesheet, not in the entry chunk. */
-  if (served) {
-    const entry = await get(ORIGIN.replace(/\/$/, '') + served);
-    for (const [marker, since] of [['en-GB', 'v2.2.0 — the English number format'],
-      ['County Migration Atlas', 'v2.2.0 — the English title']]) {
-      ck('the deployed script carries ' + since, entry.body.includes(marker), 'missing "' + marker + '"');
-    }
-  }
+  /* Staleness, asked monotonically. This used to be marker analysis: three
+     strings that had entered the bundle at some past release — 'en-GB' and
+     'County Migration Atlas' (v2.2.0) and 'ascent-override' (v2.1.1) — against a
+     repo at v2.5.1. A production alias pinned to the v2.2.0 build, which is
+     precisely the failure this file was written after, contains all three, so
+     every marker check passed while the one check that could have caught it
+     ("the deployed entry chunk is the one in ./dist") failed for the harness's
+     own reason on a clone with no dist/. The bundle carried no version token at
+     all to substitute — probed: neither '2.5.1' nor 'v2.5' appeared in it.
+     vite.config now defines __APP_VERSION__ from package.json and main.tsx
+     writes it onto <html data-v>, so both the markup and the chunk can be asked
+     directly. The stylesheet marker stays: the fallback metrics live there and
+     nowhere else, so it answers a different question. */
+  const want = require(path.resolve(__dirname, '../package.json')).version;
+  const servedV = (home.body.match(/<html[^>]*\sdata-v="([^"]+)"/) || [])[1] || null;
+  ck('the deployed markup states a build version',
+    !!servedV, servedV || 'no data-v on <html> — is the deploy older than v2.6.0?');
+  ck(`the deployed build is the current release (${want})`,
+    servedV === want, 'deployed ' + (servedV || 'none') + ' · local ' + want);
+
   const sheet = (home.body.match(/href="\.?(\/assets\/index-[\w-]+\.css)"/) || [])[1] || null;
   if (sheet) {
     const css = await get(ORIGIN.replace(/\/$/, '') + sheet);

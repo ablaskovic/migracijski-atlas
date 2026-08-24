@@ -1,11 +1,29 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import pkg from './package.json' with { type: 'json' };
 
 /* The two geometry payloads are JSON, so their chunks have no statements to map:
    557 kB of the ~2 MB of shipped maps was `"mappings": ""` carrying the whole
    JSON duplicated into `sourcesContent` — a second copy of geo_jls.json sitting
    in dist for nobody. A stack trace can never point into them. The entry chunk,
    which one can, keeps its map untouched. */
+/* The one monotonic thing the deployed page can be asked about. scripts/smoke
+   probes production without a local build, and its staleness markers were
+   *strings that had entered the bundle at some past release* — 'en-GB' and
+   'County Migration Atlas' (v2.2.0), 'ascent-override' (v2.1.1) — against a repo
+   at v2.5.1. A production alias pinned to the v2.2.0 build, which is the exact
+   failure smoke was written after, contains all three and satisfied every one of
+   them; nothing in the bundle carried a version at all to substitute.
+   Stamped into the markup rather than defined into the JS, so it is legible in
+   what the origin actually serves — before any script runs, and in the no-JS
+   case too. */
+const stampVersion = {
+  name: 'stamp-version',
+  transformIndexHtml(html: string) {
+    return html.replace('<html lang="hr">', `<html lang="hr" data-v="${pkg.version}">`);
+  },
+};
+
 const dropDataChunkMaps = {
   name: 'drop-data-chunk-maps',
   generateBundle(_opts: unknown, bundle: Record<string, { type: string; code?: string }>) {
@@ -37,7 +55,7 @@ const dropDataChunkMaps = {
 // the entry is an ES module and a module fetched from a null origin is
 // CORS-blocked — measured, blank page, "blocked by CORS policy". Serve it.)
 export default defineConfig({
-  plugins: [react(), dropDataChunkMaps],
+  plugins: [react(), dropDataChunkMaps, stampVersion],
   base: '/',
   // Source maps ship. The cost is ~1,5 MB of .map files sitting in dist that a
   // browser fetches only when devtools is open, so no visitor pays for them;

@@ -55,8 +55,13 @@ back, with the whole English language and the robots.txt fix live only in git,
 and nothing in the repository could have said so. `npm run smoke` asks the three
 questions the suite structurally cannot: do `robots.txt` and `sitemap.xml` serve
 as static files or does the catch-all rewrite answer them with the SPA shell, is
-the deployed entry chunk the one in `dist/`, and does the deployed bundle carry
-the current release's markers. Run it after a deploy.
+the deployed entry chunk the one in `dist/`, and **is the deployed build the
+current release**. That last one used to be marker analysis — three strings that
+had entered the bundle at some past release — which a build pinned to v2.2.0
+satisfied in full, i.e. it could not see the very failure this file was written
+after. The build stamps its version into the served markup (`<html data-v>`, see
+[`vite.config.ts`](vite.config.ts)) and smoke compares it with `package.json`.
+Run it after a deploy.
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
 are their own chunks: the view that needs one fetches it on entry, and the other is
