@@ -2402,12 +2402,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     await new Promise(r => setTimeout(r, 300));
     return { card: !!document.querySelector('#cardName'),
       playing: document.querySelector('#play').getAttribute('aria-pressed'),
-      role: c.getAttribute('role'), exp: c.getAttribute('aria-expanded') };
+      role: c.getAttribute('role'), exp: c.getAttribute('aria-expanded'),
+      /* "their OWN expanded state" is the claim, and reading one path in the one
+         state where 'true' is right cannot check it: a refactor computing the
+         prop from `!!sel` rather than `iso === sel` announces 21 expanded buttons
+         on the map, leaving a screen reader no way to tell which county's card is
+         open, and this passed. The matrix twin already floors exactly this. */
+      expandedElsewhere: document.querySelectorAll('.cnt[aria-expanded="true"]').length,
+      total: document.querySelectorAll('.cnt[aria-expanded]').length };
   });
   ck('Space on a focused county opens its card and does not start playback',
     cntSpace.card && cntSpace.playing === 'false', JSON.stringify(cntSpace));
   ck('county paths claim role=button and report their own expanded state',
-    cntSpace.role === 'button' && cntSpace.exp === 'true', JSON.stringify(cntSpace));
+    cntSpace.role === 'button' && cntSpace.exp === 'true'
+    && cntSpace.expandedElsewhere === 1 && cntSpace.total === 21, JSON.stringify(cntSpace));
 
   /* ── P1: modifier chords are not bare-key shortcuts ──
      Alt+← is the browser's Back, which this app makes an undo; stepping the
@@ -2768,10 +2776,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     await new Promise(r => setTimeout(r, 300));
     const now = document.querySelector('.jl[tabindex="0"]');
     return { j0, j1: now.dataset.j, one: document.querySelectorAll('.jl[tabindex="0"]').length,
+      /* the matrix twin asserts this and this did not: a regression that moved
+         the roving marker but stopped calling .focus() leaves DOM focus and the
+         dashed ring on feature 0, so a keyboard reader pressing End sees and
+         hears nothing move, while j1 !== j0 and one === 1 both hold */
+      focused: document.activeElement === now,
       role: now.getAttribute('role') };
   });
   ck('End jumps the JLS roving stop across the 556-feature list',
-    jJump.j1 !== jJump.j0 && jJump.one === 1, JSON.stringify(jJump));
+    jJump.j1 !== jJump.j0 && jJump.one === 1 && jJump.focused, JSON.stringify(jJump));
   ck('JLS features claim role=img — a named readout, not a fake button',
     jJump.role === 'img', String(jJump.role));
 
