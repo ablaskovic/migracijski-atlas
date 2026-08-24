@@ -89,15 +89,23 @@ throws otherwise, so a run that produced `geo_jls.json` proved the claim for
 itself. Counting the committed files from outside does not reproduce it, and an
 audit flagged the difference; both halves check out:
 
-- `raw/jls_geo_osm.geojson` has **557** features to **556** shipped. The extra
-  one is `Град Сомбор` — Sombor, in Serbia — picked up by the Overpass bounding
-  box and dropped by the county-centroid test, which is what that test is for.
-- **25** shipped names do not appear verbatim in the extract. All 25 are naming
+- `raw/jls_geo_osm.geojson` has **557** features to **556** shipped, and the
+  arithmetic is 557 − 2 + 1. **Two** features come from outside Croatia, picked up
+  by the Overpass bounding box: `Град Сомбор` (Sombor, Serbia) and
+  `Upravna enota Piran / Unità amministrativa Pirano` (Slovenia). Neither is
+  dropped by the county-centroid test — both score **zero** hits in all three name
+  indices, so `uni.length >= 1` is false and that test never runs for them; they
+  are dropped at the name stage. That leaves 555 matched from the extract, and the
+  556th shipped feature is **Grad Zagreb**, substituted from `geo_counties.json`
+  because it is admin_level 6 in OSM and the level-7 pull cannot contain it — the
+  same substitution this file describes further up.
+- **25** shipped names do not appear verbatim in the extract. **24** are naming
   variants, not missing geometry: the extract carries official forms
   (`Grad Dugo Selo`, `Općina Lupoglav`) while the shipped data carries short
   ones, and the Istrian municipalities are bilingual in one and not the other
   (`Bale ‒ Valle`, `Poreč ‒ Parenzo`, `Kaštelir-Labinci ‒ Castelliere-S.
   Domenica`). The matcher normalises; a string comparison from outside does not.
+  The 25th is `Grad Zagreb`, which genuinely has no geometry in the extract.
 
 No pipeline script was executed in either audit, and none is executed by
 `npm run verify` — the data files are inputs to the app, and the suite verifies
