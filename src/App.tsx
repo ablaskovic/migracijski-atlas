@@ -251,6 +251,11 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
+  /* the playback period, in a ref so the interval can read the current value
+     without the effect depending on it — see the note in the effect below */
+  const paceRef = useRef(650);
+  paceRef.current = reduced ? 1400 : 650;
+
   /* ── play loop (inert in jmap: single measured year) ── */
   useEffect(() => {
     /* torn down while hidden and re-created on return, so the year the reader
@@ -265,9 +270,16 @@ export default function App() {
         if (next >= YEARS.length) return { ...s, yi: YEARS.length - 1, playing: false, story: null };
         return { ...s, yi: next, story: null };
       });
-    }, reduced ? 1400 : 650);
+    }, paceRef.current);
     return () => clearInterval(t);
-  }, [S.playing, reduced, visible]);
+    /* `reduced` is NOT a dependency: it is read through a ref instead. As a
+       dependency it tore down and re-created the interval whenever the OS
+       preference changed, which restarts the countdown — so a reader who flipped
+       reduced-motion mid-playback got one year held for up to a full extra
+       period. The pace still follows the preference; the effect's identity no
+       longer does. `visible` stays a dependency, because there the teardown IS
+       the behaviour. */
+  }, [S.playing, visible]);
   const togglePlay = () => {
     const s = ref.current;
     if (s.view === 'jmap') return;
