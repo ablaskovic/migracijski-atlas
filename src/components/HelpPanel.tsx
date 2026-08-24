@@ -231,8 +231,13 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
 
       <h3 className="help-h">{L('Upravljanje', 'Controls')}</h3>
       <div className="help-p">
+        {/* the arrows are a document-wide shortcut; Home/End are scoped to the
+            timeline itself (App handles them only when #spark has focus), and
+            saying so is the scoping this same paragraph already applies to the
+            grid views two sentences down. Without it a reader pressing Home
+            anywhere else got nothing and the glossary looked wrong. */}
         <b>← →</b>{L(' mijenjaju godinu, ', ' change the year, ')}<b>Home</b> / <b>End</b>
-        {L(' skaču na prvu i zadnju, ', ' jump to the first and last, ')}
+        {L(' na vremenskoj vrpci skaču na prvu i zadnju godinu, ', ' on the timeline jump to the first and last year, ')}
         <b>{L(' razmaknica', ' space')}</b>{L(' pokreće reprodukciju kroz godine.', ' starts playback through the years.')}
         {/* zoom was wheel/pinch/drag only — the feature, and the county labels that
             only appear once a county is zoomed large enough, had no keyboard route */}
