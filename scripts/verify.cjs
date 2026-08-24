@@ -104,7 +104,19 @@ const EXPECTED_CHECKS = 419;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
-  console.log(fails === 0 ? `\nALL ${n} CHECKS PASS` : `\n${fails}/${n} CHECKS FAILED`);
+  /* The banner used to be chosen from `fails` alone and never consulted `code`
+     or how many checks had actually run. Most DOM regressions surface here as a
+     *throw* — `querySelector(...).textContent` throws rather than returning
+     falsy — and a throw unwinds to the outer handler, which calls finish(2). At
+     that point fails is 0, so a run that died at check 31 printed
+     "ALL 30 CHECKS PASS" as its last line: success-shaped output for a run that
+     never reached check 32. The invariant meant to catch exactly that is the
+     LAST ck() in the file, i.e. the one thing an abort is guaranteed to skip.
+     The banner reads both now, so an incomplete run cannot end on a green line. */
+  const short = n < EXPECTED_CHECKS;
+  console.log(fails ? `\n${fails}/${n} CHECKS FAILED`
+    : (code || short) ? `\nABORTED after ${n}/${EXPECTED_CHECKS} CHECKS`
+      : `\nALL ${n} CHECKS PASS`);
   /* exitCode rather than exit(): with 190+ log lines, process.exit truncates a
      pending stdout flush when the output is redirected to a file or a pipe */
   process.exitCode = code !== undefined ? code : (fails ? 1 : 0);
@@ -470,7 +482,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
        check was racing the chunk against a fixed 400 ms. Wait on the condition
        instead of on a stopwatch. */
     if (/v=jmap/.test(h)) {
-      await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 });
+      /* `.catch`, like every other jmap wait in this file. Without it a loaded
+         box that misses 15 s on the 464 kB chunk rejected here, which killed the
+         whole run from inside a helper — a hard abort where a normal FAIL on the
+         checks that follow is both truer and readable. */
+      await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 })
+        .catch(() => {});
     }
   };
 
