@@ -1050,14 +1050,22 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
       if (ov > 1) bad.push(els[i][0] + '×' + els[j][0] + '=' + Math.round(ov));
     }
-    return { bad, n: els.length };
+    return { bad, n: els.length, ids: els.map(e => e[0]) };
   });
   const zr = await overlaps();
   const zrHas = await page.evaluate(() => !!document.querySelector('#zoomRst'));
   ck('zoom reset is mounted while zoomed and clears the corridor card',
     zrHas && zr.bad.length === 0, zr.bad.join(' | ') + ' (' + zr.n + ' overlays)');
-  /* the sweep above is only meaningful if it actually compared something */
-  ck('the overlay sweep compared a real set of overlays', zr.n >= 4, String(zr.n));
+  /* A count floor cannot see an element that was never admitted — the same
+     circularity this file already diagnoses for allOv(): `zr.n` comes from the
+     very list `zr.bad` is derived from, so an id the filter drops can neither
+     raise `bad` nor lower `n` below the floor. Measured in this state the real
+     set is six — #labBtn, #helpBtn, #zoomRst, #pair, #jcard, #legend — so a
+     >= 4 floor tolerated losing two more, and losing #pair is losing the very
+     element whose collision with #zoomRst this block exists for. Name the ids. */
+  ck('the overlay sweep compared a real set of overlays',
+    zr.n >= 4 && ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#legend'].every(i => zr.ids.includes(i)),
+    JSON.stringify(zr.ids));
 
   /* ── help panel: the one stable glossary ── */
   await fresh('');
