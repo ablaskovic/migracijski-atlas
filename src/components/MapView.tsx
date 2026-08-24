@@ -582,8 +582,16 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           </g>
         </svg>
       )}
-      <button className={'helpbtn' + (S.help ? ' on' : '')} id="helpBtn" aria-pressed={S.help}
-        title={L('Kako čitati atlas', 'How to read the atlas')} aria-label={L('Kako čitati atlas', 'How to read the atlas')} onClick={toggleHelp}>?</button>
+      {/* aria-expanded + haspopup, not aria-pressed. This opens a role=dialog;
+          "pressed" describes a toggle button that stays down, and a screen reader
+          announced the glossary's own open state as if the "?" were a setting.
+          The title duplicated the aria-label word for word, which is a second
+          announcement of the same string — it says what the control opens now,
+          and the name stays the name. */}
+      <button className={'helpbtn' + (S.help ? ' on' : '')} id="helpBtn"
+        aria-expanded={S.help} aria-haspopup="dialog" aria-controls="helpCard"
+        title={L('Otvori pojmovnik', 'Open the glossary')}
+        aria-label={L('Kako čitati atlas', 'How to read the atlas')} onClick={toggleHelp}>?</button>
       {hasLabels && (
         <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
           onClick={() => setS({ labels: !S.labels })}>{L('Aa oznake', 'Aa labels')}</button>
