@@ -60,7 +60,22 @@ export function decodeHash(hash: string): Patch {
   if (flow) o.flow = flow;
   const den = oneOf(p.get('d'), DENS);
   if (den) o.den = den;
-  if (p.get('c') != null) o.cum = p.get('c') === '1';
+  /* Enumerated like every other field, not decoded by presence. `encodeHash`
+     always emits `c`, so this needs a presence test rather than the plain
+     truthiness the panel fields use — but `p.get('c') != null` accepted
+     anything: `#c=true`, `#c=2`, `#c=on`, an empty `#c=` or a bare `#c` all
+     passed, and none of them equals '1', so every one booted the ANNUAL view.
+     Measured, `#v=saldo&c=true&y=2024` read Grad Zagreb +7.010 instead of
+     +41.986 and Istarska +4.783 instead of +22.537 — every county, rail row and
+     aria-label on the page — and the hash-sync effect then replaceState'd it to
+     a clean `#v=saldo&c=0&y=2024`, laundering the malformed link into a
+     shareable permalink to the wrong reading. It was the only enumerated field
+     whose invalid value moved state *away* from BASE; `lb` and `tr` default to
+     false and only flip on an exact '1', so an invalid value there really is
+     ignored. Absent still means "leave at BASE", and now so does invalid. */
+  const BOOL = ['0', '1'] as const;
+  const cum = oneOf(p.get('c'), BOOL);
+  if (cum) o.cum = cum === '1';
   const yi = YEARS.indexOf(Number(p.get('y')));
   if (yi >= 0) o.yi = yi;
   /* Integers only, for the reason `st` is: `#v=klas&t=1234.5678` rendered
@@ -81,7 +96,8 @@ export function decodeHash(hash: string): Patch {
   /* Enumerated, like every other field. Truthiness meant `#cz=0` — a value that
      plainly reads as "closed" — booted with the panel OPEN, against the codec's
      own "unknown or invalid fields are ignored" contract; so did `cz=banana`.
-     These three were the only enumerated fields not going through `oneOf`. */
+     These three, and `c` above, were the enumerated fields not going through
+     `oneOf`. */
   const PANEL = ['1', '2'] as const;
   const cz = oneOf(p.get('cz'), PANEL);
   if (cz) { o.citz = true; o.citzTab = cz === '2' ? 'zem' : 'grp'; }

@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 430;
+const EXPECTED_CHECKS = 431;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2645,6 +2645,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('and Back into a malformed hash leaves the handler alive',
     popBad.view === 'Regije' && popBad.after === 'Klasifikacija', JSON.stringify(popBad));
+
+  /* …and an invalid *enumerated* value is ignored rather than acted on. `c` was
+     decoded by presence, not by value: `#c=true`, `#c=2`, `#c=on`, an empty `#c=`
+     and a bare `#c` all passed the `!= null` test and none equals '1', so every
+     one booted the ANNUAL view. Measured, `#v=saldo&c=true&y=2024` read Grad
+     Zagreb +7.010 against the cumulative +41.986 — every county, rail row and
+     aria-label on the page — and the hash-sync effect then rewrote it to a clean
+     `c=0`, laundering the malformed link into a shareable permalink to the wrong
+     reading. Nothing in the file covered enumerated-field rejection at all. */
+  const enumBad = [];
+  for (const h of ['#v=saldo&c=true&y=2024', '#v=saldo&c=2&y=2024', '#v=saldo&c=&y=2024',
+    '#v=saldo&c&y=2024', '#v=saldo&cz=banana&y=2024', '#v=saldo&lb=yes&y=2024']) {
+    await fresh(h);
+    const r = await page.evaluate(() => ({
+      top: (document.querySelector('#railList .rrow .rval') || {}).textContent,
+      cum: (document.querySelector('#segMode button[aria-pressed="true"]') || {}).textContent,
+      panel: !!document.querySelector('#citz.open'),
+      lab: (document.querySelector('#labBtn') || {}).getAttribute?.('aria-pressed'),
+    }));
+    /* BASE is cumulative 2011.–2024., whose top rail row is Grad Zagreb +41.986 */
+    if (NBSP(r.top) !== '+41.986' || r.cum !== 'Kumulativno' || r.panel || r.lab === 'true') {
+      enumBad.push(h + ' ' + JSON.stringify(r));
+    }
+  }
+  ck('an invalid enumerated field is ignored, not acted on',
+    enumBad.length === 0, enumBad.slice(0, 3).join(' | '));
 
   /* ── P3: the play loop actually advances, stops, and kills the caption ── */
   await fresh('');
