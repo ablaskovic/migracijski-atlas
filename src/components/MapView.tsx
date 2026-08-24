@@ -194,6 +194,37 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
   const rds = useMemo(
     () => (p && REGGEO && S.view === 'reg' ? REGGEO.features.map(f => p(f) || '') : [] as string[]),
     [p, REGGEO, S.view]);
+  /* The 556 fills and the 556 accessible names, hoisted out of the render.
+     Neither depends on hover, and both were rebuilt on every pointer crossing:
+     `hl`/`jlsHl` live in the root State, so a single setJlsHl re-renders the whole
+     tree and this block re-ran 556 sqrt+Lab scale evaluations plus 1.668
+     Intl.NumberFormat.format calls to produce byte-identical output. Measured
+     with real mouse moves over 150 distinct features, CDP Performance delta minus
+     an idle baseline: 8,61 ms TaskDuration / 5,50 ms ScriptDuration per crossing
+     on this view, of which the label rebuild alone benchmarks at 2,09 ms and the
+     scale at 0,33 ms — and 46,7 ms per crossing at 4× CPU, three dropped frames
+     for every municipality the pointer touches. Keyed on what the values really
+     depend on: the payload, the direction and the language. */
+  /* `S.lang` rather than `L()` inside the memo: L reads the module mirror that
+     `up` moves, which is a data flow the dependency checker cannot see — and the
+     dependency is real, since these strings are the reader's language. The two
+     branches are exactly what L would pick, and App keeps S.lang and the mirror
+     in step synchronously (it sets both in one writer, before the render). */
+  const jlsPaint = useMemo(() => {
+    if (!JGEO) return null;
+    const { scale } = jmapScale(S.dir);
+    const hr = S.lang === 'hr';
+    return JGEO.features.map(f => {
+      const q = f.properties;
+      const v = jlsVal(q, S.dir);
+      return {
+        fill: scale(S.dir === 'net' ? v : Math.abs(v)),
+        label: hr
+          ? `${q.n}, ${SHORTN[ISOS[q.c]]}: doseljeno ${fmtI.format(q.i)}, odseljeno ${fmtI.format(q.o)}, neto ${sgn(q.i - q.o, fmtI)}`
+          : `${q.n}, ${SHORTN[ISOS[q.c]]}: ${fmtI.format(q.i)} in, ${fmtI.format(q.o)} out, net ${sgn(q.i - q.o, fmtI)}`,
+      };
+    });
+  }, [JGEO, S.dir, S.lang]);
 
   /* county fill per state — port of update().
      The scale is built once per render, not once per county: `fill` runs 21 times
@@ -354,14 +385,13 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
           <g ref={jgRef}>
-            {drawn && JGEO && (() => {
-              const { scale } = jmapScale(S.dir);
+            {drawn && JGEO && jlsPaint && (() => {
               return JGEO.features.map((f, ix) => {
                 const p = f.properties;
-                const v = jlsVal(p, S.dir);
+                const paint = jlsPaint[ix];
                 return (
                   <path key={p.j} className={'jl' + (S.jlsHl === p.j ? ' hl' : '')} data-j={p.j}
-                    d={jds[ix]} fill={scale(S.dir === 'net' ? v : Math.abs(v))}
+                    d={jds[ix]} fill={paint.fill}
                     vectorEffect="non-scaling-stroke"
                     /* the per-JLS numbers lived only in a hover tooltip, so the
                        whole view was unreachable without a pointer. One tab stop
@@ -372,8 +402,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                        rows make. role=img is what keeps the aria-label exposed
                        on a focusable element that claims no behaviour. */
                     role="img"
-                    aria-label={L(`${p.n}, ${SHORTN[ISOS[p.c]]}: doseljeno ${fmtI.format(p.i)}, odseljeno ${fmtI.format(p.o)}, neto ${sgn(p.i - p.o, fmtI)}`,
-                      `${p.n}, ${SHORTN[ISOS[p.c]]}: ${fmtI.format(p.i)} in, ${fmtI.format(p.o)} out, net ${sgn(p.i - p.o, fmtI)}`)}
+                    aria-label={paint.label}
                     /* municipality names are Croatian in both languages, so the
                        annotation is unconditional, like the county paths' */
                     lang="hr"
