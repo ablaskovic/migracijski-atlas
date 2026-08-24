@@ -4831,9 +4831,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   for (const tags of [['hr-HR', 'hr'], ['sr-Latn-RS', 'sr'], ['bs-BA'], ['de-DE', 'de'], ['en-GB']]) {
     detect.push({ t: tags[0], ...await bootLang(tags, 'Europe/Berlin') });
   }
+  /* `hash` was collected, stringified into the failure extra and never asserted,
+     while this check's own name promises it. A change that wrote the *detected*
+     language into the encoded hash whenever it differs from the Croatian default
+     would give every German and English reader abroad `#l=en` in every link they
+     copy — forcing English on a Croatian recipient, the exact harm the note above
+     argues against — and this stayed green. The two sibling checks that do assert
+     it cover only in-region readers and the stored-choice case. */
   ck('hr/sr/bs readers get Croatian, everyone else English, with no l= in the link',
     detect[0].l === 'hr' && detect[1].l === 'hr' && detect[2].l === 'hr'
-    && detect[3].l === 'en' && detect[4].l === 'en',
+    && detect[3].l === 'en' && detect[4].l === 'en'
+    && detect.every(r => !/l=/.test(r.hash)),
     JSON.stringify(detect));
 
   /* Signal 2: WHERE the reader is. A browser set to English or German inside
@@ -4873,7 +4881,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const outR = [];
   for (const c of outRegion) outR.push({ why: c.why, want: c.want, ...await bootLang(c.t, c.tz) });
   ck('and outside the region the browser language still decides, both ways',
-    outR.every(r => r.l === r.want), JSON.stringify(outR));
+    outR.every(r => r.l === r.want && !/l=/.test(r.hash)), JSON.stringify(outR));
 
   /* An explicit act beats an inference, always. A reader sitting in Zagreb who
      once pressed EN gets English on the next visit — the region must not
