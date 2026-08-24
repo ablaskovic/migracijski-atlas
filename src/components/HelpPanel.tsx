@@ -99,27 +99,15 @@ function useModalWhenNarrow(open: boolean, view: State['view']): boolean {
     const card = document.getElementById('helpCard');
     if (!card) return;
     const touched: Element[] = [];
-    const moved: [Element, string][] = [];
-    /* `inert` is an IDL attribute of HTMLElement, and one of #helpCard's
-       siblings is `svg#map`, an SVGSVGElement. Setting the attribute there
-       parses and does nothing at all — measured in Chrome: `svg.inert` is
-       undefined where `div.inert` is false, and a focusable child of an inert
-       <svg> still takes Tab where the same child under an inert <div> does not.
-       So the whole map went on holding tab stops under a dialog that declares
-       aria-modal="true": measured at 390×844 with the glossary open, 80 of the
-       80 tab stops outside the dialog were county paths, every one of them
-       100 % covered by the overlay, and Enter on one of them selected a county
-       and rewrote the map the reader could not see.
-       The map's tab stops are suspended directly instead. Its focusable content
-       is SVG in every view (21 county paths, 556 municipalities, 420 matrix
-       cells, 588 Godine cells), the roving values are recorded and put back on
-       close, and pointer use is untouched — tabindex -1 removes an element from
-       the tab order, not from the page. */
-    const map = document.getElementById('map');
-    for (const f of map?.querySelectorAll('[tabindex]:not([tabindex="-1"])') ?? []) {
-      moved.push([f, f.getAttribute('tabindex')!]);
-      f.setAttribute('tabindex', '-1');
-    }
+    /* The map's own tab stops are suspended by MapView, which drives
+       lib/suspendMap.ts from *every* opaque map overlay rather than from this
+       one — the glossary was never the only 300-odd px of panel drawn over live
+       county paths. `inert` cannot reach them either way: it is an IDL attribute
+       of HTMLElement and svg#map is an SVGSVGElement, so setting it there parses
+       and does nothing (measured in Chrome — a focusable child of an inert <svg>
+       still takes Tab). Measured at 390×844 with the glossary open before that
+       fix: 80 of the 80 tab stops outside the dialog were county paths, every one
+       100 % covered, and Enter on one selected a county the reader could not see. */
     if (narrow) {
       for (let el: Element | null = card; el && el !== document.body; el = el.parentElement) {
         for (const sib of el.parentElement?.children ?? []) {
@@ -136,27 +124,10 @@ function useModalWhenNarrow(open: boolean, view: State['view']): boolean {
         }
       }
     }
-    return () => {
-      touched.forEach(el => el.removeAttribute('inert'));
-      /* Only put a value back on a node that is still the one that was
-         suspended. The write-back used to be unconditional, and this dialog is
-         deliberately non-modal above 900 px — so the reader can move the grid's
-         roving stop while it is open (click a corridor row in Matrica and
-         MatrixView's effect re-arms a *different* cell). Closing then wrote
-         tabindex="0" back onto the cell React had since set to -1, leaving two
-         tabindex="0" cells in a roving-tabindex grid; the stale one is first in
-         document order, so every arrow press re-focused the cell the reader was
-         already on while `fc` advanced invisibly and the 420-cell grid stopped
-         being navigable at all until a view change remounted it. */
-      moved.forEach(([el, v]) => {
-        if (el.isConnected && el.getAttribute('tabindex') === '-1') el.setAttribute('tabindex', v);
-      });
-    };
-    /* `view` is a dependency because a view change mounts a whole new grid with
-       fresh tabindex=0 cells — and above 900 px the dialog is not modal, so the
-       reader can switch views with it open. The cleanup restores the outgoing
-       view's values (on nodes React has already dropped, harmlessly) and the
-       incoming grid is suspended in the same pass. */
+    return () => { touched.forEach(el => el.removeAttribute('inert')); };
+    /* `view` stays a dependency: above 900 px the dialog is not modal, so the
+       reader can switch views with it open, and the sibling set the walk marks
+       is view-dependent. */
   }, [open, narrow, view]);
   return narrow;
 }

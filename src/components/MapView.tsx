@@ -20,6 +20,7 @@ import StoryBar from './StoryBar.tsx';
 import { moveTip, COARSE } from '../lib/tip.ts';
 import { L } from '../lib/i18n.ts';
 import { focusSoon, isKeyFocus } from '../lib/state.ts';
+import { useSuspendMapStops } from '../lib/suspendMap.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
 
@@ -131,6 +132,21 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
     measure();
     return () => ro.disconnect();
   }, [S.citz, S.age, S.citzTab, S.ageTab, S.view, size.w]);
+
+  /* Every opaque overlay drawn over the map, not just the glossary. The chip
+     panels and the JLS card are the same 296–312 px of solid panel over the same
+     live county paths, and neither suspended anything: measured at 1000×800,
+     "Državljanstvo" open covers 3 of 21 counties outright, the JLS chip in Tokovi
+     covers 6 (the selected hub among them), and a chip panel over the municipal
+     map covers 134 of its 556 arrow-navigable features. See lib/suspendMap.ts.
+     The chip pair is gated on the dock actually floating — `panel` is already
+     measured as {0,0} when it is in normal flow below 900 px, where it covers
+     nothing and taking 556 tab stops away would be a regression, not a fix. The
+     JLS card floats at every width, and the glossary is suspended at every width
+     for the reason its own note gives. */
+  useSuspendMapStops(
+    S.help || (S.jls && S.view === 'flow') || ((S.citz || S.age) && panel.h > 0),
+    S.view);
 
   /* Region outlines and the 556 JLS polygons arrive on their own chunks, so the
      projected path cache has to rebuild when they land — hence the identities in
