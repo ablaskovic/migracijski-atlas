@@ -288,7 +288,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
   await page.goto(url, { waitUntil: 'networkidle0' });
   await settle(500);
-  const click = async sel => { await page.click(sel); await settle(80); };
+  /* Wait for the target before pressing it, for the same reason fresh() waits for
+     the app: `page.click` throws "No element found for selector" the instant
+     querySelector returns null, and that throw unwinds the whole run rather than
+     failing one check. A viewport change followed by a reload is exactly the
+     race — measured, a run died on `click('#helpBtn')` at the third viewport of a
+     sweep whose first two had just passed. */
+  const click = async sel => {
+    await page.waitForSelector(sel, { timeout: 10000 }).catch(() => {});
+    await page.click(sel);
+    await settle(80);
+  };
 
   /* fresh boot helper: hash state is read at module init, so force a real reload */
   const fresh = async h => {
