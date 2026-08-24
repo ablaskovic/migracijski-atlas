@@ -65,10 +65,17 @@ Run it after a deploy.
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
 are their own chunks: the view that needs one fetches it on entry, and the other is
-warmed on a 1,5 s timer, so neither is ever on the first-paint path. The entry chunk
-is 555.044 B / 182.659 B gzip rather than ~1.048.000 B / ~301.000 B, plus a
-28.221 B / 5.775 B gzip stylesheet (measured on the current build; `npm run
-verify` asserts the entry stays under 600 kB).
+warmed on a 1,5 s timer (skipped under Save-Data or 2g), so neither is ever on the
+first-paint path. Splitting them out is worth a little over half the transfer a
+first paint would otherwise carry.
+
+No byte counts here. They were stated as "measured on the current build" and were
+neither — four numbers restated from a build several releases old, drifting every
+time a line of source changed, and disagreeing with the same figures in
+`geoAsync.ts` and `scripts/verify.cjs`. The bound is the thing worth writing down
+because it is the thing that is enforced: **the entry chunk stays under 600 kB**,
+asserted by `npm run verify`. `npm run build` prints the exact sizes of every
+chunk on every run, which is where a current number belongs.
 
 Requires Node ≥ 22.12 — the `engines.node` range in `package.json`, which is
 also what Vercel reads to choose the build image's Node major. (This line used
