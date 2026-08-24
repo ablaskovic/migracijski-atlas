@@ -351,8 +351,18 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .legend-sw{width:11px;height:11px;border:1px solid var(--mut);flex:none}
 .legend-note{margin-top:5px;color:var(--mut);font-size:9px;line-height:1.35}
 
+/* Bounded by the legend's lane, exactly like .helpcard, .jcard and .paircard.
+   It was the one top-left overlay left content-sized, and the glossary that has
+   to cover it outright is capped at the same reserve — so on a short window the
+   card simply grew past it: measured at 1440×620 with a county selected, the
+   card ran to y=413,3 under a glossary ending at 268, leaving 145,3 px of its
+   year readout and its mig+prirodno caveat fully visible below the panel that is
+   supposed to have replaced it. Same 176 px reserve, so the two can never
+   disagree, and --stageh rather than 100 % because .card anchors to .map-wrap
+   while .helpcard anchors to .map-box — those differ by the Nalazi banner. */
 .card{position:absolute;top:14px;left:16px;width:308px;background:var(--panel);border:1px solid var(--line);
-  border-radius:3px;box-shadow:0 2px 10px rgba(32,38,43,.08);padding:10px 12px 8px;display:none;z-index:5}
+  border-radius:3px;box-shadow:0 2px 10px rgba(32,38,43,.08);padding:10px 12px 8px;display:none;z-index:5;
+  max-height:calc(var(--stageh,600px) - 176px);overflow-y:auto}
 .card.show{display:block}
 .card-hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .card-name{font-family:var(--disp);font-weight:500;font-size:14.5px;letter-spacing:.04em;text-transform:uppercase}
@@ -800,8 +810,10 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 
   /* detail card above the map, citizenship/age panels below it — in normal flow,
      so nothing covers the map and nothing can overlap anything else */
+  /* in flow there is no glossary to stay under and no stage to measure against,
+     so the desktop cap comes off with the positioning — same as .paircard's */
   .card{position:static;width:auto;margin:8px 8px 0;top:auto;left:auto;
-    box-shadow:none;max-width:none}
+    box-shadow:none;max-width:none;max-height:none;overflow-y:visible}
   /* The dock stops being a dock — both panels join the normal flow below the
      map, so the floating body goes back into its card. Nothing needs pinning
      here: the page scrolls, the body opens *below* the header that opened it,

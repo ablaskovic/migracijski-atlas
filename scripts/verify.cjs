@@ -100,7 +100,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 419;
+const EXPECTED_CHECKS = 422;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -925,15 +925,27 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
   /* the glossary shares the top-left corner with the detail card — it must cover
      it outright, not leave its header and close button peeking out above */
-  await fresh('#s=HR-18');
-  await click('#helpBtn');
-  const cover = await page.evaluate(() => {
-    const c = document.querySelector('#card').getBoundingClientRect();
-    const h = document.querySelector('#helpCard').getBoundingClientRect();
-    return { covers: h.top <= c.top + 0.5 && h.left <= c.left + 0.5 && h.right >= c.right - 0.5,
-      peek: Math.round(h.top - c.top) };
-  });
-  ck('help panel fully covers the detail card it overlays', cover.covers, 'peek ' + cover.peek + ' px');
+  /* Four edges, and a height sweep, because the failure is height-driven: the
+     bottom edge was simply not tested, and at the suite's single 1440×900
+     viewport the card is short enough that it would have passed anyway.
+     Measured at 1440×620 before the .card cap landed: the glossary ended at
+     y=268 and the card ran to 413,3, leaving 145,3 px of it in plain sight under
+     the panel — `covers` true, `peek` reported as 0. */
+  for (const [vw, vh] of [[1440, 900], [1440, 768], [1440, 620], [1280, 700]]) {
+    await page.setViewport({ width: vw, height: vh });
+    await fresh('#s=HR-18');
+    await click('#helpBtn');
+    const cov = await page.evaluate(() => {
+      const c = document.querySelector('#card').getBoundingClientRect();
+      const h = document.querySelector('#helpCard').getBoundingClientRect();
+      return { covers: h.top <= c.top + 0.5 && h.left <= c.left + 0.5
+          && h.right >= c.right - 0.5 && h.bottom >= c.bottom - 0.5,
+      peek: Math.round(Math.max(h.top - c.top, c.bottom - h.bottom)) };
+    });
+    ck(`help panel fully covers the detail card it overlays (${vw}x${vh})`,
+      cov.covers, 'peek ' + cov.peek + ' px');
+  }
+  await page.setViewport({ width: 1440, height: 900 });
 
   /* the glossary's own first section explains the colour scale, so it must not
      be sitting on the colour scale — 176 px of reserve is the tallest legend
