@@ -71,7 +71,16 @@ for r in wsp.iter_rows(min_row=2, values_only=True):
     else: inter += w
 
 assert tot == 57465 and inter == 30384 and intra == 27081, (tot, inter, intra)
-assert sum(IN.values()) == sum(OUT.values()) == tot
+# NOT `sum(IN) == sum(OUT) == tot`: the loop above adds the same `w` to one OUT
+# bucket, one IN bucket and `tot` once per edge, so that identity cannot fail for
+# any input at all - not a mis-join, not a truncated edge list, not a duplicated
+# row, not a swapped source/target column. It re-derived the sums it asserted,
+# exactly like the parse_cit checksum did. The real check is the column margin
+# below, which is the half of the payload nothing validated: `IN` drives the JLS
+# map's Dolasci ramp and the whole Neto direction, and only the OUT margins were
+# ever compared against od2018. parse_jls.py walks both directions of the same
+# edge list, so this was an asymmetry between two scripts documented as sharing
+# their matching logic.
 
 # per-county out-to-other-counties must equal od2018 row sums (margin cross-check)
 od = json.load(open('ref/od2018.json', encoding='utf-8'))
@@ -84,9 +93,14 @@ for r in wsp2.iter_rows(min_row=2, values_only=True):
     if r[0] is None: break
     s, t, w = str(r[0]).strip(), str(r[1]).strip(), int(r[6])
     if reg[NODEC[s]][0] == reg[NODEC[t]][0]: by_cty_intra[reg[NODEC[s]][0]] += w
+by_cty_in = defaultdict(int)
+for i, w in IN.items(): by_cty_in[reg[i][0]] += w
 for iso in ISOS:
     row = sum(od.get(iso, {}).values())
     assert by_cty_out[iso] - by_cty_intra[iso] == row, (iso, by_cty_out[iso], by_cty_intra[iso], row)
+    # …and the same identity down the columns, for the IN half of the payload
+    col = sum(od.get(a, {}).get(iso, 0) for a in ISOS)
+    assert by_cty_in[iso] - by_cty_intra[iso] == col, (iso, by_cty_in[iso], by_cty_intra[iso], col)
 
 out = [[name, ISOS.index(iso), IN.get(i, 0), OUT.get(i, 0)] for i, (iso, name) in enumerate(reg)]
 json.dump(out, open('ext/jls_stats.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
