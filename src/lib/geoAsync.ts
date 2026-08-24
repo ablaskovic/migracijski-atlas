@@ -39,28 +39,41 @@ export const regFailed = (): boolean => regErr;
    and only a reload could recover. Clear the slot on failure so the next call
    genuinely retries, and swallow the rejection here — an unhandled rejection is
    the one outcome that tells the user nothing. */
+/* `speculative` separates a fetch the reader asked for from one the app decided
+   to make on their behalf. The warm timer below fires both chunks whether or not
+   the reader ever opens those views, and its rejection used to run through this
+   same catch — so a reader in a tunnel, a lift, or a Wi-Fi-to-cell handover at
+   t=1,5 s had BOTH error flags latched while sitting in Saldo, seeing nothing.
+   Seconds later, on a fully healthy connection, pressing Regije and then
+   JLS 2018. showed "Geometrija … nije učitana." for the rest of the session,
+   because a failed module fetch is cached in the browser's module map (the note
+   on retryGeo says so). The app was permanently wrong about the network on the
+   strength of a request nobody made. A speculative failure clears the promise
+   slot so the next real call retries, and says nothing. */
 function load<T>(
   imp: () => Promise<{ default: unknown }>,
   set: (v: T) => void,
   slot: 'jls' | 'reg',
+  speculative = false,
 ): Promise<void> {
   const p = imp().then(m => {
     set(m.default as T);
     if (slot === 'jls') jlsErr = false; else regErr = false;
   }).catch(() => {
-    if (slot === 'jls') { jlsErr = true; jlsP = null; } else { regErr = true; regP = null; }
+    if (slot === 'jls') { jlsP = null; if (!speculative) jlsErr = true; }
+    else { regP = null; if (!speculative) regErr = true; }
   }).then(() => { subs.forEach(f => f()); });
   return p;
 }
 
-export function loadJlsGeo(): Promise<void> {
+export function loadJlsGeo(speculative = false): Promise<void> {
   if (jls) return Promise.resolve();
-  jlsP ??= load<JlsGeo>(() => import('../data/geo_jls.json'), v => { jls = v; }, 'jls');
+  jlsP ??= load<JlsGeo>(() => import('../data/geo_jls.json'), v => { jls = v; }, 'jls', speculative);
   return jlsP;
 }
-export function loadRegGeo(): Promise<void> {
+export function loadRegGeo(speculative = false): Promise<void> {
   if (reg) return Promise.resolve();
-  regP ??= load<RegGeo>(() => import('../data/geo_regions5.json'), v => { reg = v; }, 'reg');
+  regP ??= load<RegGeo>(() => import('../data/geo_regions5.json'), v => { reg = v; }, 'reg', speculative);
   return regP;
 }
 /* Retry entry point for the error UI.
@@ -107,8 +120,19 @@ export function useGeo(view: string) {
     else if (view === 'reg') loadRegGeo();
     return () => { subs.delete(f); };
   }, [view]);
+  /* The warm is speculative in both senses now: it is marked as such, so a
+     failure cannot latch a user-facing error for a view nobody opened, and it is
+     skipped where the reader has told the browser not to spend their data.
+     Measured on a cold load in the default view with nothing clicked, this timer
+     fetched 463.888 B + 67.670 B — 41 % of the 1.302.108 B total — for two views
+     that were never opened, and evaluating geo_jls costs 24,4 ms of main thread
+     (~100 ms at 4× CPU) 1,5 s into the session. Save-Data and 2g are exactly the
+     readers for whom that trade is wrong; they still get either chunk the moment
+     they ask for the view, through the effect above. */
   useEffect(() => {
-    const t = setTimeout(() => { loadRegGeo(); loadJlsGeo(); }, 1500);
+    const c = (navigator as { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (c?.saveData === true || /(^|-)2g$/.test(c?.effectiveType ?? '')) return;
+    const t = setTimeout(() => { loadRegGeo(true); loadJlsGeo(true); }, 1500);
     return () => clearTimeout(t);
   }, []);
 }

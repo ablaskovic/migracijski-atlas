@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 447;
+const EXPECTED_CHECKS = 448;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2993,6 +2993,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     geoFail.err && geoFail.retry && !geoFail.stillLoading, JSON.stringify(geoFail));
   ck('and it says so through a live region, not silent SVG text',
     geoFail.live === 'status', String(geoFail.live));
+  /* A failure the reader never asked for must not latch the failure UI. The warm
+     timer fires both chunks at t=1,5 s whether or not those views are ever
+     opened, and its rejection used to run through the same catch as a real
+     request — so a reader in a tunnel or a Wi-Fi-to-cell handover at that moment
+     had BOTH flags latched while sitting in Saldo seeing nothing, and pressing
+     Regije seconds later on a healthy connection got "Geometrija regija nije
+     učitana." for the rest of the session, because a failed module fetch is
+     cached in the module map. Blocked only over the warm window here, then
+     released before the view is opened. */
+  blockGeoChunk = 'reg';
+  await page.goto('about:blank');
+  await page.goto(url, { waitUntil: 'networkidle0' });
+  await settle(2200);
+  blockGeoChunk = false;
+  await page.evaluate(() => document.querySelector('#segView button[data-v="reg"]').click());
+  await page.waitForFunction(() => document.querySelectorAll('.regline').length === 5, { timeout: 15000 })
+    .catch(() => {});
+  const warmLatch = await page.evaluate(() => ({
+    lines: document.querySelectorAll('.regline').length,
+    err: !!document.querySelector('#jerror'),
+  }));
+  ck('a failed speculative warm does not latch the failure UI for a view nobody opened',
+    warmLatch.lines === 5 && !warmLatch.err, JSON.stringify(warmLatch));
+  {
+    const before = errors.length;
+    for (let i = errors.length - 1; i >= 0; i--) {
+      if (/geo_regions5/.test(errors[i])) errors.splice(i, 1);
+    }
+    void before;
+  }
+  await fresh('#v=jmap&dir=net');
   /* …and no figure can be minted from a map that has no geometry. An export
      leaves the app under CC BY, and with the chunk blocked pressing SVG produced
      a 265.934-byte document headed "GRADOVI I OPĆINE: NETO PO JLS · UNUTARNJA
