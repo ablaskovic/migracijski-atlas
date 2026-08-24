@@ -4175,9 +4175,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         const len = t.getComputedTextLength();
         const x = +t.getAttribute('x');
         const base = { y: +t.getAttribute('y'), fs: +t.getAttribute('font-size') };
-        return t.getAttribute('text-anchor') === 'end'
-          ? { ...base, l: x - len, r: x }
-          : { ...base, l: x, r: x + len };
+        /* all three anchors. `middle` was folded into the start branch, which
+           reports a centred run starting where it is actually centred — so its
+           left edge was over-reported by half its length and its right edge
+           under-reported by the same, and a centred run overflowing either margin
+           by up to half its width measured as fitting. */
+        const a = t.getAttribute('text-anchor');
+        return a === 'end' ? { ...base, l: x - len, r: x }
+          : a === 'middle' ? { ...base, l: x - len / 2, r: x + len / 2 }
+            : { ...base, l: x, r: x + len };
       };
       const boxes = band.map(t => ({ ...box(t), s: t.textContent.slice(0, 44) }));
       const over = boxes.filter(b => b.r > W - 19 || b.l < 19);
