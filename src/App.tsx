@@ -300,13 +300,24 @@ export default function App() {
      Saldo replaced the entry and Back could not — inconsistent undo semantics in
      an app that ships Back-as-undo as a feature. */
   const lastReset = useRef(0);
+  /* …and so is picking a Nalaz. A preset is a jump to a curated screen, exactly
+     the "how did I get here" transition the note above describes — and it often
+     lands in the SAME view, so keying the history entry on `S.view` alone meant
+     Back could not undo it. Measured on the ordinary path: from Saldo, pick
+     Nalaz 2 (also Saldo) and Back left the site rather than restoring the year
+     and the mode the reader had built. */
+  const lastStory = useRef<number | null>(INITIAL.story);
   useEffect(() => {
     const h = '#' + encodeHash(S);
-    if (location.hash === h) { lastReset.current = resetSeq; return; }
+    if (location.hash === h) { lastReset.current = resetSeq; lastStory.current = S.story; return; }
     const wasReset = resetSeq !== lastReset.current;
+    const wasStory = S.story != null && S.story !== lastStory.current;
     lastReset.current = resetSeq;
-    if (S.view !== lastView.current || wasReset) { lastView.current = S.view; history.pushState(null, '', h); }
-    else history.replaceState(null, '', h);
+    lastStory.current = S.story;
+    if (S.view !== lastView.current || wasReset || wasStory) {
+      lastView.current = S.view;
+      history.pushState(null, '', h);
+    } else history.replaceState(null, '', h);
   }, [S, resetSeq]);
   useEffect(() => {
     const onPop = () => {
