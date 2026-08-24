@@ -216,8 +216,8 @@ export default function Legend({ S }: { S: State }) {
     const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
       ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).',
         'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
-      : L('Procjena (IPF): struktura 2018. skalirana na DZS margine.',
-        'Estimate (IPF): the 2018 structure scaled to CBS margins.')
+      : L('Procjena (IPF): struktura 2018. skalirana na DZS odseljene; doseljeni približno.',
+        'Estimate (IPF): the 2018 structure scaled to CBS out-margins; in-margins approximate.')
         + (S.dir === 'net' ? ' ' + t('note.pairEst') : '');
     const ttl = {
       out: L('odlasci (redak → stupac)', 'out (row → column)'),
@@ -241,8 +241,8 @@ export default function Legend({ S }: { S: State }) {
     const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
       ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).',
         'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
-      : L('Procjena (IPF): struktura 2018. skalirana na DZS margine razdoblja.',
-        'Estimate (IPF): the 2018 structure scaled to the period’s CBS margins.')
+      : L('Procjena (IPF): struktura 2018. skalirana na DZS odseljene razdoblja; doseljeni približno.',
+        'Estimate (IPF): the 2018 structure scaled to the period’s CBS out-margins; in-margins approximate.')
         + (S.dir === 'net' ? ' ' + t('note.pairEst') : '');
     if (S.dir === 'net') {
       return (
