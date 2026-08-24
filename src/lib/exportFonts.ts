@@ -44,9 +44,12 @@ const FACES: Face[] = [
 
 let css = '';
 let pending: Promise<string> | null = null;
+/* Long enough that an ordinary slow connection still embeds real faces, short
+   enough that a wedged one does not hold a button for the session. */
+const FONT_TIMEOUT = 8000;
 
-async function dataUri(url: string): Promise<string> {
-  const r0 = await fetch(url);
+async function dataUri(url: string, signal?: AbortSignal): Promise<string> {
+  const r0 = await fetch(url, { signal });
   /* `.blob()` succeeds on a 404 body just as happily as on a font, and the
      result is a perfectly valid data: URI for an HTML error page. The faces are
      hashed assets under /assets/, which vercel.json deliberately does NOT rewrite
@@ -80,11 +83,24 @@ export function ensureFonts(): Promise<string> {
      subsets do not overlap, so the browser can pick per codepoint on its own.
      A failed fetch is not worth failing an export over — the figure then names
      the families as it always did, which is the behaviour being improved on. */
+  /* Bounded. A rejecting fetch was always handled; a *hanging* one was not, and
+     hanging is the common shape of a bad network — a captive portal or a proxy
+     that accepts the connection and never answers. `pending` then held a promise
+     that would never settle, and every later caller got that same promise back:
+     exportPNG awaits it as its first statement, so #pngBtn stayed disabled
+     reading '…' and the live region stayed "Priprema PNG-a…" for the rest of the
+     session, with every further click landing on a disabled button. Only a
+     reload recovered. The abort makes the wait fail like any other failure, which
+     the catch below already knows how to degrade — the figure names the families,
+     which is the documented fallback. */
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), FONT_TIMEOUT);
   pending ??= Promise.all(FACES.map(async f => {
-    const uri = await dataUri(f.url);
+    const uri = await dataUri(f.url, ac.signal);
     return `@font-face{font-family:'${f.family}';font-style:normal;font-weight:${f.weight};`
       + `src:url(${uri}) format('woff2')}`;
   })).then(parts => { css = parts.join(''); return css; })
-    .catch(() => { pending = null; return ''; });
+    .catch(() => { pending = null; return ''; })
+    .finally(() => clearTimeout(timer));
   return pending;
 }

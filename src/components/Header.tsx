@@ -67,10 +67,16 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
     setBusy(true); setErr(null);
     try { await exportPNG(document.querySelector<SVGSVGElement>('#map')!, S, true); }
     catch (e) { console.error('PNG export failed', e); fail('png'); }
-    setBusy(false);
-    /* the button disables itself mid-export, and browsers blur a newly-disabled
-       element — so a keyboard export dropped focus to <body> every time */
-    focusSoon('#pngBtn');
+    /* `finally`, not a bare statement after the await: setBusy(false) used to sit
+       on the happy path, so anything that made the await never settle — a wedged
+       font fetch was the reachable one — left #pngBtn disabled reading '…' and the
+       live region stuck on "Priprema PNG-a…" for the rest of the session. */
+    finally {
+      setBusy(false);
+      /* the button disables itself mid-export, and browsers blur a newly-disabled
+         element — so a keyboard export dropped focus to <body> every time */
+      focusSoon('#pngBtn');
+    }
   };
   /* The SVG twin embeds the same faces the PNG twin does, and it can only embed
      what has already arrived. exportSVG is synchronous by contract — App exposes
