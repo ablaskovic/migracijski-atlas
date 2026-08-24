@@ -1126,8 +1126,14 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
      that is sentences rather than labels.
      It costs scroll, not map: below 900 px the body scrolls (see the block
      above) and the footer is its last element, so a taller footer pushes nothing
-     off screen — unlike the desktop footer, which is a fixed lane over .map-box
-     and stays 9,5 px for exactly that reason.
+     off screen — unlike the desktop footer, which is the last in-flow item in a
+     body pinned to one viewport, so every line it gains comes straight off
+     .map-box. (It is NOT positioned or "a fixed lane over .map-box", as this
+     comment used to claim: .ft has no `position` at all and is a sibling of
+     .main in a flex column. The mechanism is the viewport lock, not an overlay,
+     and the real cost is measured: taking the desktop footer to 12 px costs the
+     map about 35 px of height at 1440×900. That trade was not taken; what was
+     wrong was the reason given for not taking it.)
      The letterspaced mono micro-labels (.ctrl-lab, .hd-eyebrow, .legend-title)
      stay where they are: they are labels, not prose, and they are what the
      header's height budget is spent on. */
