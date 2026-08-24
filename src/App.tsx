@@ -338,7 +338,14 @@ export default function App() {
      change as well as the boot. Composed here rather than in i18n.ts because
      metrics.ts imports i18n.ts, and reaching back for Y0/YEND would close the
      cycle; `yrSpan` is what keeps the Croatian trailing dots off the English. */
-  useEffect(() => { document.title = `${t('hd.title')} · ${yrSpan(Y0, YEND)}`; }, [S.lang]);
+  useEffect(() => {
+    document.title = `${t('hd.title')} · ${yrSpan(Y0, YEND)}`;
+    /* …and the description with it. index.html ships the Croatian one because it
+       is static markup, and nothing ever moved it: an English reader sharing a
+       link handed the recipient a preview card written in Croatian, and a crawler
+       that renders the page indexed the same. Same effect, same key on S.lang. */
+    document.querySelector('meta[name="description"]')?.setAttribute('content', t('meta.desc'));
+  }, [S.lang]);
   /* Touch fires pointerenter but never pointerleave, so a tapped feature would
      leave its tooltip on screen forever. Clear the highlight on any pointerdown
      that is not itself a map feature — the tip is the only value readout in the

@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 454;
+const EXPECTED_CHECKS = 455;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5358,6 +5358,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     enTitle.doc === 'County Migration Atlas (CROATIA) · 1998–2025'
     && hrTitle.doc === 'Migracijski atlas županija · 1998.–2025.',
     JSON.stringify({ en: enTitle.doc, hr: hrTitle.doc }));
+  /* …and so does the description. index.html ships the Croatian one because it
+     is static markup parsed before any script runs — the same reason the title is
+     corrected in an effect — and nothing ever moved it, so an English reader
+     sharing a link handed the recipient a preview card written in Croatian, and a
+     crawler that renders the page indexed the same. */
+  const metaDesc = {};
+  for (const [lang, h] of [['hr', '#'], ['en', '#l=en&']]) {
+    await fresh(h + 'v=saldo&c=1&y=2024');
+    metaDesc[lang] = await page.evaluate(() =>
+      (document.querySelector('meta[name="description"]') || {}).getAttribute?.('content') || '');
+  }
+  ck('the meta description follows the language too',
+    /županija/.test(metaDesc.hr) && /counties/.test(metaDesc.en)
+    && metaDesc.hr !== metaDesc.en, JSON.stringify({ hr: metaDesc.hr.slice(0, 40), en: metaDesc.en.slice(0, 40) }));
 
   /* The exported figure is where the country matters most: it leaves the app
      with no page around it to say which counties these are. The eyebrow was the
