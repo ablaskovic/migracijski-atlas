@@ -2,7 +2,7 @@ import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, fmtI, fmtR,
 } from '../lib/metrics.ts';
-import { PAPER_THR, PAPER_WINDOW } from '../lib/credits.ts';
+import { PAPER_THR, PAPER_WINDOW, paperSplit } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import type { CSSProperties } from 'react';
@@ -116,9 +116,9 @@ function klasNote(S: State): string {
     const who = PAPER_KLAS_DIFF.map(d => SHORTN[d.iso]).join(', ');
     /* Croatian needs the verb to agree with the count; English does not, so the
        plural branch exists only on the Croatian side. */
-    return L(`Rad za ${PW()} objavljuje 7 / 7 / 7. Na novijoj DZS seriji drukčije `
+    return L(`Rad za ${PW()} objavljuje ${paperSplit()}. Na novijoj DZS seriji drukčije `
       + `${PAPER_KLAS_DIFF.length > 1 ? 'su razvrstane' : 'je razvrstana'}: ${who} — v. „Kako čitati”.`,
-    `The paper publishes 7 / 7 / 7 for ${PW()}. On the newer CBS series `
+    `The paper publishes ${paperSplit()} for ${PW()}. On the newer CBS series `
       + `${PAPER_KLAS_DIFF.length > 1 ? 'these fall' : 'this falls'} differently: ${who} — see “How to read”.`);
   }
   if (S.thrRel) {

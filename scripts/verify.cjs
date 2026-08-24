@@ -3789,10 +3789,22 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     note: (document.querySelector('#legend .legend-note') || {}).textContent || '',
     h: document.querySelector('#legend').getBoundingClientRect().height,
   }));
+  /* The split the note attributes to the paper is derived from PAPER_KLAS now,
+     not written out — so this compares the sentence against the table rather than
+     against a literal. Before, correcting a transcription (moving one county
+     between classes, making the study's split 7/6/8) left the legend stating a
+     false fact about the paper while the county names in the same sentence, which
+     ARE data-derived, updated around it — and this check still passed, because it
+     only grepped for the copy. The atlas side of the comparison was pinned to
+     ground truth all along; the study side was pinned to its own prose. */
+  const paperSplit = await page.evaluate(() => {
+    const g = window.__PAPER_KLAS;
+    return g ? `${g.gain.length} / ${g.neu.length} / ${g.loss.length}` : null;
+  });
   ck('the klasifikacija legend names the counties that differ from the published split',
-    /7 \/ 7 \/ 7/.test(klasCmp.note) && /2011\.–2024\./.test(klasCmp.note)
+    !!paperSplit && klasCmp.note.includes(paperSplit) && /2011\.–2024\./.test(klasCmp.note)
     && /Karlova/.test(klasCmp.note) && /Koprivni/.test(klasCmp.note),
-    klasCmp.note);
+    paperSplit + ' · ' + klasCmp.note);
   ck('and the counts it qualifies are still the 7 / 5 / 9 that made it necessary',
     /pobjednice · 7/.test(klasCmp.counts[0]) && /neutralne · 5/.test(klasCmp.counts[1])
     && /gubitnice · 9/.test(klasCmp.counts[2]), JSON.stringify(klasCmp.counts));

@@ -66,6 +66,20 @@ export const PAPER_KLAS_OF: Record<string, PaperKlas> = {};
 for (const k of ['gain', 'neu', 'loss'] as const)
   for (const i of PAPER_KLAS[k]) PAPER_KLAS_OF[i] = k;
 
+/* The published split, as a string, derived from the table above rather than
+   written out beside it. The legend printed the literal '7 / 7 / 7', so
+   correcting a transcription in PAPER_KLAS — moving one county between classes —
+   left the legend stating a false fact about the paper while every county name in
+   the same sentence, which IS data-derived, updated around it. The atlas side of
+   that comparison has always been pinned to ground truth; this is the study side. */
+export const paperSplit = (): string =>
+  `${PAPER_KLAS.gain.length} / ${PAPER_KLAS.neu.length} / ${PAPER_KLAS.loss.length}`;
+/* …and exposed so the suite can compare the sentence against the TABLE rather
+   than against a literal copy of it. One property, read-only, no behaviour. */
+if (typeof window !== 'undefined') {
+  (window as unknown as { __PAPER_KLAS?: typeof PAPER_KLAS }).__PAPER_KLAS = PAPER_KLAS;
+}
+
 /** Header subtitle tail — link text, not the whole citation (an 11,5 px line). */
 export const paperSub = (): string =>
   paperPending() ? L('još neobjavljen znanstveni rad', 'a paper not yet published') : PAPER.short;
