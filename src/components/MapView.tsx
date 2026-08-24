@@ -205,7 +205,16 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
     const m = flowMax(sel, S.dir, S.cum);
     const wsc = scaleSqrt().domain([0, m]).range([0.6, 13]);
     const dv = divScale(m);
-    const sq = seqScale(m, S.dir).range(['#D9C9C2', S.dir === 'in' ? '#1D4E89' : '#B5341F']);
+    /* The ramp the county fills and the legend use, not a second one. The low end
+       used to be overridden to #D9C9C2, so the same corridor was painted two
+       colours: matched back onto the legend bar in Lab, an arc worth 0 read as
+       14 % of max, 10 % read as 22 %, 25 % as 35 % and 50 % as 57 % — at m=1000 a
+       250-person corridor was drawn as an arc the legend calls ~353 people while
+       the county it lands on is filled the colour the legend calls 250. Two
+       answers, side by side, to how big the corridor is. The override was
+       presumably for legibility, since the pale end of this ramp is the pale end
+       of the fill underneath it; that is what the casing below is for. */
+    const sq = seqScale(m, S.dir);
     const [sx, sy] = cent[sel];
     const items = ISOS.filter(p => p !== sel)
       .map(p => ({ p, v: flowOf(sel, S.dir, p, S.yi, S.cum) }))
@@ -443,6 +452,13 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, toggle
             ))}
           </g>
           <g>
+            {/* a white casing under each arc, so restoring the shared ramp does not
+                cost a pale corridor its legibility against the pale fill it
+                crosses. Same dash pattern, so the honesty encoding still reads. */}
+            {arcs && arcs.paths.map(a => (
+              <path key={'c' + a.p} className="arccase" d={a.d} strokeWidth={a.w + 1.8}
+                strokeDasharray={est ? '7 4' : undefined} />
+            ))}
             {arcs && arcs.paths.map(a => (
               <path key={a.p} className="arc" d={a.d} stroke={a.stroke} strokeWidth={a.w}
                 strokeDasharray={est ? '7 4' : undefined} />

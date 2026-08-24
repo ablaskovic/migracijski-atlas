@@ -350,6 +350,12 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .reduced .cnt{transition:none}
 .regline{fill:none;stroke:var(--ink);stroke-width:1.8;pointer-events:none;stroke-linejoin:round}
 .arc{fill:none;pointer-events:none;opacity:.82;stroke-linecap:round}
+/* Drawn under each arc at w+1,8 so a corridor near the pale end of the ramp is
+   still visible against the pale county fill it crosses. This is what lets the
+   arcs use the same ramp as the fills and the legend instead of a lightened one
+   of their own — see the note in MapView. Attributes for the width and the dash
+   travel in the JSX, like every other exported stroke. */
+.arccase{fill:none;pointer-events:none;opacity:.82;stroke-linecap:round;stroke:#fff}
 .legend{position:absolute;left:16px;bottom:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:8px 10px;font-size:10.5px;pointer-events:none;max-width:280px}
 .legend-title{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:5px;white-space:normal}

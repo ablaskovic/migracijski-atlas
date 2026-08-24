@@ -50,6 +50,13 @@ function bakeMapClone(node: SVGSVGElement): SVGSVGElement {
   clone.querySelectorAll('.arc').forEach(p => {
     p.setAttribute('fill', 'none'); p.setAttribute('opacity', '0.82'); p.setAttribute('stroke-linecap', 'round');
   });
+  /* the casing under each arc takes its whole appearance from the stylesheet —
+     an exported document ships without one, so an unbaked casing would paint as
+     a black-filled blob under every corridor (the .mxband lesson, again) */
+  clone.querySelectorAll('.arccase').forEach(p => {
+    p.setAttribute('fill', 'none'); p.setAttribute('stroke', '#fff');
+    p.setAttribute('opacity', '0.82'); p.setAttribute('stroke-linecap', 'round');
+  });
   clone.querySelectorAll('.arch').forEach(p => p.setAttribute('opacity', '0.9'));
   /* The matrix trace bands take fill:none from the stylesheet alone, and this
      document ships without one — so an export taken while a corridor was
