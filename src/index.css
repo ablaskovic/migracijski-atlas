@@ -99,6 +99,23 @@
 /* Verbatim from the verified single-file v4 (reference/). Class names are the
    test API — scripts/verify.cjs selects on them. Change with care. */
 :root{
+  /* The atlas ships one palette and no prefers-color-scheme block, and without a
+     declaration Chrome applies Auto Dark Theme for Web Contents to an Android
+     reader whose system is dark. That inverts the HTML and leaves the SVG alone —
+     the exact asymmetry the forced-colors block at the end of this file already
+     documents and handles. Measured under Chrome's force-dark pipeline: the 21
+     county fills do not move (HR-02 stays rgb(241,238,233), HR-13
+     rgb(197,201,212), HR-18 rgb(139,153,184)), while .legend-bar — an HTML div
+     carrying a CSS gradient — is darkened in its light half ONLY: 0 % and 20 %
+     unchanged, 40 % rgb(236,203,190) -> rgb(81,56,46), 50 % rgb(240,237,233) ->
+     rgb(46,44,41), 60-100 % unchanged. So the diverging key's zero point, the
+     pale centre a reader matches every near-balanced county against, renders
+     near-black while those counties render near-white; the bar stops being
+     monotonic in lightness and matches the map at no point across its loss half.
+     The flat .legend-sw swatches are not inverted at all, so the app's two
+     legends answered the same condition differently.
+     Verified: with this declaration every sampled pixel is restored exactly. */
+  color-scheme: only light;
   --bg:#F4F5F2; --panel:#FCFCFA; --ink:#20262B; --mut:#5F6A72;
   --line:#D9DDD6; --acc:#0F7D8C; --loss:#B5341F; --gain:#1D4E89; --neu:#C6CCC4;
   /* the *Fallback faces sit between the webfont and the generic family: they are

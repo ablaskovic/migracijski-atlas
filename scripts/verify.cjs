@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 444;
+const EXPECTED_CHECKS = 445;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -801,7 +801,19 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const defLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
   ck('default legend states blue=gain / red=loss',
     defLeg.includes('dobiva stanovnike') && defLeg.includes('gubi ih'), defLeg.slice(0, 80));
-  /* An empty live region must still be IN the accessibility tree. `:empty
+  /* The page must opt out of the browser's own dark-mode rewrite. Without a
+     declaration Chrome applies Auto Dark Theme to an Android reader in dark
+     mode, which inverts the HTML and leaves the SVG alone: measured under
+     force-dark, the 21 county fills are byte-identical while .legend-bar is
+     darkened in its light half only — 40 % rgb(236,203,190) → rgb(81,56,46),
+     50 % rgb(240,237,233) → rgb(46,44,41) — so the diverging key's zero point
+     renders near-black while the counties it decodes render near-white. */
+  const cs = await page.evaluate(() => ({
+    root: getComputedStyle(document.documentElement).colorScheme,
+    body: getComputedStyle(document.body).colorScheme,
+  }));
+  ck('the page declares its colour scheme, so a browser cannot re-tint the key alone',
+    /only light/.test(cs.root), JSON.stringify(cs));  /* An empty live region must still be IN the accessibility tree. `:empty
      {display:none}` is equivalent to not being in the DOM for live-region
      registration, so the mitigation StoryBar's own comment describes — "a live
      region that enters the DOM already populated is not guaranteed to announce" —
