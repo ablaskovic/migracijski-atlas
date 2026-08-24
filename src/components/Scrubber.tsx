@@ -59,7 +59,17 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch { /* no capture, still scrubs */ }
     scrubTo(ev);
   };
-  const onMove = (ev: ReactPointerEvent<SVGSVGElement>) => { if (drag.current) scrubTo(ev); };
+  /* Self-correcting, because the flag is cleared only by a pointerup ON the svg —
+     and a drag can end anywhere else: the browser claiming the gesture, a
+     pointercancel the element never sees, an alt-tab, a button released outside
+     the chart. The flag then stayed true and the NEXT pointermove over the chart
+     scrubbed the year with no button held. `ev.buttons` is the authority on
+     whether anything is still pressed, and it costs one test per move. */
+  const onMove = (ev: ReactPointerEvent<SVGSVGElement>) => {
+    if (!drag.current) return;
+    if (ev.pointerType === 'mouse' && !ev.buttons) { drag.current = false; return; }
+    scrubTo(ev);
+  };
   /* pointercancel fires when the browser claims the gesture as a page scroll —
      without it the drag flag sticks and the next hover scrubs the year */
   const onUp = () => { drag.current = false; };
