@@ -1,6 +1,6 @@
 import { scaleBand, scaleLinear } from 'd3-scale';
 import { max } from 'd3-array';
-import { CIT, cgroups, DEMO, YEARS, fmtI, sgn } from '../lib/metrics.ts';
+import { CIT, cgroups, countryName, DEMO, YEARS, fmtI, sgn } from '../lib/metrics.ts';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react';
 import type { Patch, State } from '../lib/types.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
@@ -70,7 +70,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
               <div id="zemList">
                 {DEMO.countries.map(([nm, d, o]) => (
                   <div className="jrow" key={nm}>
-                    <span className="jn">{nm}</span>
+                    <span className="jn">{countryName(nm)}</span>
                     <span className="zbar"><span style={{ width: Math.max(1, d / DEMO.countries[0][1] * 100) + '%' }} /></span>
                     <span className="jv">{'+' + fmtI.format(d)}</span>
                     <span className="jv">{'−' + fmtI.format(o)}</span>

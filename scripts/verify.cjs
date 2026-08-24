@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 438;
+const EXPECTED_CHECKS = 439;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4741,7 +4741,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('all 556 English municipality labels read in English',
     enJl.length === 556 && jlBad.length === 0 && enJl.every(s => / in, .* out, net /.test(NBSP(s))),
     JSON.stringify({ n: enJl.length, bad: jlBad.slice(0, 2), first: enJl[0] }));
-
+  /* The Zemlje tab rendered its twelve rows straight from the Croatian data keys,
+     so an English reader met Njemačka, Filipini, Sjeverna Makedonija and
+     Švicarska under an English caption and English column totals — in a panel
+     whose other tab translates the group labels and the ISO codes inside them.
+     They are exonyms, not identifiers: i18n's exemption covers county and
+     municipality names, DZS table numbers and the study's citation. */
+  await fresh('#l=en&cz=2');
+  const enZem = await page.evaluate(() => [...document.querySelectorAll('#zemList .jrow .jn')]
+    .map(e => e.textContent.trim()));
+  ck('the Zemlje tab reads in English too',
+    enZem.length >= 13 && enZem.includes('Germany') && enZem.includes('Philippines')
+    && enZem.includes('North Macedonia') && enZem.includes('Switzerland')
+    && !enZem.some(x => /Njemačka|Filipini|Švicarska|Sjeverna Makedonija/.test(x)),
+    JSON.stringify(enZem.slice(0, 6)));
   await fresh('#l=en&v=mx&c=0&y=2018&dir=net');
   const enMx = await page.evaluate(() => ({
     c: [...document.querySelectorAll('.mxc')].map(p => p.getAttribute('aria-label') || ''),

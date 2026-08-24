@@ -137,6 +137,22 @@ const CG_: [string, string, string, string][] = [
    list, so it is rebuilt per read instead */
 export const cgroups = (): [key: string, label: string, color: string][] =>
   CG_.map(([k, hr, en, c]) => [k, L(hr, en), c]);
+/* The DZS table prints these in Croatian, and the Zemlje tab rendered them
+   straight from the data keys — so an English reader met Njemačka, Filipini,
+   Sjeverna Makedonija and Švicarska under an English caption and English column
+   totals, in a panel whose other tab translates the group labels AND the ISO
+   codes inside them. They are ordinary exonyms, not identifiers: i18n's
+   exemption names county and municipality names, DZS table numbers and the
+   study's citation, and nothing else. Keyed on the Croatian name so a name the
+   next data refresh introduces degrades to itself rather than to nothing. */
+const CTRY_EN: Record<string, string> = {
+  'Njemačka': 'Germany', 'Bosna i Hercegovina': 'Bosnia and Herzegovina',
+  Nepal: 'Nepal', Filipini: 'Philippines', Srbija: 'Serbia',
+  Ukrajina: 'Ukraine', Indija: 'India', Austrija: 'Austria',
+  'Sjeverna Makedonija': 'North Macedonia', Kosovo: 'Kosovo',
+  Slovenija: 'Slovenia', 'Švicarska': 'Switzerland',
+};
+export const countryName = (hr: string): string => L(hr, CTRY_EN[hr] ?? hr);
 export const KCOL: Record<Klas, string> = { gain: '#1D4E89', neu: '#C6CCC4', loss: '#B5341F' };
 /* The study's own three classes. "pobjednice/gubitnice" is its vocabulary, and
    the English is the plain reading of it — these name counties, not contests. */
