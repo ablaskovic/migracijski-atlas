@@ -138,7 +138,15 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
+/* rem, not px — every one of the 74 font-size declarations in this file used to
+   be a literal px, including this base, so the single most discoverable text-size
+   remedy a browser offers did nothing at all. Measured with Chrome launched at
+   defaultFontSize=32: the root went 16px → 32px and all twelve sampled surfaces
+   were byte-identical, header 140 px, .map-box 570 px and .ft 75 px unchanged to
+   the pixel. 33 of the 74 sizes are under 10 px, on an atlas whose whole purpose
+   is reading small numbers. The conversion is a mechanical /16, so nothing moves
+   at the default setting and everything tracks the reader's preference above it. */
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:0.875rem;
   display:flex;flex-direction:column;overflow:hidden}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
@@ -165,13 +173,13 @@ svg:focus{outline:none}
 svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 /* off-screen until focused — the keyboard bypass for the header's ~28 controls */
 .skip{position:absolute;left:-9999px;top:0;z-index:20;background:var(--ink);color:var(--bg);
-  padding:8px 14px;font-size:13px;text-decoration:none;border-radius:0 0 3px 0}
+  padding:8px 14px;font-size:0.8125rem;text-decoration:none;border-radius:0 0 3px 0}
 .skip:focus{left:0}
 
 .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
   padding:12px 20px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.hd-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase}
-.hd-title{font-family:var(--disp);font-weight:600;font-size:23px;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
+.hd-eyebrow{font-family:var(--mono);font-size:0.625rem;letter-spacing:.14em;color:var(--mut);text-transform:uppercase}
+.hd-title{font-family:var(--disp);font-weight:600;font-size:1.4375rem;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
 /* Same ghost as the segment buttons, for the same reason and a bigger number:
    the language switch is the next flex item in .hd-titlerow, so the <h1>'s width
    is what positions it — and the two titles differ, which meant pressing EN slid
@@ -181,7 +189,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    holds still. `data-alt` comes from i18n.ts titleAlt(). */
 .hd-title::after{content:attr(data-alt);display:block;height:0;overflow:hidden;
   visibility:hidden}
-.hd-sub{font-size:11.5px;color:var(--mut);margin-top:2px}
+.hd-sub{font-size:0.71875rem;color:var(--mut);margin-top:2px}
 /* The language switch lives in the identity block: .ctrls has no room for an
    eighth group (measured, it costs the header 54 px and the map the same), and
    this block has vertical slack. Narrow and quiet — it is chrome, not a data
@@ -194,7 +202,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    spent two other fixes on. */
 .hd-titlerow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .hd-lang{width:max-content;flex:none}
-.hd-lang button{padding:0 8px;min-height:24px;font-size:10px;font-family:var(--mono);letter-spacing:.06em}
+.hd-lang button{padding:0 8px;min-height:24px;font-size:0.625rem;font-family:var(--mono);letter-spacing:.06em}
 /* `flex-basis:100%` — the control row takes a whole header line at every width,
    including the ones where it would have fitted beside the identity block.
    .hd is `justify-content:space-between`, so on a shared line .ctrls is pinned
@@ -236,7 +244,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    labels shrank by one pixel when the webfont arrived and the header lost 5 px
    under the reader. Pinned to what the real face already produces at each size,
    so nothing moves at the swap and nothing moves today. */
-.ctrl-lab{font-family:var(--mono);font-size:9.5px;line-height:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+.ctrl-lab{font-family:var(--mono);font-size:0.59375rem;line-height:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
 .seg{display:flex;border:1px solid var(--line);background:var(--panel);border-radius:3px;overflow:hidden}
 /* 5px horizontal, not 7: the seventh view button (Godine) pushed .ctrls from
    three rows to four at 1440, taking the header 138 → 192 px and the map box
@@ -245,7 +253,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    budget holds without shortening a label — and "JLS 2018." in particular is an
    honesty marker, not just a name. Touch is unaffected: the coarse-pointer rule
    below re-pads to its own 44 px target. */
-.seg button{padding:5px 5px;font-size:12px;color:var(--mut);border-right:1px solid var(--line);white-space:nowrap}
+.seg button{padding:5px 5px;font-size:0.75rem;color:var(--mut);border-right:1px solid var(--line);white-space:nowrap}
 .seg button:last-child{border-right:none}
 /* Drawn INSIDE the button. `.seg` and `.jtabs` are overflow:hidden — that clip is
    what rounds the first and last button's corners, so it stays — and the buttons
@@ -300,7 +308,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    the header height budget that verify.cjs asserts. */
 .storysel select{border:1px solid var(--line);border-radius:3px;
   background:color-mix(in srgb,var(--panel) 92%,transparent);color:var(--mut);
-  font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  font-family:var(--mono);font-size:0.59375rem;letter-spacing:.08em;text-transform:uppercase;
   padding:4px 6px;cursor:pointer;width:98px}
 .storysel select:hover{color:var(--ink)}
 .storysel select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
@@ -309,7 +317,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    control by hand (Back used to leave the site — App now pushes view changes) */
 .rstbtn{border:1px solid var(--line);border-radius:3px;color:var(--mut);
   background:color-mix(in srgb,var(--panel) 92%,transparent);
-  font-size:12px;line-height:1;padding:0 7px}
+  font-size:0.75rem;line-height:1;padding:0 7px}
 .rstbtn:hover{color:var(--ink)}
 .only{display:none}.only.show{display:flex}
 .thr input[type=range]{width:110px;accent-color:var(--acc)}
@@ -318,7 +326,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    rule and the segments and rail rows were re-padded to 44 px; the range input
    was never revisited and measured 110×16. */
 @media (pointer:coarse){.thr input[type=range]{height:24px}}
-.thr-val{font-family:var(--mono);font-size:12px;min-width:52px}
+.thr-val{font-family:var(--mono);font-size:0.75rem;min-width:52px}
 
 .main{flex:1;display:flex;min-height:0}
 .map-wrap{flex:1;position:relative;min-width:0;display:flex;flex-direction:column}
@@ -389,19 +397,19 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    behind it — and body is overflow:hidden and height-locked, so none of it could
    be scrolled to. Capped and scrolling, the legend gives instead of the controls. */
 .legend{position:absolute;left:16px;bottom:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);
-  border:1px solid var(--line);border-radius:3px;padding:8px 10px;font-size:10.5px;pointer-events:none;max-width:280px;
+  border:1px solid var(--line);border-radius:3px;padding:8px 10px;font-size:0.65625rem;pointer-events:none;max-width:280px;
   max-height:calc(100% - 24px);overflow-y:auto}
-.legend-title{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:5px;white-space:normal}
+.legend-title{font-family:var(--mono);font-size:0.5625rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:5px;white-space:normal}
 .legend-bar{width:180px;height:9px;border:1px solid var(--line);position:relative}
 .legend-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);
   transform:translateX(-1px);pointer-events:none}
-.legend-lbls{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--mut);margin-top:3px}
+.legend-lbls{display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.59375rem;color:var(--mut);margin-top:3px}
 .legend-cats{display:flex;flex-direction:column;gap:4px}
 .legend-cat{display:flex;align-items:center;gap:6px}
 /* the swatch is the graphical stand-in for a data category, so its own edge has
    to clear 3:1 — at rgba(0,0,0,.15) the pale "neutralne" chip sat at 1.6:1 */
 .legend-sw{width:11px;height:11px;border:1px solid var(--mut);flex:none}
-.legend-note{margin-top:5px;color:var(--mut);font-size:9px;line-height:1.35}
+.legend-note{margin-top:5px;color:var(--mut);font-size:0.5625rem;line-height:1.35}
 /* Below ~340 px of stage the 176 px legend lane and a readable top-left panel do
    not both fit, and one of them has to give. Before the floors it was the panel,
    which is how the glossary came to render as an empty 330×22 sliver; with the
@@ -448,14 +456,14 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   max-height:max(140px,calc(var(--stageh,600px) - 176px));overflow-y:auto}
 .card.show{display:block}
 .card-hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.card-name{font-family:var(--disp);font-weight:500;font-size:14.5px;letter-spacing:.04em;text-transform:uppercase}
-.card-x{color:var(--mut);font-size:15px;line-height:1;padding:2px 4px}
-.card-sub{font-family:var(--mono);font-size:9px;color:var(--mut);letter-spacing:.06em;margin:1px 0 4px}
+.card-name{font-family:var(--disp);font-weight:500;font-size:0.90625rem;letter-spacing:.04em;text-transform:uppercase}
+.card-x{color:var(--mut);font-size:0.9375rem;line-height:1;padding:2px 4px}
+.card-sub{font-family:var(--mono);font-size:0.5625rem;color:var(--mut);letter-spacing:.06em;margin:1px 0 4px}
 .card svg{display:block;width:100%;height:128px}
 
 .rail{width:292px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
 .rail-hd{padding:10px 14px 8px;border-bottom:1px solid var(--line)}
-.rail-year{font-family:var(--disp);font-weight:500;font-size:15px;letter-spacing:.04em}
+.rail-year{font-family:var(--disp);font-weight:500;font-size:0.9375rem;letter-spacing:.04em}
 /* 2px, not 6: the list is 21 rows of a fixed ranking and the rows below just
    grew to a 24px target, so the four pixels a side are worth more spent on
    fitting the ranking than on breathing room the row padding already gives. */
@@ -491,16 +499,16 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   min-height:24px;padding:2.5px 14px;cursor:pointer;border-left:3px solid transparent}
 .rrow:hover,.rrow.hl{background:#EEF0EA;border-left-color:var(--acc)}
 .rrow.big{padding:6px 14px}
-.rname{font-size:11px;line-height:1.25;overflow-wrap:anywhere}
+.rname{font-size:0.6875rem;line-height:1.25;overflow-wrap:anywhere}
 .rbar-track{position:relative;height:9px}
 .rbar-zero{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line)}
 .rbar{position:absolute;top:0;height:9px;transition:width .25s,left .25s,background-color .25s}
 .reduced .rbar{transition:none}
-.rval{font-family:var(--mono);font-size:10.5px;text-align:right;color:var(--mut)}
+.rval{font-family:var(--mono);font-size:0.65625rem;text-align:right;color:var(--mut)}
 .rrow.pairrow{grid-template-columns:150px 1fr 52px}
-.rrow.pairrow .rname{font-family:var(--mono);font-size:9.5px}
+.rrow.pairrow .rname{font-family:var(--mono);font-size:0.59375rem}
 .rail-hint{padding:6px 14px;border-top:1px solid var(--line);font-family:var(--mono);
-  font-size:8.5px;color:var(--mut);letter-spacing:.04em;line-height:1.4}
+  font-size:0.53125rem;color:var(--mut);letter-spacing:.04em;line-height:1.4}
 
 .scrub{border-top:1px solid var(--line);background:var(--panel);display:flex;align-items:stretch;padding:8px 20px 10px}
 /* `opacity + pointer-events:none` is the dimmed-but-live pattern the house rules
@@ -522,26 +530,26 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .scrub-chart svg{display:block;width:100%;height:96px;cursor:ew-resize;touch-action:none}
 #spark:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .big-year{width:122px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding-left:12px}
-.big-year-n{font-family:var(--disp);font-weight:600;font-size:46px;line-height:1;letter-spacing:.02em}
-.big-year-s{font-family:var(--mono);font-size:9px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase;text-align:right;max-width:120px}
+.big-year-n{font-family:var(--disp);font-weight:600;font-size:2.875rem;line-height:1;letter-spacing:.02em}
+.big-year-s{font-family:var(--mono);font-size:0.5625rem;color:var(--mut);letter-spacing:.06em;text-transform:uppercase;text-align:right;max-width:120px}
 
-.ft{padding:5px 20px;font-family:var(--mono);font-size:9.5px;color:var(--mut);
+.ft{padding:5px 20px;font-family:var(--mono);font-size:0.59375rem;color:var(--mut);
   border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .tip{position:fixed;z-index:10;pointer-events:none;background:var(--ink);color:#F2F3EF;
-  border-radius:3px;padding:9px 11px;font-size:11px;max-width:260px;display:none;line-height:1.45}
+  border-radius:3px;padding:9px 11px;font-size:0.6875rem;max-width:260px;display:none;line-height:1.45}
 .tip.show{display:block}
-.tip-name{font-family:var(--disp);font-weight:500;font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
-.tip table{border-collapse:collapse;font-family:var(--mono);font-size:10.5px;width:100%}
+.tip-name{font-family:var(--disp);font-weight:500;font-size:0.84375rem;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
+.tip table{border-collapse:collapse;font-family:var(--mono);font-size:0.65625rem;width:100%}
 .tip td{padding:1px 0}
 .tip td:last-child{text-align:right;padding-left:14px}
 .tip .tip-net td{border-top:1px solid #4a5258;padding-top:3px;font-weight:500}
 .pos{color:#7FA8DC}.neg{color:#E08A78}
-.tip-hint{margin-top:5px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;
+.tip-hint{margin-top:5px;font-family:var(--mono);font-size:0.53125rem;letter-spacing:.06em;
   text-transform:uppercase;color:#AEB6AC}
 /* Measured vs estimated is the atlas's central honesty distinction and both
    badges used to render as the same neutral pill, so only the wording carried
    it. Solid = measured fact; dashed outline = computed estimate. */
-.cls-tag{display:inline-block;margin-top:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border-radius:2px;border:1px solid transparent}
+.cls-tag{display:inline-block;margin-top:4px;font-family:var(--mono);font-size:0.59375rem;letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border-radius:2px;border:1px solid transparent}
 .cls-tag.meas{background:#E4E7E0;color:#20262B;border-color:#20262B}
 .cls-tag.est{background:transparent;color:#5F6A72;border:1px dashed #5F6A72}
 .tip .cls-tag.meas{background:#F2F3EF;color:#20262B;border-color:#F2F3EF}
@@ -550,7 +558,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .chipcard{position:absolute;z-index:4;background:color-mix(in srgb,var(--panel) 94%,transparent);
   border:1px solid var(--line);border-radius:3px;box-shadow:0 2px 10px rgba(32,38,43,.07)}
 .chip-hd{display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;user-select:none;
-  font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+  font-family:var(--mono);font-size:0.59375rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
 .chip-hd:hover{color:var(--ink)}
 .chip-arr{transition:transform .15s}
 .reduced .chip-arr{transition:none}
@@ -636,7 +644,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .citz .chip-body{width:296px}
 .agec .chip-body{width:296px}
 .agec svg{display:block;width:100%}
-.age-rows{display:flex;flex-direction:column;gap:2px;font-size:10px;margin-top:6px}
+.age-rows{display:flex;flex-direction:column;gap:2px;font-size:0.625rem;margin-top:6px}
 .age-rows b{font-family:var(--mono);font-weight:600}
 #zemList .jn{flex:0 0 118px}
 #zemList .jv{min-width:44px;text-align:right}
@@ -645,11 +653,11 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .jrow.zt{border-top:1px solid var(--line);margin-top:3px;padding-top:3px;font-weight:600}
 .citz svg{display:block;width:100%;height:148px}
 .citz-rows{display:grid;grid-template-columns:11px 1fr auto auto;gap:2px 7px;align-items:center;
-  font-size:10px;margin-top:6px}
+  font-size:0.625rem;margin-top:6px}
 .citz-rows .sw{width:11px;height:11px;border:1px solid var(--mut)}
-.citz-rows .cv{font-family:var(--mono);font-size:9.5px;text-align:right;color:var(--mut)}
+.citz-rows .cv{font-family:var(--mono);font-size:0.59375rem;text-align:right;color:var(--mut)}
 .citz-rows .ct{font-weight:500;border-top:1px solid var(--line);padding-top:2px}
-.citz-note{font-size:9px;color:var(--mut);margin-top:5px;line-height:1.35}
+.citz-note{font-size:0.5625rem;color:var(--mut);margin-top:5px;line-height:1.35}
 /* Same 176 px legend reserve as the glossary: with 12 corridors listed this card
    is ~400 px tall, and once the map box shrinks (narrow window, corridor card in
    flow above it) it grew straight down over the legend. Bounded and scrolling
@@ -658,16 +666,16 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .jcard.show{display:flex}
 .jcard .chip-hd{flex:none}
 .jcard .chip-body{width:312px;overflow-y:auto;min-height:0}
-.jcard-cap{font-family:var(--mono);font-size:9px;color:var(--mut);letter-spacing:.05em;margin:2px 0 5px}
+.jcard-cap{font-family:var(--mono);font-size:0.5625rem;color:var(--mut);letter-spacing:.05em;margin:2px 0 5px}
 .jtabs{display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden;margin-bottom:6px;width:max-content}
-.jtabs button{padding:3px 8px;font-size:10.5px;color:var(--mut);border-right:1px solid var(--line)}
+.jtabs button{padding:3px 8px;font-size:0.65625rem;color:var(--mut);border-right:1px solid var(--line)}
 .jtabs button:last-child{border-right:none}
 .jtabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-.jrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2px 0;font-size:10.5px}
+.jrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2px 0;font-size:0.65625rem}
 .jrow .jn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.jrow .jc{font-family:var(--mono);font-size:8px;color:var(--mut);letter-spacing:.03em}
-.jrow .jv{font-family:var(--mono);font-size:10px;color:var(--mut)}
-.jls-note{font-size:9px;color:var(--mut);margin-top:5px;line-height:1.35;border-top:1px solid var(--line);padding-top:4px}
+.jrow .jc{font-family:var(--mono);font-size:0.5rem;color:var(--mut);letter-spacing:.03em}
+.jrow .jv{font-family:var(--mono);font-size:0.625rem;color:var(--mut)}
+.jls-note{font-size:0.5625rem;color:var(--mut);margin-top:5px;line-height:1.35;border-top:1px solid var(--line);padding-top:4px}
 #pngBtn:disabled{opacity:.4;cursor:default}
 
 /* corridor pair card — top-right of the map (jcard owns top-left) */
@@ -712,18 +720,18 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    be. The row wraps; the spans inside it still do not, so no figure ever breaks
    across a line. */
 .pair-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;
-  font-family:var(--mono);font-size:9px;color:var(--ink);margin-top:4px}
+  font-family:var(--mono);font-size:0.5625rem;color:var(--ink);margin-top:4px}
 .pair-row>span{white-space:nowrap}
-.pair-row .cls-tag{font-size:8.5px;margin-top:0}
-.pair-note{font-size:9px;color:var(--mut);margin-top:4px;line-height:1.35}
+.pair-row .cls-tag{font-size:0.53125rem;margin-top:0}
+.pair-note{font-size:0.5625rem;color:var(--mut);margin-top:4px;line-height:1.35}
 
 /* detail card current-year readout */
-.card-row{display:flex;gap:9px;font-family:var(--mono);font-size:9px;color:var(--mut);
+.card-row{display:flex;gap:9px;font-family:var(--mono);font-size:0.5625rem;color:var(--mut);
   margin-top:4px;flex-wrap:wrap}
 .card-row b{font-weight:600;color:var(--ink)}
 .card-row .cy{color:var(--acc);font-weight:600}
 /* the mig+prirodno caveat, in the one card that shows the sum without it */
-.card-note{font-size:9px;color:var(--mut);margin-top:4px;line-height:1.35}
+.card-note{font-size:0.5625rem;color:var(--mut);margin-top:4px;line-height:1.35}
 
 /* map corner toggle for county labels */
 /* z-index 6, with .helpbtn and .zoomrst: the map's top strip is one lane and it
@@ -732,7 +740,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    clicks (measured at 941x700 in Tokovi with a corridor open: 0 of 9 face
    points reachable, and a real click at the centre opened the Dob i spol panel
    instead of toggling the labels). Stacking by intent, not by source order. */
-.labbtn{position:absolute;top:14px;right:16px;z-index:6;font-family:var(--mono);font-size:9.5px;
+.labbtn{position:absolute;top:14px;right:16px;z-index:6;font-family:var(--mono);font-size:0.59375rem;
   letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
 .labbtn:hover{color:var(--ink)}
@@ -746,7 +754,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    is where .paircard lands — which is exactly where the zoom reset used to sit,
    under a card with a higher z-index. */
 /* right = the "?" anchor + its own side + an 8 px gap, so the pair cannot drift */
-.zoomrst{position:absolute;top:14px;right:calc(108px + var(--hbw) + 8px);z-index:6;font-family:var(--mono);font-size:9.5px;
+.zoomrst{position:absolute;top:14px;right:calc(108px + var(--hbw) + 8px);z-index:6;font-family:var(--mono);font-size:0.59375rem;
   letter-spacing:.08em;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
 .zoomrst:hover{color:var(--ink)}
@@ -756,15 +764,15 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    render path. Centred over the empty country rather than anchored to a corner:
    it is the only thing on screen. */
 .geostat{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:6;
-  display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;
+  display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:0.6875rem;
   color:var(--mut);background:color-mix(in srgb,var(--panel) 92%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:8px 12px;text-align:center}
 .geostat button{border:1px solid var(--acc);border-radius:3px;padding:4px 9px;
-  color:var(--acc);font-family:var(--mono);font-size:11px;white-space:nowrap}
+  color:var(--acc);font-family:var(--mono);font-size:0.6875rem;white-space:nowrap}
 .geostat button:hover{background:var(--acc);color:var(--panel)}
 
 /* "Kako čitati" — the only place the vocabulary is explained */
-.helpbtn{position:absolute;top:14px;right:108px;z-index:6;font-family:var(--mono);font-size:11px;
+.helpbtn{position:absolute;top:14px;right:108px;z-index:6;font-family:var(--mono);font-size:0.6875rem;
   line-height:1;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;width:var(--hbw);height:var(--hbw)}
 .helpbtn:hover{color:var(--ink)}
@@ -783,8 +791,8 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    covering the colour scale. It scrolls instead. */
 .helpcard{position:absolute;top:14px;left:16px;width:330px;max-height:max(140px,calc(100% - 176px));overflow-y:auto;
   background:var(--panel);border:1px solid var(--line);border-radius:3px;
-  box-shadow:0 2px 14px rgba(32,38,43,.14);padding:10px 12px 10px;z-index:9;font-size:11px;line-height:1.45}
-.help-h{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  box-shadow:0 2px 14px rgba(32,38,43,.14);padding:10px 12px 10px;z-index:9;font-size:0.6875rem;line-height:1.45}
+.help-h{font-family:var(--mono);font-size:0.5625rem;letter-spacing:.12em;text-transform:uppercase;
   color:var(--mut);margin:9px 0 3px;border-top:1px solid var(--line);padding-top:7px}
 .help-p{color:var(--ink)}
 /* only the attribution section runs several paragraphs under one heading */
@@ -795,10 +803,10 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .help-dl{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin-top:2px}
 .help-dl dt{font-weight:600;white-space:nowrap}
 .help-dl dd{color:var(--mut)}
-.help-note{margin-top:9px;border-top:1px solid var(--line);padding-top:6px;font-size:9.5px;color:var(--mut)}
+.help-note{margin-top:9px;border-top:1px solid var(--line);padding-top:6px;font-size:0.59375rem;color:var(--mut)}
 /* the full citation block in "Rad i atribucija" */
 .help-cite{margin-top:6px;padding:6px 8px;border-left:2px solid var(--acc);background:var(--bg)}
-.help-doi{font-family:var(--mono);font-size:9px;color:var(--mut);margin-top:3px;word-break:break-all}
+.help-doi{font-family:var(--mono);font-size:0.5625rem;color:var(--mut);margin-top:3px;word-break:break-all}
 /* Links to the paper. Ink, not teal: teal on --bg computes to 4.43:1 and these
    run at 9,5–11,5 px, under the 4.5:1 that size owes. Underlined so the link is
    not colour-alone (1.4.1), and thickened rather than recoloured on hover, which
@@ -838,9 +846,9 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .storybar{display:flex;align-items:baseline;gap:10px;max-width:560px;margin:8px auto 0;
   background:var(--ink);color:#F2F3EF;
   border-radius:3px;padding:8px 12px;box-shadow:0 2px 12px rgba(32,38,43,.25)}
-.storybar-k{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+.storybar-k{font-family:var(--mono);font-size:0.5625rem;letter-spacing:.08em;text-transform:uppercase;
   color:#AEB6AC;white-space:nowrap}
-.storybar-t{font-size:11.5px;line-height:1.45}
+.storybar-t{font-size:0.71875rem;line-height:1.45}
 .storybar .card-x{color:#AEB6AC;flex:none}
 .storybar .card-x:hover{color:#fff}
 
@@ -876,7 +884,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 /* hovering a region row in the rail lights that region's counties */
 .cnt.rhl{stroke:var(--ink);stroke-width:1.6}
 .jl:focus-visible{stroke:var(--acc);stroke-width:1.6}
-.citz-clamp{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--loss);
+.citz-clamp{font-family:var(--mono);font-size:0.5625rem;letter-spacing:.04em;color:var(--loss);
   margin-top:5px;line-height:1.35}
 
 /* JLS 2018 map */
@@ -978,15 +986,15 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   .legend{max-width:52vw}
   body.panel-open .legend{display:none}
   .chip-more{display:none}
-  .hd-title{font-size:18px}
-  .big-year{width:84px}.big-year-n{font-size:32px}
+  .hd-title{font-size:1.125rem}
+  .big-year{width:84px}.big-year-n{font-size:2rem}
   /* corridor card joins the detail card in normal flow above the map — see the
      960 px block above, which is where it actually stops floating */
   .storybar{margin:8px 8px 0;max-width:none}
   /* On touch a matrix tap reads the corridor but deliberately does not navigate
      — the rail is the way through. Hiding the hint that says so removed exactly
      the affordance the mobile user needs. */
-  .rail-hint{font-size:9px;padding:7px 14px}
+  .rail-hint{font-size:0.5625rem;padding:7px 14px}
   .rrow.pairrow{grid-template-columns:132px 1fr 52px}
   /* The glossary is taller than the map box on a phone, and anchoring it inside
      .map-box let it run past the viewport (measured at 390×844: bottom 1152) and
@@ -1068,8 +1076,8 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 @media (max-width:560px){
   /* one thumb-sized row per control group; header scrolls with the page */
   .hd{padding:10px 12px 8px;gap:8px}
-  .hd-sub{font-size:10.5px;line-height:1.35}
-  .ctrl-lab{font-size:9px;line-height:11px}
+  .hd-sub{font-size:0.65625rem;line-height:1.35}
+  .ctrl-lab{font-size:0.5625rem;line-height:11px}
   /* 2-col grid: wide groups span both columns, the 2–3 button ones take one.
      `dense` backfills a leftover cell with a later narrow group — which is what
      made Izvoz *relocate* on a view change here, because which group was
@@ -1100,7 +1108,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
      per row would no longer fit and the group would take four rows. */
   .seg{width:100%;flex-wrap:wrap;gap:1px;background:var(--line)}
   .seg button{flex:1 1 auto;min-width:calc(33.333% - 1px);text-align:center;
-    padding:8px 4px;font-size:11.5px;background:var(--panel);border-right:none}
+    padding:8px 4px;font-size:0.71875rem;background:var(--panel);border-right:none}
   /* 9 px is not a size prose gets read at on a phone, and this is the longest
      prose on the page: sources, licences, the study citation and the
      non-affiliation statement — the surfaces the house rules call load-bearing.
@@ -1115,13 +1123,13 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
      The letterspaced mono micro-labels (.ctrl-lab, .hd-eyebrow, .legend-title)
      stay where they are: they are labels, not prose, and they are what the
      header's height budget is spent on. */
-  .ft{padding:8px 12px;font-size:12px;line-height:1.45}
+  .ft{padding:8px 12px;font-size:0.75rem;line-height:1.45}
   /* the county names are the rail's primary data labels — 11 px with a 10,5 px
      mono number beside it is the one place a reader is asked to *compare* values
      on a phone. Both go to 12 px together; the rail is a 34vh scroller here, so
      this changes what fits in it, not what it covers. */
-  .rname{font-size:12px}
-  .rval{font-size:12px}
+  .rname{font-size:0.75rem}
+  .rval{font-size:0.75rem}
   /* and the name column widens to hold them. 120 px was already one pixel short
      of the longest names at 11 px (measured: Dubrovačko-neretvanska wanted
      123,8) and 12 px wants 135, so three of 21 counties were reaching the
@@ -1135,11 +1143,11 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   /* no height override here: Scrubber lays out in user units against sh=96,
      so shrinking the SVG box clips the year-tick axis off the bottom */
   .big-year{width:70px;padding-left:8px}
-  .big-year-n{font-size:26px}
+  .big-year-n{font-size:1.625rem}
   /* honesty labels are load-bearing, and 8–9 px is where they stop being read —
      on the devices most likely to misread the data */
-  .big-year-s{font-size:9px}
-  .legend-note,.citz-note,.jls-note,.help-note{font-size:10px}
+  .big-year-s{font-size:0.5625rem}
+  .legend-note,.citz-note,.jls-note,.help-note{font-size:0.625rem}
   .play{width:32px}
   .legend{left:8px;bottom:8px;max-width:56vw;padding:6px 8px}
   .legend-bar{width:min(160px,44vw)}
@@ -1164,10 +1172,10 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   /* The "?" grows to a thumb target; --hbw is what .zoomrst reads to stay clear
      of it, so the two move together instead of the badge landing on the button. */
   :root{--hbw:44px;--chiph:44px}
-  .helpbtn{font-size:14px}
+  .helpbtn{font-size:0.875rem}
   /* and the zoom reset is a control too — it was the one map button the coarse
      pass skipped, at 9,5 px type in 4/8 px of padding */
-  .zoomrst{min-height:44px;padding:4px 10px;font-size:10.5px}
+  .zoomrst{min-height:44px;padding:4px 10px;font-size:0.65625rem}
   .play{width:48px}
 }
 
@@ -1213,7 +1221,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 /* "Licencije i izvori": one source per row, the link on its own line above the
    note so a long note cannot push the link out of the panel's 330 px. */
 .help-src{margin-top:5px}
-.help-srcnote{color:var(--mut);font-size:10px}
+.help-srcnote{color:var(--mut);font-size:0.625rem}
 
 /* ── forced colors (Windows High Contrast) ────────────────────────────────────
    Measured under `forced-colors: active`: SVG `fill` is not forced, so the 21

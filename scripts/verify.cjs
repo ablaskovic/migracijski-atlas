@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 453;
+const EXPECTED_CHECKS = 454;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -605,6 +605,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('the legend stays inside the map box when the stage is squeezed',
     !legEscape.escapes && legEscape.overCtrls === 0, JSON.stringify(legEscape));
+  /* …and the type tracks the reader's own font-size preference. All 74
+     font-size declarations in index.css were literal px, including the base, so
+     Chrome's Appearance → Font size — the single most discoverable text-size
+     remedy a browser offers, and the one an OS accessibility guide points at —
+     changed nothing: measured at defaultFontSize=32 the root went 16px → 32px and
+     all twelve sampled surfaces were byte-identical, with the header, map box and
+     footer unchanged to the pixel. 33 of the 74 sizes are under 10 px on an atlas
+     whose purpose is reading small numbers. Asserted as a ratio, not as a size,
+     so a copy change cannot break it. */
+  const fsScale = await page.evaluate(() => {
+    const root = document.documentElement;
+    const before = ['body', '.rname', '.legend-note'].map(s => parseFloat(getComputedStyle(document.querySelector(s)).fontSize));
+    root.style.fontSize = '32px';
+    const after = ['body', '.rname', '.legend-note'].map(s => parseFloat(getComputedStyle(document.querySelector(s)).fontSize));
+    root.style.fontSize = '';
+    return { before, after };
+  });
+  ck('every size in the stylesheet tracks the reader’s font-size preference',
+    fsScale.before.every((v, i) => Math.abs(fsScale.after[i] / v - 2) < 0.02),
+    JSON.stringify(fsScale));
   await click('path[data-iso="HR-18"]');
   const cardRow = await page.evaluate(() => ({
     row: document.querySelector('#cardRow')?.textContent || '',
