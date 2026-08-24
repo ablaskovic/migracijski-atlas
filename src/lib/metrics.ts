@@ -428,8 +428,16 @@ export function countyAria(S: State, iso: string): string {
        net reads as the county's own, which is its inverse. */
     const o = fsum(S.sel!, iso, S.yi, S.cum), i = fsum(iso, S.sel!, S.yi, S.cum);
     const h = D[S.sel!].n;
-    return L(`${n}: iz ${h} ${fmtI.format(o)}, u ${h} ${fmtI.format(i)}, neto (${h}) ${sgn(i - o, fmtI)} · ${per}`,
-      `${n}: ${fmtI.format(o)} from ${h}, ${fmtI.format(i)} to ${h}, net (${h}) ${sgn(i - o, fmtI)} · ${per}`);
+    /* …and which of the two it is. This function exists because "the map's
+       tooltip is a visual-only div" (see the note above it), i.e. it is the AT
+       rendering of the very tooltip that appends the measured/estimate badge —
+       and it was the one surface that never said. Every partner county in a
+       shipped IPF year announced an estimate as a bare number, under a glossary
+       that tells the reader these are "this atlas's computation, not published
+       statistics — do not pass them on as CBS figures". */
+    const badge = S.cum ? badgeText('cum') : flowBadge(S.yi, S.cum);
+    return L(`${n}: iz ${h} ${fmtI.format(o)}, u ${h} ${fmtI.format(i)}, neto (${h}) ${sgn(i - o, fmtI)} · ${per} · ${badge}`,
+      `${n}: ${fmtI.format(o)} from ${h}, ${fmtI.format(i)} to ${h}, net (${h}) ${sgn(i - o, fmtI)} · ${per} · ${badge}`);
   }
   if (S.view === 'klas') {
     const k = klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct);

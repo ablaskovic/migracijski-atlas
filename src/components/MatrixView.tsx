@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, fmtI, sgn } from '../lib/metrics.ts';
+import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, badgeText, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
@@ -184,11 +184,16 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      holds Zagrebačka → Grad Zagreb) and read a net balance as a directed flow in
      Neto. `#tip` is aria-hidden, so this string is all AT gets. Same separation of
      "what it points at" from "how it is worded" the rail already makes. */
+  /* …and the honesty badge, which #tip carries for a pointer user and this string
+     did not carry for anyone else. At #v=mx&y=2003 all 420 gridcells announced an
+     IPF-fitted number with no marker at all, while hovering the same cell showed
+     the identical table plus a "procjena (IPF)" pill. */
+  const cellBadge = S.cum ? badgeText('cum') : flowBadge(S.yi, S.cum);
   const cellAria = (a: string, b: string, v: number): string =>
-    S.dir === 'net' ? L(`${D[a].n} ↔ ${D[b].n}: neto ${sgn(Math.round(v), fmtI)} za ${D[a].n}`,
+    (S.dir === 'net' ? L(`${D[a].n} ↔ ${D[b].n}: neto ${sgn(Math.round(v), fmtI)} za ${D[a].n}`,
       `${D[a].n} ↔ ${D[b].n}: net ${sgn(Math.round(v), fmtI)} for ${D[a].n}`)
       : S.dir === 'in' ? `${D[b].n} → ${D[a].n}: ${fmtI.format(Math.round(v))}`
-        : `${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`;
+        : `${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`) + ' · ' + cellBadge;
 
   /* Touch hit-testing: a finger is ~40 px against a ~10 px cell, so relying on
      the cell paths themselves means most taps land in a gap and read nothing.

@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 442;
+const EXPECTED_CHECKS = 443;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -997,6 +997,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     roving.zero === 1 && roving.minus === 419, roving.zero + ' / ' + roving.minus);
   ck('matrix cell exposes its corridor + value to AT',
     /→.+:\s*[\d.]+/.test(roving.lab), roving.lab);
+  /* …and says which of the two it is. countyAria exists because "the map's
+     tooltip is a visual-only div" — it is the AT rendering of the very tooltip
+     that appends the measured/estimate pill — and neither it nor cellAria ever
+     carried the badge. At #v=mx&y=2003 all 420 gridcells announced an IPF-fitted
+     number as a bare figure, under a glossary that says these are the atlas's
+     own computation and must not be passed on as CBS figures. */
+  const ariaBadge = [];
+  for (const [h, sel, want] of [
+    ['#v=mx&y=2018&c=0&dir=out', '.mxc[tabindex="0"]', 'izmjereno'],
+    ['#v=mx&y=2003&c=0&dir=out', '.mxc[tabindex="0"]', 'procjena'],
+    ['#v=mx&y=2018&c=1', '.mxc[tabindex="0"]', 'kumulativno'],
+    ['#v=flow&s=HR-21&y=2018&c=0&dir=out', '.cnt[data-iso="HR-01"]', 'izmjereno'],
+    ['#v=flow&s=HR-21&y=2003&c=0&dir=out', '.cnt[data-iso="HR-01"]', 'procjena'],
+  ]) {
+    await fresh(h);
+    const lab = await page.evaluate(x => (document.querySelector(x) || {}).getAttribute?.('aria-label') || '', sel);
+    if (!lab.includes(want)) ariaBadge.push(h + ' want=' + want + ' got=' + lab.slice(-40));
+  }
+  ck('the accessible name carries the same honesty badge the tooltip shows',
+    ariaBadge.length === 0, ariaBadge.slice(0, 3).join(' | '));
   await page.evaluate(() => document.querySelector('.mxc[tabindex="0"]').focus());
   await page.keyboard.press('ArrowRight');
   await settle(120);
