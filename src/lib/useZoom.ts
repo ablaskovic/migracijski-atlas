@@ -43,6 +43,10 @@ function zoomTo(base: ZoomT, k2: number, px: number, py: number, w: number, h: n
    first. App's handler takes the same guard for the year and playback keys. */
 export function useZoom(w: number, h: number, frozen = false) {
   const [t, setT] = useState<ZoomT>(IDENT);
+  /* the wheel listener is bound imperatively and its effect does not re-run on
+     every transform, so it reads the current k from here rather than closing
+     over a stale one */
+  const tRef = useRef(t); tRef.current = t;
   /* callback ref, not useRef: switching view (map ⇄ matrix) mounts a *new* svg,
      and a plain ref would leave the wheel/click listeners bound to the old one —
      which is why the matrix had no wheel zoom. State makes the effects re-run. */
@@ -120,6 +124,25 @@ export function useZoom(w: number, h: number, frozen = false) {
     const el = node;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      /* Ctrl/Cmd+wheel is the browser's page zoom, and it is the same chord the
+         keyboard half of this file already yields at line 103 for the same
+         stated reason. Swallowing it here took the universal desktop page-zoom
+         gesture away from a low-vision reader whenever the cursor happened to be
+         over the map — while Ctrl+'+' kept working — so one file implemented
+         "browser page zoom keep their keys" for the keyboard and broke it for
+         the wheel. A trackpad pinch also arrives as a ctrlKey wheel and is given
+         up with it: the pinch handler already covers touch, and the plain-wheel
+         path covers every mouse. */
+      if (e.ctrlKey || e.metaKey) return;
+      /* Below 900 px the body is the scroller (index.css), and so is a 1440 px
+         window at 200 % browser zoom — the app's own documented band. Claiming
+         the wheel there left the gesture dead over more than half the viewport:
+         scrolling down neither scrolled nor zoomed, because k was already KMIN,
+         and scrolling up zoomed the map instead of reaching the rail, the
+         timeline and the footer. Same guard App's Space handler takes — hand the
+         wheel back when the page has somewhere to go and the zoom has none. */
+      const canScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
+      if (canScroll && (e.deltaY > 0 ? tRef.current.k <= KMIN : tRef.current.k >= KMAX)) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
       setT(cur => zoomTo(cur, cur.k * Math.pow(2, -e.deltaY / 400), e.clientX - r.left, e.clientY - r.top, w, h));
