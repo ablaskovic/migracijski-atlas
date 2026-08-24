@@ -438,16 +438,27 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('labels toggle off removes labels', labN === 0, String(labN));
 
   /* ── scrubber last tick not clipped ── */
+  /* By content, not by DOM order. The year ticks are rendered before the EU
+     marker label, so `ts[ts.length - 1]` was always the "EU" text at x(2013)+3 —
+     538 px of slack against the chart's right edge, while the real 2025 tick sits
+     6 px from it. Dropping `textAnchor={t === YEND ? 'end' : 'middle'}` from
+     Scrubber hangs the 2025 label ~19 px past the edge and clips it, and this
+     printed ok. The `found === 1` floor keeps a selector miss a failure rather
+     than a silent pass, and both edges are checked because the name says "fully
+     inside". English renders the year without the Croatian ordinal dot. */
   const tick = await page.evaluate(() => {
     const svg = document.querySelector('#spark');
-    const ts = [...svg.querySelectorAll('text')];
-    const last = ts[ts.length - 1];
-    const b = last.getBBox();
-    const ctm = last.getScreenCTM();
+    const ts = [...svg.querySelectorAll('text')].filter(t => /^2025\.?$/.test(t.textContent.trim()));
+    const found = ts.length;
+    if (found !== 1) return { found };
+    const b = ts[0].getBBox();
+    const ctm = ts[0].getScreenCTM();
     const r = svg.getBoundingClientRect();
-    return { right: ctm.e + b.x + b.width, max: r.right };
+    return { found, left: ctm.e + b.x, right: ctm.e + b.x + b.width, min: r.left, max: r.right };
   });
-  ck('scrubber 2025 tick fully inside chart', tick.right <= tick.max + 0.5, tick.right + ' vs ' + tick.max);
+  ck('scrubber 2025 tick fully inside chart',
+    tick.found === 1 && tick.right <= tick.max + 0.5 && tick.left >= tick.min - 0.5,
+    JSON.stringify(tick));
 
   /* fresh boot helper: hash state is read at module init, so force a real reload */
   const fresh = async h => {
