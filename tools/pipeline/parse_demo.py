@@ -80,9 +80,20 @@ for r in rows:
         R[name] = (to_int(r[1]), to_int(r[5]))
 assert R['Ukupno'] == (tot_d, tot_o), (R['Ukupno'], tot_d, tot_o)
 assert sum(R[c][0] for c in CONT) == tot_d and sum(R[c][1] for c in CONT) == tot_o
+# both columns, not just doseljeni: the same drift in odseljeni was unguarded
 assert R['Europska unija'][0] + R['Ostale europske zemlje'][0] == R['Europa'][0]
+assert R['Europska unija'][1] + R['Ostale europske zemlje'][1] == R['Europa'][1]
 countries = sorted(((k,) + v for k, v in R.items() if k not in AGG),
                    key=lambda t: -t[1])[:12]
+# AGG is a literal list of the ten aggregate names this vintage happens to use,
+# and everything else is treated as a country. The sheet already nests residual
+# sub-aggregates — 'Ostale europske zemlje' (19.506) sits under 'Europa' — and
+# under 'Azija' it names only three countries, leaving 2.843 unlisted. The next
+# vintage adding 'Ostale azijske zemlje', the pattern it already applies to
+# Europe, would rank that row sixth and draw it in the Zemlje tab as a country,
+# under a caption that says "najvećih 12 po doseljenima". Nothing above notices:
+# a row nested inside a continent leaves every continent sum unchanged.
+assert not [c for c in countries if c[0].startswith('Ostal')], countries
 
 # cross-source: citizen.json 2025 totals
 cit = json.load(open('../../src/data/citizen.json', encoding='utf-8'))
