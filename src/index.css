@@ -639,15 +639,20 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    to two lines in one tab and one in the other (22 px against 11), which moves
    the tabs even at a constant height; and the content below them is a different
    height per tab, which moves the body's top edge. Both are pinned to the
-   taller state measured in BOTH languages — English is the wider one for
-   Državljanstvo (377 against 364), Croatian and English agree on Dob i spol.
+   taller state measured in BOTH languages, and the pin is a *measurement*, so
+   it moves when the content does: the Zemlje tab gained an "Ostale zemlje" row
+   — the remainder that closes a column of the top twelve against an all-country
+   total — and grew to 385,56 px in both languages, past the 377 that used to be
+   the taller of the two Državljanstvo tabs (English 377,28, Croatian 364,28).
+   Unpinned it slid the tab row 8,6 px up under the pointer, which is the exact
+   defect this rule exists to prevent. Croatian and English agree on Dob i spol.
    `min()` against the same expression the cap uses, so a short window still
    caps the panel instead of a reserve pushing it up through the map's button
    strip: below ~800 px of stage the cap already holds the height constant on
    its own, and there the reserve resolves to exactly the cap. */
 .chipdock .jcard-cap{min-height:22px}
 .chipdock .agec .chip-body{min-height:min(322px,var(--chipfree))}
-.chipdock .citz .chip-body{min-height:min(377px,var(--chipfree))}
+.chipdock .citz .chip-body{min-height:min(386px,var(--chipfree))}
 .citz,.agec{position:static;right:auto;bottom:auto}
 .citz .chip-body{width:296px}
 .agec .chip-body{width:296px}
