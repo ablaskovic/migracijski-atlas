@@ -4433,7 +4433,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     preGate.length === 0, preGate.slice(0, 3).join(' | '));
 
   /* clicking a cell is how the grid doubles as a year picker: it drives the same
-     S.yi the scrubber and every other view read */
+     S.yi the scrubber and every other view read.
+     The caveat sweep above ends on the matrix, so the grid this block reads has
+     to be re-opened — without this the querySelector below returned null and
+     `.dispatchEvent` threw *inside* an evaluate, which aborts the run rather
+     than failing one check. */
+  await fresh('#v=yrs&c=0&y=2024');
   const yclick = await page.evaluate(async () => {
     document.querySelector('#map .yrc[data-iso="HR-21"][data-y="2003"]')
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));
