@@ -317,8 +317,32 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
      S.labels — so in that view the toggle flipped to .on, announced "pressed",
      appended `lb=1` to the shared permalink, and changed nothing on screen. */
   const hasLabels = S.view !== 'mx' && S.view !== 'yrs';
+  /* Measure the name that is actually drawn. The gate used to be a constant 70,
+     while the text is `SHORTN[iso].length * 9 * 0.6` px wide — IBM Plex Mono
+     advances 0,6 em and the type is counter-scaled to 9 px at every k — so one
+     number stood in for names from 8 chars ("Zadarska", 43 px) to 17
+     ("Virovitičko-podr.", 92 px): 27 px too strict for the shortest and 22 px
+     too generous for the longest. Measured, the longest overflowed: at 570×439
+     "Bjelovarsko-bil." was 86 px of text in a 71 px county and overlapped
+     "Zagrebačka"; at 1200×700 "Virovitičko-podr." overlapped "Bjelovarsko-bil."
+     by 18×8 px — two 9 px labels on top of each other over almost their full
+     height — and nothing dropped either, because the filter's survivors were
+     all drawn unconditionally.
+     Halo included: the 2,4 px stroke is painted under the fill on both sides. */
+  const nameW = (iso: string) => SHORTN[iso].length * 9 * 0.6 + 4.8;
+  const placed: number[][] = [];
   const labels = S.labels && drawn && hasLabels
-    ? ISOS.filter(iso => box[iso][0] * k > 70 && box[iso][1] * k > 34)
+    ? ISOS.filter(iso => box[iso][0] * k > nameW(iso) && box[iso][1] * k > 20)
+      /* …and where two still collide, the bigger county keeps its name: sorting
+         by projected area makes the choice deterministic and leaves the label on
+         the county with more room to hold it. */
+      .sort((a, b) => box[b][0] * box[b][1] - box[a][0] * box[a][1])
+      .filter(iso => {
+        const w = nameW(iso) / k / 2, h = 11 / k / 2, [cx, cy] = cent[iso];
+        const r = [cx - w, cy - h, cx + w, cy + h];
+        if (placed.some(q => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1])) return false;
+        placed.push(r); return true;
+      })
     : [];
   const labelG = (
     <g>

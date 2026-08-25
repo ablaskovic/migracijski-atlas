@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 455;
+const EXPECTED_CHECKS = 457;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -645,6 +645,38 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await click('#labBtn');
   let labN = await page.evaluate(() => document.querySelectorAll('#map .clab').length);
   ck('labels toggle draws >= 12 county labels', labN >= 12, String(labN));
+  /* …and each of them names the county it is drawn on. Anchored on the
+     area-weighted centroid, two did not: "Zadarska" was painted on the Zadar
+     channel (`geoContains` puts that point in no county at all) and
+     "Brodsko-pos." on top of Požeško-slavonska. Hit-tested rather than
+     recomputed, so this measures what a reader's eye lands on. */
+  const labHost = await page.evaluate(() => [...document.querySelectorAll('#map .clab')].map(t => {
+    const b = t.getBoundingClientRect();
+    const el = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+    return { name: t.textContent, iso: el ? el.getAttribute('data-iso') : null };
+  }));
+  const labMiss = labHost.filter(l => !l.iso);
+  ck('every county label is drawn on the county it names',
+    labHost.length >= 12 && labMiss.length === 0,
+    JSON.stringify(labMiss.slice(0, 4)));
+  /* The gate used to compare the county's bbox against a constant 70 px while
+     the drawn name runs 43–92 px, so the longest overflowed and nothing dropped
+     the loser: measured, "Virovitičko-podr." sat on "Bjelovarsko-bil." over
+     almost its full height. Overlap is measured pairwise on the rendered boxes,
+     halo included. */
+  const labOver = await page.evaluate(() => {
+    const L = [...document.querySelectorAll('#map .clab')].map(t => t.getBoundingClientRect());
+    const hits = [];
+    for (let i = 0; i < L.length; i++) {
+      for (let j = i + 1; j < L.length; j++) {
+        const ox = Math.min(L[i].right, L[j].right) - Math.max(L[i].left, L[j].left);
+        const oy = Math.min(L[i].bottom, L[j].bottom) - Math.max(L[i].top, L[j].top);
+        if (ox > 0 && oy > 0) hits.push(i + '×' + j + ' ' + ox.toFixed(1) + 'x' + oy.toFixed(1));
+      }
+    }
+    return hits;
+  });
+  ck('no two county labels overlap', labOver.length === 0, labOver.slice(0, 3).join(' | '));
   await click('#labBtn');
   labN = await page.evaluate(() => document.querySelectorAll('#map .clab').length);
   ck('labels toggle off removes labels', labN === 0, String(labN));
