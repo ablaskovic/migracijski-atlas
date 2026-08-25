@@ -3658,15 +3658,45 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      clipped by the canvas edge */
   const noteRows = [...eKlas.svg.matchAll(/<text x="20" y="(\d+(?:\.\d+)?)"[^>]*font-size="8\.5"/g)]
     .map(m => +m[1]).sort((a, b) => a - b);
-  const swatch = +(eKlas.svg.match(/<rect x="20" y="(\d+(?:\.\d+)?)" width="11"/) || [0, 0])[1];
   /* The rows wrap now, so their count depends on the width; what does not
      change is the rhythm and the clearance. Bottom-up: source credit, figure
      licence, study reference, revision caveat — at least four rows for a study
-     view, 14 px apart, the topmost clearing the legend's last line by 12 px. */
+     view, 14 px apart, clear of the legend above them.
+     The clearance is measured on rendered ink. It used to be `noteRows[0] -
+     swatch >= 12` where `swatch` was the y ATTRIBUTE of the legend's colour
+     chip — but the legend's label sits on a baseline 9 px below that, and the
+     8,5 px credit glyphs rise ~6,5 px above their own baseline. Algebraically
+     the whole condition collapsed to `legendBottom >= 10`, because
+     noteRows[0] − swatch is exactly legendBottom + 2 whatever the row count:
+     tune exportPng's legendBottom from 40 down to 10 and this printed ok while
+     the credit's ascenders sat 3 px above the legend label's baseline, i.e. the
+     two runs of text overlapped. Boxes now, in the same offscreen holder the
+     title-fit check builds, over both study views — Regije is the tighter one
+     (8 px of air against Klasifikacija's 21). */
+  const inkGap = await page.evaluate(([a, b]) => {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:absolute;left:-9999px;top:0';
+    document.body.appendChild(holder);
+    const of = doc => {
+      holder.innerHTML = doc;
+      const svg = holder.querySelector('svg');
+      const inner = svg.querySelector('svg').getBBox();
+      const below = [...svg.querySelectorAll(':scope > text, :scope > rect')]
+        .map(el => ({ el, b: el.getBBox() }))
+        .filter(o => o.b.y >= inner.y + inner.height - 1);
+      const credit = below.filter(o => o.el.getAttribute('font-size') === '8.5');
+      const legend = below.filter(o => !credit.includes(o));
+      return +(Math.min(...credit.map(o => o.b.y))
+        - Math.max(...legend.map(o => o.b.y + o.b.height))).toFixed(1);
+    };
+    const r = { klas: of(a), reg: of(b) };
+    holder.remove();
+    return r;
+  }, [eKlas.svg, eReg.svg]);
   ck('the exported disclaimer is a line of its own, clear of the legend and the credit',
     noteRows.length >= 4 && noteRows.every((y, i) => i === 0 || y - noteRows[i - 1] === 14)
-    && noteRows[0] - swatch >= 12,
-    JSON.stringify({ noteRows, swatch }));
+    && inkGap.klas >= 6 && inkGap.reg >= 6,
+    JSON.stringify({ noteRows, inkGap }));
 
   /* ══════════ v2.0.7 — a corridor opens where it was picked ══════════
      Activating a matrix cell used to set `{view:'flow', sel:a, pair:b}`, which
