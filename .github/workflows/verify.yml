@@ -31,7 +31,7 @@ jobs:
           node-version: '22.12'
           cache: npm
       - run: npm ci
-      # Chrome for the 448 puppeteer checks; --no-save keeps it out of the manifest
+      # Chrome for the 463 puppeteer checks; --no-save keeps it out of the manifest
       - run: npm i --no-save puppeteer
       # tsc --noEmit && oxlint --deny-warnings && vite build && verify.cjs dist
       - run: npm run verify
