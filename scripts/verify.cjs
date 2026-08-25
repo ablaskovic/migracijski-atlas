@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 461;
+const EXPECTED_CHECKS = 462;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6001,6 +6001,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('and a group leaving or being swapped moves no control either, 1992 to 2560, in both languages',
     hopMoves.length === 0, hopMoves.slice(0, 3).join('  ;  ').slice(0, 300));
+
+  /* …in the pointer mode the band was actually measured in. index.css re-pads
+     every control to 44 px under (pointer:coarse), which takes the row
+     1391 → 1522 in Saldo and 1646,6 → 1789,6 in Klasifikacija and moves the
+     shared-line band to 2148–2415 — but every sweep above sets only width and
+     height, so `@media (pointer:coarse)` matched at no width above 390 and the
+     band the fix is about was entered by nothing. 2272 was chosen as "the top of
+     the band and the worst case" and then only ever exercised in the mode where
+     it is not one; a regression confined to the coarse block (a stray
+     `.ctrls{flex-basis:auto}` in it) reproduces the original 841 px hop on a
+     large touch display with every sweep still green.
+     `pointer` is not one of the features puppeteer's emulateMediaFeatures
+     accepts, so the mode comes from the viewport flags the 390 branch already
+     uses — and the check asserts it took, since silently running fine is
+     precisely the hole being closed. */
+  const coarseMoves = [];
+  let coarseOn = false;
+  for (const W of [2415, 2272, 2148]) {
+    await page.setViewport({ width: W, height: 1080, hasTouch: true, isMobile: true });
+    for (const [from, to] of [['klas', 'saldo'], ['saldo', 'klas'], ['klas', 'jmap']]) {
+      await fresh('#v=' + from);
+      coarseOn = await page.evaluate(() => matchMedia('(pointer:coarse)').matches
+        && getComputedStyle(document.documentElement).getPropertyValue('--hbw').trim() === '44px');
+      const before = await page.evaluate(CTRL_SNAP);
+      await click(`#segView button[data-v="${to}"]`);
+      await settle(200);
+      const m = movedBetween(before, await page.evaluate(CTRL_SNAP));
+      if (m.length) coarseMoves.push(`${W}px coarse ${from}→${to}: ` + m.join(' | '));
+    }
+  }
+  ck('and none of it moves with a coarse pointer either, across its own 2148–2415 band',
+    coarseOn && coarseMoves.length === 0,
+    coarseOn ? coarseMoves.slice(0, 3).join('  ;  ').slice(0, 300) : 'pointer:coarse never matched');
   await page.setViewport({ width: 1440, height: 900 });
 
 
