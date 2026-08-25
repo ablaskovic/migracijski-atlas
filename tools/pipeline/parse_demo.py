@@ -36,7 +36,7 @@ assert sum(d) == tot_d and sum(o) == tot_o, (sum(d), tot_d, sum(o), tot_o)
 # ── II T2: unutarnja by age (ukupno rows; col2 = total preseljeno, col5 = among counties) ──
 ws = wb['II T2']
 rows = list(ws.iter_rows(values_only=True))
-intm, int_tot, int_m, int_cty = [], None, 0, None
+intm, int_ages, int_tot, int_m, int_cty = [], [], None, 0, None
 cur_age = None
 for r in rows:
     a = str(r[0]).strip() if r[0] is not None else ''
@@ -48,8 +48,17 @@ for r in rows:
     elif sex == 'muškarci' and cur_age == 'Ukupno':
         int_m = to_int(r[2])
     elif sex == 'ukupno' and cur_age and (cur_age[0].isdigit() or cur_age.startswith('75')):
+        int_ages.append(cur_age.replace(' – ', '–').replace('75 i više', '75+'))
         intm.append(to_int(r[2]))
 assert len(intm) == 16, len(intm)
+# demo.json ships ONE `ages` array and AgePanel labels both tabs from it, indexing
+# `intm[i]` against `ages[i]` — but `ages` comes from I T3 and `intm` from II T2,
+# two different sheets, and the only thing tying them together was that both had
+# 16 rows. A DZS re-banding of II T2 that kept the count (collapse 0–4/5–9, split
+# 75+ into 75–79/80+) would plot every internal-migration bar against the wrong
+# label and name the wrong band in the panel's "vrh:" readout, with nothing
+# firing. Compare the labels, not the count.
+assert int_ages == ages, (int_ages, ages)
 assert sum(intm) == int_tot, (sum(intm), int_tot)
 
 # cross-source: among-counties total == sum of oi margins for 2025 (closed system)
