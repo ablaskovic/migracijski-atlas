@@ -20,6 +20,7 @@ import StoryBar from './StoryBar.tsx';
 import { moveTip, COARSE } from '../lib/tip.ts';
 import { L } from '../lib/i18n.ts';
 import { focusSoon, isKeyFocus } from '../lib/state.ts';
+import { offCentre } from '../lib/anchors.ts';
 import { useSuspendMapStops } from '../lib/suspendMap.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -185,6 +186,14 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
       cds[iso] = p(f)!; cent[iso] = p.centroid(f);
       const b = p.bounds(f); box[iso] = [b[1][0] - b[0][0], b[1][1] - b[0][1]];
     });
+    /* …except where that centroid is not in the county it names: Zadarska's is
+       in the Zadar channel and Brodsko-posavska's is inside Požeško-slavonska,
+       so the label and the Tokovi hub were drawn at sea and on the wrong county
+       respectively. lib/anchors.ts explains the correction and why it is a
+       lon/lat constant of the geometry rather than of the viewport. */
+    for (const [iso, ll] of Object.entries(offCentre())) {
+      const q = proj(ll); if (q) cent[iso] = q;
+    }
     return { drawn: true, cent, cds, box, p };
   }, [size]);
   /* the same projection as the counties, built only for the view that draws it */
