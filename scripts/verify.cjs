@@ -2336,7 +2336,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     holder.innerHTML = `<div id="figA">${a}</div><div id="figB">${b}</div>`;
     document.body.appendChild(holder);
     const seen = new Set(), dup = [];
-    holder.querySelectorAll('[id]').forEach(e => { if (seen.has(e.id)) dup.push(e.id); seen.add(e.id); });
+    /* the two wrappers are this check's own scaffolding, not the figures' ids */
+    for (const fig of ['figA', 'figB']) {
+      holder.querySelector('#' + fig).querySelectorAll('[id]')
+        .forEach(e => { if (seen.has(e.id)) dup.push(e.id); seen.add(e.id); });
+    }
     /* every url(#…) must resolve, and inside the figure that wrote it */
     const stray = [];
     for (const fig of ['figA', 'figB']) {
@@ -4109,10 +4113,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       holder.innerHTML = doc;
       document.body.appendChild(holder);
       const svg = holder.querySelector('svg');
-      const swatch = [...svg.querySelectorAll(':scope > rect')]
-        .filter(x => x.getAttribute('width') === '11').map(x => +x.getAttribute('x'));
+      const chips = [...svg.querySelectorAll(':scope > rect')]
+        .filter(x => x.getAttribute('width') === '11');
+      const swatch = chips.map(x => +x.getAttribute('x'));
+      /* the three swatch labels, by position rather than by size: they sit on
+         the baseline 9 px under their own chip. Filtering on the font-size or
+         on the · separator would also catch the credit rows, which carry both. */
+      const base = chips.length ? +chips[0].getAttribute('y') + 9 : NaN;
       const labs = [...svg.querySelectorAll(':scope > text')]
-        .filter(t => /·/.test(t.textContent) && +t.getAttribute('font-size') < 10);
+        .filter(t => Math.abs(+t.getAttribute('y') - base) < 1);
       const over = labs.filter((t, i) => swatch[i + 1] !== undefined
         && t.getBBox().x + t.getBBox().width > swatch[i + 1]).map(t => t.textContent);
       const naked = labs.filter(t => !/IBM Plex Mono|Oswald/.test(t.getAttribute('font-family') || ''))
