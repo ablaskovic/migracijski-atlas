@@ -13,6 +13,18 @@
 # to spare a fresh clone and a cold deploy the Chrome download. That argument is
 # about clones and deploys, not about a CI runner that installs once per job, so
 # it is added here with --no-save and nothing in package.json moves.
+#
+# One thing this runner cannot answer. index.css's metric-matched fallback faces
+# wrap system faces by name — src:local('Arial'), local('Courier New'),
+# local('Arial Narrow') — and `local()` matches an installed face rather than
+# going through fontconfig's aliasing, so on Linux all three resolve to nothing
+# even though `font-family: Arial` finds Liberation Sans. index.css says what
+# happens then: the face is skipped and the stack behaves as it did before. The
+# three font-swap checks therefore take their documented-degradation arm here and
+# print "local() faces absent" in their detail line. The CLS guarantee they exist
+# to pin is real, but it is pinned on a machine that has those faces — a green
+# run here is not evidence for it. Installing them would not fix that either:
+# msttcorefonts carries Arial and Courier New but no Arial Narrow.
 name: verify
 
 on:

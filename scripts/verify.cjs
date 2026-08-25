@@ -5216,10 +5216,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
           ['IBM Plex Mono', 'Courier New', 400, 'DZS tab. 7.4.1.–7.4.3. · OpenStreetMap ODbL · CC BY 4.0'],
           ['Oswald', 'Arial Narrow', 600, 'MIGRACIJSKI ATLAS ŽUPANIJA'],
         ];
+        /* Whether the wrapped face exists on THIS machine, measured two ways
+           that must agree: the font API's own answer, and whether the family
+           still measures as the browser's default (i.e. resolved to nothing).
+           `SENT` is a family that cannot exist, so it is what "no face" looks
+           like. */
+        const SENT = 'ZZ no such family 12345';
         const out = cases.map(([real, loc, wt, s]) => ({
           f: real + ' ' + wt,
           fb: +Math.abs(w(real + ' Fallback', wt, s) / w(real, wt, s) - 1).toFixed(4),
           raw: +Math.abs(w(loc, wt, s) / w(real, wt, s) - 1).toFixed(4),
+          /* the real webfont itself — self-hosted, so it must load everywhere */
+          webfont: w(real, wt, s) !== w(SENT, wt, s),
+          loaded: document.fonts.check(wt + ' 100px "' + real + ' Fallback"')
+            && w(real + ' Fallback', wt, s) !== w(SENT, wt, s),
         }));
         el.remove();
         return out;
@@ -5233,15 +5243,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const swapNarrowMoved = ['hd', 'main', 'ft', 'scrub'].map(k => ({ k,
     dTop: +(swapNarrow.real[k][0] - swapNarrow.fallback[k][0]).toFixed(1),
     dH: +(swapNarrow.real[k][1] - swapNarrow.fallback[k][1]).toFixed(1) }));
+  /* …on a machine that HAS the faces these three rules wrap. Each one is
+     `src:local('Arial')` / `local('Courier New')` / `local('Arial Narrow')`, and
+     index.css states the other case: "if local() resolves to nothing — Arial
+     Narrow is frequently absent on Linux — the face is skipped and the stack
+     behaves exactly as it did before." On a Linux CI runner that is every one of
+     them, and not because the fonts are missing: `font-family: Arial` goes
+     through fontconfig's aliasing and finds Liberation Sans, while `local()`
+     matches an installed face by name and finds nothing. Measured on
+     ubuntu-latest and reproduced here by rewriting only those three names in the
+     built CSS — identical width errors to four decimal places, 0,0787 / 0,0487 /
+     0,2708 / 0,3124, as all four Fallback families fall through to the browser's
+     default font.
+     So the swap guarantee is a claim about a machine with those faces, and
+     asserting it everywhere made a green CI impossible for a reason that is not
+     a defect. It is asserted where it applies; where it does not, what is
+     asserted instead is the degradation index.css promises — never a skip, and
+     the detail line says which of the two ran. */
+  const fbHere = swap.widths.every(x => x.loaded);
+  const fbMode = fbHere ? 'metric-matched faces present' : 'local() faces absent (documented degradation)';
+  /* with the faces absent the swap moves things by definition; what still has to
+     hold is that the stack degrades to something usable rather than to nothing */
+  const laidOut = snap => ['hd', 'main', 'ft', 'scrub'].every(k => snap[k][1] > 0);
   ck('and it moves nothing at 390 px either, where the type scale changes',
-    swapNarrowMoved.every(m => m.dTop === 0 && m.dH === 0),
-    JSON.stringify(swapNarrowMoved.filter(m => m.dTop || m.dH)));
+    fbHere ? swapNarrowMoved.every(m => m.dTop === 0 && m.dH === 0)
+      : laidOut(swapNarrow.fallback) && laidOut(swapNarrow.real),
+    fbMode + ' ' + JSON.stringify(swapNarrowMoved.filter(m => m.dTop || m.dH)));
   ck('the font swap moves nothing: header, main, footer and scrubber are identical',
-    swapMoved.length === 4 && swapMoved.every(m => m.dTop === 0 && m.dH === 0),
-    JSON.stringify(swapMoved));
+    swapMoved.length === 4 && (fbHere ? swapMoved.every(m => m.dTop === 0 && m.dH === 0)
+      : laidOut(swap.fallback) && laidOut(swap.real)),
+    fbMode + ' ' + JSON.stringify(swapMoved));
   ck('and each fallback face is closer to its webfont’s width than doing nothing',
-    swap.widths.length === 4 && swap.widths.every(x => x.fb <= x.raw && x.fb < 0.02),
-    JSON.stringify(swap.widths));
+    swap.widths.length === 4 && swap.widths.every(x => x.webfont)
+    && (fbHere ? swap.widths.every(x => x.fb <= x.raw && x.fb < 0.02)
+      /* every one skipped, which is what index.css says happens — a face that
+         resolved but measured wrong would fail both arms */
+      : swap.widths.every(x => !x.loaded)),
+    fbMode + ' ' + JSON.stringify(swap.widths));
 
   /* ══ v2.2.0 — the second language ═══════════════════════════════════════
      The atlas is Croatian and stays Croatian by default; English exists so it
