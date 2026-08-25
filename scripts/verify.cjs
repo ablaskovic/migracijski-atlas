@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 462;
+const EXPECTED_CHECKS = 463;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4941,6 +4941,67 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && new Set(sitemap.locs.map(l => new URL(l).origin)).size === 1
     && smPath.startsWith(new URL(sitemap.locs[0]).origin),
     JSON.stringify({ smPath, ...sitemap }));
+
+  /* …and the third copy of that origin. The suite had no assertion on <head>
+     at all — no canonical, no og:, no twitter:, no meta description — so
+     deleting the canonical, letting it drift to a stale origin, or dropping
+     og:title printed ALL CHECKS PASS. The block above even compared the
+     sitemap's <loc> origin against the robots.txt Sitemap line and never
+     against index.html, which is where the same origin is written a third time.
+     That is the same file-agreement pattern this suite already enforces between
+     credits.ts and the <noscript>, applied to the one place a deployment
+     mistake actually shows up.
+     Presence, absoluteness and agreement — never the strings themselves, or
+     every copy edit would be a suite failure. Both locales, because the
+     canonical is per-locale and the hreflang set has to be reciprocal on each. */
+  const headMeta = {};
+  for (const [lang, h] of [['hr', ''], ['en', '?l=en']]) {
+    await page.goto('about:blank');
+    await page.goto(url + h, { waitUntil: 'networkidle0' });
+    await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+    await settle(300);
+    headMeta[lang] = await page.evaluate(() => {
+      const at = sel => (document.querySelector(sel) || {}).getAttribute?.('href')
+        || (document.querySelector(sel) || {}).content || '';
+      return {
+        lang: document.documentElement.lang,
+        canon: at('link[rel="canonical"]'),
+        alts: [...document.querySelectorAll('link[rel="alternate"]')]
+          .map(l => l.hreflang + '=' + l.getAttribute('href')).sort(),
+        og: ['og:type', 'og:title', 'og:description', 'og:locale', 'og:locale:alternate']
+          .map(k => (document.querySelector(`meta[property="${k}"]`) || {}).content || ''),
+        tw: at('meta[name="twitter:card"]'),
+        desc: at('meta[name="description"]'),
+        author: at('meta[name="author"]'),
+        title: document.title,
+      };
+    });
+  }
+  const origin = new URL(sitemap.locs[0]).origin;
+  const headBad = [];
+  for (const [lang, hd] of Object.entries(headMeta)) {
+    if (hd.lang !== lang) headBad.push(lang + ' documentElement.lang=' + hd.lang);
+    /* absolute, on the sitemap's origin, and self-referential per locale */
+    if (!hd.canon.startsWith(origin)) headBad.push(lang + ' canonical=' + hd.canon);
+    if ((lang === 'en') !== /\?l=en$/.test(hd.canon)) headBad.push(lang + ' canonical not self-referential: ' + hd.canon);
+    /* the hreflang set is the same on both pages and covers both plus x-default */
+    if (hd.alts.length !== 3 || !hd.alts.every(a => a.includes(origin))
+      || !hd.alts.some(a => a.startsWith('x-default='))
+      || !hd.alts.some(a => a === 'en=' + origin + '/?l=en')) headBad.push(lang + ' alts=' + hd.alts.join(' '));
+    /* every locs entry has to be reachable from the head, and vice versa */
+    for (const loc of sitemap.locs) {
+      if (!hd.alts.some(a => a.endsWith('=' + loc))) headBad.push(lang + ' sitemap loc unlinked: ' + loc);
+    }
+    if (hd.og.some(v => !v)) headBad.push(lang + ' og=' + JSON.stringify(hd.og));
+    if (hd.og[3] !== (lang === 'en' ? 'en_GB' : 'hr_HR')) headBad.push(lang + ' og:locale=' + hd.og[3]);
+    if (hd.og[4] === hd.og[3]) headBad.push(lang + ' og:locale:alternate = og:locale');
+    if (!hd.tw || !hd.desc || !hd.author || !hd.title) headBad.push(lang + ' empty head field');
+  }
+  /* and the two locales must not be serving each other's copy */
+  if (headMeta.hr.desc === headMeta.en.desc || headMeta.hr.title === headMeta.en.title) headBad.push('hr and en share head copy');
+  ck('the head carries a per-locale canonical, an hreflang set and complete cards, on one origin',
+    headBad.length === 0, headBad.slice(0, 3).join(' | '));
+  await fresh('');
 
   /* The first-paint placeholder. #root was empty until React mounted, which on
      the mobile profile meant 2.054 ms of "render delay" — 76 % of LCP — spent
