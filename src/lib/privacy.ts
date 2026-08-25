@@ -31,10 +31,15 @@ import { L } from './i18n.ts';
 export const ANALYTICS_VENDOR = 'Vercel';
 export const ANALYTICS_URL = 'https://vercel.com/docs/analytics/privacy-policy';
 
-/** One sentence for the footer's fixed lane. */
+/** One sentence for the footer's fixed lane — and it has to *fit* that lane.
+    Measured at 1440: the footer wraps to 75 px with room to spare on its last
+    line, and the first draft of this sentence was long enough to take a fourth
+    one — 88 px of footer, 557 px of map, i.e. the disclosure quietly billed the
+    map 13 px. The clause is a sentence shorter now and the full statement is in
+    the glossary, where there is room for the reason. */
 export const privacyShort = (): string => L(
-  'Mjerenje posjeta: Vercel Web Analytics — bez kolačića i bez podataka pohranjenih na uređaju.',
-  'Usage measurement: Vercel Web Analytics — no cookies and nothing stored on your device.');
+  'Mjerenje posjeta: Vercel Web Analytics, bez kolačića i pohrane na uređaju.',
+  'Usage measurement: Vercel Web Analytics, no cookies or on-device storage.');
 
 /** The full statement, for the glossary, which has room for the reason. */
 export const privacyNote = (): string => L(

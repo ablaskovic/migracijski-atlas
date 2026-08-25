@@ -53,7 +53,7 @@ export function useZoom(w: number, h: number, frozen = false) {
   const [node, setNode] = useState<SVGSVGElement | null>(null);
   const ref = useCallback((el: SVGSVGElement | null) => setNode(el), []);
   const pts = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ d: number; cx: number; cy: number; t: ZoomT } | null>(null);
+  const gesture = useRef<{ ids: [number, number]; d: number; cx: number; cy: number; t: ZoomT } | null>(null);
   const drag = useRef<{ x: number; y: number; t: ZoomT; moved: boolean } | null>(null);
   /* a pan ends with a click on whatever path was under the cursor — swallow it,
      otherwise dragging the map also selects a county */
@@ -175,8 +175,14 @@ export function useZoom(w: number, h: number, frozen = false) {
     panned.current = false;   /* a fresh gesture starts as a click until it moves */
     pts.current.set(e.pointerId, local(e));
     if (pts.current.size === 2) {
+      const [ia, ib] = [...pts.current.keys()];
       const [a, b] = [...pts.current.values()];
-      gesture.current = { d: Math.hypot(a.x - b.x, a.y - b.y),
+      /* Record WHICH two pointers the gesture is between, not just that there
+         were two. With a third finger down and one of the first two lifted,
+         `size` returns to 2 over a different pair, and the move handler kept
+         measuring against the original `d` — so the zoom jumped by the ratio
+         between two unrelated finger spans. Identity is what a gesture is. */
+      gesture.current = { ids: [ia, ib], d: Math.hypot(a.x - b.x, a.y - b.y),
         cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, t };
       drag.current = null;
     } else if (pts.current.size === 1 && e.pointerType !== 'touch') {
@@ -189,8 +195,8 @@ export function useZoom(w: number, h: number, frozen = false) {
     if (!pts.current.has(e.pointerId)) return;
     pts.current.set(e.pointerId, local(e));
     const g = gesture.current;
-    if (g && pts.current.size >= 2) {
-      const [a, b] = [...pts.current.values()];
+    if (g && g.ids.every(id => pts.current.has(id))) {
+      const a = pts.current.get(g.ids[0])!, b = pts.current.get(g.ids[1])!;
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       if (!d || !g.d) return;
       const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
@@ -219,7 +225,9 @@ export function useZoom(w: number, h: number, frozen = false) {
       try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
     }
     pts.current.delete(e.pointerId);
-    if (pts.current.size < 2) gesture.current = null;
+    /* the gesture ends when either of ITS OWN pointers goes, not when the count
+       happens to drop below two */
+    if (gesture.current && !gesture.current.ids.every(id => pts.current.has(id))) gesture.current = null;
     if (!pts.current.size) drag.current = null;
   };
 
