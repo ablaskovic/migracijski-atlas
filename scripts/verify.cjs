@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 460;
+const EXPECTED_CHECKS = 461;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4059,6 +4059,41 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('and the counts it qualifies are still the 7 / 5 / 9 that made it necessary',
     /pobjednice · 7/.test(klasCmp.counts[0]) && /neutralne · 5/.test(klasCmp.counts[1])
     && /gubitnice · 9/.test(klasCmp.counts[2]), JSON.stringify(klasCmp.counts));
+  /* …and the exported twin of that legend has to be readable on a machine that
+     has none of the app's fonts installed. It asked for IBM Plex Sans, which
+     exportFonts deliberately does not embed — its comment says the only text
+     wanting that family is the PNG's canvas legend, drawn by the page with the
+     real face, which was not true of the SVG. So the three swatch labels fell
+     back to a substitute while every other string in the same figure came from
+     an embedded face, and the advance estimate they were laid out with
+     (`t.length * 5.6`, Plex Sans at 10 px) under-measured a wider substitute
+     enough to run a label into the next swatch. Measured on the rendered ink,
+     in both languages, since the English labels sit at different offsets. */
+  const klasSvg = [];
+  for (const h of ['#v=klas&c=1&y=2024', '#l=en&v=klas&c=1&y=2024']) {
+    await fresh(h);
+    const r = await page.evaluate(() => {
+      const doc = window.__exportSVG(false);
+      const holder = document.createElement('div');
+      holder.style.cssText = 'position:absolute;left:-9999px;top:0';
+      holder.innerHTML = doc;
+      document.body.appendChild(holder);
+      const svg = holder.querySelector('svg');
+      const swatch = [...svg.querySelectorAll(':scope > rect')]
+        .filter(x => x.getAttribute('width') === '11').map(x => +x.getAttribute('x'));
+      const labs = [...svg.querySelectorAll(':scope > text')]
+        .filter(t => /·/.test(t.textContent) && +t.getAttribute('font-size') < 10);
+      const over = labs.filter((t, i) => swatch[i + 1] !== undefined
+        && t.getBBox().x + t.getBBox().width > swatch[i + 1]).map(t => t.textContent);
+      const naked = labs.filter(t => !/IBM Plex Mono|Oswald/.test(t.getAttribute('font-family') || ''))
+        .map(t => t.getAttribute('font-family'));
+      holder.remove();
+      return { n: labs.length, over, naked, sans: /IBM Plex Sans/.test(doc) };
+    });
+    if (r.n !== 3 || r.over.length || r.naked.length || r.sans) klasSvg.push(h + ' ' + JSON.stringify(r));
+  }
+  ck('the exported klasifikacija legend draws in an embedded face and clears its swatches',
+    klasSvg.length === 0, klasSvg.join(' | '));
   /* One note, never two — the klas legend is the tallest in the app and both
      .helpcard and .jcard reserve a lane for it. The bound said 164, which was the
      reserve BEFORE index.css raised it to 176 for the English string; the panels

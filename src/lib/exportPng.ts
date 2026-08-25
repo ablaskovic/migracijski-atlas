@@ -510,11 +510,24 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
   let defs = '', legSvg = '';
   if (leg.kind === 'klas') {
     let lx = 20;
+    /* Mono, and measured. exportFonts embeds Mono and Oswald only and states
+       why: "the only text that asks for [IBM Plex Sans] is the PNG's canvas
+       legend, which is drawn by the page and already has the real face." That
+       was not true of this branch — the SVG twin is drawn by whoever opens the
+       file, so on a machine without Plex Sans these three labels fell back to a
+       substitute while every other string in the same figure came out of an
+       embedded face: one figure, two typefaces, in the honesty legend. The
+       advance estimate went with it: `t.length * 5.6` is Plex Sans at 10 px
+       (~0,55 em), and a wider substitute (DejaVu Sans, ~0,64 em) ran a
+       14-character label ~90 px against the 78 px budgeted, into the next
+       swatch. 9,5 px mono is what the other legend labels below already use. */
+    const mctx = measureCtx();
+    if (mctx) mctx.font = `400 9.5px ${MONO_CSS}`;
     for (const k of ['gain', 'neu', 'loss'] as const) {
       const t = KLAB[k] + ' · ' + leg.counts[k];
       legSvg += `<rect x="${lx}" y="${ly}" width="11" height="11" fill="${KCOL[k]}" stroke="rgba(0,0,0,.15)"/>`
-        + txt(lx + 16, ly + 9, t, `font-family="IBM Plex Sans,system-ui,sans-serif" font-size="10" fill="#20262B"`);
-      lx += 16 + t.length * 5.6 + 18;
+        + txt(lx + 16, ly + 9, t, `font-family="${MONO}" font-size="9.5" fill="#20262B"`);
+      lx += 16 + (mctx ? mctx.measureText(t).width : t.length * 5.7) + 18;
     }
   } else {
     const neg = leg.kind === 'div';
