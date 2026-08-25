@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 457;
+const EXPECTED_CHECKS = 458;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -776,6 +776,34 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await settle(150);
   adash = await page.evaluate(() => [...document.querySelectorAll('.arc')].map(a => a.getAttribute('stroke-dasharray')));
   ck('2017 (IPF) arcs dashed', adash.length > 0 && adash.every(d => d === '7 4'), String(adash.length));
+  /* …and none of the flow ink may grow with the zoom. Every stroke in this svg
+     is inside the zoom transform: the county borders take non-scaling-stroke and
+     the labels are counter-scaled, and the arcs were the one exception — at KMAX
+     the widest rendered 13 × 8 = 104 px across, 18 % of the default box, with a
+     198 px arrowhead and a ~72 px hub dot, burying the county a reader had
+     zoomed in to read while it stayed hoverable (.arc is pointer-events:none).
+     Measured on screen, through getScreenCTM, not on the attribute. */
+  const arcMeas = () => page.evaluate(() => {
+    const a = [...document.querySelectorAll('.arc')];
+    const m = a[0].getScreenCTM();
+    const heads = [...document.querySelectorAll('.arch')]
+      .map(x => { const b = x.getBoundingClientRect(); return Math.hypot(b.width, b.height); });
+    return { k: +m.a.toFixed(2),
+      w: Math.max(...a.map(x => parseFloat(x.getAttribute('stroke-width')) * m.a)),
+      h: Math.max(...heads), hub: document.querySelector('.hubdot').getBoundingClientRect().width,
+      dash: (a[0].getAttribute('stroke-dasharray') || '').split(' ').map(v => +v * m.a).join(' ') };
+  });
+  const arcAt1 = await arcMeas();
+  for (let i = 0; i < 25; i++) await page.keyboard.press('Equal');
+  await settle(300);
+  const arcAtMax = await arcMeas();
+  await page.keyboard.press('Digit0');
+  await settle(200);
+  const arcSame = (a, b) => Math.abs(a - b) <= 0.6;
+  ck('arcs, arrowheads, the hub dot and the dash hold their screen size at KMAX',
+    arcAtMax.k >= 7.9 && arcSame(arcAt1.w, arcAtMax.w) && arcSame(arcAt1.h, arcAtMax.h)
+    && arcSame(arcAt1.hub, arcAtMax.hub) && arcAt1.dash === arcAtMax.dash,
+    JSON.stringify({ one: arcAt1, max: arcAtMax }));
 
   /* …and in a cumulative view it is scoped to that window. The row read the raw
      annual ODM cell and hardcoded `false` for cum in both flowKind and flowBadge,

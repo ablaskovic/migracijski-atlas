@@ -256,6 +256,18 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
     return (iso: string) => col(val(iso, S.yi, S.flow, S.den, S.cum));
   }, [S.view, S.yi, S.thr, S.thrRel, S.thrPct, S.flow, S.den, S.cum, S.sel, S.dir]);
 
+  /* Everything drawn above the counties is sized in screen pixels and divided by
+     k, because everything in this svg is inside the zoom transform: the county
+     borders take `vectorEffect="non-scaling-stroke"` and the labels are
+     counter-scaled to stay 9 px at any k. The arcs were the exception, and it
+     showed — at KMAX the widest arc rendered 13 × 8 = 104 px across, 18 % of the
+     default box, with a 198 px arrowhead, over a map whose own borders were
+     still hairlines. The county underneath was completely covered and still
+     hoverable (.arc is pointer-events:none), so the reader got a tooltip for a
+     county they could not see. The hub dot is the same story: r 4,5 is ~72 px
+     across at KMAX, exactly where a reader zoomed in to click. */
+  const k = zoom.t.k;
+
   /* flow arcs — port of renderArcs(); estimated years render dashed (honesty
      encoding: only godišnje 2018 is measured) */
   const est = S.cum || flowKind(S.yi, S.cum) !== 'meas';
@@ -295,22 +307,22 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
       let ax = px - cx, ay = py - cy;
       const aL = Math.hypot(ax, ay) || 1;
       ax /= aL; ay /= aL;
-      const back = toHub ? 5.5 : 1.5;          /* clear the hub dot (r 4.5) */
+      /* the head is pure geometry, so it is built in user units — screen px / k */
+      const back = (toHub ? 5.5 : 1.5) / k;    /* clear the hub dot (r 4.5) */
       const tipX = px - ax * back, tipY = py - ay * back;
-      const len = Math.max(5, w * 1.9), hw = Math.max(2.4, w * 0.85);
+      const len = Math.max(5, w * 1.9) / k, hw = Math.max(2.4, w * 0.85) / k;
       const bx = tipX - ax * len, by = tipY - ay * len;
       const head = `M${tipX},${tipY} L${bx - ay * hw},${by + ax * hw} L${bx + ay * hw},${by - ax * hw} Z`;
       return { p, d: `M${sx},${sy} Q${cx},${cy} ${tx},${ty}`,
         stroke: S.dir === 'net' ? dv(v) : sq(Math.abs(v)), w, head };
     });
     return { paths, sx, sy };
-  }, [S.view, S.sel, S.dir, S.yi, S.cum, cent]);
+  }, [S.view, S.sel, S.dir, S.yi, S.cum, cent, k]);
 
   /* county labels: skip counties whose projected bbox can't hold the name.
      The test is against the *zoomed* size, so zooming into a small county now
      reveals its name; type is counter-scaled so it stays 9 px on screen at any
      k instead of growing to 72 px with its halo. */
-  const k = zoom.t.k;
   /* One predicate for the label layer and for the button that toggles it, so the
      two cannot drift apart again. `labelG` is mounted only by the two geometry
      branches below, and Godine renders YearsView instead — which never reads
@@ -581,12 +593,12 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                 cost a pale corridor its legibility against the pale fill it
                 crosses. Same dash pattern, so the honesty encoding still reads. */}
             {arcs && arcs.paths.map(a => (
-              <path key={'c' + a.p} className="arccase" d={a.d} strokeWidth={a.w + 1.8}
-                strokeDasharray={est ? '7 4' : undefined} />
+              <path key={'c' + a.p} className="arccase" d={a.d} strokeWidth={(a.w + 1.8) / k}
+                strokeDasharray={est ? `${7 / k} ${4 / k}` : undefined} />
             ))}
             {arcs && arcs.paths.map(a => (
-              <path key={a.p} className="arc" d={a.d} stroke={a.stroke} strokeWidth={a.w}
-                strokeDasharray={est ? '7 4' : undefined} />
+              <path key={a.p} className="arc" d={a.d} stroke={a.stroke} strokeWidth={a.w / k}
+                strokeDasharray={est ? `${7 / k} ${4 / k}` : undefined} />
             ))}
             {arcs && arcs.paths.map(a => (
               <path key={'h' + a.p} className="arch" d={a.head} fill={a.stroke} />
@@ -601,7 +613,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                 with no onClick, so selectCounty never ran. A ~12 px dead spot at
                 k=1, and it is inside the zoom transform, so ~72 px across at
                 KMAX — exactly where a reader zoomed in to click. */}
-            {arcs && <circle className="hubdot" cx={arcs.sx} cy={arcs.sy} r={4.5} fill="var(--ink)" stroke="#fff" strokeWidth={1.5} />}
+            {arcs && <circle className="hubdot" cx={arcs.sx} cy={arcs.sy} r={4.5 / k} fill="var(--ink)" stroke="#fff" strokeWidth={1.5 / k} />}
           </g>
           {/* Two-tone focus ring, drawn above every fill so it is never the
               county's own stroke competing with its own colour. See index.css. */}
