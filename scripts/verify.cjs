@@ -1192,8 +1192,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await settle(120);
   const pctTip = await page.evaluate(() => document.querySelector('#tip').textContent);
   ck('tooltip percentage states % popisa 2011.', NBSP(pctTip).includes('% pop. 2011.'), pctTip.slice(0, 90));
+  /* The row label, read off the table rather than off the whole tip: the caveat
+     under it now runs unconditionally (it describes a row that is drawn in every
+     view), and it says the words — "nije ukupna promjena broja stanovnika" — in
+     order to deny them. Asserting their absence over the whole tip therefore
+     failed on the sentence that makes the point. Both halves are checked: the
+     row is renamed, and the caveat is still there saying what it is not. */
+  const tipRows = await page.evaluate(() => (document.querySelector('#tip table') || {}).textContent || '');
   ck('tooltip renames "ukupna promjena" to the honest sum label',
-    pctTip.includes('mig. + prirodno') && !pctTip.includes('ukupna promjena'), pctTip.slice(0, 90));
+    tipRows.includes('mig. + prirodno') && !tipRows.includes('ukupna promjena')
+    && /nije ukupna promjena broja stanovnika/.test(pctTip),
+    JSON.stringify({ rows: tipRows.slice(-40), tip: pctTip.slice(-60) }));
 
   /* …and it names the denominator the reader actually chose. `countyBlock` did
      not read S.den at all: in `d=relest` the legend's axis ended at ±20,6 %, the
