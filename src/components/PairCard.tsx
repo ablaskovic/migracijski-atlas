@@ -44,7 +44,8 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
   return (
     <div className="paircard" id="pair">
       <div className="card-hd">
-        <h2 className="card-name" id="pairName">{SHORTN[sel]} ⇄ {SHORTN[pair]}</h2>
+        {/* lang="hr", like the county card’s heading — two place names */}
+        <h2 className="card-name" id="pairName" lang="hr">{SHORTN[sel]} ⇄ {SHORTN[pair]}</h2>
         {/* back to whatever opened this corridor — matrix cell or partner row */}
         <button className="card-x" id="pairX"
           aria-label={L(`Zatvori koridor — ${SHORTN[sel]} i ${SHORTN[pair]}`, `Close the corridor — ${SHORTN[sel]} and ${SHORTN[pair]}`)}

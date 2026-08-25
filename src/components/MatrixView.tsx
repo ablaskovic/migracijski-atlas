@@ -297,7 +297,13 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
       );
     }
     rows.push(<g key={'row' + r} role="row" aria-rowindex={r + 1}
-      aria-label={D[MXORD[r]].n}>{cells}</g>);
+            /* lang="hr" for the same reason .cnt, .jl and .rname carry it: these
+               are Croatian place names in a document that may be lang="en", and
+               an aria-label cannot annotate itself — the element that owns the
+               name has to. It sits on the row rather than on each of its cells
+               because language resolves by walking ancestors, so one attribute
+               covers the row's own label and all of its 420 cell labels. */
+      lang="hr" aria-label={D[MXORD[r]].n}>{cells}</g>);
   }
 
   return (
@@ -315,13 +321,13 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
       <g transform={`translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`} ref={gridRef}>
       {MXORD.map((iso, r) => (
         <text key={'r' + iso} x={x0 - 6} y={y0 + r * cell + cell / 2 + 3} textAnchor="end"
-          fontSize={rowFs} fontFamily={MONO}
+          lang="hr" fontSize={rowFs} fontFamily={MONO}
           fontWeight={hl && hl[0] === iso ? 600 : 400}
           fill={hl && hl[0] === iso ? '#20262B' : '#5F6A72'}>{SHORTN[iso]}</text>
       ))}
       {MXORD.map((iso, c) => (
         <text key={'c' + iso} textAnchor="start"
-          fontSize={colFs} fontFamily={MONO}
+          lang="hr" fontSize={colFs} fontFamily={MONO}
           fontWeight={hl && hl[1] === iso ? 600 : 400}
           fill={hl && hl[1] === iso ? '#20262B' : '#5F6A72'}
           transform={`translate(${x0 + c * cell + cell / 2 + 3},${y0 - 6}) rotate(-65)`}>{SHORTN[iso]}</text>

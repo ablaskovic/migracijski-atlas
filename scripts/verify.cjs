@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 459;
+const EXPECTED_CHECKS = 460;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5242,6 +5242,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       const BARE = /^(?:19|20)\d{2}\.$/;
       const isOrd = s => BARE.test(s.trim()) || ORD.test(s);
       const exempt = el => !!(el && el.closest && el.closest('[lang="hr"], .paper-link, .help-cite, noscript'));
+      /* …but only for text. An aria-label on a lang="hr" element is a *mixed*
+         string — place name plus a locale-formatted year and number — and the
+         year in it still has to follow the UI language. Marking the county
+         paths, the rail rows and the two grids' rows as Croatian place names
+         (which is what a screen reader needs) would otherwise have taken 735
+         cell labels and 21 rail rows out of this sweep. */
+      const exemptLabel = el => !!(el && el.closest && el.closest('.paper-link, .help-cite, noscript'));
       const out = [];
       const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       for (let n = w.nextNode(); n; n = w.nextNode()) {
@@ -5250,7 +5257,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         out.push('text «' + s.slice(0, 50) + '»');
       }
       for (const el of document.querySelectorAll('[aria-label],[title]')) {
-        if (exempt(el)) continue;
+        if (exemptLabel(el)) continue;
         for (const a of ['aria-label', 'title']) {
           const v = el.getAttribute(a);
           if (v && isOrd(v)) out.push(a + ' «' + v.slice(0, 50) + '»');
@@ -5262,6 +5269,47 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('no Croatian year ordinal survives into English, anywhere on the page',
     enOrd.length === 0, enOrd.slice(0, 3).join(' | '));
+
+  /* The other half of the same problem: a Croatian place name inside a lang="en"
+     document is voiced with English phonemes unless the element that carries it
+     says otherwise, and an aria-label cannot annotate itself. The rule was
+     applied on four surfaces — county paths, JLS paths, rail names and the study
+     citation — and missing everywhere else a place name reaches the
+     accessibility tree: both card headings, the Tokovi legend, the JLS corridor
+     rows, and every row and cell of the two grids, which is 756 labels and the
+     only practical way to read those views with a screen reader.
+     Resolved the way a screen reader resolves it, by walking ancestors. */
+  const langSweep = [];
+  for (const [h, sel, min] of [
+    ['#l=en&v=saldo&c=1&y=2024&s=HR-14', '#cardName', 1],
+    ['#l=en&v=mx&y=2018&c=0', '#map .mxc', 420],
+    ['#l=en&v=mx&y=2018&c=0', '#map g[role="row"]', 21],
+    ['#l=en&v=yrs&c=1&y=2024', '#map .yrc', 315],
+    ['#l=en&v=yrs&c=1&y=2024', '#map g[role="row"]', 21],
+    ['#l=en&v=mx&y=2018&c=0&s=HR-14&pp=HR-21', '#pairName', 1],
+    ['#l=en&v=flow&s=HR-13&y=2018&dir=out&c=0', '.legend-title span[lang]', 1],
+    ['#l=en&v=saldo&c=1&y=2024', '#railList .rrow', 21],
+  ]) {
+    await fresh(h);
+    const r = await page.evaluate(sl => {
+      const els = [...document.querySelectorAll(sl)];
+      const lang = e => { const a = e.closest('[lang]'); return a ? a.getAttribute('lang') : document.documentElement.lang; };
+      return { n: els.length, hr: els.filter(e => lang(e) === 'hr').length };
+    }, sel);
+    if (r.n < min || r.hr !== r.n) langSweep.push(`${h} ${sel} ${r.hr}/${r.n} want >=${min}`);
+  }
+  /* the JLS corridor rows need the card opened */
+  await fresh('#l=en&v=flow&s=HR-21&y=2018&dir=out&c=0');
+  await click('#jcardHd');
+  const jLang = await page.evaluate(() => {
+    const e = document.querySelector('#jcardList .jn');
+    const a = e && e.closest('[lang]');
+    return { got: !!e, lang: a ? a.getAttribute('lang') : document.documentElement.lang };
+  });
+  if (!jLang.got || jLang.lang !== 'hr') langSweep.push('jcard .jn ' + JSON.stringify(jLang));
+  ck('every surface that voices a place name is marked lang="hr" in English',
+    langSweep.length === 0, langSweep.slice(0, 3).join(' | '));
+  await fresh('');
 
   ck('no Croatian year ordinal survives into English',
     /for 2011–2024\. On the newer/.test(enKlas) && !/\d{4}\.\.|\d{4}\.–/.test(enKlas)

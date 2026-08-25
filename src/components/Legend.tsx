@@ -264,7 +264,7 @@ export default function Legend({ S }: { S: State }) {
     if (S.dir === 'net') {
       return (
         <div className="legend" id="legend">
-          <div className="legend-title">{L('Neto tokovi: ', 'Net flows: ')}{D[S.sel!]?.n || ''}{L(' ↔ partneri · ', ' ↔ partners · ')}{per}</div>
+          <div className="legend-title">{L('Neto tokovi: ', 'Net flows: ')}<span lang="hr">{D[S.sel!]?.n || ''}</span>{L(' ↔ partneri · ', ' ↔ partners · ')}{per}</div>
           <GradBar scale={divScale(m)} m={m} rel={false} mark={mark} />
           <div className="legend-note">{L('Plavo: odabrana županija dobiva od partnera. Strelica pokazuje smjer selidbe. ',
             'Blue: the selected county gains from the partner. The arrowhead shows the direction of the move. ')}{src}{preNote(S, true)}</div>
@@ -275,8 +275,9 @@ export default function Legend({ S }: { S: State }) {
     return (
       <div className="legend" id="legend">
         <div className="legend-title">
-          {S.dir === 'out' ? (D[S.sel!]?.n || '') + L(' → ostale županije', ' → other counties')
-            : L('ostale županije → ', 'other counties → ') + (D[S.sel!]?.n || '')} · {per}
+          {S.dir === 'out'
+            ? <><span lang="hr">{D[S.sel!]?.n || ''}</span>{L(' → ostale županije', ' → other counties')}</>
+            : <>{L('ostale županije → ', 'other counties → ')}<span lang="hr">{D[S.sel!]?.n || ''}</span></>} · {per}
         </div>
         <SeqBar scale={sq} m={m} mark={mark} />
         {/* "∝" was inherited verbatim from the v4 single-file and is not what the

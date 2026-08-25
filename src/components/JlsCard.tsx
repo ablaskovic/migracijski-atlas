@@ -61,7 +61,8 @@ export default function JlsCard({ S, setS, toggleJls }: {
           <div id="jcardList">
             {rows.length ? rows.map(([s, t, n], i) => (
               <div className="jrow" key={i}>
-                <span className="jn">{JLS.names[s][0]}{tag(s)} → {JLS.names[t][0]}{tag(t)}</span>
+                {/* two municipality names and their county tags — lang="hr" */}
+                <span className="jn" lang="hr">{JLS.names[s][0]}{tag(s)} → {JLS.names[t][0]}{tag(t)}</span>
                 <span className="jv">{fmtI.format(n)}</span>
               </div>
             )) : (

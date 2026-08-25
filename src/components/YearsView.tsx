@@ -201,7 +201,14 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
         </g>,
       );
     }
-    rows.push(<g key={iso} role="row" aria-rowindex={r + 1} aria-label={D[iso].n}>{cells}</g>);
+    rows.push(
+            /* lang="hr" for the same reason .cnt, .jl and .rname carry it: these
+               are Croatian place names in a document that may be lang="en", and
+               an aria-label cannot annotate itself — the element that owns the
+               name has to. It sits on the row rather than on each of its cells
+               because language resolves by walking ancestors, so one attribute
+               covers the row's own label and all of its 28 cell labels. */
+      <g key={iso} role="row" aria-rowindex={r + 1} lang="hr" aria-label={D[iso].n}>{cells}</g>);
   }
 
   /* …and only for a series that has an inter-county margin. Nalaz 15 opens this
@@ -225,7 +232,7 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
       <g transform={`translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`} ref={gridRef}>
         {order.map((iso, r) => (
           <text key={iso} x={x0 - 6} y={y0 + r * ch + ch / 2 + 3} textAnchor="end"
-            fontSize={rowFs} fontFamily={MONO}
+            lang="hr" fontSize={rowFs} fontFamily={MONO}
             fontWeight={hlRow === r ? 600 : 400}
             fill={hlRow === r ? '#20262B' : '#5F6A72'}>{SHORTN[iso]}</text>
         ))}

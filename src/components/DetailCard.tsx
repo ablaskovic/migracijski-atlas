@@ -37,7 +37,9 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
        see (2.4.11). */
     <div className="card show" id="card" inert={S.help || undefined}>
       <div className="card-hd">
-        <h2 className="card-name" id="cardName">{D[sel].n}</h2>
+        {/* lang="hr": a Croatian place name in a document that may be lang="en",
+            the same annotation .cnt and .rname already carry */}
+        <h2 className="card-name" id="cardName" lang="hr">{D[sel].n}</h2>
         {/* hand focus to the county this card described, else its rail row —
             closing used to drop focus to <body> and restart Tab from the top */}
         <button className="card-x" id="cardX" aria-label={L(`Zatvori karticu — ${D[sel].n}`, `Close the card — ${D[sel].n}`)}
