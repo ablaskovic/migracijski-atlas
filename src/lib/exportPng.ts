@@ -15,9 +15,45 @@ const VARS: Record<string, string> = {
 
 export interface ExportInfo { w: number; h: number; bytes: number }
 
+/* One prefix per exported document, so two figures can share a page.
+   Every id in the export was fixed and un-namespaced: `lg` for the legend ramp,
+   `mxhatch`/`yrhatch` cloned out of the live grid, and `map` on the clone
+   itself. A fragment reference resolves to the FIRST matching id in the host
+   document, so inlining a Matrica figure and a Godine figure into one page or
+   notebook — a normal use of a file this module calls a "vector twin …
+   publication-ready" — made the second legend bar paint the first figure's
+   ramp: two grids with different domains showing one colour key, with nothing
+   on screen saying so. Same for the pre-2007 hatch, and `id="map"` collided
+   with whatever the host page called `map`.
+   Random rather than derived from the state: the pairing this has to survive is
+   two *different* figures in one document, and a state-derived prefix collides
+   for exactly those. DetailCard and PairCard already scope their clip paths
+   this way. */
+/* padded: toString(36) is shorter than 8 chars for a small enough random */
+const uid = () => 'ma' + (Math.random().toString(36) + '000000').slice(2, 8) + '-';
+
+/* rename every id the clone carries, and repoint the references to them */
+function scopeIds(clone: SVGSVGElement, u: string): void {
+  clone.removeAttribute('id');
+  const moved = new Map<string, string>();
+  clone.querySelectorAll('[id]').forEach(el => {
+    const was = el.id;
+    el.id = u + was;
+    moved.set(was, el.id);
+  });
+  if (!moved.size) return;
+  clone.querySelectorAll('*').forEach(el => {
+    for (const a of ['fill', 'stroke', 'clip-path', 'mask']) {
+      const m = /^url\(#(.+)\)$/.exec(el.getAttribute(a) || '');
+      const to = m && moved.get(m[1]);
+      if (to) el.setAttribute(a, `url(#${to})`);
+    }
+  });
+}
+
 /* clone the live map SVG and bake class/CSS-var-provided presentation into
    attributes so the standalone document renders identically */
-function bakeMapClone(node: SVGSVGElement): SVGSVGElement {
+function bakeMapClone(node: SVGSVGElement, u: string): SVGSVGElement {
   const clone = node.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   /* The faces, if they have been fetched. The serialised map is rasterised in
@@ -87,6 +123,7 @@ function bakeMapClone(node: SVGSVGElement): SVGSVGElement {
       if (v && v.indexOf('var(') === 0) el.setAttribute(a, VARS[v] || '#20262B');
     }
   });
+  scopeIds(clone, u);
   return clone;
 }
 
@@ -349,7 +386,7 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   await ensureFonts();
   const w = node.clientWidth, h = node.clientHeight;
   const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
-  const clone = bakeMapClone(node);
+  const clone = bakeMapClone(node, uid());
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
   const img = new Image();
   /* try/FINALLY, and revoked the moment the load settles. It used to be revoked
@@ -464,7 +501,8 @@ const txt = (x: number, y: number, s: string, attrs: string) => `<text x="${x}" 
 export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
   const w = node.clientWidth, h = node.clientHeight;
   const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
-  const clone = bakeMapClone(node);
+  const u = uid();
+  const clone = bakeMapClone(node, u);
   clone.setAttribute('y', String(TOP));
   const per = B.per;
   const leg = legendSpec(S);
@@ -480,9 +518,9 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
     }
   } else {
     const neg = leg.kind === 'div';
-    defs = svgGrad('lg', leg.scale ?? (neg ? divScale(leg.m) : seqScale(leg.m, S.dir)), leg.m, neg);
+    defs = svgGrad(u + 'lg', leg.scale ?? (neg ? divScale(leg.m) : seqScale(leg.m, S.dir)), leg.m, neg);
     const lab = (v: number) => (leg.kind === 'div' && leg.rel) ? fmtR.format(v) + ' %' : fmtI.format(Math.round(v));
-    legSvg = `<rect x="20" y="${ly}" width="190" height="10" fill="url(#lg)" stroke="#D9DDD6"/>`;
+    legSvg = `<rect x="20" y="${ly}" width="190" height="10" fill="url(#${u}lg)" stroke="#D9DDD6"/>`;
     const la = `font-family="${MONO}" font-size="9.5" fill="#5F6A72"`;
     if (neg) legSvg += txt(20, ly + 22, '−' + lab(leg.m), la)
       + txt(115, ly + 22, '0', la + ' text-anchor="middle"')

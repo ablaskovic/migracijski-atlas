@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 458;
+const EXPECTED_CHECKS = 459;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2317,6 +2317,48 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('exported SVG title shrinks to clear the period, like the PNG already did',
     fit.overrun < 0, 'overrun ' + fit.overrun + ' px at font-size ' + fit.fs);
   await page.setViewport({ width: 1440, height: 900 });
+
+  /* Two figures in one document — a notebook, a page — is what a "vector twin
+     … publication-ready" is for, and every id in the export was fixed: `lg` for
+     the legend ramp, `mxhatch`/`yrhatch` cloned out of the live grid, and `map`
+     on the clone itself. A fragment reference resolves to the FIRST matching id
+     in the host, so the second figure's legend bar painted the first figure's
+     ramp — two grids with different domains under one colour key, with nothing
+     on screen saying so. Inlined for real here rather than pattern-matched. */
+  const twin = {};
+  for (const [tag, h] of [['mx', '#v=mx&dir=in&y=2018&c=0'], ['yrs', '#v=yrs&dir=net&y=2024&c=0']]) {
+    await fresh(h);
+    twin[tag] = await page.evaluate(() => window.__exportSVG(false));
+  }
+  const ids = await page.evaluate(([a, b]) => {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:absolute;left:-9999px;top:0';
+    holder.innerHTML = `<div id="figA">${a}</div><div id="figB">${b}</div>`;
+    document.body.appendChild(holder);
+    const seen = new Set(), dup = [];
+    holder.querySelectorAll('[id]').forEach(e => { if (seen.has(e.id)) dup.push(e.id); seen.add(e.id); });
+    /* every url(#…) must resolve, and inside the figure that wrote it */
+    const stray = [];
+    for (const fig of ['figA', 'figB']) {
+      const root = holder.querySelector('#' + fig);
+      root.querySelectorAll('*').forEach(el => {
+        for (const at of ['fill', 'stroke', 'clip-path', 'mask']) {
+          const m = /^url\(#(.+)\)$/.exec(el.getAttribute(at) || '');
+          if (!m) continue;
+          const t = holder.querySelector('#' + CSS.escape(m[1]));
+          if (!t || !root.contains(t)) stray.push(fig + ' ' + at + ' ' + m[1]);
+        }
+      });
+    }
+    const r = { dup, stray, ids: [...seen], map: !!holder.querySelector('#map') };
+    holder.remove();
+    return r;
+  }, [twin.mx, twin.yrs]);
+  ck('two exported figures inlined into one document keep their own ids',
+    ids.dup.length === 0 && ids.stray.length === 0 && !ids.map && ids.ids.length >= 4
+    && ids.ids.every(i => /^ma[a-z0-9]{6}-/.test(i)),
+    JSON.stringify({ dup: ids.dup.slice(0, 3), stray: ids.stray.slice(0, 3), map: ids.map, ids: ids.ids }));
+  await fresh('');
 
   /* ── P2: a focused county keeps its ring when the pointer wanders ──
      .hl is shared with hover and is a single value, so hovering any other county
