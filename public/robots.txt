@@ -1,8 +1,10 @@
 # Migracijski atlas županija — https://migracijski-atlas.hr/
 #
-# Everything here is one page. State lives in the URL fragment (#v=…&y=…),
-# which is never sent to a server and never crawled, so there is nothing to
-# disallow: the whole site is the one document below.
+# Everything here is one page in two languages. State lives in the URL fragment
+# (#v=…&y=…), which is never sent to a server and never crawled, so there is
+# nothing to disallow: the whole site is the one document below, at the bare
+# origin in Croatian and at ?l=en in English. Those two are what the sitemap
+# lists and what index.html's hreflang pair names; nothing else is an address.
 #
 # Every crawler and bot is allowed, deliberately and without exception: search
 # engines, archivers, academic crawlers, and AI/dataset crawlers (GPTBot,

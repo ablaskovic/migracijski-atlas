@@ -31,7 +31,18 @@ declare global {
    Deliberate v4 deviation: first entry into a flow-ish view (Tokovi/Matrica)
    always lands on godišnje 2018 — lead with the measured matrix, not the IPF
    cumulative estimate. */
-const INITIAL: State = { ...BASE, ...readHash(location.hash) };
+/* The site's own address, read from the one file that already declares it
+   rather than copied into a fourth place — index.html, public/sitemap.xml and
+   public/robots.txt are the other three. Captured at module scope because the
+   language effect below rewrites the very attribute it is read from. */
+const SITE = document.querySelector('link[rel="canonical"]')?.getAttribute('href') ?? '/';
+
+/* `location.search` is passed here and nowhere else: `?l=en` exists so the
+   English UI has an address a crawler can resolve, which is a fact about how
+   this document was *opened*. The popstate handler below stays hash-only — the
+   query survives every pushState, so reading it there would re-impose the
+   arriving language over a choice the reader has made since. */
+const INITIAL: State = { ...BASE, ...readHash(location.hash, location.search) };
 /* Before the first render, not in an effect: every string and every number in
    the tree below is formatted against this, so it has to be true by the time
    anything reads it. An effect runs *after* the first paint, which would render
@@ -374,6 +385,18 @@ export default function App() {
        link handed the recipient a preview card written in Croatian, and a crawler
        that renders the page indexed the same. Same effect, same key on S.lang. */
     document.querySelector('meta[name="description"]')?.setAttribute('content', t('meta.desc'));
+    /* …and the canonical, which is now per-locale. index.html ships the Croatian
+       one, and `?l=en` is a second indexable URL rather than a duplicate of it:
+       a canonical pinned to the bare origin on both would tell a crawler the
+       English page is the Croatian one and drop it from the index, which is the
+       state this whole address exists to leave. The hreflang pair in the head is
+       static and lists both either way, as a reciprocal set must. */
+    document.querySelector('link[rel="canonical"]')
+      ?.setAttribute('href', SITE + (S.lang === 'en' ? '?l=en' : ''));
+    document.querySelector('meta[property="og:locale"]')
+      ?.setAttribute('content', S.lang === 'en' ? 'en_GB' : 'hr_HR');
+    document.querySelector('meta[property="og:locale:alternate"]')
+      ?.setAttribute('content', S.lang === 'en' ? 'hr_HR' : 'en_GB');
   }, [S.lang]);
   /* Touch fires pointerenter but never pointerleave, so a tapped feature would
      leave its tooltip on screen forever. Clear the highlight on any pointerdown

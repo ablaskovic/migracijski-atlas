@@ -4930,10 +4930,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       ns: d.documentElement.namespaceURI,
       locs: [...d.querySelectorAll('url > loc')].map(e => e.textContent.trim()) };
   }, url);
-  ck('and its Sitemap line names a sitemap that parses and lists the site',
+  ck('and its Sitemap line names a sitemap that parses and lists both languages',
     /^https:\/\/\S+\/sitemap\.xml$/.test(smPath) && sitemap.status === 200 && !sitemap.err
     && sitemap.root === 'urlset' && sitemap.ns === 'http://www.sitemaps.org/schemas/sitemap/0.9'
-    && sitemap.locs.length === 1 && /^https:\/\//.test(sitemap.locs[0])
+    /* Two entries, not one: the English UI is a complete translation and `?l=en`
+       is the only address it has — a fragment is never crawled. One origin
+       across both, and the same origin the Sitemap line names. */
+    && sitemap.locs.length === 2 && sitemap.locs.every(l => /^https:\/\//.test(l))
+    && sitemap.locs.some(l => /\?l=en$/.test(l))
+    && new Set(sitemap.locs.map(l => new URL(l).origin)).size === 1
     && smPath.startsWith(new URL(sitemap.locs[0]).origin),
     JSON.stringify({ smPath, ...sitemap }));
 

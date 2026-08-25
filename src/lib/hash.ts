@@ -186,12 +186,30 @@ export function decodeHash(hash: string): Patch {
   return o;
 }
 
+/* The language, and only the language, is also readable from the query string.
+   A fragment is never sent to a server and never crawled, so `#l=en` gave the
+   whole English half of the product — a complete i18n dictionary, English
+   titles, English legends — no address a search engine could resolve, while
+   index.html declared `og:locale:alternate content="en_GB"` and told every
+   scraper an English version exists without giving it anything to fetch.
+   `?l=en` is that address. Only `l`: the rest of the state is genuinely private
+   to the reader's device, and moving it into the query would send every view a
+   reader opens to the server and put an unbounded set of near-duplicate URLs in
+   front of a crawler that robots.txt allows everywhere. */
+export function readSearch(search: string): Patch {
+  const lang = oneOf(new URLSearchParams(search).get('l'), LANGS);
+  return lang ? { lang } : {};
+}
+
 /* Belt and braces for the two callers that run where a throw is fatal: App's
    module scope (before the first paint) and the popstate handler (which would
    otherwise die and stop answering Back for the rest of the session). A
    permalink is untrusted input and first paint is not worth any decode defect,
    present or future — an unreadable hash degrades to the default view, which is
-   what "unknown or invalid fields are ignored" has always promised. */
-export function readHash(hash: string): Patch {
-  try { return decodeHash(hash); } catch { return {}; }
+   what "unknown or invalid fields are ignored" has always promised.
+   The query is read first and the hash second, so an explicit `#l=hr` still
+   wins over a `?l=en` the reader arrived on — the permalink is the more
+   specific statement, and it is the one a person pasted. */
+export function readHash(hash: string, search = ''): Patch {
+  try { return { ...readSearch(search), ...decodeHash(hash) }; } catch { return readSearch(search); }
 }

@@ -26,8 +26,23 @@
 <!-- Every path on this origin renders this same page, so without a canonical the
      blanket Allow: in robots.txt invites an unbounded set of duplicate URLs into
      an index. The fragment carries the state and is never sent to a server, so
-     the canonical URL is the bare origin. -->
+     there are exactly two addresses worth indexing: this document in Croatian
+     and this document in English.
+     Shipped Croatian because that is what static markup can know; App rewrites
+     it to the ?l=en form once the language is resolved, so each locale's page is
+     self-referential rather than declaring the other one its original — which
+     would ask a crawler to drop the English page from the index. -->
 <link rel="canonical" href="https://migracijski-atlas.hr/">
+<!-- The English UI used to be reachable only through `#l=en`, and a fragment is
+     never sent to a server: a whole i18n dictionary, English titles and English
+     legends with no URL any search engine could resolve, while og:locale:alternate
+     above told every scraper an English version exists. `?l=en` is that URL
+     (src/lib/hash.ts reads it), and this is the reciprocal set that names both;
+     x-default points at the Croatian page, which is also what a reader with no
+     stored or matching browser language gets. -->
+<link rel="alternate" hreflang="hr" href="https://migracijski-atlas.hr/">
+<link rel="alternate" hreflang="en" href="https://migracijski-atlas.hr/?l=en">
+<link rel="alternate" hreflang="x-default" href="https://migracijski-atlas.hr/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <!-- First-paint placeholder. #root is empty until React mounts, and on the
      mobile profile that measured 2.054 ms of "render delay" — 76 % of LCP —
