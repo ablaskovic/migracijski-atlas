@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 466;
+const EXPECTED_CHECKS = 467;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6436,22 +6436,52 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await fresh('#v=saldo&c=1&y=2024&s=HR-18');
   const boundary = await page.evaluate(async () => {
     const before = document.querySelector('#root').innerHTML.length;
-    /* throw from inside React's own commit phase, the way a real defect would:
-       a getter on a prop the tree reads while re-rendering */
-    const el = document.querySelector('.cnt[data-iso="HR-18"]');
-    Object.defineProperty(el, 'getBoundingClientRect', { get() { throw new TypeError('verify: forced render failure'); } });
-    /* …and drive a re-render that touches it */
-    document.querySelector('#segView button[data-v="mx"]').click();
-    await new Promise(r => setTimeout(r, 600));
+    /* A fault React must actually observe. The old injection — a throwing
+       `getBoundingClientRect` getter on the HR-18 county path, then a click on
+       the Matrica segment — was never read during that switch, so nothing threw
+       at all: measured, the view changed normally (#root 116.259 → 229.301
+       characters), #renderFail was absent, and the assertion's `alive` term
+       (`#map || #renderFail`) was satisfied by the perfectly healthy app. This
+       was the only one of 466 checks that touches ErrorBoundary, so the
+       component could have been deleted outright and the suite still printed ALL
+       CHECKS PASS — which is how two broken recovery links shipped inside markup
+       no check had ever rendered.
+       `Intl.NumberFormat.prototype.format` is read by every figure on the page,
+       during render, so a getter on it is a render-phase throw by construction;
+       ArrowLeft steps the year and drives one. */
+    Object.defineProperty(Intl.NumberFormat.prototype, 'format', {
+      get() { throw new TypeError('verify: forced render failure'); }, configurable: true });
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    await new Promise(r => setTimeout(r, 800));
     const root = document.querySelector('#root');
+    const f = document.querySelector('#renderFail');
     return { before, after: root ? root.innerHTML.length : 0,
       controls: document.querySelectorAll('a,button,select,input').length,
-      alive: !!document.querySelector('#map') || !!document.querySelector('#renderFail') };
+      fail: !!f, map: !!document.querySelector('#map'),
+      role: f && f.closest('[role]') ? f.closest('[role]').getAttribute('role') : null,
+      links: f ? f.querySelectorAll('a').length : 0 };
   });
-  /* Either the app survived the injected fault outright or the boundary caught
-     it — what must never happen is an empty #root with nothing to press. */
-  ck('a render failure leaves a page with something on it, not an empty root',
-    boundary.after > 0 && boundary.controls > 0 && boundary.alive, JSON.stringify(boundary));  /* The deliberate abort above lands in the error list like any other, and this
+  /* The boundary itself, not "either it or a surviving app": #renderFail present,
+     #map gone, and the fallback's own affordances actually in the document. */
+  ck('a render failure renders the boundary, with something to press, not an empty root',
+    boundary.after > 0 && boundary.controls > 0 && boundary.fail && !boundary.map
+    && boundary.role === 'alert' && boundary.links === 4, JSON.stringify(boundary));
+  /* The fault was ours and it logs twice — React's own uncaught-error line and
+     ErrorBoundary's componentDidCatch — so it is spliced out here rather than
+     left to fail the ledger assertion below. Named by the message this block
+     minted, and counted, so it can only ever remove its own two lines. */
+  {
+    const had = errors.length;
+    for (let i = errors.length - 1; i >= 0; i--) {
+      if (/verify: forced render failure/.test(errors[i])) errors.splice(i, 1);
+    }
+    ck('the forced render failure logged exactly its own two lines and nothing else',
+      had - errors.length === 2, JSON.stringify({ dropped: had - errors.length, left: errors.slice(0, 2) }));
+  }
+  /* the Intl getter is global to that document, so leave it behind before
+     anything else measures a number */
+  await fresh('');
+  /* The deliberate abort above lands in the error list like any other, and this
      used to drop the whole ledger to length 0 to be rid of it. The comment
      justified one entry; the statement truncated the array — so the end-of-run
      "still zero page/console errors" assertion covered the last dozen checks
