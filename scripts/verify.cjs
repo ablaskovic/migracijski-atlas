@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 468;
+const EXPECTED_CHECKS = 469;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3099,6 +3099,38 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('and closing it hands the map’s 21 county stops straight back',
     handBack.cnt === 21 && !handBack.help, JSON.stringify(handBack));
+
+  /* …and the same property arrived at by permalink rather than by pressing the
+     chip. Every suspension check above opens its overlay in-session, and the two
+     routes were not the same thing: the hook keyed on `S.view` alone, so on a
+     boot it ran against an empty #map — everything focusable in there is gated
+     on the stage having been measured, and the 556 municipalities additionally
+     on an async chunk — snapshotted nothing, and never ran again, because
+     neither dependency changes after that. Measured at 1000×800 before the fix:
+     `#v=saldo&cz=1` and `#v=reg&cz=1` left all 21 county paths tabbable under an
+     open panel; `#v=flow&…&jl=1` left 21, ten of them drawn entirely behind the
+     JLS card, each one role=button with its ring painted under the card and
+     Enter still re-selecting a county the reader cannot see; `#v=jmap&cz=1` left
+     its roving stop live among the covered municipalities. Opening those same
+     panels by hand at the same size left none — identical geometry, so the
+     arrival is the whole of what this exercises. */
+  await page.setViewport({ width: 1000, height: 800 });
+  const bootSuspend = [];
+  for (const [h, sel] of [['#v=saldo&cz=1', '.cnt'],
+    ['#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net&jl=1', '.cnt'],
+    ['#v=jmap&dir=net&cz=1', '.jl'], ['#v=reg&cz=1', '.cnt']]) {
+    await fresh(h);
+    await page.waitForFunction(s => document.querySelectorAll(s).length > 0, { timeout: 10000 }, sel).catch(() => {});
+    bootSuspend.push({ h: h.slice(0, 22), ...await page.evaluate(s => {
+      const f = [...document.querySelectorAll(s)];
+      return { feats: f.length, live: f.filter(e => e.getAttribute('tabindex') !== '-1').length };
+    }, sel) });
+  }
+  /* the feature floor matters: a selector that matched nothing would otherwise
+     report zero live stops and pass having measured an empty page */
+  ck('a permalink that boots with a panel open suspends the map’s tab stops too',
+    bootSuspend.length === 4 && bootSuspend.every(b => b.feats > 0 && b.live === 0),
+    JSON.stringify(bootSuspend));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── P2: the dialog owns the keyboard while it holds focus ──

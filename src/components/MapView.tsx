@@ -148,10 +148,9 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
      measured as {0,0} when it is in normal flow below 900 px, where it covers
      nothing and taking 556 tab stops away would be a regression, not a fix. The
      JLS card floats at every width, and the glossary is suspended at every width
-     for the reason its own note gives. */
-  useSuspendMapStops(
-    S.help || (S.jls && S.view === 'flow') || ((S.citz || S.age) && panel.h > 0),
-    S.view);
+     for the reason its own note gives.
+     Called below the projection memo, not here, because its key has to carry
+     the moment the map's focusable content EXISTS — see the note at the call. */
 
   /* Region outlines and the 556 JLS polygons arrive on their own chunks, so the
      projected path cache has to rebuild when they land — hence the identities in
@@ -203,6 +202,25 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
   const rds = useMemo(
     () => (p && REGGEO && S.view === 'reg' ? REGGEO.features.map(f => p(f) || '') : [] as string[]),
     [p, REGGEO, S.view]);
+
+  /* The suspension, keyed on when the content it suspends exists. `S.view`
+     alone was a one-shot: every focusable thing in #map is gated on `drawn`,
+     which is false until the ResizeObserver has measured the stage, and the 556
+     municipalities additionally on an async chunk — so on a permalink that boots
+     with a panel already open the effect ran against an empty #map, snapshotted
+     nothing, and never ran again. Measured at 1000×800: `#v=saldo&cz=1` left 5
+     of 21 county paths covered by the panel body and all 5 still tabindex="0",
+     ring drawn under the panel, Enter still opening their card; `#v=flow&…&jl=1`
+     left 10 of 21; `#v=jmap&cz=1` covered 149 municipalities and Tab reached one
+     of them. Opening the same panel in-session at the same size left 0 live —
+     identical geometry, so only the timing differed, which is what named the
+     defect. `drawn` also stands in for the matrix and Godine grids, which mount
+     off the same measurement. The restore already writes back only nodes still
+     connected and still at −1, so the extra teardown a wider key causes is a
+     no-op on the nodes React has replaced. */
+  useSuspendMapStops(
+    S.help || (S.jls && S.view === 'flow') || ((S.citz || S.age) && panel.h > 0),
+    `${S.view}:${drawn ? 1 : 0}:${JGEO ? 1 : 0}`);
   /* The 556 fills and the 556 accessible names, hoisted out of the render.
      Neither depends on hover, and both were rebuilt on every pointer crossing:
      `hl`/`jlsHl` live in the root State, so a single setJlsHl re-renders the whole
