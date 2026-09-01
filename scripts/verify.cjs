@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 469;
+const EXPECTED_CHECKS = 471;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3388,16 +3388,40 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /crtkano/.test(pairShape.cap) && !/crvena/.test(pairShape.cap), JSON.stringify(pairShape));
 
   /* ── P3: `den` — a whole segment group that had zero coverage ── */
-  for (const [d, label] of [['rel11', '% popisa 2011.'], ['relest', '% tek. procjene']]) {
+  /* …and then no VALUE coverage, which is a different hole. "a % in the rail",
+     "the caption in the legend" and "a % in the aria-label" are satisfied just
+     as happily by a build computing the wrong denominator, and both halves of
+     `den` are one token deep: `peAt` returning `D[iso].p` collapses relest onto
+     the 2011 census, and regVal dividing by 'rel11' unweights the five regions.
+     Each of those rewrites every "% tekuće procjene" figure the atlas prints,
+     and each passed the whole suite. The literals below are the two
+     denominators' only distinguishing evidence — Vukovarsko-srijemska reads
+     −15,8 % against −20,6 %, 4,8 pp apart on the darkest county on the map, and
+     the rail leader +10,8 % against +11,1 %. HR-16 replaces HR-21 as the sampled
+     path for exactly that reason: Grad Zagreb's two figures are 0,1 pp apart
+     (+5,3 / +5,4), which is nearly no evidence at all.
+     Regije gets its own leg because it never calls val(): regVal sums the
+     members' numerators and denominators separately, so a census-weighted build
+     printed every county correctly and still handed the view a different
+     WINNER — Zagrebačka regija +5,0 % where the estimate says Sjevernojadranska
+     +5,3 %. */
+  for (const [d, label, top, hr16, regLead, regPct] of [
+    ['rel11', '% popisa 2011.', '+10,8 %', '−15,8 %', 'Zagrebačka regija', '+5,0 %'],
+    ['relest', '% tek. procjene', '+11,1 %', '−20,6 %', 'Sjevernojadranska', '+5,3 %']]) {
     await fresh('#v=saldo&c=1&y=2024&d=' + d);
     const rel = await page.evaluate(() => {
       const v = document.querySelector('#railList .rrow .rval');
       return { val: v ? v.textContent : '', lab: document.querySelector('#legend').textContent,
-        aria: document.querySelector('.cnt[data-iso="HR-21"]').getAttribute('aria-label') };
+        aria: document.querySelector('.cnt[data-iso="HR-16"]').getAttribute('aria-label') };
     });
-    ck(`den=${d} renders % values in the rail, legend and county labels`,
-      /%/.test(rel.val) && rel.lab.includes(label) && /%/.test(rel.aria),
+    ck(`den=${d} renders its own numbers in the rail, legend and county labels`,
+      NBSP(rel.val) === top && rel.lab.includes(label) && NBSP(rel.aria).includes(hr16),
       JSON.stringify({ v: rel.val, a: rel.aria.slice(0, 50) }));
+    await fresh('#v=reg&c=1&y=2024&d=' + d);
+    const regRows = await railTexts();
+    ck(`den=${d} ranks the regije rail on its own denominator`,
+      regRows[0].n === regLead && NBSP(regRows[0].v) === regPct,
+      JSON.stringify(regRows.slice(0, 2)));
   }
 
   /* ── P3: the decodeHash repair that was never reached from a URL ── */
