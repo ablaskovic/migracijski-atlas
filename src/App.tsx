@@ -470,13 +470,31 @@ export default function App() {
        a canonical pinned to the bare origin on both would tell a crawler the
        English page is the Croatian one and drop it from the index, which is the
        state this whole address exists to leave. The hreflang pair in the head is
-       static and lists both either way, as a reciprocal set must. */
+       static and lists both either way, as a reciprocal set must.
+       Written from the ADDRESS, not from the reader. It used to read `S.lang`,
+       which on a URL that says nothing about language is a *detected* default:
+       a rendering crawler reports navigator.languages ['en-US'] and a US
+       timezone, so on the bare `/` — the hreflang `hr` target and the x-default
+       both — it emitted `canonical …/?l=en` and told the crawler the Croatian
+       half of the atlas is a duplicate of the English page, which is the exact
+       de-indexing the per-locale scheme exists to prevent. One URL, two
+       canonicals, decided by who asked: the same address served the bare one to
+       a Croatian-configured reader. og:locale goes with it — it names which page
+       this IS, not what the reader is looking at, and the static hreflang set
+       beside it names the pair by address too. The title and the description
+       stay on S.lang: those are the copy on screen, and they are what a reader
+       shares.
+       S.lang still has to agree, because the sync effect above retires a
+       contradicted `?l=en` from the address and nothing re-runs this one when it
+       lands — without that term a reader who pressed HR on `/?l=en` would keep
+       an English canonical over a Croatian page for the rest of the session. */
+    const urlEn = new URLSearchParams(location.search).get('l') === 'en' && S.lang === 'en';
     document.querySelector('link[rel="canonical"]')
-      ?.setAttribute('href', SITE + (S.lang === 'en' ? '?l=en' : ''));
+      ?.setAttribute('href', SITE + (urlEn ? '?l=en' : ''));
     document.querySelector('meta[property="og:locale"]')
-      ?.setAttribute('content', S.lang === 'en' ? 'en_GB' : 'hr_HR');
+      ?.setAttribute('content', urlEn ? 'en_GB' : 'hr_HR');
     document.querySelector('meta[property="og:locale:alternate"]')
-      ?.setAttribute('content', S.lang === 'en' ? 'hr_HR' : 'en_GB');
+      ?.setAttribute('content', urlEn ? 'hr_HR' : 'en_GB');
   }, [S.lang]);
   /* Touch fires pointerenter but never pointerleave, so a tapped feature would
      leave its tooltip on screen forever. Clear the highlight on any pointerdown

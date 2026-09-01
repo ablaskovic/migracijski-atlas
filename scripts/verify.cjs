@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 471;
+const EXPECTED_CHECKS = 472;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5970,8 +5970,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       catch { /* opaque origin on the initial about:blank */ }
     }, tags, stored || '');
     await pg.goto(url, { waitUntil: 'networkidle0' });
+    /* The head fields below are written by an effect, so the app has to have
+       mounted before they can be read — the same wait the <head> block upstream
+       makes, for the same reason. `l` alone survived without it: setLang runs at
+       module init, long before React commits anything. */
+    await pg.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
     await settle(250);
-    const r = await pg.evaluate(() => ({ l: document.documentElement.lang, hash: location.hash }));
+    const r = await pg.evaluate(() => ({
+      l: document.documentElement.lang, hash: location.hash,
+      canon: (document.querySelector('link[rel="canonical"]') || {}).getAttribute?.('href') || '',
+      ogl: (document.querySelector('meta[property="og:locale"]') || {}).content || '',
+    }));
     await pg.close();
     return r;
   };
@@ -6044,6 +6053,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* no l= either: BASE.lang resolves from the stored choice, so English *is*
        this reader's default and a link they share must not force it on anyone */
     stored.l === 'en' && !/l=/.test(stored.hash), JSON.stringify(stored));
+
+  /* Every page in the four blocks above was opened at the bare `/`, and the bare
+     `/` is the address the head has to describe — not whoever happens to be
+     reading it. The canonical was written from S.lang, i.e. from the reader: a
+     rendering crawler reports navigator.languages ['en-US'] and a US timezone,
+     which is exactly the de-DE, en-GB and ja-JP rows above, and for every one of
+     them the bare URL rendered `canonical …/?l=en`. That is the hreflang `hr`
+     target and the x-default telling a crawler the Croatian half of the atlas is
+     a duplicate of the English page — the de-indexing the per-locale scheme
+     exists to prevent — from the one address that renders the bare canonical for
+     a Croatian reader. Nothing else in the file could see it: every other page is
+     pinned to hr-HR and Europe/Zagreb at launch, so the <head> block's
+     self-referential assertion only ever runs with the reader's language already
+     equal to the URL's. */
+  const bareHead = [...detect, ...inR, ...outR, stored];
+  const bareBad = bareHead.filter(r => !/^https:\/\/[^?#]+\/$/.test(r.canon) || r.ogl !== 'hr_HR');
+  ck('and the bare / still calls itself the Croatian page however the reader is configured',
+    bareBad.length === 0 && bareHead.length >= 15, JSON.stringify(bareBad.slice(0, 3)));
 
   /* A shared link outranks both the browser and the stored choice: a link sent
      in English has to arrive in English, or the sender cannot show anyone
