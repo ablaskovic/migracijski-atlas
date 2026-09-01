@@ -1235,6 +1235,24 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   body{display:block;padding-bottom:0}
   .main{display:block}
   .map-wrap,.map-stage{display:block;height:auto}
+  /* …and then the stage has no flex parent left, so `.map-box{flex:1}` resolved
+     to `auto`: the box sat on its 180 px floor and the SVG inside it, whose
+     height is a percentage of that auto height, fell back to the 150 px
+     replaced-element default. Measured on the A4 landscape content box
+     (1047×718): every choropleth drew 161,7×160 into a 150 px SVG, and the two
+     fixed-geometry grids did not scale at all — their cell is already at its
+     12 px floor, so a shorter box is a CROP for them and not a shrink. Matrica
+     drew 352,1×321,1 and lost 192 px below the fold — sixteen of its twenty-one
+     county rows, gone behind the UA's overflow:hidden, under a column axis that
+     is complete, so the sheet reads as the whole matrix and cites five rows.
+     Godine lost 114 px the same way. That is the failure the rail's own print
+     rules above were written to end ("the reader cites a table they believe is
+     the complete ranking"), on a different figure.
+     A declared height gives the percentage something to resolve against and the
+     grids the room to draw: 21 rows at the 12 px floor plus the 90 px label band
+     and the bottom margin need ~382 px, and 430 clears it with a cell the
+     reader can actually read. */
+  .map-box{flex:none;height:60vh;min-height:430px}
   .rail{width:100%;max-height:none;height:auto;display:block;border-left:none}
   .rail-list{max-height:none;height:auto;overflow:visible;flex:none}
   .scrub{position:static}

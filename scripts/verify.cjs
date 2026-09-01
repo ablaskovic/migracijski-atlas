@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 472;
+const EXPECTED_CHECKS = 473;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -593,11 +593,48 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       pca: lb ? (getComputedStyle(lb).printColorAdjust || getComputedStyle(lb).webkitPrintColorAdjust) : null };
   });
   await page.emulateMediaType(null);
-  await page.setViewport({ width: 1440, height: 900 });
-  await fresh('');
   ck('printing carries the whole ranking and keeps the colour key',
     printed.rows === 21 && printed.inside === 21 && printed.pca === 'exact',
     JSON.stringify(printed));
+
+  /* …and the figure itself, which this block never looked at. It ran on the
+     default view and measured the rail; the map was left to the same collapse
+     the rail had just been rescued from. Turning `.map-wrap`/`.map-stage` into
+     blocks leaves `.map-box{flex:1}` resolving to `auto`, so the box sat on its
+     180 px floor and its percentage-height SVG fell back to the 150 px
+     replaced-element default. The choropleths merely spilled 20 px, because a
+     d3 projection refits to whatever box it is given — but Matrica and Godine
+     lay out on a fixed cell geometry already at its 12 px floor, so for them a
+     shorter box is a crop. Measured at 1047×718: Matrica drew 352,1×321,1 into a
+     150 px SVG and lost 192 px below the fold — sixteen of its twenty-one county
+     rows, behind the UA's overflow:hidden, under a complete column axis, so the
+     sheet reads as the whole 21×21 matrix and cites five rows. Godine lost
+     114 px. All seven views, and the drawn extent against the box it is drawn
+     in, because "the rail fits" was never the question the map answers. */
+  const printFit = [];
+  for (const [v, h] of [['saldo', ''], ['klas', '#v=klas'], ['reg', '#v=reg'],
+    ['flow', '#v=flow&s=HR-21&c=0&y=2018'], ['mx', '#v=mx&c=0&y=2018&dir=out'],
+    ['jmap', '#v=jmap&dir=net'], ['yrs', '#v=yrs']]) {
+    await fresh(h);
+    await page.emulateMediaType('print');
+    await settle(350);
+    printFit.push({ v, ...await page.evaluate(() => {
+      const svg = document.querySelector('#map');
+      if (!svg) return { over: 9999 };
+      const r = svg.getBoundingClientRect();
+      let bb = null;
+      try { bb = svg.getBBox(); } catch { /* not laid out */ }
+      return { svgH: Math.round(r.height),
+        drawn: bb ? Math.round(bb.height) : 0,
+        over: bb ? Math.max(0, Math.round(bb.y + bb.height - r.height)) : 9999 };
+    }) });
+    await page.emulateMediaType(null);
+  }
+  ck('every view prints its whole figure instead of cropping it to the box',
+    printFit.length === 7 && printFit.every(p => p.over === 0 && p.drawn > 100),
+    JSON.stringify(printFit.filter(p => p.over > 0 || p.drawn <= 100).slice(0, 3)));
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('');
   await page.hover('path[data-iso="HR-18"]');
   await settle(80);
   const mark = await page.evaluate(() => !!document.querySelector('#legend .legend-mark'));
