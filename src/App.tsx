@@ -320,15 +320,28 @@ export default function App() {
   const lastStory = useRef<number | null>(INITIAL.story);
   useEffect(() => {
     const h = '#' + encodeHash(S);
-    if (location.hash === h) { lastReset.current = resetSeq; lastStory.current = S.story; return; }
+    /* …and the query, which a fragment-only write cannot reach. `'#' + …` is
+       resolved against the current URL, so `?l=en` outlived every pushState:
+       after the reader pressed HR the page was Croatian while the address still
+       said English, which is both the link they would copy off that page and
+       the state the next reload booted from. Retired the moment it contradicts
+       the language on screen — and kept while it agrees, because it is the
+       crawlable address of the English half, the one the sitemap, the hreflang
+       set and the per-locale canonical all name. */
+    const q = new URLSearchParams(location.search);
+    if (q.get('l') && q.get('l') !== S.lang) q.delete('l');
+    const qs = q.toString();
+    const search = qs ? '?' + qs : '';
+    const u = location.pathname + search + h;
+    if (location.hash === h && search === location.search) { lastReset.current = resetSeq; lastStory.current = S.story; return; }
     const wasReset = resetSeq !== lastReset.current;
     const wasStory = S.story != null && S.story !== lastStory.current;
     lastReset.current = resetSeq;
     lastStory.current = S.story;
     if (S.view !== lastView.current || wasReset || wasStory) {
       lastView.current = S.view;
-      history.pushState(null, '', h);
-    } else history.replaceState(null, '', h);
+      history.pushState(null, '', u);
+    } else history.replaceState(null, '', u);
   }, [S, resetSeq]);
   useEffect(() => {
     const onPop = () => {

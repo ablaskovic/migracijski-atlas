@@ -4,6 +4,7 @@
 import { YEARS, ISOS } from './metrics.ts';
 import { STORIES, storyHolds } from './stories.ts';
 import { BASE } from './state.ts';
+import { storedLang } from './i18n.ts';
 import type { Patch, State } from './types.ts';
 
 const VIEWS = ['saldo', 'klas', 'reg', 'flow', 'mx', 'jmap', 'yrs'] as const;
@@ -196,7 +197,16 @@ export function decodeHash(hash: string): Patch {
    to the reader's device, and moving it into the query would send every view a
    reader opens to the server and put an unbounded set of near-duplicate URLs in
    front of a crawler that robots.txt allows everywhere. */
+/* Ranked BELOW a stored choice, and only there: `?l=` is a fact about how this
+   document was *opened* — an inference like `navigator.languages`, not an act —
+   while the toggle is the reader saying it in the first person. Without the
+   rule the two had no order at all and the loser was always the reader:
+   arriving on `/?l=en` and pressing HR stored 'hr', dropped `l=` from the hash
+   and left `?l=en` in the address, so the next reload booted English again and
+   the press could never be made to stick. `#l=` still outranks both — it is the
+   more specific statement, and it is the one a person pasted. */
 export function readSearch(search: string): Patch {
+  if (storedLang()) return {};
   const lang = oneOf(new URLSearchParams(search).get('l'), LANGS);
   return lang ? { lang } : {};
 }
