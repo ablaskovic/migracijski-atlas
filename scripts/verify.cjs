@@ -1987,9 +1987,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await fresh('#v=saldo&c=0&y=1998');
   const histRate = await page.evaluate(async () => {
     let R = 0, P = 0;
+    const ts = [];
     const r0 = history.replaceState.bind(history), p0 = history.pushState.bind(history);
-    history.replaceState = (...a) => { R++; return r0(...a); };
-    history.pushState = (...a) => { P++; return p0(...a); };
+    history.replaceState = (...a) => { R++; ts.push(performance.now()); return r0(...a); };
+    history.pushState = (...a) => { P++; ts.push(performance.now()); return p0(...a); };
     const sp = document.querySelector('#spark');
     const b = sp.getBoundingClientRect();
     const at = x => {
@@ -2007,14 +2008,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       await new Promise(r => setTimeout(r, 8));
     }
     sp.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x + x, clientY: b.y + b.height / 2, bubbles: true, pointerId: 1, isPrimary: true }));
-    const secs = (Date.now() - t0) / 1000;
+    void t0;
     /* past the trailing timer, so the last state of the burst has landed */
-    await new Promise(r => setTimeout(r, 700));
+    await new Promise(r => setTimeout(r, 800));
     history.replaceState = r0; history.pushState = p0;
-    return { R, P, rate: (R + P) / secs, year: sp.getAttribute('aria-valuetext'), hash: location.hash };
+    /* The SPACING, not a rate over the sample. WebKit's cap is a count over a
+       rolling 30 s window, and the throttle fires on the leading edge, so one
+       lone change still lands at once and only a burst is spaced — dividing the
+       total by the sample length would charge that free first write against
+       every second of it. The floor is what bounds the window: at one write per
+       320 ms the worst 30 s can hold 94, against a cap of 100. */
+    const gaps = ts.slice(1).map((t, i) => t - ts[i]);
+    return { R, P, gaps: gaps.length, minGap: gaps.length ? Math.round(Math.min(...gaps)) : 0,
+      worst30s: gaps.length ? Math.ceil(30000 / Math.min(...gaps)) : 0,
+      year: sp.getAttribute('aria-valuetext'), hash: location.hash };
   });
-  ck('scrubbing writes history under the 3,3/s engine budget, and the URL still catches up',
-    histRate.rate <= 3.4 && histRate.R > 0
+  ck('scrubbing spaces its history writes under the engine’s 100-per-30 s budget, and the URL still catches up',
+    histRate.R >= 5 && histRate.minGap >= 300 && histRate.worst30s <= 100
     && histRate.hash.includes('y=' + String(histRate.year).replace('.', '')),
     JSON.stringify(histRate));
 
