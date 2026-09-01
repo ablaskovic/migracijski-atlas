@@ -50,30 +50,47 @@ export const regFailed = (): boolean => regErr;
    on retryGeo says so). The app was permanently wrong about the network on the
    strength of a request nobody made. A speculative failure clears the promise
    slot so the next real call retries, and says nothing. */
+/* …and speculative-ness is a property of the CALL, not of the promise. `??=`
+   memoises the promise, so the flag used to be frozen by whichever call created
+   it — and the warm always creates it first. A reader who pressed "JLS 2018."
+   while the t=1,5 s warm was still in flight (on a slow connection, roughly the
+   whole 1,5–12 s window) was handed the warm's promise and issued no request of
+   their own; when it failed, the catch read the warm's `speculative = true`, set
+   no flag, and MapView — which gates the entire failure UI on jlsFailed() —
+   rendered "Učitavanje geometrije JLS…" for ever, for a view they had explicitly
+   asked for. No #jerror, no #jretry, both exporters held, and nothing left to
+   re-trigger it: measured, still spinning 7,5 s later, recoverable only by
+   leaving the view and coming back, which no reader has any reason to try.
+   Kept per slot and mutable, so a real call joining an in-flight warm makes the
+   outcome the reader's, while a warm nobody joined still says nothing. */
+let jlsSpec = false, regSpec = false;
 function load<T>(
   imp: () => Promise<{ default: unknown }>,
   set: (v: T) => void,
   slot: 'jls' | 'reg',
-  speculative = false,
 ): Promise<void> {
   const p = imp().then(m => {
     set(m.default as T);
     if (slot === 'jls') jlsErr = false; else regErr = false;
   }).catch(() => {
-    if (slot === 'jls') { jlsP = null; if (!speculative) jlsErr = true; }
-    else { regP = null; if (!speculative) regErr = true; }
+    if (slot === 'jls') { jlsP = null; if (!jlsSpec) jlsErr = true; }
+    else { regP = null; if (!regSpec) regErr = true; }
   }).then(() => { subs.forEach(f => f()); });
   return p;
 }
 
 export function loadJlsGeo(speculative = false): Promise<void> {
   if (jls) return Promise.resolve();
-  jlsP ??= load<JlsGeo>(() => import('../data/geo_jls.json'), v => { jls = v; }, 'jls', speculative);
+  /* before the memo, so a real request that joins an in-flight warm clears the
+     flag the warm set — the failure is now one a reader is waiting on */
+  if (!speculative) jlsSpec = false;
+  if (!jlsP) { jlsSpec = speculative; jlsP = load<JlsGeo>(() => import('../data/geo_jls.json'), v => { jls = v; }, 'jls'); }
   return jlsP;
 }
 export function loadRegGeo(speculative = false): Promise<void> {
   if (reg) return Promise.resolve();
-  regP ??= load<RegGeo>(() => import('../data/geo_regions5.json'), v => { reg = v; }, 'reg', speculative);
+  if (!speculative) regSpec = false;
+  if (!regP) { regSpec = speculative; regP = load<RegGeo>(() => import('../data/geo_regions5.json'), v => { reg = v; }, 'reg'); }
   return regP;
 }
 /* Retry entry point for the error UI.

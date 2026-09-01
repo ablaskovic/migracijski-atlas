@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 463;
+const EXPECTED_CHECKS = 464;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -257,6 +257,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* one handler only — a second `page.on('request')` makes both call continue()
      on the same request and puppeteer throws "Request is already handled" */
   let blockGeoChunk = false, blockEntry = false;
+  /* `{ re, gate, done, n }` while a chunk request is being held open, null
+     otherwise. `n` counts how many requests were actually parked, which is what
+     proves the reader's own view change issued no request of its own and really
+     did join the warm's promise. */
+  let hold = null;
+  const holdChunk = re => {
+    let done;
+    const gate = new Promise(r => { done = r; });
+    hold = { re, gate, done, n: 0 };
+    return hold;
+  };
+  /* `go` true lets the parked requests through, false fails them. Cleared first
+     so anything arriving afterwards is answered normally. */
+  const releaseChunk = go => { const h = hold; hold = null; if (h) h.done(go); };
   page.on('request', r => {
     const u = r.url();
     if (/^https?:/.test(u) && new URL(u).origin !== ORIGIN) thirdParty.push(u);
@@ -267,6 +281,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       return r.respond({ status: 200, contentType: 'text/javascript',
         body: '/* Vercel platform route, stubbed by scripts/verify.cjs */' });
     }
+    /* A chunk PARKED rather than answered, which `blockGeoChunk` cannot produce:
+       it aborts instantly, so the window in which a speculative warm is still in
+       flight is zero and no check could ever open the view that warm is warming
+       while it was still running. That window is the one a reader on a slow
+       connection actually meets — see the held-warm check below. */
+    if (hold && hold.re.test(u)) { hold.n++; return hold.gate.then(go => (go ? r.continue() : r.abort())); }
     /* `blockGeoChunk` names which payload to drop: the JLS chunk by default, and
        'reg' for the region outlines, whose failure UI had no importers at all. */
     if (blockGeoChunk && new RegExp(blockGeoChunk === 'reg' ? 'geo_regions5' : 'geo_jls').test(u)) return r.abort();
@@ -3396,6 +3416,52 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a failed speculative warm does not latch the failure UI for a view nobody opened',
     warmLatch.view === 'Saldo' && !warmLatch.err && warmLatch.status.trim() === '',
     JSON.stringify(warmLatch));
+  /* …and the third state, between the two above: a real request that JOINS the
+     warm. Both checks so far abort instantly, so one exercises a warm that
+     failed with nobody watching and the other a request made at mount with
+     nobody warming — and the state in between is the one a reader on a slow
+     connection actually meets. `jlsP ??=` hands a view change that arrives
+     mid-warm the warm's own promise, so no second request is issued, and the
+     speculative flag used to belong to that promise rather than to the caller:
+     the failure took the speculative branch, latched nothing, and the view the
+     reader had explicitly asked for sat under "Učitavanje geometrije JLS…" for
+     ever — no #jerror, no #jretry, both exporters held, and no second request to
+     recover on. Held across the warm window, opened while it is held, and only
+     then failed. */
+  {
+    const h = holdChunk(/geo_jls/);
+    await page.goto('about:blank');
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    /* the warm fires at t=1,5 s; wait for the request itself rather than for a
+       stopwatch, so a slow runner does not open the view before it exists */
+    const armed = await new Promise(res => {
+      const t0 = Date.now();
+      const poll = setInterval(() => {
+        if (h.n > 0 || Date.now() - t0 > 15000) { clearInterval(poll); res(h.n > 0); }
+      }, 50);
+    });
+    /* the reader presses "JLS 2018." while that fetch is still open */
+    await page.evaluate(() => document.querySelector('#segView button[data-v="jmap"]').click());
+    await settle(300);
+    const joined = { armed, reqs: h.n, spinning: await page.evaluate(() => !!document.querySelector('#jloading')) };
+    releaseChunk(false);
+    await page.waitForFunction(() => !!document.querySelector('#jerror'), { timeout: 15000 }).catch(() => {});
+    const held = await page.evaluate(() => ({
+      view: (document.querySelector('#segView button[aria-pressed="true"]') || {}).dataset?.v ?? '',
+      err: !!document.querySelector('#jerror'),
+      retry: !!document.querySelector('#jretry'),
+      stillLoading: !!document.querySelector('#jloading'),
+    }));
+    ck('a warm the reader joins mid-flight reports its failure to them, not silently',
+      joined.armed && joined.reqs === 1 && joined.spinning
+      && held.view === 'jmap' && held.err && held.retry && !held.stillLoading,
+      JSON.stringify({ ...joined, ...held }));
+    /* the abort was ours; keep it out of the two zero-error assertions, the same
+       targeted splice the geo_regions5 scrub above uses */
+    for (let i = errors.length - 1; i >= 0; i--) {
+      if (/geo_jls/.test(errors[i]) && /ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+    }
+  }
   {
     const before = errors.length;
     for (let i = errors.length - 1; i >= 0; i--) {
