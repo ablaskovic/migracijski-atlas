@@ -9,7 +9,7 @@ import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperPending, paperRefNote, paperRefTail } from './lib/credits.ts';
 import { ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from './lib/licences.ts';
-import { privacyShort } from './lib/privacy.ts';
+import { dropHash, privacyShort } from './lib/privacy.ts';
 import Header from './components/Header.tsx';
 import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
@@ -747,9 +747,13 @@ export default function App() {
           deployed visitor. Only `npm run dev` loads them from
           va.vercel-scripts.com (the .debug.js builds), which is why the check
           runs against `dist` — see the third-party-origin checks in
-          scripts/verify.cjs, which assert it. */}
-      <Analytics />
-      <SpeedInsights />
+          scripts/verify.cjs, which assert it.
+          `beforeSend` strips the fragment before either beacon leaves: both ship
+          location.href, so the county, the corridor partner, the view and the
+          year were being reported to Vercel's edge while the glossary promised
+          the fragment never reaches a server. See lib/privacy.ts. */}
+      <Analytics beforeSend={dropHash} />
+      <SpeedInsights beforeSend={dropHash} />
     </>
   );
 }

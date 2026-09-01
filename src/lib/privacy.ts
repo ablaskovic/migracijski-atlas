@@ -58,3 +58,23 @@ export const privacyState = (): string => L(
   + 'ono što gledate ostaje na vašem uređaju. Jedino što se sprema lokalno jest odabir jezika.',
   'The atlas’s state lives in the URL fragment (#v=…&y=…), which a browser never sends to a server — '
   + 'what you are looking at stays on your device. The only thing stored locally is your language choice.');
+
+/* The redaction that makes the sentence above true.
+
+   Both beacons ship `location.href`, fragment and all. Measured against the
+   deployed insights script: POST /_vercel/insights/view carried
+   {"o":"…/?l=en#l=en&v=flow&c=0&y=2018&s=HR-21&pp=HR-01"}, and every Web Vital
+   carries an `href` read at measurement time, so the INP and CLS beacons report
+   whichever view the reader had moved to by then. That is the county, the
+   corridor partner, the view, the direction and the year leaving the device —
+   to the same edge privacyNote says derives a country from the IP — while
+   privacyState promises in as many words that a browser never sends the
+   fragment to a server and that what you are looking at stays on your device.
+   The disclosure that MA3 chose instead of a consent gate misstated the one
+   fact it exists to state.
+
+   Both packages document `beforeSend` for exactly this, and it costs nothing
+   analytically: Vercel reports paths, and every view of this atlas shares one
+   path, so the fragment was never a usable dimension. It lives here, beside the
+   sentence it makes true, so neither can be edited without the other in view. */
+export const dropHash = <E extends { url: string }>(e: E): E => ({ ...e, url: e.url.split('#')[0] });

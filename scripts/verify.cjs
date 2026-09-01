@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 473;
+const EXPECTED_CHECKS = 474;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1476,6 +1476,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /kolači/i.test(privacy.help) && /fragmentu URL-a/.test(privacy.help)
     && /Vercel Web Analytics/.test(privacy.foot),
     JSON.stringify({ help: privacy.help.length, foot: privacy.foot.slice(-90) }));
+
+  /* …and the sentence has to be TRUE, which the check above cannot ask. Both
+     beacons ship `location.href`, fragment and all: measured against the real
+     deployed scripts, with the vendor's automation guard masked, every beacon
+     URL read
+     `http://…/#v=flow&c=0&y=2018&s=HR-21&pp=HR-01` — the view, the year, the hub
+     and the corridor partner — on the page-view POST and on all three Web
+     Vitals, to the same edge the note says derives a country from the IP, while
+     the glossary promised the fragment is one "a browser never sends to a
+     server". The platform routes are stubbed to a comment here, so no beacon can
+     be observed; what CAN be observed is the redaction the app installs. Both
+     packages queue it on window before their script loads, so it is called with
+     a real fragment-bearing URL and the result is asserted to carry none. */
+  const redact = await page.evaluate(() => {
+    const run = q => {
+      const e = (q || []).find(x => Array.isArray(x) && x[0] === 'beforeSend');
+      if (!e || typeof e[1] !== 'function') return null;
+      const out = e[1]({ type: 'pageview', url: location.origin + '/#v=flow&c=0&y=2018&s=HR-21&pp=HR-01' });
+      return out && typeof out.url === 'string' ? out.url : null;
+    };
+    return { hash: location.hash, va: run(window.vaq), si: run(window.siq) };
+  });
+  ck('and neither beacon can carry the view state off the device',
+    redact.hash.length > 10 && typeof redact.va === 'string' && !redact.va.includes('#')
+    && typeof redact.si === 'string' && !redact.si.includes('#'),
+    JSON.stringify(redact));
 
   /* the glossary shares the top-left corner with the detail card — it must cover
      it outright, not leave its header and close button peeking out above */
