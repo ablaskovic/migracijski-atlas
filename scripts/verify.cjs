@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 467;
+const EXPECTED_CHECKS = 468;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2132,24 +2132,63 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const unstroked = strokeOnly.flatMap(sel => [...doc.querySelectorAll(sel)]
       .filter(e => !e.getAttribute('stroke')).map(() => sel));
     const parseErr = !!doc.querySelector('parsererror');
-    /* and prove it by rasterising: the band used to render solid black */
-    const img = new Image();
-    await new Promise(r => { img.onload = r; img.onerror = r; img.src = URL.createObjectURL(new Blob([s], { type: 'image/svg+xml' })); });
-    const cv = document.createElement('canvas');
-    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
-    const ctx = cv.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    const b = document.querySelector('.mxband rect');
-    const px = Math.round(+b.getAttribute('x') + +b.getAttribute('width') * 0.5);
-    const py = Math.round(+b.getAttribute('y') + +b.getAttribute('height') / 2) + 86;   /* TOP band */
-    const d = ctx.getImageData(px, py, 1, 1).data;
-    return { naked, n: shapes.length, unstroked, parseErr, band: [d[0], d[1], d[2]] };
+    /* …and prove it by rasterising. The old probe read ONE pixel at the band's
+       centre and asked whether any channel cleared 60 — a floor calibrated to
+       the historical rgb(0,0,0), i.e. the whole bake missing. No such floor can
+       work while the bake's own `opacity="0.5"` survives: half of anything over
+       this pale figure ground lands around rgb(120,118,116), so a band painted
+       SOLID BLACK sails through. Measured — delete only the `fill="none"`
+       statement, the one line the check's own title is about, and the export
+       ships a 50 %-black bar across a whole row and column of the heatmap while
+       the check prints ok. The neighbouring self-containment sweep misses it too:
+       its `naked` filter needs both fill AND stroke absent, and the stroke is
+       still there.
+       So compare the figure against itself instead: rasterise with the corridor
+       focused and again with nothing focused, and count the pixels that differ.
+       The band is a 1,1 px outline, so what changes is its perimeter — a fill
+       changes its whole area. Layout-independent, so a header that grows a line
+       cannot drift the probe onto background the way a live-y + 86 offset could
+       (measured: every offset from −52 to +120 px passed on both exports). */
+    const rast = async src => {
+      const im = new Image();
+      await new Promise(r => { im.onload = r; im.onerror = r; im.src = URL.createObjectURL(new Blob([src], { type: 'image/svg+xml' })); });
+      const c = document.createElement('canvas');
+      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      c.getContext('2d').drawImage(im, 0, 0);
+      return { d: c.getContext('2d').getImageData(0, 0, c.width, c.height).data, w: c.width, h: c.height };
+    };
+    const A = await rast(s);
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    await new Promise(r => setTimeout(r, 300));
+    const sOff = window.__exportSVG(false);
+    const B = await rast(sOff);
+    const bands = [...doc.querySelectorAll('.mxband rect')];
+    /* the bake's own values, not merely the presence the sweep above tests */
+    const bandAttr = bands.map(r => ({ fill: r.getAttribute('fill'), stroke: r.getAttribute('stroke'), op: +r.getAttribute('opacity') }));
+    const bandArea = bands.reduce((a, r) => a + +r.getAttribute('width') * +r.getAttribute('height'), 0);
+    let diff = 0;
+    if (A.w === B.w && A.h === B.h) {
+      for (let i = 0; i < A.d.length; i += 4) {
+        if (Math.abs(A.d[i] - B.d[i]) > 8 || Math.abs(A.d[i + 1] - B.d[i + 1]) > 8
+          || Math.abs(A.d[i + 2] - B.d[i + 2]) > 8) diff++;
+      }
+    }
+    /* the unfocused export must actually have no band, or the diff is measuring
+       two identical pictures and would pass on anything */
+    const offBands = new DOMParser().parseFromString(sOff, 'image/svg+xml').querySelectorAll('.mxband rect').length;
+    return { naked, n: shapes.length, unstroked, parseErr,
+      bands: bands.length, bandAttr, bandArea: Math.round(bandArea), diff,
+      ratio: bandArea ? diff / bandArea : 99, offBands, sameSize: A.w === B.w && A.h === B.h };
   });
   ck('exported document is self-contained (no CSS-only fill/stroke left)',
     !baked.parseErr && baked.n >= 100 && baked.naked.length === 0 && baked.unstroked.length === 0,
     JSON.stringify({ n: baked.n, naked: baked.naked.slice(0, 5), unstroked: baked.unstroked.slice(0, 5), parseErr: baked.parseErr }));
-  ck('matrix trace band does not export as a solid black bar',
-    baked.band[0] > 60 || baked.band[1] > 60 || baked.band[2] > 60, 'rgb(' + baked.band.join(',') + ')');
+  ck('matrix trace band exports as an outline, not a filled bar',
+    baked.bands === 2 && baked.offBands === 0 && baked.sameSize && baked.ratio < 0.5,
+    JSON.stringify({ bands: baked.bands, offBands: baked.offBands, area: baked.bandArea, diff: baked.diff, ratio: +baked.ratio.toFixed(3) }));
+  ck('…and its baked paint says so in the document itself',
+    baked.bandAttr.length === 2 && baked.bandAttr.every(a => a.fill === 'none' && !!a.stroke && a.op > 0 && a.op <= 0.5),
+    JSON.stringify(baked.bandAttr));
 
   /* ══════════ reset means reset, including the zoom ══════════ */
   await fresh('');
