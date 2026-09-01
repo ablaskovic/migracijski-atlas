@@ -673,9 +673,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const labHost = await page.evaluate(() => [...document.querySelectorAll('#map .clab')].map(t => {
     const b = t.getBoundingClientRect();
     const el = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
-    return { name: t.textContent, iso: el ? el.getAttribute('data-iso') : null };
+    return { name: t.textContent, iso: el ? el.getAttribute('data-iso') : null,
+      /* the host county's own name, as the app itself prints it: everything
+         before the colon of the path's accessible label */
+      host: el ? (el.getAttribute('aria-label') || '').split(':')[0] : '' };
   }));
-  const labMiss = labHost.filter(l => !l.iso);
+  /* `name` was collected and then thrown away — the filter read `!l.iso` alone,
+     so what the check actually asked was "does every label sit on SOME county",
+     which is neither its title nor either defect its comment cites. Measured:
+     rotating all sixteen rendered labels onto their neighbours, so that not one
+     names the county under it, left labMiss empty and the check green. Only the
+     Zadarska class (a label on open water, iso null) was ever caught; the
+     "Brodsko-pos. printed across Požeško-slavonska" class — the map naming one
+     county with another's name — was invisible to it.
+     The drawn name is an elision of the county's own ("Osječko-bar." of
+     "Osječko-baranjska", "Grad Zagreb" of itself), so the comparison is a prefix
+     test once the elision dot is dropped. */
+  const labMiss = labHost.filter(l => !l.iso || !l.host
+    || !l.host.startsWith(String(l.name).replace(/\.$/, '')));
   ck('every county label is drawn on the county it names',
     labHost.length >= 12 && labMiss.length === 0,
     JSON.stringify(labMiss.slice(0, 4)));
