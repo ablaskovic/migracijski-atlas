@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 465;
+const EXPECTED_CHECKS = 466;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2243,6 +2243,49 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('390: matrix axis labels stay at or above the 6.5 px floor',
     mx390.fs >= 6.5 && mx390.nLab >= 42, mx390.fs + ' px over ' + mx390.nLab + ' labels');
   ck('390: matrix gets the coarse-pointer tap overlay', mx390.hit === 1, String(mx390.hit));
+
+  /* …and the JLS map's tip, which had no such route at all. The suite asserted
+     that tooltip's TEXT and never its box, so it was green while the panel was
+     painted 1.074 px below the bottom of a 844 px viewport. A tap fires
+     pointerover, pointerenter, pointerdown, pointerup and pointerleave and NO
+     pointermove, and `onPointerMove={moveTip}` was the path's only positioning
+     input: `last` stayed null, placeTip() was a no-op, and .tip's position:fixed
+     with auto insets left the box at its static flow position. On the one device
+     class Tooltip says this readout exists for — where it is the JLS map's ONLY
+     per-municipality value — tapping any of the 556 municipalities produced
+     nothing a reader could see. The box, then, not the text: measured before the
+     fix at rect (0,1918) here and (0,0) at 1024×768, both with style.left and
+     style.top empty. */
+  await fresh('#v=jmap&dir=net');
+  await page.evaluate(() => { const m = document.querySelector('#map'); if (m) m.scrollIntoView({ block: 'center' }); });
+  await settle(400);
+  const jTap = await page.evaluate(() => {
+    for (const e of document.querySelectorAll('.jl')) {
+      const r = e.getBoundingClientRect();
+      if (r.width < 8 || r.height < 8) continue;
+      const x = Math.round(r.x + r.width / 2), y = Math.round(r.y + r.height / 2);
+      if (x < 4 || y < 4 || x > innerWidth - 4 || y > innerHeight - 4) continue;
+      /* not under the fixed scrubber or the header, or the tap never reaches it */
+      if (document.elementFromPoint(x, y) !== e) continue;
+      return { x, y, name: (e.getAttribute('aria-label') || '').slice(0, 30) };
+    }
+    return null;
+  });
+  if (jTap) await page.touchscreen.tap(jTap.x, jTap.y);
+  await settle(250);
+  const jTip = await page.evaluate(() => {
+    const t = document.querySelector('#tip');
+    const r = t.getBoundingClientRect();
+    return { show: t.classList.contains('show'), left: t.style.left, top: t.style.top,
+      rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
+      inside: r.x >= 0 && r.y >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+      text: (t.textContent || '').trim().length };
+  });
+  ck('390: a tap on the JLS map places its tooltip inside the viewport, not only fills it',
+    !!jTap && jTip.show && jTip.inside && jTip.left !== '' && jTip.top !== '' && jTip.text > 10,
+    JSON.stringify({ jTap, ...jTip }));
+  /* back to the matrix the rest of this block measures */
+  await fresh('#v=mx&c=0&y=2018&dir=out');
 
   /* The box and the paint, not the `display` keyword. `display !== 'none'` is
      true of an element with zero height, zero opacity, visibility:hidden, or one

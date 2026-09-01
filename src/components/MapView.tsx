@@ -466,6 +466,23 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                     /* touch sends leave the moment the finger lifts, which would
                        flash the readout away; keep it until the next tap instead */
                     onPointerLeave={() => { if (!COARSE) setS({ jlsHl: null }); }}
+                    /* A tap fires pointerover, pointerenter, pointerdown, pointerup
+                       and pointerleave — and no pointermove. So on the one device
+                       class this tip exists for (Tooltip says it outright: on a
+                       coarse pointer it is the JLS map's only value readout) the
+                       only positioning input never ran: `last` stayed null,
+                       placeTip() was a no-op, and .tip's position:fixed with auto
+                       insets painted the box at its static flow position.
+                       Measured at 390×844 coarse, one clean tap on Sveti Martin na
+                       Muri: style.left and style.top both empty, rect (0,1918) —
+                       1.074 px below a 844 px viewport, and fixed positioning means
+                       scrolling never brings it back. At 1024×768 the same tap
+                       painted it at (0,0), over the header, 300 px from the polygon.
+                       One drag-tap placed it and every clean tap afterwards
+                       replayed that stale point under a different municipality's
+                       numbers. Matrica and Godine already position from pointerdown
+                       through their touch overlays; this is the same signal. */
+                    onPointerDown={moveTip}
                     onPointerMove={moveTip}
                     onFocus={e => {
                       setS({ jlsHl: p.j });
