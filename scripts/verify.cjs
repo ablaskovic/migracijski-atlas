@@ -3552,13 +3552,44 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      and the retry: a rejected module fetch is cached in the browser's module
      map, which is why retryGeo reloads. What this asserts is that the app does
      not claim a failure nobody has asked it to have.) */
-  const warmLatch = await page.evaluate(() => ({
-    view: (document.querySelector('#segView button[aria-pressed="true"]') || {}).textContent,
-    err: !!document.querySelector('#jerror'),
-    status: (document.querySelector('#jstatus') || {}).textContent || '',
-  }));
+  /* …and the Saldo probe alone could not fail. MapView gates the whole geostat
+     region on `S.view === 'jmap' || S.view === 'reg'`, and #jerror lives inside
+     it, so in Saldo both selectors return null BY CONSTRUCTION: the three
+     clauses held on a healthy boot with nothing blocked, and held identically on
+     a document whose region failure was genuinely latched and had merely been
+     navigated away from. Nothing about the behaviour could turn it red.
+     So the absence is still asserted — and named as an absence, `geostat`, so
+     the file says out loud that that arm proves nothing on its own — and the
+     discrimination comes from what Regije paints FIRST when it is opened. A
+     failed module fetch is cached in the module map, so the view fails either
+     way and the end state is identical; what differs is the frame before it.
+     Unlatched, the real call is a fresh request as far as the app knows, so the
+     first geostat state is the spinner. Pre-latched, `regFailed()` is already
+     true at that first render and the error is painted with no spinner at all.
+     Measured: fixed → first {loading:true, err:false}; with the speculative flag
+     removed → first {loading:false, err:true}, and no spinner state ever. */
+  const warmLatch = await page.evaluate(async () => {
+    const seen = [];
+    const snap = () => {
+      if (!document.querySelector('#jstatus')) return;
+      seen.push({ loading: !!document.querySelector('#jloading'), err: !!document.querySelector('#jerror') });
+    };
+    const mo = new MutationObserver(snap);
+    mo.observe(document.body, { childList: true, subtree: true });
+    const at = {
+      view: (document.querySelector('#segView button[aria-pressed="true"]') || {}).textContent,
+      err: !!document.querySelector('#jerror'),
+      status: (document.querySelector('#jstatus') || {}).textContent || '',
+      geostat: !!document.querySelector('#jstatus'),
+    };
+    document.querySelector('#segView button[data-v="reg"]').click();
+    await new Promise(r => setTimeout(r, 1200));
+    mo.disconnect();
+    return { ...at, first: seen[0] || null, states: seen.length };
+  });
   ck('a failed speculative warm does not latch the failure UI for a view nobody opened',
-    warmLatch.view === 'Saldo' && !warmLatch.err && warmLatch.status.trim() === '',
+    warmLatch.view === 'Saldo' && !warmLatch.err && warmLatch.status.trim() === '' && !warmLatch.geostat
+    && !!warmLatch.first && warmLatch.first.loading && !warmLatch.first.err,
     JSON.stringify(warmLatch));
   /* …and the third state, between the two above: a real request that JOINS the
      warm. Both checks so far abort instantly, so one exercises a warm that
