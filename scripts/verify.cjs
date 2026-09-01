@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 464;
+const EXPECTED_CHECKS = 465;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1955,6 +1955,53 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('slider implements Home / End / PageDown, not only the arrows',
     slid.home === '2011.' && slid.end === '2025.' && slid.pgdn === '2020.', JSON.stringify(slid));
+
+  /* …and scrubbing it must not write history faster than an engine will take.
+     WebKit's budget is 100 pushState+replaceState calls per rolling 30 s — 3,3 a
+     second — and it THROWS SecurityError past it, from inside the hash-sync
+     effect, which React routes to the root ErrorBoundary: the whole working
+     atlas replaced by the render-failure card after a few seconds of the app's
+     central interaction. Chrome and Firefox drop the excess silently instead,
+     which is the same bug one register quieter — the address bar stops tracking
+     the view, so a link copied off it is a permalink to the wrong year.
+     Measured unthrottled on this build: 334 replaceState calls in 4 s of held
+     arrow keys and 180 in a 5 s drag, i.e. 36–83 a second. The rate is asserted
+     against the budget, and the URL is asserted to have caught up afterwards —
+     a throttle that never lands the last state would be the Firefox bug with
+     extra steps. */
+  await fresh('#v=saldo&c=0&y=1998');
+  const histRate = await page.evaluate(async () => {
+    let R = 0, P = 0;
+    const r0 = history.replaceState.bind(history), p0 = history.pushState.bind(history);
+    history.replaceState = (...a) => { R++; return r0(...a); };
+    history.pushState = (...a) => { P++; return p0(...a); };
+    const sp = document.querySelector('#spark');
+    const b = sp.getBoundingClientRect();
+    const at = x => {
+      const o = { clientX: b.x + x, clientY: b.y + b.height / 2, bubbles: true, pointerId: 1, isPrimary: true, buttons: 1 };
+      sp.dispatchEvent(new PointerEvent('pointermove', o));
+    };
+    sp.dispatchEvent(new PointerEvent('pointerdown', { clientX: b.x + 10, clientY: b.y + b.height / 2, bubbles: true, pointerId: 1, isPrimary: true, buttons: 1 }));
+    const t0 = Date.now();
+    let x = 10, dir = 1;
+    while (Date.now() - t0 < 4000) {
+      x += dir * 14;
+      if (x > b.width - 10) dir = -1;
+      if (x < 10) dir = 1;
+      at(x);
+      await new Promise(r => setTimeout(r, 8));
+    }
+    sp.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x + x, clientY: b.y + b.height / 2, bubbles: true, pointerId: 1, isPrimary: true }));
+    const secs = (Date.now() - t0) / 1000;
+    /* past the trailing timer, so the last state of the burst has landed */
+    await new Promise(r => setTimeout(r, 700));
+    history.replaceState = r0; history.pushState = p0;
+    return { R, P, rate: (R + P) / secs, year: sp.getAttribute('aria-valuetext'), hash: location.hash };
+  });
+  ck('scrubbing writes history under the 3,3/s engine budget, and the URL still catches up',
+    histRate.rate <= 3.4 && histRate.R > 0
+    && histRate.hash.includes('y=' + String(histRate.year).replace('.', '')),
+    JSON.stringify(histRate));
 
   /* Escape reaches every dismissible surface, not just two of six */
   await fresh('');

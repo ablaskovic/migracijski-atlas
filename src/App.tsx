@@ -318,6 +318,33 @@ export default function App() {
      Nalaz 2 (also Saldo) and Back left the site rather than restoring the year
      and the mode the reader had built. */
   const lastStory = useRef<number | null>(INITIAL.story);
+  /* The replace branch is the high-frequency one, and it had no cap at all.
+     Measured on the shipped dist: 77 replaceState calls in 5 s of mouse
+     scrubbing, 81 in 5 s of touch scrubbing on a 390 px phone, 76 in 4 s of held
+     arrow keys — 15–16 a second. WebKit's budget is 100 history writes per
+     rolling 30 s (3,3/s) and it THROWS SecurityError past it; the throw lands
+     inside this effect, React routes it to the root ErrorBoundary, and after
+     roughly 7–30 s of the app's central interaction the whole working atlas is
+     replaced by the render-failure card, taking the zoom and the per-view year
+     memory with it. Chrome and Firefox drop the excess silently, which is the
+     quieter version of the same bug: the address bar stops tracking the view,
+     so the reader scrubs to 2015, copies the link, and hands the recipient
+     whichever year the throttle froze it at — from the app whose whole premise
+     is that the URL is the state.
+     A trailing 300 ms timer holds the steady rate at the budget and still lands
+     the last state of a burst; playback (650 ms a step) is unaffected. A view
+     change is a human-paced deliberate act, so it pushes at once — after
+     flushing whatever the timer held, or the two would land out of order. Both
+     calls are wrapped: an engine that throws anyway leaves a stale URL that the
+     next write repairs, rather than a blank page. */
+  const histQ = useRef<string | null>(null);
+  const histT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (histT.current !== null) clearTimeout(histT.current);
+    const p = histQ.current;
+    histQ.current = null;
+    if (p !== null) { try { history.replaceState(null, '', p); } catch { /* rate cap */ } }
+  }, []);
   useEffect(() => {
     const h = '#' + encodeHash(S);
     /* …and the query, which a fragment-only write cannot reach. `'#' + …` is
@@ -333,15 +360,34 @@ export default function App() {
     const qs = q.toString();
     const search = qs ? '?' + qs : '';
     const u = location.pathname + search + h;
-    if (location.hash === h && search === location.search) { lastReset.current = resetSeq; lastStory.current = S.story; return; }
+    /* the timer holds a URL that is now stale — a burst that comes back to where
+       it started must not have its own intermediate land after it */
+    const cancel = () => {
+      if (histT.current !== null) { clearTimeout(histT.current); histT.current = null; }
+      histQ.current = null;
+    };
+    if (location.hash === h && search === location.search) { cancel(); lastReset.current = resetSeq; lastStory.current = S.story; return; }
     const wasReset = resetSeq !== lastReset.current;
     const wasStory = S.story != null && S.story !== lastStory.current;
     lastReset.current = resetSeq;
     lastStory.current = S.story;
     if (S.view !== lastView.current || wasReset || wasStory) {
       lastView.current = S.view;
-      history.pushState(null, '', u);
-    } else history.replaceState(null, '', u);
+      const p = histQ.current;
+      cancel();
+      if (p !== null) { try { history.replaceState(null, '', p); } catch { /* rate cap */ } }
+      try { history.pushState(null, '', u); } catch { /* rate cap */ }
+      return;
+    }
+    histQ.current = u;
+    if (histT.current === null) {
+      histT.current = setTimeout(() => {
+        histT.current = null;
+        const p = histQ.current;
+        histQ.current = null;
+        if (p !== null) { try { history.replaceState(null, '', p); } catch { /* rate cap */ } }
+      }, 300);
+    }
   }, [S, resetSeq]);
   useEffect(() => {
     const onPop = () => {
