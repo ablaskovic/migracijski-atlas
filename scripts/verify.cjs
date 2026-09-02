@@ -5164,11 +5164,35 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
   /* ── P3: the citizenship clamp is a live status, not silent text ── */
   await fresh('#cz=1&y=2015&v=saldo&c=0');
-  ck('the out-of-range citizenship note is announced, not just drawn',
-    await page.evaluate(() => {
+  /* …with the words it exists to say, not only its role. #citzClamp is mounted
+     permanently now — "whether or not it has something to say", so a live region
+     registers before it speaks — which hollowed this check out: both its facts
+     hold in range and empty, and the suite's own empty-live-region check proves
+     exactly that at the default year. The y=2015 in the hash had become inert;
+     deleting the message from CitzPanel left this green. Worse, the populated
+     case survived only in the English block, so emptying just the Croatian half
+     of that L() — HR readers silently clamped — passed every check in the file.
+     Both years, both languages: it names where the scrubber is and where the
+     panel went, and it is empty when there is nothing to clamp. */
+  const czClamp = {};
+  for (const [k, h] of [['hrOut', '#cz=1&y=2015&v=saldo&c=0'], ['hrIn', '#cz=1&y=2024&v=saldo&c=0'],
+    ['enOut', '#l=en&cz=1&y=2015&v=saldo&c=0']]) {
+    await fresh(h);
+    czClamp[k] = await page.evaluate(() => {
       const c = document.querySelector('#citzClamp');
-      return !!c && c.getAttribute('role') === 'status';
-    }));
+      return { has: !!c, role: c && c.getAttribute('role'), live: c && c.getAttribute('aria-live'),
+        txt: c ? (c.textContent || '').trim() : null };
+    });
+  }
+  ck('the out-of-range citizenship note is announced, and says both years',
+    ['hrOut', 'hrIn', 'enOut'].every(k => czClamp[k].has && czClamp[k].role === 'status'
+      && czClamp[k].live === 'polite')
+    && /2015/.test(czClamp.hrOut.txt) && /2025/.test(czClamp.hrOut.txt)
+    && /izvan objavljenog raspona/.test(czClamp.hrOut.txt)
+    && /2015/.test(czClamp.enOut.txt) && /2025/.test(czClamp.enOut.txt)
+    && /outside the published range/.test(czClamp.enOut.txt)
+    && czClamp.hrIn.txt === '',
+    JSON.stringify(czClamp));
 
   /* ── P3: the corridor card encodes its two series with shape, not hue ── */
   await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
