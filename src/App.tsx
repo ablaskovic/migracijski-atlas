@@ -520,7 +520,20 @@ export default function App() {
   }, [S, resetSeq]);
   useEffect(() => {
     const onPop = () => {
-      lastView.current = readHash(location.hash).view ?? BASE.view;
+      /* …and the story with it. This mirrored the view alone, so a hand-typed
+         or edited story link whose keys are in a non-canonical order was
+         pushed twice: the browser records the fragment navigation as one
+         entry, then the effect above sees story != lastStory, canonicalises
+         the key order so the early return cannot fire, and pushes a second.
+         Measured from #v=saldo&c=1&y=2024 with history.length 2, pasting
+         #v=saldo&st=2&c=1&y=2024&f=all gave length 4, and Back landed on the
+         same story again — the caption still up, the hash unchanged — with a
+         second press needed to leave and a phantom stop in Forward. The same
+         canonical link adds exactly one. MA3-129 added wasStory to the effect
+         and not to this mirror. */
+      const popped = readHash(location.hash);
+      lastView.current = popped.view ?? BASE.view;
+      lastStory.current = popped.story ?? null;
       /* `help` and `flowSeen` are deliberately not in the permalink, so folding
          BASE back in would close the glossary and re-arm the first-entry 2018
          jump as a side effect of pressing Back. Carry them across instead. */
