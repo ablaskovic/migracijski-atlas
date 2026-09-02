@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 561;
+const EXPECTED_CHECKS = 562;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9275,6 +9275,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     ['pair', 'card'].every(k => !chartInk[k].missing && chartInk[k].n >= 3
       && chartInk[k].under.length === 0),
     JSON.stringify(chartInk));
+
+  /* ── the age pyramid has a text equivalent, band by band ──
+     its 32 bars existed only as rect widths: role="img" collapses the figure to
+     its one name, the band labels 0–4 … 75+ are inside it and hidden with it,
+     and the readout below gives two totals and the peak. So a screen-reader
+     reader could learn that 25–29 is the largest band and not how many
+     60–64-year-olds left — the question a pyramid is drawn to answer — while
+     every sibling chart in the app (#cardSvg, #pairSvg, #citzSvg) reads its
+     plotted values out. Sixteen rows of two numbers is a table, so AT can walk
+     it by row and column; the figure points at it, so the two are met together.
+     Both tabs, because the internal one plots a single series. */
+  const ageTbl = {};
+  for (const tab of ['ext', 'int']) {
+    await fresh('#ag=1');
+    if (tab === 'int') { await click('#ageTabs button[data-v="int"]'); await settle(300); }
+    ageTbl[tab] = await page.evaluate(() => {
+      const box = document.querySelector('#ageTable');
+      const svg = document.querySelector('#ageSvg');
+      if (!box || !svg) return { missing: true };
+      const rows = [...box.querySelectorAll('tbody tr')].map(r =>
+        [...r.children].map(c => c.textContent.trim()));
+      const cs = getComputedStyle(box);
+      return { desc: svg.getAttribute('aria-describedby'),
+        rects: document.querySelectorAll('#ageSvg rect').length,
+        bands: rows.length, cols: rows[0] ? rows[0].length : 0,
+        first: rows[0], caption: (box.querySelector('caption') || {}).textContent || '',
+        /* out of the layout as well as out of sight: a table takes width:1px as a
+           minimum, so the wrapper is what carries .sr-only */
+        hidden: cs.position === 'absolute' && parseFloat(cs.width) <= 1 };
+    });
+  }
+  ck('the age pyramid reads its 16 bands out, not just its total and its peak',
+    ['ext', 'int'].every(t => !ageTbl[t].missing && ageTbl[t].bands === 16
+      && ageTbl[t].desc === 'ageTable' && ageTbl[t].hidden && /2025/.test(ageTbl[t].caption))
+    && ageTbl.ext.cols === 3 && ageTbl.ext.rects === 32
+    && ageTbl.int.cols === 2 && ageTbl.int.rects === 16,
+    JSON.stringify(ageTbl));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));
