@@ -2807,19 +2807,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     [1366, 768, false], [1440, 900, false], [1600, 1000, false]]) {
     await page.setViewport({ width: w, height: h, isMobile: touch, hasTouch: touch });
     await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
-    const bad = await page.evaluate(() => {
+    const bad = await page.evaluate(async () => {
       const out = [];
       const card = document.querySelector('#pair').getBoundingClientRect();
       const dock = document.querySelector('.chipdock').getBoundingClientRect();
       if (card.bottom > dock.top) out.push('card' + Math.round(card.bottom) + '>dock' + Math.round(dock.top));
       /* the whole face, not the centre alone: a header half-covered is a header
          whose visible half is a lie about where the control is */
+      /* …scrolled to first, because in the SCROLLING layout the dock is below
+         the fold by design and elementFromPoint answers null for a point that
+         is merely off screen. "Covered by something else" is the question in
+         both layouts; "in the viewport right now" is only the desktop one's. */
       for (const id of ['#ageHd', '#citzHd', '#pairX']) {
         const e = document.querySelector(id);
         if (!e) { out.push(id + ':absent'); continue; }
-        const b = e.getBoundingClientRect();
+        e.scrollIntoView({ block: 'center' });
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const b2 = e.getBoundingClientRect();
         for (const [fx, fy] of [[0.1, 0.5], [0.3, 0.5], [0.5, 0.5], [0.7, 0.5], [0.9, 0.5]]) {
-          const hit = document.elementFromPoint(b.left + b.width * fx, b.top + b.height * fy);
+          const hit = document.elementFromPoint(b2.left + b2.width * fx, b2.top + b2.height * fy);
           if (!(hit && (hit === e || e.contains(hit)))) {
             out.push(id + '@' + fx + '<' + (hit ? (hit.id || hit.className) : 'null'));
           }
