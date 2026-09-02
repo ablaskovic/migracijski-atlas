@@ -4,7 +4,8 @@
 Other years = IPF: 2018 structure rescaled to exact DZS margins from atlas_data2.json
 (rows = oi 'odseljeni u drugu zupaniju', cols = ii 'doseljeni iz druge zupanije').
 1998-2006 margins don't balance (DZS asymmetry, max 550) -> in-margins rescaled proportionally.
-Integer rounding: largest remainder per row (rows exact; col drift <= ~5)."""
+Integer rounding: largest remainder per row (rows exact; col drift <= ~5 against the
+fitted margin, <= 146 against the published ii before 2007, <= 4 from 2007)."""
 # …and the CONSOLE, not only the files. Commit 85a1086's encoding sweep gave
 # every open() an explicit encoding='utf-8' and left sys.stdout locale-derived,
 # so on Windows a REDIRECTED stdout is cp1252 — and every one of these scripts
@@ -68,8 +69,22 @@ for yi,y in enumerate(YRS):
     # contradicts the `ii` that atlas_data2 feeds the same screen (the legend and
     # the tooltip read `ii`, the Tokovi arcs read odm), which is the 146-person
     # disagreement the app shows at 2002 for Grad Zagreb.
+    # …and the bound the docstring puts on it, which nothing enforced. "max 550"
+    # describes the data as it stands — the gap is non-zero in exactly the nine
+    # years 1998-2006 and reaches 550 once, in 2002 — but the rescale ran on any
+    # year at any size, printed one line among the forty this script already
+    # prints, and passed both asserts. Fed a refreshed parse where one county's
+    # `ii` arrived as 0 (DZS publishes suppressed cells as "-" in these very
+    # workbooks), it rescaled all twenty-one in-margins and shipped columns up to
+    # 442 people from the `ii` the tooltip on the same screen reads; with the
+    # whole vector 10x too large, 86.454. Both exited 0 and rewrote odm.json.
+    # Stopping is the review the comment above asks for: a DZS revision that
+    # genuinely widens the asymmetry blocks the rebuild until a human raises the
+    # constant, which is the whole reason for writing the constant down.
+    c0=c.copy()
     gap=r.sum()-c.sum()
     if abs(gap)>1e-9:
+        assert y<=2006 and abs(gap)<=550,(y,'margin asymmetry outside the documented 1998-2006 / 550 bound',float(gap))
         c=c*(r.sum()/c.sum())
         print(f'  {y}: in-margins rescaled, r-c = {gap:+.0f}')
     if y==2018:
@@ -95,6 +110,16 @@ for yi,y in enumerate(YRS):
     # total per year.
     cdev=abs(Mi.sum(0)-c)
     assert cdev.max()<=5,(y,'col dev',float(cdev.max()))
+    # …and the same distance from the margin DZS actually published, which is the
+    # only one a reader can check. `c` is the vector the block above may just have
+    # rescaled, so the assert on this line is structurally incapable of seeing a
+    # rescale of any size — it cannot catch the failure that block exists to
+    # catch. Against the published `ii` the drift is 146 at worst (2002, Grad
+    # Zagreb) and never above 4 from 2007 on: the same 146-person disagreement
+    # the app shows, and the reason the two eras need two constants rather than
+    # one number that is true only of a quantity nobody consumes.
+    pdev=abs(Mi.sum(0)-c0)
+    assert pdev.max()<=(150 if y<=2006 else 5),(y,'col dev vs published ii',float(pdev.max()))
     if cdev.max()>0:
         print(f'  {y}: col drift max {cdev.max():.2f}, total {cdev.sum():.0f}')
     for i,a in enumerate(ISOS):
