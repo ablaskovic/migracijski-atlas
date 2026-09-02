@@ -1518,8 +1518,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }));
   /* Chrome normalises the computed value's word order, so match on both tokens
      rather than on the authored spelling. */
+  /* `body` was collected, printed in the diagnostic and tested by no clause —
+     so a stylesheet setting body{color-scheme:normal}, detaching the painted
+     ground from the root's opt-out, passed while the evidence string showed it.
+     The small form of MA3-005: measure it or stop measuring it. */
+  const csOk = v => /only/.test(v) && /light/.test(v) && !/dark/.test(v);
   ck('the page declares its colour scheme, so a browser cannot re-tint the key alone',
-    /only/.test(cs.root) && /light/.test(cs.root) && !/dark/.test(cs.root), JSON.stringify(cs));  /* An empty live region must still be IN the accessibility tree. `:empty
+    csOk(cs.root) && csOk(cs.body), JSON.stringify(cs));  /* An empty live region must still be IN the accessibility tree. `:empty
      {display:none}` is equivalent to not being in the DOM for live-region
      registration, so the mitigation StoryBar's own comment describes — "a live
      region that enters the DOM already populated is not guaranteed to announce" —
