@@ -7158,42 +7158,44 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('and mounting the app removes it, with no teardown code to forget',
     bootGone.left === 0 && bootGone.kids > 1 && bootGone.first === 'skip',
     JSON.stringify(bootGone));
-
-  /* Source maps are fetched over HTTP rather than read off disk, so this check
-     means the same thing when the suite is pointed at a running server. */
-  const smap = await page.evaluate(async u => {
+  /* Source maps are BUILT and not advertised, so the two halves are checked
+     where each of them lives.
+     They used to ship with a sourceMappingURL, on the reasoning that a stack
+     trace from the deployed app would name a line in src/. The deploy target
+     denies it: the origin answers /assets/index-*.js.map with 403 while a
+     nonexistent name under the same directory returns 404, so the file is
+     uploaded and the platform withholds it. Against production a maintainer
+     still got minified columns, Lighthouse still reported the maps missing, and
+     every devtools-open visitor triggered a failed request for 1,69 MB nobody
+     can fetch — and this check, which fetched the map over HTTP "so it means the
+     same thing when the suite is pointed at a running server", failed on a
+     correct build and took both end-of-run error brackets with it.
+     What is asserted now: the served bundle advertises no map URL (both modes,
+     because that is the property that stops the 403), and off disk the map is
+     there and resolves to real sources (dist mode, because that is where the
+     build's own artifact is). */
+  const smapServed = await page.evaluate(async u => {
     const html = await (await fetch(u)).text();
     const src = (html.match(/src="([^"]*index-[^"]*\.js)"/) || [])[1];
     if (!src) return { err: 'no entry chunk in index.html' };
     const js = await (await fetch(new URL(src, u))).text();
-    const m = js.match(/sourceMappingURL=(\S+)/);
-    if (!m) return { err: 'no sourceMappingURL on the entry chunk' };
-    const r = await fetch(new URL(m[1], new URL(src, u)));
-    if (!r.ok) return { err: 'map ' + r.status };
-    const j = await r.json();
-    return { sources: (j.sources || []).length, hasMappings: !!j.mappings,
-      names: (j.sources || []).filter(s => /App\.tsx|metrics\.ts/.test(s)).length };
+    return { advertises: /sourceMappingURL=/.test(js), bytes: js.length };
   }, url);
-  /* …and what "the same thing" means when the server is not ours. The deployed
-     origin gates /assets/*.js.map behind a 403, so against production this
-     failed on a build that is correct — and the blocked fetch's own console
-     error failed both end-of-run error brackets with it, three of the three
-     failures that URL run reported.
-     The half of this claim that is about the BUILD is the sourceMappingURL
-     comment on the entry chunk, and reaching `map 40x` at all proves it: the
-     probe only fetches the map once it has found the reference. The half that
-     is about the SERVER is ours to assert only when the server is ours. A gated
-     map is therefore named in the extra rather than passed silently, and only
-     in URL mode — in dist mode a 403 would be our own bug. */
-  const smapGated = URLMODE && /^map 40\d$/.test(smap.err || '');
-  if (smapGated) {
-    for (let i = errors.length - 1; i >= 0; i--) {
-      if (/\.js\.map/.test(errors[i]) || /Failed to load resource/.test(errors[i])) errors.splice(i, 1);
-    }
-  }
-  ck('the entry chunk ships a source map that resolves to real sources',
-    smap.err ? smapGated : (smap.hasMappings && smap.sources > 50 && smap.names >= 2),
-    JSON.stringify(smap) + (smapGated ? ' — gated by the host; the build half (sourceMappingURL) held' : ''));
+  const smapDisk = URLMODE ? null : (() => {
+    const ad = path.resolve(arg, 'assets');
+    const files = fs.existsSync(ad) ? fs.readdirSync(ad) : [];
+    const entry = files.find(f => /^index-.*\.js$/.test(f));
+    const map = entry && files.find(f => f === entry + '.map');
+    if (!map) return { err: 'no map beside ' + entry };
+    let j; try { j = JSON.parse(fs.readFileSync(path.join(ad, map), 'utf8')); } catch (e) { return { err: String(e.message) }; }
+    return { file: map, kb: Math.round(fs.statSync(path.join(ad, map)).size / 1024),
+      sources: (j.sources || []).length, hasMappings: !!j.mappings,
+      names: (j.sources || []).filter(s => /App\.tsx|metrics\.ts/.test(s)).length };
+  })();
+  ck('the bundle advertises no source map, and the build still writes one that resolves to real sources',
+    !smapServed.err && smapServed.advertises === false && smapServed.bytes > 50000
+    && (URLMODE || (!smapDisk.err && smapDisk.hasMappings && smapDisk.sources > 50 && smapDisk.names >= 2)),
+    JSON.stringify({ smapServed, smapDisk }));
 
   /* WCAG 2.5.3, and the reason it failed: the visible label of a row is its text
      children joined with NO separator, so `Grad Zagreb` + `+41.986` reads

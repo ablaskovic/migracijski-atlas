@@ -57,13 +57,19 @@ const dropDataChunkMaps = {
 export default defineConfig({
   plugins: [react(), dropDataChunkMaps, stampVersion],
   base: '/',
-  // Source maps ship. The cost is ~1,5 MB of .map files sitting in dist that a
-  // browser fetches only when devtools is open, so no visitor pays for them;
-  // the benefit is that a stack trace from the deployed app names a line in
-  // src/ instead of a column in a minified chunk. The source is MIT and public
-  // anyway, so there is nothing here they disclose that the repo does not.
-  // (Lighthouse best-practices, "Missing source maps for large first-party
-  // JavaScript" — it was the only failing non-informative audit left in that
-  // category once the http:// artifact is excluded.)
-  build: { sourcemap: true },
+  // Source maps are BUILT and not advertised. They were shipped with a
+  // sourceMappingURL on the reasoning that "a stack trace from the deployed app
+  // names a line in src/ instead of a column in a minified chunk" and that it
+  // cleared Lighthouse's "Missing source maps for large first-party JavaScript".
+  // The deploy target denies both: the origin answers
+  // /assets/index-*.js.map with 403 (Cache-Control: no-store, X-Robots-Tag:
+  // noindex) while a nonexistent name under the same directory returns 404 — so
+  // the file is uploaded and the platform withholds it. Against production a
+  // maintainer still got minified columns, Lighthouse still reported the maps
+  // missing, and every devtools-open visitor triggered a failed request for
+  // 1,69 MB nobody can fetch.
+  // 'hidden' keeps the maps in dist — `node --enable-source-maps`, `npx
+  // source-map` and a local server all still resolve a trace against them — and
+  // stops the bundle naming a URL that 403s.
+  build: { sourcemap: 'hidden' },
 });
