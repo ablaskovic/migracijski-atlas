@@ -550,7 +550,14 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .scrub-chart svg{display:block;width:100%;height:96px;cursor:ew-resize;touch-action:none}
 #spark:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .big-year{width:122px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding-left:12px}
-.big-year-n{font-family:var(--disp);font-weight:600;font-size:2.875rem;line-height:1;letter-spacing:.02em}
+/* Stretched and right-aligned rather than shrink-to-fit. `align-items:flex-end`
+   made this box exactly as wide as its glyphs, so it MOVED when the face swapped:
+   measured across the webfont swap at 1350 px, left 1.232,8 → 1.220,2 and width
+   97,3 → 109,8, a 12,5 px horizontal shift of the largest number on the page —
+   inside a container whose own box never changed, which is why the zero-CLS
+   checks could not see it. The ink still shifts within the box, which is the
+   irreducible part of a different advance width; the box no longer does. */
+.big-year-n{font-family:var(--disp);font-weight:600;font-size:2.875rem;line-height:1;letter-spacing:.02em;align-self:stretch;text-align:right}
 .big-year-s{font-family:var(--mono);font-size:0.5625rem;color:var(--mut);letter-spacing:.06em;text-transform:uppercase;text-align:right;max-width:120px}
 
 .ft{padding:5px 20px;font-family:var(--mono);font-size:0.59375rem;color:var(--mut);

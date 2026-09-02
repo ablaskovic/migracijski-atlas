@@ -5843,10 +5843,30 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      fallback faces exist to make the swap dimensionally invisible.
      Loading twice is also the only way to test them: with the real faces present
      the fallback is never used, so nothing else in this suite can see it. */
-  const swapBox = `(() => { const b = s => { const e = document.querySelector(s);
+  /* All FOUR coordinates, and the interior. This returned [top, height] of four
+     page-level containers, and CLS counts horizontal movement and movement
+     INSIDE a container exactly as heavily. The fallback faces bind only the
+     advance width, to ~2 % here — so a regressed size-adjust moves centred and
+     right-aligned children sideways (the control row, the rail's values, the
+     legend rows) and moves elements inside `main`, whose own box is stage-derived
+     and therefore never changes, while all four measured pairs stay identical
+     and both checks print ok. Two of the four box coordinates were simply never
+     read. Keyed by selector rather than by index, so an element that legitimately
+     disappears reports as missing instead of shifting every later comparison. */
+  const swapBox = `(() => {
+    const SEL = ['header.hd', 'main.main', '.ft', '#scrubBox',
+      '.ctrls', '#segView', '#segView button:last-child', '#legend',
+      '#railList .rrow:first-child', '#railList .rrow:last-child',
+      '#railLab', '#bigYear', '.rail-hd', '#map'];
+    const out = {};
+    for (const s of SEL) {
+      const e = document.querySelector(s);
+      if (!e) { out[s] = null; continue; }
       const r = e.getBoundingClientRect();
-      return [+r.top.toFixed(1), +r.height.toFixed(1)]; };
-    return { hd: b('header.hd'), main: b('main.main'), ft: b('.ft'), scrub: b('#scrubBox') }; })()`;
+      out[s] = [r.left, r.top, r.width, r.height].map(v => +v.toFixed(1));
+    }
+    return out;
+  })()`;
   /* 390 as well as 1350: the ≤560 block changes the type scale, and the swap was
      invisible only at the size the overrides were checked at. Measured at 390 the
      header lost 5 px, main and the map box 5, the footer 6 — the five .ctrl-lab
@@ -5920,12 +5940,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       had - errors.length >= 1 && errors.length === 0,
       JSON.stringify({ dropped: had - errors.length, left: errors.slice(0, 2) }));
   }
-  const swapMoved = ['hd', 'main', 'ft', 'scrub'].map(k => ({ k,
-    dTop: +(swap.real[k][0] - swap.fallback[k][0]).toFixed(1),
-    dH: +(swap.real[k][1] - swap.fallback[k][1]).toFixed(1) }));
-  const swapNarrowMoved = ['hd', 'main', 'ft', 'scrub'].map(k => ({ k,
-    dTop: +(swapNarrow.real[k][0] - swapNarrow.fallback[k][0]).toFixed(1),
-    dH: +(swapNarrow.real[k][1] - swapNarrow.fallback[k][1]).toFixed(1) }));
+  /* The largest coordinate delta per element, on both axes, between the two
+     loads. The four page-level containers must not move AT ALL — that is the
+     0,1038 CLS this pair of checks was written for. Inside them the bar is 1 px:
+     a metric-matched fallback binds the ADVANCE to ~2 %, so a text-sized box
+     reflowing by a fraction of a pixel is what "matched" means, and anything
+     past that is a real shift — as #bigYear's 12,5 px horizontal move was until
+     its box was stretched rather than shrink-to-fit. */
+  const CONTAIN = ['header.hd', 'main.main', '.ft', '#scrubBox'];
+  const boxDiff = (a, b) => Object.keys(a).map(k => {
+    if (!a[k] || !b[k]) return { k, d: a[k] === b[k] ? 0 : 99, fallback: a[k], real: b[k] };
+    return { k, d: +Math.max(...a[k].map((v, i) => Math.abs(v - b[k][i]))).toFixed(1),
+      fallback: a[k], real: b[k] };
+  }).filter(x => x.d > (CONTAIN.includes(x.k) ? 0 : 1));
+  const swapMoved = boxDiff(swap.fallback, swap.real);
+  const swapNarrowMoved = boxDiff(swapNarrow.fallback, swapNarrow.real);
   /* …on a machine that HAS the faces these three rules wrap. Each one is
      `src:local('Arial')` / `local('Courier New')` / `local('Arial Narrow')`, and
      index.css states the other case: "if local() resolves to nothing — Arial
@@ -5947,15 +5976,18 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const fbMode = fbHere ? 'metric-matched faces present' : 'local() faces absent (documented degradation)';
   /* with the faces absent the swap moves things by definition; what still has to
      hold is that the stack degrades to something usable rather than to nothing */
-  const laidOut = snap => ['hd', 'main', 'ft', 'scrub'].every(k => snap[k][1] > 0);
+  const laidOut = snap => ['header.hd', 'main.main', '.ft', '#scrubBox']
+    .every(k => snap[k] && snap[k][3] > 0);
   ck('and it moves nothing at 390 px either, where the type scale changes',
-    fbHere ? swapNarrowMoved.every(m => m.dTop === 0 && m.dH === 0)
+    fbHere ? swapNarrowMoved.length === 0
       : laidOut(swapNarrow.fallback) && laidOut(swapNarrow.real),
-    fbMode + ' ' + JSON.stringify(swapNarrowMoved.filter(m => m.dTop || m.dH)));
-  ck('the font swap moves nothing: header, main, footer and scrubber are identical',
-    swapMoved.length === 4 && (fbHere ? swapMoved.every(m => m.dTop === 0 && m.dH === 0)
-      : laidOut(swap.fallback) && laidOut(swap.real)),
-    fbMode + ' ' + JSON.stringify(swapMoved));
+    fbMode + ' ' + JSON.stringify(swapNarrowMoved.slice(0, 3)));
+  /* the population floor moves with the selector list: a probe that measured
+     nothing would otherwise report nothing moved */
+  ck('the font swap moves nothing: no box on the page changes on either axis',
+    Object.keys(swap.fallback).length >= 12
+    && (fbHere ? swapMoved.length === 0 : laidOut(swap.fallback) && laidOut(swap.real)),
+    fbMode + ' ' + JSON.stringify(swapMoved.slice(0, 3)));
   ck('and each fallback face is closer to its webfont’s width than doing nothing',
     swap.widths.length === 4 && swap.widths.every(x => x.webfont)
     && (fbHere ? swap.widths.every(x => x.fb <= x.raw && x.fb < 0.02)
