@@ -9282,10 +9282,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     return out;
   })();
   const labels = await page.evaluate(() => [...document.querySelectorAll('#segView button')].map(b => b.textContent));
+  /* The doubling detector could not fire. Chrome joins the ghost into the
+     accessible name with a SPACE — reproducing the regression the comment
+     names, the ::after losing its visibility:hidden, gives "Saldo Saldo" and
+     "Klasifikacija Klasifikacija" — and /^(.+)\1$/ does not match a
+     space-joined doubling. So the clause reported "no doubling" over visibly
+     doubled names, and the check went red only through the labels.every term,
+     which covers the seven #segView buttons alone: the coverage this clause
+     appears to add for segFlow, segDen, segMode, segDir, segLang and thrMode
+     was illusory, and the shared-rule regression was caught solely because
+     segView happens to share that rule. Optional whitespace between the halves
+     now, so both the joined and the space-joined form are caught, and one repeat
+     or many. */
+  const DOUBLED = /^(.+?)(\s*\1)+$/;
   ck('the reserved width is not announced: every segment button keeps its own name',
     labels.length === 7 && labels.every(l => axNames.includes(l))
-    && !axNames.some(n => n && /^(.+)\1$/.test(n)),
-    JSON.stringify({ missing: labels.filter(l => !axNames.includes(l)), doubled: axNames.filter(n => n && /^(.+)\1$/.test(n)) }));
+    && !axNames.some(n => n && DOUBLED.test(n.trim())),
+    JSON.stringify({ missing: labels.filter(l => !axNames.includes(l)),
+      doubled: axNames.filter(n => n && DOUBLED.test(n.trim())) }));
 
   /* ── the same invariant, for the controls the .ctrls snapshot cannot reach ──
      CTRL_SNAP above covers the header and nothing else, so every control that
