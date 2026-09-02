@@ -131,8 +131,13 @@ export const STORIES: Story[] = [
     patch: { view: 'saldo', flow: 'ext', den: 'abs', cum: false, yi: YEARS.indexOf(2022) },
   },
   {
+    /* A Croatian numeral ending in 1 (11 excepted) governs the singular, so the
+       caption read "sve 21 su u minusu" — a plural determiner and a plural
+       verb over a numeral that takes neither. The English half is unaffected
+       ("all twenty-one are negative"), and the count is kept rather than
+       sidestepped so the two halves still say the same thing. */
     get label() { return L('Prirodni pad nema iznimke', 'Natural decline has no exceptions'); },
-    get cap() { return L('Nijedna županija 2011.–2024. nema pozitivan prirodni prirast — sve 21 su u minusu. Relativno najteže prolazi Ličko-senjska (−13,7 %), najlakše Međimurska (−1,6 %). Migracije preraspodjeljuju, prirodno kretanje oduzima svima.', 'No county has positive natural change over 2011–2024 — all twenty-one are negative. Relatively, Ličko-senjska fares worst (−13.7 %) and Međimurska best (−1.6 %). Migration redistributes; natural change subtracts from everyone.'); },
+    get cap() { return L('Nijedna županija 2011.–2024. nema pozitivan prirodni prirast — sva 21 županija je u minusu. Relativno najteže prolazi Ličko-senjska (−13,7 %), najlakše Međimurska (−1,6 %). Migracije preraspodjeljuju, prirodno kretanje oduzima svima.', 'No county has positive natural change over 2011–2024 — all twenty-one are negative. Relatively, Ličko-senjska fares worst (−13.7 %) and Međimurska best (−1.6 %). Migration redistributes; natural change subtracts from everyone.'); },
     patch: { view: 'saldo', flow: 'nat', den: 'rel11', cum: true, yi: Y24 },
   },
   {
