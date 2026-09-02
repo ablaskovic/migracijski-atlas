@@ -4083,7 +4083,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [
         { x: b.l + 40, y, id: 1 }, { x: b.l + 120, y, id: 2 }] });
       await settle(150);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [{ x: b.l + 40, y, id: 1 }] });
+      /* touchEnd takes the points that ENDED, not the ones that remain — so this
+         used to lift finger ONE and then drive a fresh, non-primary touch, which
+         is the gesture the scrubber is now required to ignore. Traced: pointerdown
+         id=2 primary, pointerdown id=3, pointerup id=2 primary, then pointerdown
+         id=4 NON-primary for what the leg believed was the surviving finger. The
+         leg was asserting the defect. Lift the second, keep the first. */
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [{ x: b.l + 120, y, id: 2 }] });
       await settle(150);
       const before = await yr();
       for (let i = 1; i <= 8; i++) {
