@@ -432,11 +432,26 @@ export default function App() {
          language against the new state. Not stored: stepping through history is
          not choosing. */
       setLang(back.lang);
+      /* …and the same for the other two "was this a deliberate jump?" markers.
+         `lastView` was already mirrored here and these were not, so a traversal
+         onto an entry carrying `st=` read as a fresh Nalaz pick: the render that
+         follows a popstate took the pushState branch and appended a duplicate of
+         the entry just navigated to, truncating the Forward stack. It only
+         surfaces once the hash needs re-canonicalising — after a language
+         toggle, entries written before it carry no `l=` while the restored state
+         has one, so the sync effect's exact-match early return does not fire.
+         Measured over ./dist: pick Nalaz 13, press Saldo, toggle the language,
+         then Back — the first Back lands on the Nalaz entry, the SECOND lands on
+         the byte-identical hash and view (a press with no visible effect), and
+         Forward returns to that same entry with the Saldo screen the reader came
+         from gone. Before the toggle, Forward works. A Back is not a pick. */
+      lastStory.current = back.story;
+      lastReset.current = resetSeq;
       setS(back);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, []);
+  }, [resetSeq]);
   useEffect(() => {
     window.__exportPNG = dl => exportPNG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
     window.__exportSVG = dl => exportSVG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);

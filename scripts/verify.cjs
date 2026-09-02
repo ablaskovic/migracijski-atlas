@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 490;
+const EXPECTED_CHECKS = 491;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7285,6 +7285,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('Back keeps the language choice the reader has stored',
     backLang.stored === 'en' && backLang.lang === 'en' && backLang.pressed === 'en',
     JSON.stringify(backLang));
+
+  /* …and Back must not be mistaken for a fresh pick. The journey above carries
+     no `st=`, so it took the replaceState branch and this check never looked at
+     Forward at all. With a Nalaz in the stack it is a different story: onPop
+     mirrored `lastView` and not `lastStory`, so the render a popstate causes
+     read as a deliberate preset pick, took the pushState branch, and appended a
+     duplicate of the entry just navigated to — truncating the forward stack. It
+     only surfaces once the hash needs re-canonicalising, which is exactly what a
+     language toggle does: entries written before it carry no `l=` while the
+     restored state has one, so the sync effect's exact-match early return does
+     not fire. Measured over ./dist: pick Nalaz 13, press Saldo, toggle EN, then
+     Back — and Forward throws "History entry to navigate to not found", with a
+     second Back landing on the byte-identical hash and view, a press with no
+     visible effect. Without the toggle, Forward works. */
+  const fwdStack = await (async () => {
+    const pg = await watch(await browser.newPage());
+    await pg.emulateTimezone('Europe/Zagreb');
+    await pinHr(pg);
+    await pg.goto(url + '#v=saldo&c=1&y=2024', { waitUntil: 'networkidle0' });
+    await settle(300);
+    await pg.select('#story', '12');                   /* Nalaz 13 — pushes */
+    await settle(350);
+    await pg.click('#segView button[data-v="saldo"]'); /* pushes */
+    await settle(350);
+    const from = await pg.evaluate(() => location.hash);
+    await pg.click('#segLang button[data-l="en"]');    /* replaces this entry */
+    await settle(350);
+    await pg.goBack();                                 /* onto the Nalaz entry */
+    await settle(400);
+    const onNalaz = await pg.evaluate(() => ({ hash: location.hash, cap: !!document.querySelector('#storyCap') }));
+    let fwd = null, threw = null;
+    try { await pg.goForward(); await settle(400); fwd = await pg.evaluate(() => location.hash); }
+    catch (e) { threw = String(e.message).slice(0, 60); }
+    await pg.close();
+    return { from, onNalaz, fwd, threw };
+  })();
+  ck('Back onto a Nalaz entry keeps the Forward stack instead of pushing over it',
+    /st=13/.test(fwdStack.onNalaz.hash) && fwdStack.onNalaz.cap
+    && !fwdStack.threw && /v=saldo/.test(fwdStack.fwd || '') && !/st=/.test(fwdStack.fwd || ''),
+    JSON.stringify(fwdStack));
 
   /* ── M-5: a defensive key must not make a caption panel-sensitive ──
      `sel` is in STORY_KEYS and twelve presets carried a defensive `sel: null`,
