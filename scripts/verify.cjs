@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 525;
+const EXPECTED_CHECKS = 526;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7550,6 +7550,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /neutralne/i.test(klasBase.flat) && !/d=relest/.test(klasBase.hash)
     && /popisa 2011\./.test(klasBase.legend),
     JSON.stringify({ hash: klasBase.hash, legend: klasBase.legend, tip: klasBase.flat.slice(-70) }));
+
+  /* …and the same fact signed on both branches of the note. The title was signed
+     and so was the absolute branch, while the % branch printed "(4.500, …)" bare:
+     switch Prag between osobe and % at the same state and the paper's threshold
+     changed sign under a title that says "prag −1,5 % popisa 2011." either way.
+     The sign is the whole of its meaning — it is a LOSS of 4.500. */
+  const klasNote = {};
+  for (const [k, h] of [['rel', '#v=klas&c=1&y=2024&tr=1&tp=1.5'],
+    ['abs', '#v=klas&c=1&y=2024&t=6000'], ['relEn', '#l=en&v=klas&c=1&y=2024&tr=1&tp=1.5']]) {
+    await fresh(h);
+    klasNote[k] = await page.evaluate(() => ({
+      title: (document.querySelector('.legend-title') || {}).textContent || '',
+      note: [...document.querySelectorAll('.legend-note')].map(e => e.textContent).join(' | ') }));
+  }
+  ck('the paper’s threshold is signed in the note on both Prag settings and in both languages',
+    /\(−4\.500,/.test(klasNote.rel.note) && /pragom −4\.500/.test(klasNote.abs.note)
+    && /\(−4,500,/.test(klasNote.relEn.note)
+    && /prag −1,5 % popisa 2011\./.test(klasNote.rel.title),
+    JSON.stringify(klasNote));
   ck('and the English legend still names the source and the licence',
     /Measured/.test(enBadge.legend) && /Pitoski/.test(enBadge.legend) && /CC BY/.test(enBadge.legend),
     enBadge.legend.slice(0, 120));
