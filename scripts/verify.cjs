@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 573;
+const EXPECTED_CHECKS = 574;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6778,6 +6778,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('and the counts it qualifies are still the 7 / 5 / 9 that made it necessary',
     /pobjednice · 7/.test(klasCmp.counts[0]) && /neutralne · 5/.test(klasCmp.counts[1])
     && /gubitnice · 9/.test(klasCmp.counts[2]), JSON.stringify(klasCmp.counts));
+  /* …and the glossary paragraph one click away, which stated the same fact as
+     prose literals — "sedam pobjednica, sedam neutralnih i sedam gubitnica" —
+     directly beside klasDiffSentence(), which IS derived. Move one ISO between
+     the arrays in PAPER_KLAS, the exact edit credits.ts describes, and the
+     legend said 7 / 6 / 8 while the glossary still said seven, seven and seven,
+     with every check green because only #legend was read. Both surfaces are
+     compared against the table now, in both languages. */
+  const glSplit = {};
+  for (const l of ['hr', 'en']) {
+    await fresh(l === 'en' ? '#l=en&v=klas&c=1&y=2024' : '#v=klas&c=1&y=2024');
+    glSplit[l] = await page.evaluate(async () => {
+      document.querySelector('#helpBtn').click();
+      await new Promise(r => setTimeout(r, 350));
+      const g = window.__PAPER_KLAS;
+      return { txt: [...document.querySelectorAll('#helpCard .help-p')].map(e => e.textContent)
+        .find(t => /razlikuju od objavljenih|differ from the published/.test(t)) || '',
+      counts: g ? [g.gain.length, g.neu.length, g.loss.length] : null };
+    });
+  }
+  ck('the glossary states the published split from the table, not from prose',
+    !!glSplit.hr.counts
+    && glSplit.hr.txt.includes(`${glSplit.hr.counts[0]} pobjednica, ${glSplit.hr.counts[1]} neutralnih i ${glSplit.hr.counts[2]} gubitnica`)
+    && glSplit.en.txt.includes(`${glSplit.en.counts[0]} gaining, ${glSplit.en.counts[1]} neutral and ${glSplit.en.counts[2]} losing counties`)
+    && !/sedam pobjednica|seven gaining/.test(glSplit.hr.txt + glSplit.en.txt),
+    JSON.stringify({ counts: glSplit.hr.counts, hr: glSplit.hr.txt.slice(0, 60) }));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text

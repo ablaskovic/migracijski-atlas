@@ -3,6 +3,7 @@ import { focusSoon } from '../lib/state.ts';
 import {
   NO_AFFIL, PAPER, PAPER_THR, PAPER_WINDOW,
   paperCheckNote, paperHelpIntro, paperPending, paperTerm,
+  PAPER_KLAS,
 } from '../lib/credits.ts';
 import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
 import {
@@ -308,8 +309,19 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
       </div>
       <div className="help-p">
         <b>{L('Zašto se razredi razlikuju od objavljenih.', 'Why the classes differ from the published ones.')}</b>
-        {L(` Klasifikacija ovdje primjenjuje prag iz rada, ali na novijoj DZS seriji, pa rezultat nije istovjetan objavljenome. Rad za ${PW()} objavljuje sedam pobjednica, sedam neutralnih i sedam gubitnica.`,
-          ` The classification here applies the paper’s threshold, but to a newer CBS series, so the result is not identical to the published one. For ${PW()} the paper publishes seven gaining, seven neutral and seven losing counties.`)}
+        {/* the three counts derived, not written out. credits.ts introduced
+            paperSplit() for exactly this sentence's twin in the legend, with the
+            reason: correcting a transcription in PAPER_KLAS — moving one county
+            between classes — left the legend stating a false fact about the
+            paper while every county name in the same sentence, which IS
+            data-derived, updated around it. The glossary kept the literal, so
+            that same edit made the legend say 7 / 6 / 8 and this paragraph one
+            click away still say seven, seven and seven — beside
+            klasDiffSentence(), which is derived. Digits sidestep Croatian
+            number-word agreement, and the three nouns are already the genitive
+            plurals that stay correct for any count of five or more. */}
+        {L(` Klasifikacija ovdje primjenjuje prag iz rada, ali na novijoj DZS seriji, pa rezultat nije istovjetan objavljenome. Rad za ${PW()} objavljuje ${PAPER_KLAS.gain.length} pobjednica, ${PAPER_KLAS.neu.length} neutralnih i ${PAPER_KLAS.loss.length} gubitnica.`,
+          ` The classification here applies the paper’s threshold, but to a newer CBS series, so the result is not identical to the published one. For ${PW()} the paper publishes ${PAPER_KLAS.gain.length} gaining, ${PAPER_KLAS.neu.length} neutral and ${PAPER_KLAS.loss.length} losing counties.`)}
         {' ' + klasDiffSentence()}
         {L(` Metoda je ista; razlikuje se berba podataka. Rad računa ${PW()} — pomaknete li vremensku vrpcu dalje, prikaz više ne odgovara razdoblju koje je rad analizirao.`,
           ` The method is the same; the data vintage differs. The paper computes ${PW()} — move the scrubber beyond it and the view no longer matches the period the paper analysed.`)}
