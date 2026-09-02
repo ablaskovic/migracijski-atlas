@@ -75,8 +75,15 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
     finally {
       setBusy(false);
       /* the button disables itself mid-export, and browsers blur a newly-disabled
-         element — so a keyboard export dropped focus to <body> every time */
-      focusSoon('#pngBtn');
+         element — so a keyboard export dropped focus to <body> every time.
+         Only that blur, though: focusSoon takes focus from wherever it is, and
+         an export takes seconds (the font fetch waits up to 8 s, a 4K encode
+         0,3–0,8 s), so a keyboard reader who pressed PNG and moved on to the
+         scrubber was yanked back to the button when the file landed. Measured:
+         focus #spark during the '…' state, and afterwards activeElement is
+         #pngBtn. Focus is restored only where the disable actually dropped it,
+         which is <body>. */
+      if (document.activeElement === document.body || !document.activeElement) focusSoon('#pngBtn');
     }
   };
   /* The SVG twin embeds the same faces the PNG twin does, and it can only embed
@@ -95,7 +102,11 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
       await ensureFonts();
       exportSVG(document.querySelector<SVGSVGElement>('#map')!, S, true);
     } catch (e) { console.error('SVG export failed', e); fail('svg'); }
-    finally { setBusySvg(false); focusSoon('#svgBtn'); }
+    /* the same rule as the PNG twin above, and for the same reason */
+    finally {
+      setBusySvg(false);
+      if (document.activeElement === document.body || !document.activeElement) focusSoon('#svgBtn');
+    }
   };
 
   /* An export is the artifact that leaves the app under CC BY, so it must not

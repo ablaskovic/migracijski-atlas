@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 564;
+const EXPECTED_CHECKS = 565;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9369,6 +9369,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && ageTbl.ext.cols === 3 && ageTbl.ext.rects === 32
     && ageTbl.int.cols === 2 && ageTbl.int.rects === 16,
     JSON.stringify(ageTbl));
+
+  /* ── an export puts focus back only where its own disable dropped it ──
+     both handlers called focusSoon in their finally, to undo the blur a
+     newly-disabled button causes, and focusSoon focuses regardless of where
+     focus is now. An export takes seconds — the font fetch waits up to 8 s and a
+     4K encode 0,3–0,8 s — so a keyboard reader who pressed PNG and moved on to
+     the scrubber was yanked back to #pngBtn when the file landed. Measured:
+     focus #spark during the '…' state, and afterwards activeElement is #pngBtn.
+     Both halves are asserted, because restoring nothing would be the other
+     defect: a reader who stayed on the button must not be dropped to <body>. */
+  const expFocus = {};
+  for (const [k, btn] of [['png', '#pngBtn'], ['svg', '#svgBtn']]) {
+    for (const stay of [false, true]) {
+      await fresh('#v=saldo&c=1&y=2024');
+      await page.evaluate(b => document.querySelector(b).focus(), btn);
+      await page.keyboard.press('Enter');
+      if (!stay) {
+        await settle(120);
+        await page.evaluate(() => document.querySelector('#spark').focus());
+      }
+      await page.waitForFunction(b => !document.querySelector(b).disabled,
+        { timeout: 20000 }, btn).catch(() => {});
+      await settle(400);
+      expFocus[k + (stay ? 'Stayed' : 'Moved')] = await page.evaluate(() =>
+        document.activeElement ? document.activeElement.id || document.activeElement.tagName : 'none');
+    }
+  }
+  ck('a finished export leaves focus where the reader put it, and restores it only from body',
+    expFocus.pngMoved === 'spark' && expFocus.svgMoved === 'spark'
+    && expFocus.pngStayed === 'pngBtn' && expFocus.svgStayed === 'svgBtn',
+    JSON.stringify(expFocus));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));
