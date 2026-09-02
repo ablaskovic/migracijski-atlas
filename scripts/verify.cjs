@@ -10,6 +10,17 @@
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+/* URL mode is documented in this file's own header, and URLMODE admits https
+   deliberately — the s is not accidental. The prober below was built on the
+   http module alone, so `node scripts/verify.cjs https://…`, the only run in
+   which the security-policy and cache checks are not reading headers this file
+   itself synthesised from vercel.json, died 37 checks from the end with
+   ERR_INVALID_PROTOCOL — thrown inside a Promise executor, so it unwound past
+   every remaining await to finish(2). The banner then read "3/426 CHECKS
+   FAILED" with no ABORTED marker, because that marker only prints when nothing
+   has failed yet: a reader saw three named failures and no sign that 37 checks
+   were never attempted. smoke.cjs got this right in one line and this did not. */
+const https = require('https');
 
 /* PUPPETEER_PATH is a path to a puppeteer *package directory*; the old fallback
    was `require(process.env.PUPPETEER_PATH || 'puppeteer')`, i.e. it retried the
@@ -147,7 +158,11 @@ async function finish(code) {
      LAST ck() in the file, i.e. the one thing an abort is guaranteed to skip.
      The banner reads both now, so an incomplete run cannot end on a green line. */
   const short = n < EXPECTED_CHECKS;
+  /* …and a run that BOTH failed and aborted said only the first half. Measured
+     against the deployed origin: three named failures and no sign that 37
+     checks were never attempted, because `fails` was consulted before `short`. */
   console.log(fails ? `\n${fails}/${n} CHECKS FAILED`
+    + ((code || short) ? `, AND ABORTED after ${n}/${EXPECTED_CHECKS} CHECKS` : '')
     : (code || short) ? `\nABORTED after ${n}/${EXPECTED_CHECKS} CHECKS`
       : `\nALL ${n} CHECKS PASS`);
   /* exitCode rather than exit(): with 190+ log lines, process.exit truncates a
@@ -6547,9 +6562,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     return { sources: (j.sources || []).length, hasMappings: !!j.mappings,
       names: (j.sources || []).filter(s => /App\.tsx|metrics\.ts/.test(s)).length };
   }, url);
+  /* …and what "the same thing" means when the server is not ours. The deployed
+     origin gates /assets/*.js.map behind a 403, so against production this
+     failed on a build that is correct — and the blocked fetch's own console
+     error failed both end-of-run error brackets with it, three of the three
+     failures that URL run reported.
+     The half of this claim that is about the BUILD is the sourceMappingURL
+     comment on the entry chunk, and reaching `map 40x` at all proves it: the
+     probe only fetches the map once it has found the reference. The half that
+     is about the SERVER is ours to assert only when the server is ours. A gated
+     map is therefore named in the extra rather than passed silently, and only
+     in URL mode — in dist mode a 403 would be our own bug. */
+  const smapGated = URLMODE && /^map 40\d$/.test(smap.err || '');
+  if (smapGated) {
+    for (let i = errors.length - 1; i >= 0; i--) {
+      if (/\.js\.map/.test(errors[i]) || /Failed to load resource/.test(errors[i])) errors.splice(i, 1);
+    }
+  }
   ck('the entry chunk ships a source map that resolves to real sources',
-    !smap.err && smap.hasMappings && smap.sources > 50 && smap.names >= 2,
-    JSON.stringify(smap));
+    smap.err ? smapGated : (smap.hasMappings && smap.sources > 50 && smap.names >= 2),
+    JSON.stringify(smap) + (smapGated ? ' — gated by the host; the build half (sourceMappingURL) held' : ''));
 
   /* WCAG 2.5.3, and the reason it failed: the visible label of a row is its text
      children joined with NO separator, so `Grad Zagreb` + `+41.986` reads
@@ -8141,13 +8173,19 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      sub-path and a two-segment sub-path must both boot the app, and a missing
      asset or font must still 404 rather than being handed an HTML body that the
      browser would then refuse to execute as a script. */
+  /* …and a timeout, which it also had none of: a black-holed origin held this
+     block for ever rather than failing it, the lesson smoke.cjs already learned.
+     Rejections are caught per request below, so a network fault costs one check
+     rather than the tail of the run. */
   const httpGet = u => new Promise((resolve, reject) => {
-    http.get(u, r => {
+    const rq = (u.startsWith('https:') ? https : http).get(u, r => {
       let b = '';
       r.on('data', d => { b += d; });
       r.on('end', () => resolve({ status: r.statusCode, body: b }));
-    }).on('error', reject);
-  });
+    });
+    rq.setTimeout(15000, () => rq.destroy(new Error('timeout after 15s: ' + u)));
+    rq.on('error', reject);
+  }).catch(e => ({ status: 0, body: String(e && e.message || e) }));
   const base = url.replace(/\/$/, '');
   for (const p of ['/assets/verify-missing.js', '/fonts/verify-missing.woff2']) probe404.add(p);
   const rw = {
