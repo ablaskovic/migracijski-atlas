@@ -67,6 +67,21 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
      deliberately separate from `hl` (hover) for the reason v2.0.4 documented.
      It backs the two-tone focus ring — see .focusring in index.css. */
   const [fIso, setFIso] = useState<string | null>(null);
+  /* 2.4.11: the detail card and the corridor card are opaque panels over the
+     map, and unlike the glossary and the chip panels they are NOT in the
+     suspend gate below — deliberately, because suspending all 21 county stops
+     on every county selection would be a regression at 1440, where the card
+     covers nothing. But at 1000×800 it covers four counties outright:
+     #v=saldo&c=1&y=2024&s=HR-18 puts HR-04, HR-18, HR-08 and HR-09 entirely
+     behind #card (six more partly), and #v=flow&s=HR-21&pp=HR-01 puts HR-14,
+     HR-16, HR-12, HR-10 and HR-11 behind #pair. All 21 keep tabindex 0, so a
+     keyboard reader tabs onto a county whose focus ring is drawn inside the
+     svg UNDER the card, and Enter selects one they cannot see. Two covered at
+     1100, one at 1150, none at 1280 — the same width dependence the glossary's
+     own fix was written for.
+     2.4.11 allows the obscuring thing to move out of the way, so the card fades
+     while a covered county holds focus and comes straight back on blur. */
+  const [covered, setCovered] = useState(false);
   const [jFoc, setJFoc] = useState(false);
   /* roving tabindex over the 556 municipalities — see the .jl paths below */
   const [jf, setJf] = useState(0);
@@ -445,7 +460,8 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
        from the same query the tokens are, so the class and the CSS cannot
        disagree about which pointer this is. */
     <div className={'map-wrap' + (stageFit && stageFit < 340 ? ' stage-short' : '')
-      + (stageFit && stageFit < (TOKENS_COARSE ? 174 : 114) ? ' stage-tight' : '')}
+      + (stageFit && stageFit < (TOKENS_COARSE ? 174 : 114) ? ' stage-tight' : '')
+      + (covered ? ' focus-covered' : '')}
       style={{ '--stageh': stageFit + 'px' } as CSSProperties}>
       <DetailCard S={S} setS={setS} />
       {/* outside .map-box on purpose: at ≤900 it leaves the overlay layer and
@@ -629,8 +645,16 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                     setFIso(iso);
                     const r = e.currentTarget.getBoundingClientRect();
                     moveTip({ clientX: r.right, clientY: r.bottom });
+                    /* …and if the card is drawn over it, get the card out of the
+                       way rather than leave the ring underneath (2.4.11). */
+                    /* closest, not parentElement: wrapRef is .map-box and both
+                       cards hang off .map-wrap, which is not its direct parent. */
+                    const panel = wrapRef.current?.closest('.map-wrap')?.querySelector('#card.show, #pair');
+                    const c = panel?.getBoundingClientRect();
+                    setCovered(!!c && r.left >= c.left - 0.5 && r.right <= c.right + 0.5
+                      && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5);
                   }}
-                  onBlur={() => { setHL(null); setFIso(null); }}
+                  onBlur={() => { setHL(null); setFIso(null); setCovered(false); }}
                   /* Space is the other native activation key. Without it the
                      press fell through to App's window handler, which read a
                      <path> as "not a control" and started the 28-year

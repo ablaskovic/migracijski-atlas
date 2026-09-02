@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 520;
+const EXPECTED_CHECKS = 521;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4296,6 +4296,85 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && !roveJl.citz && roveJl.n === 1
     && roveCntSusp === 0 && roveCnt === 21,
     JSON.stringify({ roveWas, roveMx, roveJl, roveCntSusp, roveCnt }));
+
+  /* …and the two panels that are NOT in that gate, deliberately: the detail card
+     and the corridor card. Suspending all 21 county stops on every county
+     selection would be a regression at 1440, where neither covers anything. But
+     at 1000×800 #card covers HR-04, HR-18 and HR-08 outright (six more partly)
+     and #pair covers HR-14, HR-16, HR-12 and HR-10 — all 21 keeping tabindex 0,
+     so a keyboard reader tabs onto a county whose focus ring is drawn inside the
+     svg UNDER the card, and Enter selects one they cannot see. Two covered at
+     1100, one at 1150, none at 1280: the same width dependence the glossary's
+     own fix was written for. 2.4.11 lets the obscuring thing move instead, so
+     the card fades while a covered county holds focus.
+     Tabbed for real from the county before it in DOM order, because
+     :focus-visible keys off trusted input and a script focus must NOT trigger
+     the reveal. The last leg is the other half of the claim: an uncovered county
+     leaves the card alone. */
+  const revealed = [];
+  for (const [h, panel] of [['#v=saldo&c=1&y=2024&s=HR-18', '#card'],
+    ['#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net', '#pair']]) {
+    await page.setViewport({ width: 1000, height: 800 });
+    await fresh(h);
+    await page.waitForFunction(s => !!document.querySelector(s), { timeout: 15000 }, panel).catch(() => {});
+    const covered = await page.evaluate(sel => {
+      const el = document.querySelector(sel);
+      if (!el) return [];
+      const c = el.getBoundingClientRect();
+      return [...document.querySelectorAll('#map .cnt')]
+        .filter(p => { const r = p.getBoundingClientRect();
+          return r.left >= c.left - 0.5 && r.right <= c.right + 0.5
+            && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5; })
+        .map(p => p.getAttribute('data-iso'));
+    }, panel);
+    const iso = await page.evaluate(cs => {
+      const all = [...document.querySelectorAll('#map .cnt')].map(e => e.getAttribute('data-iso'));
+      return cs.find(i => all.indexOf(i) > 0) || cs[0];
+    }, covered);
+    const tabTo = async want => {
+      const seeded = await page.evaluate(i => {
+        const all = [...document.querySelectorAll('#map .cnt')];
+        const at = all.findIndex(e => e.getAttribute('data-iso') === i);
+        if (at <= 0) return false;
+        all[at - 1].focus();
+        return true;
+      }, want);
+      if (!seeded) return false;
+      for (let k = 0; k < 3; k++) {
+        await page.keyboard.press('Tab');
+        const at = await page.evaluate(() => { const a = document.activeElement;
+          return a && a.classList && a.classList.contains('cnt') ? a.getAttribute('data-iso') : null; });
+        if (at === want) return true;
+      }
+      return false;
+    };
+    const before = await page.evaluate(s => getComputedStyle(document.querySelector(s)).opacity, panel);
+    const landed = iso ? await tabTo(iso) : false;
+    await settle(250);
+    const onFocus = await page.evaluate(s => ({ op: getComputedStyle(document.querySelector(s)).opacity,
+      pe: getComputedStyle(document.querySelector(s)).pointerEvents }), panel);
+    await page.evaluate(() => document.activeElement.blur());
+    await settle(250);
+    const after = await page.evaluate(s => getComputedStyle(document.querySelector(s)).opacity, panel);
+    const clear = await page.evaluate(sel => {
+      const c = document.querySelector(sel).getBoundingClientRect();
+      const all = [...document.querySelectorAll('#map .cnt')];
+      const p = all.find((e, i) => { if (!i) return false;
+        const r = e.getBoundingClientRect();
+        return !(r.left >= c.left && r.right <= c.right && r.top >= c.top && r.bottom <= c.bottom); });
+      return p ? p.getAttribute('data-iso') : null;
+    }, panel);
+    const landedClear = clear ? await tabTo(clear) : false;
+    await settle(250);
+    const onClear = await page.evaluate(s => getComputedStyle(document.querySelector(s)).opacity, panel);
+    revealed.push({ panel, covered, iso, landed, before, onFocus, after, clear, landedClear, onClear });
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('a county the detail or corridor card covers is revealed when it takes focus, and only then',
+    revealed.length === 2 && revealed.every(r => r.covered.length > 0 && r.landed && r.landedClear
+      && r.before === '1' && parseFloat(r.onFocus.op) < 0.5 && r.onFocus.pe === 'none'
+      && r.after === '1' && r.onClear === '1'),
+    JSON.stringify(revealed));
 
   /* ── P2: the dialog owns the keyboard while it holds focus ──
      Space is exercised elsewhere with focus on a <button> (l.629), on <body>

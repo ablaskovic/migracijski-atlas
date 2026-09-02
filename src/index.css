@@ -849,6 +849,12 @@ body.stage-collapsed .main{flex:none;height:420px}
 .labbtn{font-family:var(--mono);font-size:0.59375rem;
   letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
+/* 2.4.11: a county whose focus ring is drawn under the detail or corridor card
+   is a focus indicator the reader cannot see. The card steps aside while that
+   county holds focus — faded rather than hidden, so the reader can still see
+   what it was and that it is still there, and inert to the pointer so a click
+   aimed at the county behind it lands there. See MapView. */
+.map-wrap.focus-covered #card,.map-wrap.focus-covered #pair{opacity:.12;pointer-events:none}
 .labbtn-lane{visibility:hidden}
 .labbtn:hover{color:var(--ink)}
 .labbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
