@@ -92,7 +92,16 @@ function countyBlock(S: State, iso: string, yi: number): string {
      `Math.max(yi, IX2011)` clamp made the loop run once for any earlier year and
      report 2011's figures under a "2011.–2005." heading — the exact asymmetry
      metrics.fsum removed, left standing in the third cumulative primitive. */
-  if (cum && yi >= IX2011) { for (let i = IX2011; i <= yi; i++) { ii += c.ii[i]; oi += c.oi[i]; ie += c.ie[i]; oe += c.oe[i]; } }
+  /* …and the else branch was shared with the annual case, so a cumulative call
+     before the window still fell into it and filled ii/oi/ie/oe with that single
+     YEAR's figures — printed under a "migracije · 2011.–2005." heading, with vt
+     and the percentage derived from them, while nt below zeroes properly and so
+     "mig. + prirodno" came out equal to "migracije". Floored to zero the way
+     val() and fsum() do, which is what "all three cumulative primitives floor
+     the same way' was supposed to mean. Unreachable while the codec and setView
+     clamp yi ≥ IX2011 in cum and klas — which is exactly the defence asymmetry
+     fsum's own note removed rather than left for a future caller. */
+  if (cum) { if (yi >= IX2011) for (let i = IX2011; i <= yi; i++) { ii += c.ii[i]; oi += c.oi[i]; ie += c.ie[i]; oe += c.oe[i]; } }
   else { ii = c.ii[yi]; oi = c.oi[yi]; ie = c.ie[yi]; oe = c.oe[yi]; }
   const vi = ii - oi, ve = ie - oe, vt = vi + ve;
   /* Against the denominator the reader actually chose, not against the 2011
