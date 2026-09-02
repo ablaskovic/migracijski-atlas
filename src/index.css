@@ -1464,6 +1464,18 @@ body.stage-collapsed .main{flex:none;height:420px}
    against a forced background. Pressed states get a border, which survives. */
 @media (forced-colors:active){
   .legend-bar,.legend-sw,.citz-rows .sw,.zbar span{forced-color-adjust:none}
+  /* …and .zbar span with them. It was in the opt-out list and not in this one —
+     the only opted-out element with no forced-palette edge to fall back on. Its
+     declared #1D4E89 at opacity .75 composites to rgb(22,59,103) over a black
+     Canvas, which is 1,86:1 against that Canvas: below the 3:1 WCAG 1.4.11 asks
+     of a graphical object carrying information, and black is what the default
+     High Contrast themes use. Its TRACK keeps a forced border, so the reader saw
+     an outlined empty box whose fill they could not locate the end of — the bar
+     read as 0 whatever its value. In a light HCM theme the same composite is
+     4,45:1, which is why this is specific to the black ones. An outline rather
+     than a border: the fill’s width IS the datum, and a border would take 2 px
+     off it. */
+  .zbar span{outline:1px solid CanvasText;outline-offset:-1px}
   .legend-bar,.legend-sw,.citz-rows .sw{border:1px solid CanvasText}
   .legend-mark{background:CanvasText;width:3px;box-shadow:none;forced-color-adjust:none}
   /* The block reasoned about the map and its two keys and forgot the rail, which

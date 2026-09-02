@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 601;
+const EXPECTED_CHECKS = 602;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -11686,6 +11686,34 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the forced-colors override actually reaches the focus ring it names',
     fcRing.has && fcRing.fc && !!fcRing.ink && fcRing.ink !== 'rgb(32, 38, 43)',
     JSON.stringify(fcRing));
+  /* …and the one opted-out element that had no edge to fall back on. .zbar span
+     was in the forced-color-adjust list and not in the border rule beside it, so
+     it kept its declared #1D4E89 at opacity .75 — which composites to
+     rgb(22,59,103) over a black Canvas, 1,86:1 against that Canvas, below the
+     3:1 WCAG 1.4.11 asks of a graphical object carrying information. Black is
+     what the default High Contrast themes use; in a light one the same composite
+     is 4,45:1, which is why this was specific to them. Its TRACK does keep a
+     forced border, so the reader saw an outlined empty box whose fill they could
+     not locate the end of: the bar read as 0 whatever its value. Asked of the
+     browser under the emulation rather than computed from the declarations. */
+  await forced(true);
+  await fresh('#cz=2');
+  await page.waitForFunction(() => document.querySelectorAll('#zemList .zbar span').length > 5,
+    { timeout: 15000 }).catch(() => {});
+  const zbarHc = await page.evaluate(() => {
+    const f = [...document.querySelectorAll('#zemList .zbar span')];
+    if (!f.length) return { none: true };
+    const cs = getComputedStyle(f[0]);
+    const track = document.querySelector('#zemList .zbar');
+    return { n: f.length, fc: matchMedia('(forced-colors: active)').matches,
+      w: parseFloat(cs.outlineWidth), style: cs.outlineStyle, adjust: cs.forcedColorAdjust,
+      track: track ? parseFloat(getComputedStyle(track).borderTopWidth) : 0 };
+  });
+  await forced(false);
+  ck('the Zemlje bar keeps a forced-palette edge, like every other opted-out swatch',
+    !zbarHc.none && zbarHc.fc && zbarHc.n > 5 && zbarHc.adjust === 'none'
+    && zbarHc.style === 'solid' && zbarHc.w >= 1 && zbarHc.track >= 1,
+    JSON.stringify(zbarHc));
   await forced(false);
 
   /* ── the two grids own rows, and rows own cells ──
