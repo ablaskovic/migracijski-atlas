@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 511;
+const EXPECTED_CHECKS = 512;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5847,6 +5847,45 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     yg.tab0 === 1, String(yg.tab0));
   ck('a cell states its own county, year and value (#tip is aria-hidden)',
     /^Grad Zagreb, 2011\.: \+2\.139$/.test(yg.aria0), yg.aria0);
+  /* …and the ORDER of those rows, which nothing asserted at a state where it
+     could move. Godine ranks by the window total in the series on screen —
+     `yrsOrder(flow, den, cols)` — and the legend under it says so
+     ("redci su poredani po zbroju razdoblja"). Both order-sensitive assertions
+     in this file sit at the default flow and denominator: the one above regexes
+     cells[0]'s label at #v=yrs&c=1&y=2024, and the Nalaz check looks its cells
+     up by data-iso/data-y rather than by position. Ranking always by the
+     absolute total-migration total instead — yrsTotal(b,'tot','abs',cols) — is a
+     no-op there and passed the whole suite, while at #v=yrs&f=int&c=0&y=2022 the
+     first six rows went 01,21,18,13,08,15 → 21,01,18,17,13,08 and at
+     #v=yrs&f=nat&d=rel11&c=1&y=2024 20,19,21,17,01,13 → 21,18,01,17,13,08 —
+     a wholly different ranking under a legend still claiming the period sum.
+     Two properties, because either alone is weak: the three lenses must not
+     agree with one another (a frozen order agrees with itself), and in the one
+     state where the cells' own values sum to exactly what yrsTotal computes —
+     annual, absolute — the sequence must be non-increasing. */
+  const yrsRank = [];
+  for (const h of ['#v=yrs&f=int&c=0&y=2022', '#v=yrs&f=nat&d=rel11&c=1&y=2024', '#v=yrs&c=1&y=2024']) {
+    await fresh(h);
+    yrsRank.push({ h: h.slice(6), ...await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('#map [role="row"]')];
+      const num = s => {
+        const m = /:\s*(.+)$/.exec(s || ''); if (!m) return NaN;
+        return parseFloat(m[1].replace(/[\s %]/g, '').replace(/\./g, '')
+          .replace(',', '.').replace('−', '-'));
+      };
+      return { iso: rows.map(r => r.querySelector('.yrc')?.dataset.iso || '?'),
+        sums: rows.map(r => [...r.querySelectorAll('[role="gridcell"]')]
+          .reduce((t, c) => t + (num(c.getAttribute('aria-label')) || 0), 0)) };
+    }) });
+  }
+  const [yInt, yNat, yDef] = yrsRank.map(r => r.iso.join(','));
+  const yAsc = yrsRank[0].sums;
+  ck('Godine ranks its rows by the series on screen, not by one frozen lens',
+    yrsRank.every(r => r.iso.length === 21 && new Set(r.iso).size === 21)
+    && yInt !== yNat && yNat !== yDef && yInt !== yDef
+    && yAsc.every((v, i) => !i || yAsc[i - 1] >= v - 0.5),
+    JSON.stringify(yrsRank.map(r => r.h + ':' + r.iso.slice(0, 6).join(' '))));
+
   /* At the reference viewport the design target is met outright: nothing under
      the legend and a cell well past the 12 px fitGrid aims for. That is worth
      pinning, but it was the ONLY place either property was measured — see the
