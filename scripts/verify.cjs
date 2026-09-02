@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 526;
+const EXPECTED_CHECKS = 527;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6420,6 +6420,35 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && yInt !== yNat && yNat !== yDef && yInt !== yDef
     && yAsc.every((v, i) => !i || yAsc[i - 1] >= v - 0.5),
     JSON.stringify(yrsRank.map(r => r.h + ':' + r.iso.slice(0, 6).join(' '))));
+
+  /* Nalaz 13's era claim, read out of the caption and checked against the grid
+     the same click opens. It used to say Grad Zagreb "dobiva sve do 2020." over
+     a row whose first four columns are clearly red — 1998 −2.210, 1999 −1.284,
+     2000 −945, 2001 −1.014, and 2004 / 2005 negative after a 2002–03 blip: false
+     for eleven of the 28 columns the reader is looking at. The claim is dated
+     now, and this asserts the dating rather than the string: every year in the
+     span it names must be positive, and the years on either side must not be,
+     so a caption that widens its own window fails. */
+  await fresh('#v=yrs&f=int&c=0&y=2022&st=13');
+  await page.waitForFunction(() => document.querySelectorAll('#map .yrc').length > 100, { timeout: 20000 }).catch(() => {});
+  const era = await page.evaluate(() => {
+    const cap = (document.querySelector('#storyCap') || {}).textContent || '';
+    const row = [...document.querySelectorAll('#map .yrc[data-iso="HR-21"]')].map(e => {
+      const m = /:\s*(.+)$/.exec(e.getAttribute('aria-label') || '');
+      return { y: +e.dataset.y, v: m ? parseFloat(m[1].replace(/[\s.]/g, '').replace(',', '.').replace('−', '-')) : NaN };
+    }).sort((a, b) => a.y - b.y);
+    return { cap, row };
+  });
+  const eraM = /od (\d{4})\. do (\d{4})\./.exec(era.cap);
+  const eraFrom = eraM ? +eraM[1] : 0, eraTo = eraM ? +eraM[2] : 0;
+  const eraIn = era.row.filter(x => x.y >= eraFrom && x.y <= eraTo);
+  const eraBefore = era.row.find(x => x.y === eraFrom - 1);
+  const eraAfter = era.row.find(x => x.y === eraTo + 1);
+  ck('Nalaz 13 dates its era claim to the run the grid under it actually shows',
+    !!eraM && eraIn.length === eraTo - eraFrom + 1 && eraIn.every(x => x.v > 0)
+    && !!eraBefore && eraBefore.v <= 0 && !!eraAfter && eraAfter.v <= 0,
+    JSON.stringify({ claim: eraM && `${eraFrom}–${eraTo}`, n: eraIn.length,
+      before: eraBefore, after: eraAfter }));
 
   /* At the reference viewport the design target is met outright: nothing under
      the legend and a cell well past the 12 px fitGrid aims for. That is worth
