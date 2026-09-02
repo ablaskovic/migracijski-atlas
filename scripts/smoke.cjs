@@ -141,6 +141,22 @@ function localEntry() {
     ck('content-hashed assets are served immutable',
       asset.status === 200 && /immutable/.test(asset.headers['cache-control'] || ''),
       asset.status + ' ' + (asset.headers['cache-control'] || 'absent'));
+    /* …and it says what it varies on. Asked for the same URL three times with
+       Accept-Encoding identity / gzip / br, the origin returned three different
+       bodies — 573.949 / 191.684 / 193.505 bytes for the entry chunk — and no
+       `vary` header on any of them, while stamping all three
+       `public, max-age=31536000, immutable`. RFC 9111 §4.1 requires Vary when
+       the representation depends on a request header; without it a shared cache
+       may key on the URL alone, so a reader behind a TLS-inspecting corporate
+       proxy — routine in the offices and universities this atlas is written for
+       — can be handed a colleague's brotli bytes while announcing only gzip.
+       The filename is content-hashed and the entry is immutable, so nothing
+       invalidates it until the next deploy changes the hash. Vercel's own edge
+       does key on Accept-Encoding, which is why the omission is invisible from
+       inside the platform — and why it has to be asked here. */
+    ck('negotiated responses declare what they vary on',
+      /accept-encoding/i.test(asset.headers.vary || ''),
+      asset.headers.vary || 'absent');
     /* …and a MISSING one is not. The header used to come from a vercel.json
        rule whose source matches the request PATH and not the response, so
        GET /assets/nema.js returned 404 stamped `public, max-age=31536000,

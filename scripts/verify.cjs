@@ -9475,10 +9475,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && docHdr['x-content-type-options'] === 'nosniff'
     && /strict-origin/.test(docHdr['referrer-policy'] || ''),
     JSON.stringify({ bad: cspBad, n: Object.keys(cspMap).length, nosniff: docHdr['x-content-type-options'] }));
-  ck('content-hashed assets are immutable and the document revalidates',
+  /* …and Vary with them. The origin content-negotiates every compressible
+     response — the same URL returns 573.949 bytes as identity, 191.684 as gzip
+     and 193.505 as brotli — and sent no `vary` header at all, while stamping
+     each of the three `public, max-age=31536000, immutable`. RFC 9111 §4.1
+     requires it whenever the representation depends on a request header, and
+     without it a shared cache may key on the URL alone: a reader behind a
+     TLS-inspecting corporate proxy can be handed a colleague's brotli bytes
+     while announcing only gzip, and the content-hashed immutable filename means
+     nothing invalidates it until the next deploy. Vercel's own edge does key on
+     Accept-Encoding, which is why this was invisible from inside the platform.
+     Declared in the block that reaches every path, so it is asserted here on
+     the document and the asset alike; smoke.cjs asks the live origin. */
+  ck('content-hashed assets are immutable, the document revalidates, and both declare their Vary',
     /immutable/.test(assetHdr['cache-control'] || '')
-    && /must-revalidate/.test(docHdr['cache-control'] || ''),
-    JSON.stringify({ asset: assetHdr['cache-control'], doc: docHdr['cache-control'] }));
+    && /must-revalidate/.test(docHdr['cache-control'] || '')
+    && /accept-encoding/i.test(docHdr.vary || '') && /accept-encoding/i.test(assetHdr.vary || ''),
+    JSON.stringify({ asset: assetHdr['cache-control'], doc: docHdr['cache-control'],
+      vary: [docHdr.vary, assetHdr.vary] }));
 
   /* …and the deploy runs the cheap gates before it ships. The CI workflow is
      DETECTION and it loses the race it is in: Vercel promotes the deploy while
