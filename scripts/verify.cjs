@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 489;
+const EXPECTED_CHECKS = 490;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5558,6 +5558,44 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('the pre-2007 margin caveat is shown exactly where it is true',
     preGate.length === 0, preGate.slice(0, 3).join(' | '));
+
+  /* …and the number the glossary puts on it has to be the payload's. The IPF
+     paragraph quantified the caveat as "464–550 osoba" for 1998.–2006. —
+     measured from src/data/atlas_data2.json, four of those nine years are 218,
+     122, 61 and 27, and two of them run the OTHER WAY (more arrivals than
+     departures), so the stated floor is seventeen times the 2001 gap and of the
+     wrong sign. Only 2002–06 fall inside 464–550, which is what Legend's own
+     comment and the commit that wrote the sentence both already recorded — and
+     three paragraphs later the same panel states the bound correctly, so one
+     glossary carried both the true figure and a false range for it.
+     Derived from the data rather than pinned as literals: a DZS revision moves
+     these nine numbers, and then the sentence has to move with them. */
+  const gaps = (() => {
+    const D = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/atlas_data2.json'), 'utf8'));
+    const isos = Object.keys(D.c);
+    const out = [];
+    D.years.forEach((y, i) => {
+      let oi = 0, ii = 0;
+      for (const iso of isos) { oi += D.c[iso].oi[i]; ii += D.c[iso].ii[i]; }
+      out.push({ y, gap: oi - ii });
+    });
+    const span = (a, b) => {
+      const g = out.filter(r => r.y >= a && r.y <= b).map(r => Math.abs(r.gap));
+      return [Math.min(...g), Math.max(...g)];
+    };
+    return { all: span(1998, 2006), late: span(2002, 2006),
+      zero: out.filter(r => r.y >= 2007).every(r => r.gap === 0) };
+  })();
+  await fresh('');
+  await click('#helpBtn');
+  const gapCopy = await page.evaluate(() => document.querySelector('#helpCard').textContent || '');
+  await click('#helpX');
+  ck('the glossary’s pre-2007 margin figures are the ones the payload carries',
+    gaps.zero && gaps.all[0] < gaps.late[0]
+    && [gaps.all[0], gaps.all[1], gaps.late[0], gaps.late[1]]
+      .every(v => gapCopy.includes(String(v))),
+    JSON.stringify({ ...gaps, has: [gaps.all[0], gaps.all[1], gaps.late[0], gaps.late[1]]
+      .map(v => [v, gapCopy.includes(String(v))]) }));
 
   /* clicking a cell is how the grid doubles as a year picker: it drives the same
      S.yi the scrubber and every other view read.
