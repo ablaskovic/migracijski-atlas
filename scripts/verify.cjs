@@ -4500,6 +4500,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     skip: !!document.querySelector('a.skip[href="#map"]'),
     railNamed: !!document.querySelector('aside.rail[aria-labelledby="railLab"]'),
     cardSvg: document.querySelector('#cardSvg').getAttribute('role'),
+    cardSvgLab: document.querySelector('#cardSvg').getAttribute('aria-label') || '',
     /* `[].every()` is true, so this passed if the glyph stopped being rendered
        at all — the count is what makes it mean something */
     arrN: document.querySelectorAll('.chip-arr').length,
@@ -4533,8 +4534,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     skipOn === 'skip' && skipTo.focus === 'map' && skipTo.ring !== 'none' && skipTo.yr === '2015.'
     && /v=klas/.test(skipTo.hash) && /y=2015/.test(skipTo.hash) && /t=6000/.test(skipTo.hash),
     JSON.stringify({ skipOn, ...skipTo }));
+  /* "labelled" was the name of the check and not part of it: only the role was
+     read. Delete the aria-label and #cardSvg becomes a NAMELESS role=img, which
+     additionally collapses its tick <text> children out of the reading order —
+     the exact harm DetailCard's own comment describes for the unlabelled case —
+     while this printed ok. No other line in this file touches that name.
+     Substance, not presence: the selected county (HR-18 is in the hash), the
+     year span and the range the chart is drawn to. */
   ck('the rail landmark is named and the card chart is a labelled figure',
-    struct.railNamed && struct.cardSvg === 'img', JSON.stringify(struct));
+    struct.railNamed && struct.cardSvg === 'img'
+    && /Istarska/.test(struct.cardSvgLab) && /1998.–2025./.test(struct.cardSvgLab)
+    && /raspon ±/.test(struct.cardSvgLab), JSON.stringify(struct));
   ck('decorative chip arrows are hidden from assistive tech',
     struct.arrN >= 3 && struct.arrHidden, JSON.stringify({ n: struct.arrN, hidden: struct.arrHidden }));
 
