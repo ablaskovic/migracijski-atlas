@@ -76,6 +76,15 @@ export default function Scrubber({ S, setYi, togglePlay }: {
   const pending = useRef<number | null>(null);
   const onDown = (ev: ReactPointerEvent<SVGSVGElement>) => {
     if (drag.current !== null) return;   /* a second finger is not a scrub */
+    /* …and neither is a right- or middle-click. useZoom filters exactly this for
+       the map — "a right-button drag moved the map, so the context menu opened
+       over a map that had shifted under it" — and the scrubber, which is the
+       app's primary control, did not: measured at 1440×900 in
+       #v=saldo&c=1&y=2024, a right-button press at 30 % of the chart took
+       #bigYear from 2024. to 2011. and opened the context menu over a rewritten
+       permalink. isPrimary covers the second finger the line above already
+       guards, and a pen's barrel button with it. */
+    if (!ev.isPrimary || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
     drag.current = ev.pointerId;
     /* throws NotFoundError if the pointer is already gone by the time we run
        (synthetic events, some assistive tech) — capture is an optimisation for
