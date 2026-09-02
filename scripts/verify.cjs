@@ -6233,7 +6233,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const wantLocal = { "local(\"Arial\")": 3, "local(\"Courier New\")": 2, "local(\"Arial Narrow\")": 2 };
   const gotLocal = {};
   for (const src of faceSrc) {
-    const k = (src.match(/local\(("?)[^)]*\)/) || [''])[0].replace(/'/g, '"');
+    const k = (src.match(/local\([^)]*\)/) || [''])[0].replace(/'/g, '"');
     gotLocal[k] = (gotLocal[k] || 0) + 1;
   }
   ck('the metric-matched fallbacks still name the faces they are adjusted to',
