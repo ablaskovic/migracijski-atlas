@@ -43,7 +43,20 @@
 <link rel="alternate" hreflang="hr" href="https://migracijski-atlas.hr/">
 <link rel="alternate" hreflang="en" href="https://migracijski-atlas.hr/?l=en">
 <link rel="alternate" hreflang="x-default" href="https://migracijski-atlas.hr/">
+<!-- Three, because one SVG is not an icon for every agent that asks. Safari does
+     not use SVG favicons and requests /favicon.ico; iOS "Add to Home Screen"
+     requests /apple-touch-icon.png; and unfurlers and feed readers probe
+     /favicon.ico unconditionally. vercel.json rewrites /(.*) to index.html
+     except under assets/ and fonts/, so every one of those paths answered
+     200 text/html with the whole 10.185-byte SPA shell — and with nosniff set
+     the client cannot sniff its way out: it discards the payload, shows the
+     default globe, and cannot tell "no icon here" from "an icon I failed to
+     parse". public/robots.txt records this same mechanism as a defect fixed the
+     same way: "This file has to exist as a *file*". Both are rendered from
+     favicon.svg, so there is one drawing and three encodings of it. -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" sizes="any" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <!-- First-paint placeholder. #root is empty until React mounts, and on the
      mobile profile that measured 2.054 ms of "render delay" — 76 % of LCP —
      spent looking at the background colour. The markup for it lives in <body>;

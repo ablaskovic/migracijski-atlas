@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 583;
+const EXPECTED_CHECKS = 584;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10768,6 +10768,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('and both OFL texts the glossary points at actually answer',
     Object.values(oflFetch).every(r => r.status === 200 && r.len > 3000 && r.ofl),
     JSON.stringify(oflFetch));
+  /* …and the icon paths every agent probes, which the same rewrite answered with
+     the same shell. index.html declared one icon and it is an SVG: Safari does
+     not use SVG favicons and asks for /favicon.ico, iOS "Add to Home Screen"
+     asks for /apple-touch-icon.png, and unfurlers and feed readers probe
+     /favicon.ico unconditionally. Measured against the live origin before this:
+     200 text/html, 10.185 bytes, byte-identical to dist/index.html — and with
+     nosniff set the client cannot sniff its way out, so it discards the payload,
+     shows the default globe, and cannot tell "no icon here" from "an icon I
+     failed to parse". public/robots.txt records the identical mechanism as a
+     defect fixed the same way: "This file has to exist as a *file*".
+     Its own reader, because httpGet concatenates chunks into a string and a
+     favicon is not text — and asserted by MAGIC BYTES, because the failure mode
+     was a wrong body under a plausible header. */
+  const binGet = u => new Promise(resolve => {
+    const rq = http.get(u, r => {
+      const bufs = [];
+      r.on('data', d => bufs.push(d));
+      r.on('end', () => resolve({ status: r.statusCode, buf: Buffer.concat(bufs) }));
+    });
+    rq.setTimeout(15000, () => rq.destroy(new Error('timeout')));
+    rq.on('error', () => resolve({ status: 0, buf: Buffer.alloc(0) }));
+  });
+  const icons = {};
+  for (const [p, want] of [['/favicon.ico', '00000100'], ['/apple-touch-icon.png', '89504e47'],
+    ['/favicon.svg', '3c737667']]) {
+    const r = await binGet(base + p);
+    icons[p] = { status: r.status, len: r.buf.length, want,
+      magic: r.buf.subarray(0, 4).toString('hex'),
+      html: /^<!doctype html/i.test(r.buf.subarray(0, 15).toString('utf8')) };
+  }
+  ck('the icon paths answer with icons, not with the SPA shell',
+    Object.values(icons).every(r => r.status === 200 && !r.html && r.magic === r.want && r.len > 200),
+    JSON.stringify(icons));
   ck('a sub-path boots the app through the rewrite while a missing asset still 404s',
     rw.sub.status === 200 && /id="root"/.test(rw.sub.body)
     && rw.deep.status === 200 && /id="root"/.test(rw.deep.body)
