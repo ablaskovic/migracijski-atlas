@@ -1778,6 +1778,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     ['#v=mx&y=2018&c=1', '.mxc[tabindex="0"]', 'kumulativna procjena'],
     ['#v=flow&s=HR-21&y=2018&c=0&dir=out', '.cnt[data-iso="HR-01"]', 'izmjereno'],
     ['#v=flow&s=HR-21&y=2003&c=0&dir=out', '.cnt[data-iso="HR-01"]', 'procjena'],
+    /* …and a CUMULATIVE county path, which the table had for .mxc and for no
+       .cnt at all: both Tokovi rows were c=0, so no accumulated county name was
+       ever read. Dropping the cum arm of the badge (metrics.ts) leaves every
+       partner county in cumulative Tokovi announcing a fourteen-year total as
+       'procjena (IPF)' — the annual estimate — which is the exact conflation the
+       badge exists to prevent, and which the legend and both exports do keep
+       apart. Measured, that mutant passed the whole suite. */
+    ['#v=flow&s=HR-21&y=2024&c=1&dir=net', '.cnt[data-iso="HR-01"]', 'kumulativna procjena'],
   ]) {
     await fresh(h);
     const lab = await page.evaluate(x => (document.querySelector(x) || {}).getAttribute?.('aria-label') || '', sel);
