@@ -381,11 +381,19 @@ export function yrsCols(cum: boolean): number[] {
   for (let i = cum ? IX2011 : 0; i < YEARS.length; i++) out.push(i);
   return out;
 }
-/* Row order: the window total in the current denominator, descending — the
-   ranking Saldo's rail already shows, so the two agree about who is at the top.
+/* Row order: the window total in the current denominator, descending. That is
+   the order Saldo's rail shows in cumulative mode at the window end, where the
+   two rank the same quantity over the same years — measured, identical at 2025.
+   In annual mode it is not: the rail ranks the MARKED column, which is what its
+   title says and what Rail's own note records, so across the 28 years the two
+   agree on who is first 18 times and on the whole order never. The claim that
+   "the two agree about who is at the top" stood here unqualified and was wrong
+   ten years out of twenty-eight.
    Deliberately keyed to the *window*, not to `S.yi`: ordering by the selected
    year would reshuffle all 21 rows on every arrow press, which is the one thing
-   a small-multiples grid exists to avoid. */
+   a small-multiples grid exists to avoid. Both surfaces name their own
+   criterion — the legend note says "redci su poredani po zbroju razdoblja" and
+   the rail is titled by its year — so the divergence is stated, not hidden. */
 export function yrsTotal(iso: string, flow: Flow, den: Den, cols: number[]): number {
   let v = 0;
   for (const yi of cols) v += netAt(iso, yi, flow);
