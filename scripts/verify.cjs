@@ -1293,9 +1293,19 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       return { cw: +cw.toFixed(1), n: document.querySelectorAll('.mxnum').length,
         wide: wide.length, worst: wide.sort((a, b) => b.w - a.w)[0] || null };
     });
-    if (r.wide > 0) mxFit.push(vw + 'x' + vh + ' ' + h.slice(1, 12) + ' ' + JSON.stringify(r));
+    /* `n` was collected and never asserted, and the fourth leg is below the
+       22 px gate MatrixView draws numbers at — measured, cw 30,1 / 28,1 / 28,1 /
+       18,4 for 398 / 380 / 326 / 0 numbers. So a quarter of the sweep measured
+       nothing by construction, and a gate regression to, say, cell >= 31 would
+       blank the in-cell numbers at 1920×1080 while all four legs passed
+       vacuously: there is nothing to be wider than a cell when there is nothing.
+       A leg above the gate that counts none is a failure, and the leg below it
+       pins the gate from the other side. */
+    if (r.wide > 0 || (vw >= 1680 && r.n === 0) || (vw < 1680 && r.n > 0)) {
+      mxFit.push(vw + 'x' + vh + ' ' + h.slice(1, 12) + ' ' + JSON.stringify(r));
+    }
   }
-  ck('no matrix in-cell number is drawn wider than its own cell',
+  ck('no matrix in-cell number is drawn wider than its own cell, and each leg drew what its cell size allows',
     mxFit.length === 0, mxFit.slice(0, 2).join(' | '));
   await page.setViewport({ width: 1440, height: 900 });
   /* ── Dob i spol panel (STAN I T3 / II T2, national 2025) ── */
