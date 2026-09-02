@@ -2016,7 +2016,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         return { ov: Math.round(ov), open: el.classList.contains('open'),
           cell: Math.round(cells[0].width), n: cells.length };
       }, panel === 'cz=1' ? '#citz' : '#agec');
-      if (r.none || !r.open || r.ov !== 0 || r.cell < 12 || r.n !== 441) {
+      /* 420, not 441: the 21 diagonal cells are .mxd */
+      if (r.none || !r.open || r.ov !== 0 || r.cell < 12 || r.n !== 420) {
         mxClear.push(`${panel} ${vw}x${vh} ${JSON.stringify(r)}`);
       }
     }
