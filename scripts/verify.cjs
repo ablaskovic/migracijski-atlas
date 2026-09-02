@@ -10972,6 +10972,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const citeHr = [...citeSrc.matchAll(new RegExp('Pitoski i sur[.] [(]?2021[.]?', 'g'))].map(m => m[0]);
   const citeEn = [...citeSrc.matchAll(new RegExp('Pitoski et al[.] [(]?2021[.]?', 'g'))].map(m => m[0]);
   await fresh('#v=jmap&dir=net');
+  /* the JLS legend note only carries the citation once the geometry chunk has
+     landed — before that the panel is the loading placeholder */
+  await page.waitForFunction(() => /Pitoski/.test(
+    (document.querySelector('#legend .legend-note') || {}).textContent || ''),
+    { timeout: 30000 }).catch(() => {});
   const citeLegend = await page.evaluate(() =>
     (document.querySelector('#legend .legend-note') || {}).textContent || '');
   ck('the Croatian citation year is written one way, and the English one another',
