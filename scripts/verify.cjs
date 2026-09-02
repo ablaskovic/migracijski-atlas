@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 590;
+const EXPECTED_CHECKS = 591;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7286,6 +7286,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('no JLS corridor row names a municipality and its own county twice',
     jlsDbl.rows >= 80 && jlsDbl.dbl === 0, JSON.stringify(jlsDbl));
+
+  /* ── a span of one year is a year ──
+     the cumulative window opens at 2011, so every cumulative surface printed
+     "2011.–2011." at the first window year: the legend, the rail header, the
+     scrubber sub-line, #srLive, all 21 county aria-labels, the tooltip and both
+     exports' period string. Klasifikacija FORCES cumulative, so it is one Home
+     press from any of them. Measured before: rail "kumulativno 2011.–2011.", a
+     county label ending "· 2011.–2011.", and the exported figure carrying it in
+     its headline period. Both languages, and the real span kept as the control —
+     a helper that collapsed every span would pass the first clause alone. */
+  const oneYear = {};
+  for (const [k, h] of [['klas', '#v=klas&c=1&y=2011'], ['saldo', '#v=saldo&c=1&y=2011'],
+    ['wide', '#v=saldo&c=1&y=2024'], ['en', '#l=en&v=saldo&c=1&y=2011']]) {
+    await fresh(h);
+    oneYear[k] = await page.evaluate(() => {
+      const t = s => (document.querySelector(s) || {}).textContent || '';
+      const cnt = document.querySelector('.cnt');
+      return { rail: t('#railYear'), sub: t('#bigYearSub'),
+        cnt: cnt ? cnt.getAttribute('aria-label') || '' : '',
+        svg: window.__exportSVG(false) || '' };
+    });
+  }
+  const sameSpan = /(\d{4})\.?–\1/;
+  ck('a cumulative window of one year prints one year, not a span to itself',
+    ['klas', 'saldo', 'en'].every(k => !sameSpan.test(oneYear[k].rail + oneYear[k].sub
+      + oneYear[k].cnt) && !sameSpan.test(oneYear[k].svg))
+    && /2011/.test(oneYear.klas.rail)
+    /* …and a real span is still a span */
+    && /2011\.–2024\./.test(oneYear.wide.rail) && /2011\.–2024\./.test(oneYear.wide.sub),
+    JSON.stringify({ klas: oneYear.klas.rail, saldo: oneYear.saldo.sub,
+      en: oneYear.en.rail, wide: oneYear.wide.rail }));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text

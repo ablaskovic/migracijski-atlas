@@ -170,8 +170,14 @@ export const numR = (): Intl.NumberFormat => NUM1[LANG];
    simply interpolate `YEARS[yi]` into a sentence, and why every year that
    reaches the screen goes through here. */
 export const yr = (y: number): string => (LANG === 'hr' ? y + '.' : String(y));
+/* A span of one year is a year. The cumulative window opens at 2011, so every
+   cumulative surface printed '2011.–2011.' at the first window year — the legend,
+   the rail header, the scrubber sub-line, #srLive, all 21 county aria-labels,
+   the tooltip and both exports' period string. Measured: #v=klas&y=2011 gave rail
+   'kumulativno 2011.–2011.' and a county label ending '· 2011.–2011.', and
+   Klasifikacija FORCES cumulative, so it is one Home press from any of them. */
 export const yrSpan = (a: number, b: number): string =>
-  LANG === 'hr' ? `${a}.–${b}.` : `${a}–${b}`;
+  a === b ? yr(a) : LANG === 'hr' ? `${a}.–${b}.` : `${a}–${b}`;
 
 /* The inline pair. Most of this app's copy is one-off prose carrying a comment
    that explains why it is worded the way it is — the honesty labels, the
