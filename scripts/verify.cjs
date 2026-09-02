@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 565;
+const EXPECTED_CHECKS = 567;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9408,6 +9408,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     expFocus.pngMoved === 'spark' && expFocus.svgMoved === 'spark'
     && expFocus.pngStayed === 'pngBtn' && expFocus.svgStayed === 'svgBtn',
     JSON.stringify(expFocus));
+
+  /* ── two accessible-name repairs, measured where they are read ──
+     (1) The Nalazi picker was the one header control whose name did not contain
+     its visible label: "Nalazi" on screen against "Odabir nalaza" in the tree,
+     "Findings" against "Choose a finding". 2.5.3, which Header's own comment
+     invokes for the identical case, and which every other group here already
+     satisfies through aria-labelledby.
+     (2) The render-boundary's fallback was one text run carrying both languages,
+     so a screen reader voiced the English half with Croatian phonemes on the
+     Croatian page and the reverse on the English one — for the one instruction a
+     stranded reader gets. index.html's own no-JS fallback already annotates its
+     halves; this component did not. */
+  const nameFix = {};
+  for (const l of ['hr', 'en']) {
+    await fresh(l === 'en' ? '#l=en' : '');
+    nameFix[l] = await page.evaluate(() => {
+      const sel = document.querySelector('#story');
+      const lab = document.querySelector('.storysel .ctrl-lab');
+      return { name: sel ? sel.getAttribute('aria-label') || '' : null,
+        vis: lab ? (lab.textContent || '').trim() : null, labId: lab ? lab.id : null };
+    });
+  }
+  ck('the Nalazi picker is named by the words on its own label',
+    ['hr', 'en'].every(l => nameFix[l].name && nameFix[l].vis
+      && nameFix[l].name.startsWith(nameFix[l].vis) && nameFix[l].labId === 'storyLab'),
+    JSON.stringify(nameFix));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));
@@ -10114,7 +10140,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
       await new Promise(r2 => setTimeout(r2, 800));
       const f = document.querySelector('#renderFail');
-      return { path: location.pathname, origin: location.origin, fail: !!f,
+      /* …and the two languages are annotated. This paragraph carried both in one
+         text run, so a screen reader voiced the English half with Croatian
+         phonemes and the reverse on the English page — for the one instruction a
+         stranded reader gets. Read here because this is the only leg in the file
+         that renders the boundary in its own page. */
+      const langs = f ? [...f.querySelectorAll('span[lang]')].map(x => x.getAttribute('lang')) : [];
+      const loose = f ? [...f.childNodes].filter(n => n.nodeType === 3 && n.nodeValue.trim()
+        && n.nodeValue.trim() !== '/').length : -1;
+      return { path: location.pathname, origin: location.origin, fail: !!f, langs, loose,
         offOrigin: f ? [...f.querySelectorAll('a')]
           .filter(a => !a.href.startsWith(location.origin + '/')).map(a => a.href) : ['no boundary'],
         n: f ? f.querySelectorAll('a').length : 0 };
@@ -10140,6 +10174,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the boundary keeps its four recovery links on this origin from a //-shaped path',
     ebOrigin.path === '//evil.example/' && ebOrigin.fail && ebOrigin.n === 4
     && ebOrigin.offOrigin.length === 0, JSON.stringify(ebOrigin));
+  ck('…and its two languages are annotated, so neither is voiced as the other',
+    ebOrigin.fail && JSON.stringify(ebOrigin.langs) === JSON.stringify(['hr', 'en'])
+    && ebOrigin.loose === 0, JSON.stringify({ langs: ebOrigin.langs, loose: ebOrigin.loose }));
   /* The fault was ours and it logs twice — React's own uncaught-error line and
      ErrorBoundary's componentDidCatch — so it is spliced out here rather than
      left to fail the ledger assertion below. Named by the message this block
