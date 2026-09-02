@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 592;
+const EXPECTED_CHECKS = 593;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10066,6 +10066,27 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     ['hr', 'en'].every(l => nameFix[l].name && nameFix[l].vis
       && nameFix[l].name.startsWith(nameFix[l].vis) && nameFix[l].labId === 'storyLab'),
     JSON.stringify(nameFix));
+
+  /* ── the Nalazi placeholder is English in English ──
+     it was built as `(story + 1) + L('. nalaz…', '. finding…')`, so the number and
+     the ordinal dot came from Croatian word order and the English read "2.
+     finding…" — a numbered list item cut off mid-sentence rather than "finding
+     2". The one control in the header whose English was assembled that way.
+     Both languages and both states, so the "nothing picked" copy is covered too. */
+  const storyOpt = {};
+  for (const [k, h] of [['hr', '#v=saldo&f=all&c=1&y=2024&st=2'],
+    ['en', '#l=en&v=saldo&f=all&c=1&y=2024&st=2'],
+    ['hrNone', '#v=saldo&c=1&y=2024'], ['enNone', '#l=en&v=saldo&c=1&y=2024']]) {
+    await fresh(h);
+    storyOpt[k] = await page.evaluate(() => {
+      const o = document.querySelector('#story option[value="-1"]');
+      return (o ? o.textContent : '').trim();
+    });
+  }
+  ck('the Nalazi placeholder reads as English in English',
+    storyOpt.hr === '2. nalaz…' && storyOpt.en === 'finding 2…'
+    && storyOpt.hrNone === 'odaberi…' && storyOpt.enNone === 'choose…',
+    JSON.stringify(storyOpt));
 
   /* ── PageUp and PageDown keep the reader's column ──
      the APG grid pattern this file cites as its contract has them preserve it,

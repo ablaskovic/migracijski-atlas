@@ -40,7 +40,7 @@ export function StorySelect({ S, applyStory, resetAll }: {
       <div className="storysel-row">
         <select id="story" aria-label={t('ctrl.story') + L(' — odabir nalaza', ' — choose a finding')} value={S.story ?? -1}
           onChange={e => { const i = +e.target.value; if (i >= 0) applyStory(i); }}>
-          <option value={-1}>{S.story != null ? (S.story + 1) + L('. nalaz…', '. finding…') : L('odaberi…', 'choose…')}</option>
+          <option value={-1}>{S.story != null ? L(`${S.story + 1}. nalaz…`, `finding ${S.story + 1}…`) : L('odaberi…', 'choose…')}</option>
           {STORIES.map((st, i) => <option key={i} value={i}>{(i + 1) + '. ' + st.label}</option>)}
         </select>
         <button className="rstbtn" id="resetBtn" onClick={resetAll}
