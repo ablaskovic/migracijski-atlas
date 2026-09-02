@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 481;
+const EXPECTED_CHECKS = 482;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2543,6 +2543,45 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('…and its baked paint says so in the document itself',
     baked.bandAttr.length === 2 && baked.bandAttr.every(a => a.fill === 'none' && !!a.stroke && a.op > 0 && a.op <= 0.5),
     JSON.stringify(baked.bandAttr));
+
+  /* …and the other five exports, which is where the classes this guard names
+     actually live. The sweep ran on the Matrica export alone, and three of its
+     four stroke-only selectors match nothing there: measured, .regline 0,
+     .jbord 0, .arccase 0. They belong to exports the suite never parsed — 21
+     .jbord in the JLS figure, 20 .arccase in Tokovi, 5 .regline in Regije — so
+     the bake could stop writing `stroke` on any of them and every exported
+     figure would ship with invisible borders while this check, whose own comment
+     says it exists to "require an explicit stroke on the classes whose stroke IS
+     the mark", stayed green on the one document those classes cannot appear in.
+     Godine's 321 shapes and Saldo's 24 were never swept for nakedness at all.
+     Each view carries a floor on the population it inspected, so a selector
+     rename cannot make an export pass by sweeping nothing. */
+  const expSweep = [];
+  for (const [h, sel, want, floor] of [
+    ['#v=jmap&dir=net', '.jbord', 21, 500],
+    ['#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net', '.arccase', 20, 60],
+    ['#v=reg&c=1&y=2024', '.regline', 5, 20],
+    ['#v=yrs&c=1&y=2024', '', 0, 300],
+    ['#v=saldo&c=1&y=2024', '', 0, 15]]) {
+    await fresh(h);
+    expSweep.push({ h: h.slice(0, 16), want, floor, ...await page.evaluate(sel => {
+      const s = window.__exportSVG(false);
+      const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
+      const shapes = [...doc.querySelectorAll('rect,path,circle,line')].filter(e => !e.closest('defs'));
+      return {
+        n: shapes.length,
+        naked: shapes.filter(e => !e.hasAttribute('fill') && !e.hasAttribute('stroke'))
+          .map(e => e.tagName + '.' + (e.parentElement?.getAttribute('class') || '?')).slice(0, 3),
+        found: sel ? doc.querySelectorAll(sel).length : 0,
+        unstroked: sel ? [...doc.querySelectorAll(sel)].filter(e => !e.getAttribute('stroke')).length : 0,
+        parseErr: !!doc.querySelector('parsererror'),
+      };
+    }, sel) });
+  }
+  ck('every view exports a self-contained document, including the classes whose stroke is the mark',
+    expSweep.length === 5 && expSweep.every(x => !x.parseErr && x.n >= x.floor
+      && x.naked.length === 0 && x.found === x.want && x.unstroked === 0),
+    JSON.stringify(expSweep.map(x => ({ h: x.h, n: x.n, found: x.found, naked: x.naked, un: x.unstroked }))));
 
   /* ══════════ reset means reset, including the zoom ══════════ */
   await fresh('');
