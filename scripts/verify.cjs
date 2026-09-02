@@ -1833,9 +1833,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const s = window.__exportSVG(false);
     const d = new DOMParser().parseFromString(s, 'image/svg+xml');
     const inner = d.querySelector('svg[y]');
+    /* against the viewBox, not the height: a grid figure is cropped to its ink
+       now, so the cells keep their original coordinates while the frame that
+       holds them starts at the crop origin. Comparing a cell's y against a
+       cropped HEIGHT compares two different coordinate spaces and calls seven
+       rows clipped that are wholly inside the figure. */
+    const vb = (inner?.getAttribute('viewBox') || '').trim().split(/s+/).map(Number);
     const ih = inner ? +inner.getAttribute('height') : 0;
+    const [vy, vh] = vb.length === 4 ? [vb[1], vb[3]] : [0, ih];
     const cells = [...d.querySelectorAll('.mxc')];
-    const clipped = cells.filter(c => +c.getAttribute('y') + +c.getAttribute('height') > ih + 0.5);
+    const clipped = cells.filter(c => +c.getAttribute('y') + +c.getAttribute('height') > vy + vh + 0.5);
     return { at1, out, badge, expCells: cells.length, expClipped: clipped.length,
       expRowsClipped: new Set(clipped.map(c => c.getAttribute('data-a'))).size };
   });

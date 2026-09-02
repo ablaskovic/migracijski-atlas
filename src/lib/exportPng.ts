@@ -105,9 +105,14 @@ function gridCrop(node: SVGSVGElement): { x: number; y: number; w: number; h: nu
   const y0 = Math.min(...ink.map(q => q.top)), y1 = Math.max(...ink.map(q => q.bottom));
   const x = Math.max(0, Math.floor(x0 - r.left - CROP_PAD));
   const y = Math.max(0, Math.floor(y0 - r.top - CROP_PAD));
+  /* bounded by drawnH, not clientHeight: a grid taller than its box overflows
+     it, and drawnH exists to let the export grow to the ink rather than inherit
+     the clip. Clamping here to clientHeight put that clip straight back —
+     measured at 900×620, 40 cells across two rows fell outside the crop. */
+  const hMax = drawnH(node);
   const w = Math.min(node.clientWidth - x, Math.ceil(x1 - r.left + CROP_PAD) - x);
-  const h = Math.min(node.clientHeight - y, Math.ceil(y1 - r.top + CROP_PAD) - y);
-  return w > 0 && h > 0 && (w < node.clientWidth || h < node.clientHeight) ? { x, y, w, h } : null;
+  const h = Math.min(hMax - y, Math.ceil(y1 - r.top + CROP_PAD) - y);
+  return w > 0 && h > 0 && (w < node.clientWidth || h < hMax) ? { x, y, w, h } : null;
 }
 
 /* clone the live map SVG and bake class/CSS-var-provided presentation into
