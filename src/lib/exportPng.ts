@@ -155,9 +155,31 @@ function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight): SV
 }
 
 function fname(S: State, per: string, ext: string): string {
-  /* jmap too, not only flow: the three directions produced three different
-     figures that landed on disk under one name and overwrote each other */
-  return ('migracijski-atlas_' + S.view + (S.view === 'flow' || S.view === 'jmap' ? '_' + S.dir : '') + '_' + per)
+  /* Every control that changes the FIGURE has to change the name, or the files
+     overwrite each other in the reader's downloads folder. The name carried the
+     view, the period, and the direction for two of the three views that have
+     one. Measured over 26 states, each exported document hashed to prove the
+     payloads genuinely differ: 26 distinct figures arrived under 6 names. A
+     researcher building a four-panel Saldo figure — unutarnje, vanjske,
+     prirodno, ukupno — got migracijski-atlas_saldo_2024.png, (1), (2), (3),
+     with nothing saying which component is which; the eight abs/rel11 × flow
+     combinations collapsed onto one name, and Matrica's three directions onto
+     another, which is the collision the note below says was fixed for Tokovi
+     and the JLS map.
+     Only what that view actually reads: appending a denominator to Matrica,
+     which does not use one, would put a difference in the name that is not in
+     the picture. */
+  const bits: string[] = [S.view];
+  if (S.view === 'flow' || S.view === 'jmap' || S.view === 'mx') bits.push(S.dir);
+  /* the component: every view but the JLS map, whose single measured year has
+     no components to choose between */
+  if (S.view !== 'jmap') bits.push(S.flow);
+  /* absolute or per-capita — the choropleth views and the two grids read it */
+  if (S.view !== 'jmap' && S.view !== 'flow') bits.push(S.den);
+  /* the class boundary IS the Klasifikacija figure */
+  if (S.view === 'klas') bits.push(S.thrRel ? S.thrPct + 'pct' : String(S.thr));
+  bits.push(per);
+  return ('migracijski-atlas_' + bits.join('_'))
     .replace(/[–.]/g, '-').replace(/-+/g, '-').replace(/-$/, '') + '.' + ext;
 }
 

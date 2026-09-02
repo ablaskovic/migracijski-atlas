@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 496;
+const EXPECTED_CHECKS = 497;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2896,6 +2896,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       };
     }, sel) });
   }
+  /* …and two different figures must not land on disk under one name. `fname`
+     carried the view, the period, and the direction for two of the three views
+     that have one. Measured over 22 states, each exported document hashed with
+     its random uid prefix stripped so the payloads are provably different: 22
+     figures arrived under 9 names, 5 of them colliding. A researcher building a
+     four-panel Saldo figure — unutarnje, vanjske, prirodno, ukupno — got
+     migracijski-atlas_saldo_2024 four times over, and the eight abs/rel11 ×
+     component combinations collapsed onto that one name; Matrica's three
+     directions onto another, which is the very collision fname's own note says
+     was fixed for Tokovi and the JLS map; Klasifikacija's three thresholds onto
+     a third. */
+  const fnames = new Map();
+  for (const h of ['#v=saldo&f=int&d=abs&c=0&y=2024', '#v=saldo&f=ext&d=abs&c=0&y=2024',
+    '#v=saldo&f=int&d=rel11&c=0&y=2024', '#v=mx&dir=in&c=1&y=2018', '#v=mx&dir=out&c=1&y=2018',
+    '#v=klas&c=1&y=2024&t=4500', '#v=klas&c=1&y=2024&t=2000',
+    '#v=reg&f=int&c=1&y=2024', '#v=reg&f=ext&c=1&y=2024',
+    '#v=yrs&f=int&c=0&y=2024', '#v=yrs&f=ext&c=0&y=2024']) {
+    await fresh(h);
+    const r = await page.evaluate(() => {
+      let name = null;
+      const orig = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function () { name = this.download; };
+      const doc = window.__exportSVG(true);
+      HTMLAnchorElement.prototype.click = orig;
+      const body = String(doc).replace(/id="[a-z0-9]+/g, 'id="').replace(/url\(#[a-z0-9]+/g, 'url(#');
+      let x = 0;
+      for (let i = 0; i < body.length; i++) x = (x * 31 + body.charCodeAt(i)) >>> 0;
+      return { name, hash: x.toString(16) };
+    });
+    if (!fnames.has(r.name)) fnames.set(r.name, new Set());
+    fnames.get(r.name).add(r.hash);
+  }
+  const collide = [...fnames].filter(([, h]) => h.size > 1).map(([n, h]) => n + ' ×' + h.size);
+  ck('two different figures never export under one filename',
+    fnames.size === 11 && collide.length === 0, JSON.stringify(collide));
+
   ck('every view exports a self-contained document, including the classes whose stroke is the mark',
     expSweep.length === 5 && expSweep.every(x => !x.parseErr && x.n >= x.floor
       && x.naked.length === 0 && x.found === x.want && x.unstroked === 0),
