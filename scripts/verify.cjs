@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 474;
+const EXPECTED_CHECKS = 475;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1293,6 +1293,59 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the tooltip percentage uses the denominator the reader chose',
     !!relPct && NBSP(pctRel.tip).includes(relPct) && NBSP(pctRel.tip).includes('% tek. procjene'),
     JSON.stringify({ relPct, aria: pctRel.aria, tip: NBSP(pctRel.tip).slice(-70) }));
+
+  /* ── a grid taller than its box is recoverable, and exports whole ──
+     Matrica and Godine lay out on a fixed cell geometry with a 12 px hit floor
+     rather than fitting a projection to the box, so on a short window the grid
+     is taller than the box and #map's overflow:hidden crops it. That trade is
+     documented in three places, and all three pay for it with the same promise:
+     "the shared zoom/pan recovers an off-box grid". It did not. `fit` clamped
+     the pan to the VIEWPORT — `y ≥ h − k*h` — so a row below the box painted no
+     higher than `k*u + h − k*h`, which exceeds h for every u > h at every k ≥ 1,
+     and panBy is a no-op at k = 1. Measured at 1366×657: 14 of 21 rows on
+     screen, and five zoom-ins with twenty pans down each took the last row's top
+     from 330 px to 820 px against a 260 px box, 2 rows left. Six counties were
+     on the page, focusable and arrow-reachable, and unreachable by eye. At
+     1280×610 it was eleven.
+     The exported figure inherited the same crop from `clientHeight`: 140 of 420
+     cells — seven whole counties — cut flush at the frame under a title that
+     still says MATRICA TOKOVA, beside a complete column axis. */
+  await page.setViewport({ width: 1366, height: 657 });
+  await fresh('#v=mx&c=0&y=2018&dir=out');
+  const tallGrid = await page.evaluate(async () => {
+    const rowsIn = () => {
+      const svg = document.querySelector('#map'), sr = svg.getBoundingClientRect();
+      const cells = [...document.querySelectorAll('.mxc')];
+      const vis = cells.filter(c => {
+        const b = c.getBoundingClientRect();
+        return b.top >= sr.top - 1 && b.bottom <= sr.bottom + 1;
+      });
+      return { all: new Set(cells.map(c => c.getAttribute('data-a'))).size,
+        vis: new Set(vis.map(c => c.getAttribute('data-a'))).size };
+    };
+    const at1 = rowsIn();
+    /* one press of the zoom-out key — the affordance a reader has */
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '-', bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+    const out = rowsIn();
+    const badge = !!document.querySelector('#zoomRst');
+    /* and the export, back at 1× where the crop was silent */
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '0', bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+    const s = window.__exportSVG(false);
+    const d = new DOMParser().parseFromString(s, 'image/svg+xml');
+    const inner = d.querySelector('svg[y]');
+    const ih = inner ? +inner.getAttribute('height') : 0;
+    const cells = [...d.querySelectorAll('.mxc')];
+    const clipped = cells.filter(c => +c.getAttribute('y') + +c.getAttribute('height') > ih + 0.5);
+    return { at1, out, badge, expCells: cells.length, expClipped: clipped.length,
+      expRowsClipped: new Set(clipped.map(c => c.getAttribute('data-a'))).size };
+  });
+  ck('a matrix taller than its box is recoverable by one zoom-out, and exports whole',
+    tallGrid.at1.all === 21 && tallGrid.at1.vis < 21 && tallGrid.out.vis === 21
+    && tallGrid.badge && tallGrid.expCells === 420 && tallGrid.expClipped === 0,
+    JSON.stringify(tallGrid));
+  await page.setViewport({ width: 1440, height: 900 });
 
   /* ── matrix: measured-year ring, keyboard grid, diagonal, trace bands ── */
   await fresh('#v=mx&c=0&y=2018&dir=out');

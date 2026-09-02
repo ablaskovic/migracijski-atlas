@@ -50,6 +50,20 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      row-label gutter, which is text the grid paints over and the shared zoom/pan
      can recover. Clamped so the first column never leaves the box. */
   const over = n * cell - box.w;
+
+  /* The drawn extent, so the shared zoom can clamp against it. The floor above
+     is a documented trade — the grid overflows its box rather than shrink a cell
+     below the hit target — and it is paid for by the promise that "the shared
+     zoom/pan recovers an off-box grid". That promise was false: `fit` clamped
+     the pan to the VIEWPORT, so a row below the box only moved further away the
+     more you zoomed, and at k = 1 panning is a no-op. Reported here, the zoom
+     floor lets one press of − show the whole grid and a pan at k > 1 reach the
+     bottom rows. See lib/useZoom.ts. */
+  const setContentH = zoom.setContentH;
+  useEffect(() => {
+    setContentH(TOPL + n * cell + PADB);
+    return () => setContentH(0);
+  }, [setContentH, n, cell]);
   const x0 = box.left + (over <= 0 ? over / -2 : Math.max(2 - box.left, -over)), y0 = TOPL;
   const m = mxMax(S.dir, S.cum);
   const col = S.dir === 'net' ? divScale(m) : seqScale(m, S.dir);

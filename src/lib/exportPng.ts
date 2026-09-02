@@ -51,9 +51,36 @@ function scopeIds(clone: SVGSVGElement, u: string): void {
   });
 }
 
+/* The height the FIGURE needs, which is not the height of the box on screen.
+
+   Matrica and Godine lay out on a fixed cell geometry with a 12 px hit floor, so
+   on a short window the grid is taller than the box it is drawn in — the
+   documented trade — and #map's overflow:hidden crops it. The export inherited
+   that crop by sizing itself from `clientHeight`: measured at 1366×657, a
+   1074×434 sheet holding 140 of its 420 cells, seven whole counties
+   (Splitsko-dalmatinska, Dubrovačko-neretvanska, Osječko-baranjska,
+   Vukovarsko-srijemska, Brodsko-posavska, Požeško-slavonska,
+   Virovitičko-podravska) cut flush at the frame, under a title that still reads
+   MATRICA TOKOVA and beside a column axis that is complete. A viewport may crop;
+   a published figure may not.
+
+   Only while the reader has not zoomed. Above 1× the frame is one they chose,
+   and the bbox is the magnified content — growing to it would export a sheet
+   eight times too tall. */
+function drawnH(node: SVGSVGElement): number {
+  const h = node.clientHeight;
+  const tf = node.querySelector('g[transform]')?.getAttribute('transform') ?? '';
+  const k = Number(/scale\(([\d.]+)\)/.exec(tf)?.[1] ?? 1);
+  if (Math.abs(k - 1) > 0.001) return h;
+  try {
+    const bb = node.getBBox();
+    return Math.max(h, Math.ceil(bb.y + bb.height));
+  } catch { return h; }
+}
+
 /* clone the live map SVG and bake class/CSS-var-provided presentation into
    attributes so the standalone document renders identically */
-function bakeMapClone(node: SVGSVGElement, u: string): SVGSVGElement {
+function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight): SVGSVGElement {
   const clone = node.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   /* The faces, if they have been fetched. The serialised map is rasterised in
@@ -67,7 +94,7 @@ function bakeMapClone(node: SVGSVGElement, u: string): SVGSVGElement {
     clone.insertBefore(st, clone.firstChild);
   }
   clone.setAttribute('width', String(node.clientWidth));
-  clone.setAttribute('height', String(node.clientHeight));
+  clone.setAttribute('height', String(h));
   clone.querySelectorAll('.cnt').forEach(p => {
     p.setAttribute('stroke', p.classList.contains('sel') ? '#0F7D8C' : '#fff');
     p.setAttribute('stroke-width', p.classList.contains('sel') ? '2.2' : '0.8');
@@ -384,9 +411,9 @@ const caveatLine = (S: State): string =>
 
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
   await ensureFonts();
-  const w = node.clientWidth, h = node.clientHeight;
+  const w = node.clientWidth, h = drawnH(node);
   const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
-  const clone = bakeMapClone(node, uid());
+  const clone = bakeMapClone(node, uid(), h);
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
   const img = new Image();
   /* try/FINALLY, and revoked the moment the load settles. It used to be revoked
@@ -499,10 +526,10 @@ const txt = (x: number, y: number, s: string, attrs: string) => `<text x="${x}" 
    or not at all. */
 
 export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
-  const w = node.clientWidth, h = node.clientHeight;
+  const w = node.clientWidth, h = drawnH(node);
   const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
   const u = uid();
-  const clone = bakeMapClone(node, u);
+  const clone = bakeMapClone(node, u, h);
   clone.setAttribute('y', String(TOP));
   const per = B.per;
   const leg = legendSpec(S);

@@ -46,6 +46,20 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   /* same rule as Matrica: an over-wide grid overflows into the label gutter
      rather than under the opaque chip dock */
   const overW = nC * cw - box.w;
+
+  /* The drawn extent, so the shared zoom can clamp against it. The floor above
+     is a documented trade — the grid overflows its box rather than shrink a cell
+     below the hit target — and it is paid for by the promise that "the shared
+     zoom/pan recovers an off-box grid". That promise was false: `fit` clamped
+     the pan to the VIEWPORT, so a row below the box only moved further away the
+     more you zoomed, and at k = 1 panning is a no-op. Reported here, the zoom
+     floor lets one press of − show the whole grid and a pan at k > 1 reach the
+     bottom rows. See lib/useZoom.ts. */
+  const setContentH = zoom.setContentH;
+  useEffect(() => {
+    setContentH(TOPL + nR * ch + PADB);
+    return () => setContentH(0);
+  }, [setContentH, nR, ch]);
   const x0 = box.left + (overW <= 0 ? overW / -2 : Math.max(2 - box.left, -overW)), y0 = TOPL;
 
   const m = DOM[S.flow + S.den + S.cum];

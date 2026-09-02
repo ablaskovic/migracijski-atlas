@@ -24,16 +24,35 @@ export const IDENT: ZoomT = { k: 1, x: 0, y: 0 };
 const KMIN = 1, KMAX = 8, DEAD = 4;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/* keep the scaled content covering the viewport — no dragging it off-screen */
-function fit(t: ZoomT, w: number, h: number): ZoomT {
-  const k = clamp(t.k, KMIN, KMAX);
-  return { k, x: clamp(t.x, w - k * w, 0), y: clamp(t.y, h - k * h, 0) };
+/* Keep the scaled content covering the viewport — no dragging it off-screen —
+   and, where the content is TALLER than the viewport, let it be reached.
+
+   `ch` is the drawn extent and `kmin` the scale at which all of it fits. Both
+   used to be the viewport's own height and a flat 1, and three call sites
+   promised that "the shared zoom/pan recovers an off-box grid" on the strength
+   of it. It could not. Clamping `y` to `h − k*h` means a point at user-y `u`
+   paints no higher than `k*u + h − k*h`, which exceeds `h` for every `u > h` at
+   every `k ≥ 1` — so a row below the box moved further away the more you zoomed,
+   and `panBy` is a no-op at k = 1. Measured at 1366×657 in Matrica, where the
+   12 px cell floor makes the grid 321 px tall in a 260 px box: 14 of 21 rows on
+   screen, and five zoom-ins with twenty pans down each took the last row's top
+   from 330 px to 820 px, with 2 rows left. Six counties — Dubrovačko-neretvanska,
+   Osječko-baranjska, Vukovarsko-srijemska, Brodsko-posavska, Požeško-slavonska,
+   Virovitičko-podravska — were on the page, focusable, arrow-reachable, and
+   unreachable by eye. At 1280×610 it was eleven.
+   Now the pan bound follows the content, so k > 1 reaches the bottom rows, and
+   the zoom floor follows it too, so one press of − shows the whole grid. Where
+   the content fits the box both are what they were: `Math.min(0, …)` is 0 and
+   `kmin` is 1. */
+function fit(t: ZoomT, w: number, h: number, ch: number, kmin: number): ZoomT {
+  const k = clamp(t.k, kmin, KMAX);
+  return { k, x: clamp(t.x, w - k * w, 0), y: clamp(t.y, Math.min(0, h - k * ch), 0) };
 }
 /* zoom about a point: that point must stay put under the cursor/fingers/centre.
    One definition, shared by the wheel, the pinch, and the keyboard. */
-function zoomTo(base: ZoomT, k2: number, px: number, py: number, w: number, h: number): ZoomT {
-  const k = clamp(k2, KMIN, KMAX), r = k / base.k;
-  return fit({ k, x: px - (px - base.x) * r, y: py - (py - base.y) * r }, w, h);
+function zoomTo(base: ZoomT, k2: number, px: number, py: number, w: number, h: number, ch: number, kmin: number): ZoomT {
+  const k = clamp(k2, kmin, KMAX), r = k / base.k;
+  return fit({ k, x: px - (px - base.x) * r, y: py - (py - base.y) * r }, w, h, ch, kmin);
 }
 
 /* `frozen` is the open glossary. The map's own keys are bare-key shortcuts like
@@ -43,6 +62,13 @@ function zoomTo(base: ZoomT, k2: number, px: number, py: number, w: number, h: n
    first. App's handler takes the same guard for the year and playback keys. */
 export function useZoom(w: number, h: number, frozen = false) {
   const [t, setT] = useState<ZoomT>(IDENT);
+  /* The drawn extent, reported by whatever is drawn — only Matrica and Godine
+     can exceed their box, because they lay out on a fixed cell geometry with a
+     12 px floor rather than fitting a projection to the box, so for them a short
+     box is a crop. 0 means "no taller than the box", which is every map view. */
+  const [contentH, setContentH] = useState(0);
+  const ch = Math.max(h, contentH);
+  const kmin = h > 0 && ch > h ? h / ch : KMIN;
   /* the wheel listener is bound imperatively and its effect does not re-run on
      every transform, so it reads the current k from here rather than closing
      over a stale one */
@@ -78,20 +104,20 @@ export function useZoom(w: number, h: number, frozen = false) {
 
   const reset = useCallback(() => setT(IDENT), []);
   /* a resize changes the clamp bounds — re-fit so content cannot end up adrift */
-  useEffect(() => { setT(p => (p.k === 1 ? p : fit(p, w, h))); }, [w, h]);
+  useEffect(() => { setT(p => fit(p, w, h, ch, kmin)); }, [w, h, ch, kmin]);
 
   /* zoom about the centre of the box by a factor — the keyboard's shape */
   const zoomBy = useCallback((f: number) => {
-    setT(cur => zoomTo(cur, cur.k * f, w / 2, h / 2, w, h));
-  }, [w, h]);
+    setT(cur => zoomTo(cur, cur.k * f, w / 2, h / 2, w, h, ch, kmin));
+  }, [w, h, ch, kmin]);
   /* Pan by a fraction of the viewport. Zoom alone only ever magnifies the centre
      of the box, so from the keyboard Istria, Dubrovnik and Vukovar — and the
      county labels that only appear once a county is zoomed wide enough — were
      unreachable at k > 1. `fit` still clamps, so this cannot drag content off
      screen and is a no-op at k = 1. */
   const panBy = useCallback((fx: number, fy: number) => {
-    setT(cur => (cur.k === 1 ? cur : fit({ ...cur, x: cur.x + fx * w * 0.25, y: cur.y + fy * h * 0.25 }, w, h)));
-  }, [w, h]);
+    setT(cur => (cur.k <= kmin && ch <= h ? cur : fit({ ...cur, x: cur.x + fx * w * 0.25, y: cur.y + fy * h * 0.25 }, w, h, ch, kmin)));
+  }, [w, h, ch, kmin]);
 
   /* Keyboard equivalent of the wheel. Bound to the window rather than the svg:
      the map is not itself a tab stop (its 21 counties are), so there is no single
@@ -142,10 +168,10 @@ export function useZoom(w: number, h: number, frozen = false) {
          timeline and the footer. Same guard App's Space handler takes — hand the
          wheel back when the page has somewhere to go and the zoom has none. */
       const canScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
-      if (canScroll && (e.deltaY > 0 ? tRef.current.k <= KMIN : tRef.current.k >= KMAX)) return;
+      if (canScroll && (e.deltaY > 0 ? tRef.current.k <= kmin : tRef.current.k >= KMAX)) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      setT(cur => zoomTo(cur, cur.k * Math.pow(2, -e.deltaY / 400), e.clientX - r.left, e.clientY - r.top, w, h));
+      setT(cur => zoomTo(cur, cur.k * Math.pow(2, -e.deltaY / 400), e.clientX - r.left, e.clientY - r.top, w, h, ch, kmin));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     /* capture phase: stop the click before it reaches any county/cell handler */
@@ -160,7 +186,7 @@ export function useZoom(w: number, h: number, frozen = false) {
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('click', onClick, true);
     };
-  }, [w, h, node]);
+  }, [w, h, ch, kmin, node]);
 
   const local = (e: { clientX: number; clientY: number }) => {
     const r = node!.getBoundingClientRect();
@@ -200,12 +226,12 @@ export function useZoom(w: number, h: number, frozen = false) {
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       if (!d || !g.d) return;
       const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-      const k = clamp(g.t.k * (d / g.d), KMIN, KMAX), r = k / g.t.k;
+      const k = clamp(g.t.k * (d / g.d), kmin, KMAX), r = k / g.t.k;
       panned.current = true;
       grab(e.currentTarget, e.pointerId);
       /* zoom about the pinch centre and follow it as the fingers travel — not
          zoomTo(), whose anchor is fixed: here cx/cy drift away from g.cx/g.cy */
-      setT(fit({ k, x: cx - (g.cx - g.t.x) * r, y: cy - (g.cy - g.t.y) * r }, w, h));
+      setT(fit({ k, x: cx - (g.cx - g.t.x) * r, y: cy - (g.cy - g.t.y) * r }, w, h, ch, kmin));
       return;
     }
     const dr = drag.current;
@@ -216,7 +242,7 @@ export function useZoom(w: number, h: number, frozen = false) {
       dr.moved = true;
       panned.current = true;
       grab(e.currentTarget, e.pointerId);
-      setT(fit({ k: dr.t.k, x: dr.t.x + dx, y: dr.t.y + dy }, w, h));
+      setT(fit({ k: dr.t.k, x: dr.t.x + dx, y: dr.t.y + dy }, w, h, ch, kmin));
     }
   };
 
@@ -241,5 +267,9 @@ export function useZoom(w: number, h: number, frozen = false) {
   };
   /* pan-y keeps one-finger page scrolling alive; pinch still reaches us */
   const style = { touchAction: 'pan-y' as const, cursor: t.k > 1 ? 'grab' : undefined };
-  return { t, bind, style, reset, zoomBy, panBy, zoomed: t.k > 1 };
+  /* `zoomed` gates the readout and the "vrati na početni prikaz" button, so it
+     has to mean "not at 1×" rather than "magnified": zoomed OUT to see a whole
+     grid is a state the reader needs the same way back from. The grab cursor
+     stays on k > 1 alone, since below 1 there is nothing to pan. */
+  return { t, bind, style, reset, zoomBy, panBy, setContentH, zoomed: Math.abs(t.k - 1) > 0.001 };
 }
