@@ -73,16 +73,33 @@
    then *re-measures the declared face and corrects*. That correction is not
    optional: at weight 600 the raw probe gets Arial Bold while local('Arial')
    inside @font-face gets Arial Regular, so the analytic ratio was 6,5 % wrong
-   (−249 px on a 3.947 px string). Residuals after fitting are ≤ 0,16 px at a
-   100 px em, i.e. ≤ 0,16 %.
+   (−249 px on a 3.947 px string).
+
+   PROVENANCE. These seven rows were generated together by
+   `node tools/font-metrics.cjs dist` on Windows 10 against the system Arial,
+   Courier New and Arial Narrow, on the samples the tool carries. The figures
+   are host-dependent by construction — they are fitted to whatever local()
+   resolves to — so which machine produced them is part of what they mean, and a
+   set assembled from more than one run is not a set.
+   Measured on that host, each shipped row against its own webfont on the sample
+   it was fitted on: worst 0,172 px at a 100 px em, which is 0,005 % of the
+   3.436 px string. The three IBM Plex Sans rows that shipped before this note
+   came from somewhere else and did not meet it — measured −8,672 px / +5,828 px
+   / +15,500 px (−0,252 % / +0,167 % / +0,439 %), the weight-600 row ninety
+   times outside the bound this paragraph used to claim — while Mono and Oswald
+   reproduced to within 0,16 px. (The old claim also said "≤ 0,16 px … i.e.
+   ≤ 0,16 %", which is two different quantities: 0,16 px of a 3.436 px string is
+   0,005 %.) The tool now refuses to print a row it could not measure and exits
+   non-zero, so a set fitted on a machine that lacks the faces cannot be pasted
+   here by accident.
    Regenerate if a font file or a family in the stack changes.
 
    The generic families stay behind these in the stack: if local() resolves to
    nothing — Arial Narrow is frequently absent on Linux — the face is skipped and
    the stack behaves exactly as it did before. */
-@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:400;src:local('Arial');size-adjust:100.68%;ascent-override:102.304%;descent-override:27.811%;line-gap-override:0%}
-@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:500;src:local('Arial');size-adjust:102.841%;ascent-override:100.155%;descent-override:27.226%;line-gap-override:0%}
-@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:600;src:local('Arial');size-adjust:104.26%;ascent-override:98.791%;descent-override:26.856%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:400;src:local('Arial');size-adjust:100.935%;ascent-override:102.046%;descent-override:27.741%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:500;src:local('Arial');size-adjust:102.678%;ascent-override:100.314%;descent-override:27.27%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:600;src:local('Arial');size-adjust:103.805%;ascent-override:99.225%;descent-override:26.974%;line-gap-override:0%}
 @font-face{font-family:'IBM Plex Mono Fallback';font-style:normal;font-weight:400;src:local('Courier New');size-adjust:99.984%;ascent-override:103.017%;descent-override:28.005%;line-gap-override:0%}
 @font-face{font-family:'IBM Plex Mono Fallback';font-style:normal;font-weight:500;src:local('Courier New');size-adjust:99.984%;ascent-override:103.017%;descent-override:28.005%;line-gap-override:0%}
 /* Oswald is fitted on CAPS alone, unlike the other two. It is the display face
@@ -93,7 +110,7 @@
    fallback's 1,88 %; the caps are the only Oswald run long enough to wrap, so
    they are what it is matched to. The figures sit in fixed-width boxes
    (.big-year is 70 px) where their width moves nothing. */
-@font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:500;src:local('Arial Narrow');size-adjust:95.277%;ascent-override:124.899%;descent-override:30.438%;line-gap-override:0%}
+@font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:500;src:local('Arial Narrow');size-adjust:95.284%;ascent-override:124.89%;descent-override:30.435%;line-gap-override:0%}
 @font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:600;src:local('Arial Narrow');size-adjust:98.151%;ascent-override:121.242%;descent-override:29.546%;line-gap-override:0%}
 
 /* Verbatim from the verified single-file v4 (reference/). Class names are the
