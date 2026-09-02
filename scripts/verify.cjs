@@ -2050,8 +2050,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      set is six — #labBtn, #helpBtn, #zoomRst, #pair, #jcard, #legend — so a
      >= 4 floor tolerated losing two more, and losing #pair is losing the very
      element whose collision with #zoomRst this block exists for. Name the ids. */
+  /* …and the list has to be the whole set. The comment above names six and the
+     assertion named five: #jcard, the sixth, could be dropped from the sweep
+     entirely — n falls 6 → 5, still past the floor, and every named id is still
+     there — taking #jcard × #zoomRst and #jcard × #pair out of the comparison
+     with both checks green. That is the same “an id the filter drops can neither
+     raise `bad` nor lower `n`” circularity this block was written to close,
+     surviving for one element. */
+  const ZR_IDS = ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#jcard', '#legend'];
   ck('the overlay sweep compared a real set of overlays',
-    zr.n >= 4 && ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#legend'].every(i => zr.ids.includes(i)),
+    zr.n === ZR_IDS.length && ZR_IDS.every(i => zr.ids.includes(i)),
     JSON.stringify(zr.ids));
 
   /* …and it compared them at ONE root font size, which is the size at which the
