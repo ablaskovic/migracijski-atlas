@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 483;
+const EXPECTED_CHECKS = 484;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -329,10 +329,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      failing one check. A viewport change followed by a reload is exactly the
      race — measured, a run died on `click('#helpBtn')` at the third viewport of a
      sweep whose first two had just passed. */
+  /* …and the wait has to be load-BEARING, not decorative. It swallowed its own
+     timeout and then clicked unconditionally, so when the selector really was
+     absent `page.click` threw "No element found for selector" from inside this
+     helper and unwound the whole run — exactly the failure the comment above
+     says the wait prevents. Measured under CPU contention on HEAD: the run
+     stopped at 415/463 with exit 2 on `#segView button[data-v="saldo"]`, and
+     the 48 checks after it never ran. Two uncontended runs of the same build
+     printed ALL 463 CHECKS PASS, so it is a load flake that silently drops the
+     tail of the suite on a shared CI runner, not an app defect.
+     A missing control is now recorded and the run continues, so one slow mount
+     costs one red line at the end instead of the last tenth of the coverage.
+     All 58 call sites and the four raw page.click sites go through here. */
+  const missed = [];
   const click = async sel => {
-    await page.waitForSelector(sel, { timeout: 10000 }).catch(() => {});
-    await page.click(sel);
+    const el = await page.waitForSelector(sel, { timeout: 10000 }).catch(() => null);
+    if (!el) { missed.push('click ' + sel); return false; }
+    await el.click();
     await settle(80);
+    return true;
   };
 
   /* fresh boot helper: hash state is read at module init, so force a real reload */
@@ -345,8 +360,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
        `Cannot read properties of null` from inside an evaluate, i.e. as a harness
        abort rather than as a failed check. Every view renders svg#map, so it is
        the one marker that means "the tree is up". */
-    await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 })
-      .catch(() => {});
+    /* …and one retry before giving up. The swallowed timeout let the suite walk
+       into the next evaluate with no app mounted, where the first of ~140
+       unguarded `document.querySelector('X').textContent` reads throws on null
+       and unwinds to the outer handler: this audit's own baseline run aborted
+       that way at #railLab, printing ABORTED after 251/463 with 212 checks never
+       evaluated. A second goto costs a second on the rare slow mount and removes
+       the flake; a mount that fails twice is recorded and the run carries on, so
+       the dependent checks fail individually and the tail of the suite still
+       runs. */
+    let up = await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 })
+      .then(() => true, () => false);
+    if (!up) {
+      await page.goto(url + h, { waitUntil: 'networkidle0' });
+      up = await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 })
+        .then(() => true, () => false);
+      if (!up) missed.push('mount ' + (h || '/'));
+    }
     await settle(400);
     /* geo_jls.json (464 kB) loads via a dynamic import() fired from a useEffect,
        i.e. *after* networkidle0 can already have resolved — so every #v=jmap
@@ -4193,7 +4223,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* The retry reloads, because a failed module fetch is cached in the browser's
      module map and a second import() of the same specifier never hits the
      network (measured: 0 of 556 with the promise slot cleared). */
-  await page.click('#jretry');
+  await click('#jretry');
   await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 })
     .catch(() => {});
   const retried = await page.evaluate(() => document.querySelectorAll('#map .jl').length);
@@ -4500,9 +4530,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         c.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       }, selCell);
     } else if (how === 'rail') {
-      await page.click('#railList .rrow');
+      await click('#railList .rrow');
     } else {
-      await page.click(selCell);
+      await click(selCell);
     }
     await settle(400);
     return page.evaluate(s => {
@@ -4596,7 +4626,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     JSON.stringify({ v: viaKey.view, focus: viaKey.focusOnCell }));
 
   /* it is a toggle: the control that opens it closes it */
-  await page.click('.mxc[data-a="HR-21"][data-b="HR-01"]');
+  await click('.mxc[data-a="HR-21"][data-b="HR-01"]');
   await settle(350);
   const toggled = await page.evaluate(() => ({ card: !!document.querySelector('#pair'),
     marks: document.querySelectorAll('.mxsel rect').length, hash: location.hash,
@@ -7643,6 +7673,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* The suite is a fixed protocol, so its size is itself an invariant: three
      documents once claimed three different check counts and none was right.
      A deleted ck() is now a failure, not a quieter green run. */
+  /* Every control this run pressed was there to press, and every fresh() found
+     an app. Both helpers used to swallow their own timeout and carry on — one
+     into an unconditional page.click that throws "No element found for selector"
+     from inside a helper, the other into an evaluate whose first unguarded
+     `querySelector('X').textContent` throws on null — and either unwinds the
+     whole run. Measured on HEAD: 415/463 under CPU contention, and 251/463 in
+     this audit's own baseline. Recorded and reported here instead, so a slow
+     mount costs one red line rather than the tail of the suite, and the
+     documented check count below stays a constant. */
+  ck('every control this run pressed was present, and every boot mounted the app',
+    missed.length === 0, missed.slice(0, 4).join(' | '));
   ck('the suite ran its full documented check count', n + 1 === EXPECTED_CHECKS, `${n + 1} vs ${EXPECTED_CHECKS}`);
 })().then(
   () => finish(),
