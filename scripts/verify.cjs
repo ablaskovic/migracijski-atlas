@@ -2484,8 +2484,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
        The predicate is the one the zoom sweep was already corrected to: a
        non-zero box that is actually displayed. Overlap is about boxes; how a box
        got where it is does not change what it covers. */
+    /* Height too, which the zoom twin has and this did not. .storybar:empty
+       computes height:0 at a positive width, so in the three no-story states
+       of the mid sweep the empty banner was admitted, measured (overlap 0 by
+       construction) and counted into midSeen — which meant the named floor
+       `midSeen.has('#storyBar')` was satisfied by a 0 px-tall element, in a
+       run where the FILLED banner may never have entered a comparison at all.
+       That is the situation the floor exists to make loud. A box with no
+       height cannot overlap anything; admitting it only launders the count. */
     const els = ids.map(s => [s, s === '#chipdock' ? document.querySelector('.chipdock') : document.querySelector(s)])
       .filter(([, e]) => e && e.getBoundingClientRect().width > 0
+        && e.getBoundingClientRect().height > 0
         && getComputedStyle(e).display !== 'none'
         && getComputedStyle(e).visibility !== 'hidden')
       .map(([s, e]) => [s, box(e)]);
