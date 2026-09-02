@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 487;
+const EXPECTED_CHECKS = 488;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -926,6 +926,38 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('focusing a county places its tooltip beside it, not at the origin',
     focTip.shown && focTip.near && (focTip.tip.x > 0 || focTip.tip.y > 0),
     JSON.stringify(focTip));
+
+  /* …and the rail, which is the same highlight reached the other way. This check
+     read one county path, so it stayed green while the rail — whose own comment
+     says focus there "is the only way to reach that highlight from a keyboard" —
+     never called moveTip at all. Measured at 1440×900 with the mouse never
+     moved: focusing rail row 0 on a fresh load painted a 260×302 panel at (0,0)
+     over the header with style.left and style.top both empty, while the row it
+     describes sat at (1149,196); after tabbing through the counties first, "Grad
+     Zagreb" and then "Istarska" both froze the tip at left 790,234px top 384px —
+     Istarska's numbers painted over eastern Slavonia, 359 px from the row that
+     named them. Two rows, because one row cannot show the tip MOVED, which is
+     the stale-position half of the defect. */
+  const railTip = await page.evaluate(async () => {
+    const read = async i => {
+      const r = [...document.querySelectorAll('#railList .rrow')][i];
+      if (!r) return { absent: true };
+      r.focus();
+      await new Promise(x => setTimeout(x, 250));
+      const el = document.querySelector('#tip');
+      const t = el.getBoundingClientRect(), b = r.getBoundingClientRect();
+      return { shown: el.classList.contains('show'), left: el.style.left,
+        tip: [Math.round(t.x), Math.round(t.y)], row: [Math.round(b.x), Math.round(b.y)],
+        near: Math.hypot(t.x + t.width / 2 - (b.x + b.width / 2), t.y + t.height / 2 - (b.y + b.height / 2)) < 320,
+        inside: t.x >= 0 && t.y >= 0 && t.right <= innerWidth && t.bottom <= innerHeight };
+    };
+    return { a: await read(0), b: await read(5) };
+  });
+  ck('and focusing a rail row places it beside that row, and moves it between rows',
+    railTip.a.shown && railTip.a.near && railTip.a.inside && railTip.a.left !== ''
+    && railTip.b.shown && railTip.b.near && railTip.b.inside
+    && railTip.a.tip[1] !== railTip.b.tip[1],
+    JSON.stringify(railTip));
 
   /* …and the toggle is mounted only where something consumes it. `labelG` is
      rendered by the two geometry branches, and Godine renders YearsView, which

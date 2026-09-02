@@ -4,6 +4,7 @@ import {
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
+import { isKeyFocus } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import PairCard from './PairCard.tsx';
 import type { Patch, State } from '../lib/types.ts';
@@ -236,7 +237,32 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
                same, which is the only way to reach that highlight from a keyboard */
             onPointerEnter={() => lightOn(d)}
             onPointerLeave={() => lightOff(d)}
-            onFocus={() => lightOn(d)}
+            /* …and the tip has to be PLACED, not merely shown. The four SVG focus
+               handlers were given this and the rail was not, though it is the
+               same highlight reached the other way — the comment above says
+               focus here "is the only way to reach that highlight from a
+               keyboard", which is exactly the population it stranded. Tooltip's
+               layout effect only calls placeTip(), and placeTip is `if (last)
+               moveTip(last)`: a no-op before the pointer has ever moved, and a
+               replay of an unrelated position afterwards. Measured at 1440×900
+               with real Tab presses and the mouse never moved: on a fresh load,
+               focusing row 0 painted a 260×302 panel at (0,0) over the header
+               with style.left and style.top both empty, while the row it
+               describes sat at (1149,196); after tabbing through the counties
+               first, "Grad Zagreb" and then "Istarska" both froze the tip at
+               left 790,234px top 384px — Istarska's numbers painted over eastern
+               Slavonia, 359 px from the row that named them.
+               Anchored to the row's right/bottom: at 1440 that is 291 px of row
+               on the right edge, so moveTip's x-flip puts the tip left of the
+               rail, which is the side it wants anyway. */
+            onFocus={e => {
+              lightOn(d);
+              /* a click focuses the row too, and the pointer has already placed
+                 the tip — the same guard the SVG handlers take */
+              if (!isKeyFocus(e.currentTarget)) return;
+              const r = e.currentTarget.getBoundingClientRect();
+              moveTip({ clientX: r.right, clientY: r.bottom });
+            }}
             onBlur={() => lightOff(d)}
             onPointerMove={moveTip}
             onClick={() => activate(d)}

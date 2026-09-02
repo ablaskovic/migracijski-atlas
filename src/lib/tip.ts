@@ -24,7 +24,12 @@ let tipNode: HTMLDivElement | null = null;
 let last: { clientX: number; clientY: number } | null = null;
 export function setTipNode(n: HTMLDivElement | null) { tipNode = n; }
 
-/* re-place at the last known pointer position — call when the tip turns visible */
+/* Re-place at the last known pointer position — called when the tip turns
+   visible. `last` is null until something has moved or focused, and a no-op here
+   leaves the tip at its static flow position; every caller that can turn the tip
+   on from the keyboard therefore places it first. Kept as a guard rather than a
+   fallback because a fallback would need a rect this module has no way to
+   choose: the tip belongs to whatever summoned it. */
 export function placeTip() { if (last) moveTip(last); }
 
 export function moveTip(e: { clientX: number; clientY: number }) {
