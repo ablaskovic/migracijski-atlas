@@ -1285,16 +1285,30 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      #citzClamp and #jstatus each reported {role:"none", ignored:true,
      reason:["notRendered"]}. So picking a Nalaz, or hitting a failed geometry
      chunk — which surfaces the only retry button in the app — announced nothing. */
-  await fresh('#cz=1');
-  const liveEmpty = await page.evaluate(() => ['#storyBar', '#citzClamp'].map(sel => {
+  const probeLive = sels => page.evaluate(sels => sels.map(sel => {
     const e = document.querySelector(sel);
     return { sel, there: !!e, display: e ? getComputedStyle(e).display : null,
       role: e ? e.getAttribute('role') : null,
       empty: e ? e.textContent.trim() === '' : null };
-  }));
+  }), sels);
+  await fresh('#cz=1');
+  const liveEmpty = await probeLive(['#storyBar', '#citzClamp']);
+  /* …and the third region, which is the one the comment above is really about.
+     #jstatus is mounted only in the JLS map and Regije, so a probe run at
+     `#cz=1` could never see it — two of the three regions the :empty rules cover
+     were sampled, and the one guarding the app's ONLY retry affordance was not.
+     Measured: re-merging the two rules into `display:none` — the pre-cc8bec5
+     shape, and the obvious CSS tidy — leaves #jstatus computing display:none
+     while empty and this check green, so a reader in Regije on a failing
+     connection gets an error and a #jretry button rendered into a region that
+     enters the AX tree already populated, which is exactly the case the
+     always-mounted design exists to prevent. */
+  await fresh('#v=reg&c=1&y=2024');
+  const liveGeo = await probeLive(['#jstatus']);
   ck('an empty live region stays rendered, so it is registered before it speaks',
-    liveEmpty.every(r => r.there && r.empty && r.display !== 'none' && r.role === 'status'),
-    JSON.stringify(liveEmpty));
+    [...liveEmpty, ...liveGeo].length === 3
+    && [...liveEmpty, ...liveGeo].every(r => r.there && r.empty && r.display !== 'none' && r.role === 'status'),
+    JSON.stringify([...liveEmpty, ...liveGeo]));
   await fresh('');
   /* ── Space on a focused button activates it, not the play loop ── */
   const spaceKey = await page.evaluate(() => {
