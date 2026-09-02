@@ -80,6 +80,21 @@ function get(url, hop = 0) {
   });
 }
 
+/* The sibling pin. verify.cjs states the principle and README repeats it — "the
+   suite pins its own size … so a deleted check is a failure rather than a
+   quieter green run" — and this file, the only thing that guards the deployed
+   origin, applied none of it: `n` was a bare counter and nothing recorded what
+   it should reach. Comment out any ck() and it printed ALL 11 SMOKE CHECKS
+   PASS with exit 0 — a success-shaped banner for a smaller protocol, the exact
+   failure mode verify.cjs's own pin was built to end.
+   Fourteen fixed checks — the three at the top, the CSP and the nosniff pair,
+   the revalidate, the entry chunk, the asset trio (either arm), the two version
+   checks, the stylesheet (either arm) and this pin itself — plus one per header
+   vercel.json declares, because that loop is driven by the same config the
+   deploy reads: adding a header there is a deliberate change to what is asked;
+   deleting a ck() is not. */
+const EXPECTED_SMOKE = 14 + require(path.resolve(__dirname, '../vercel.json'))
+  .headers.find(h => h.source === '/(.*)').headers.length;
 let fails = 0, n = 0;
 function ck(name, cond, extra = '') {
   n++;
@@ -154,6 +169,13 @@ function localEntry() {
   ck('the deployed entry chunk is the one in ./dist',
     !!served && !!local && served === local,
     'deployed ' + served + ' · local ' + (local || 'no dist — run `npm run build`'));
+  /* An else, because the count has to be the same either way. These three sat
+     inside `if (served)` alone, so on the very failure this file exists to
+     catch — an origin whose markup carries no recognisable /assets/index-*.js
+     — the run silently became three checks shorter and still printed a green,
+     success-shaped banner. Today that co-occurs with the entry-chunk check
+     failing, so a human would notice; that is a coincidence of the current
+     wiring, not a guarantee, and the pin above makes it one. */
   if (served) {
     const asset = await get(ORIGIN.replace(/\/$/, '') + served);
     /* the status too: a 404 has headers and a body like any other response, and
@@ -191,6 +213,12 @@ function localEntry() {
     ck('a missing hashed asset is not cached for a year',
       ghost.status === 404 && !/immutable/.test(ghost.headers['cache-control'] || ''),
       ghost.status + ' ' + (ghost.headers['cache-control'] || 'absent'));
+  } else {
+    for (const name of ['content-hashed assets are served immutable',
+      'negotiated responses declare what they vary on',
+      'a missing hashed asset is not cached for a year']) {
+      ck(name, false, 'no /assets/index-*.js in the served HTML — nothing to ask');
+    }
   }
 
   /* Staleness, asked monotonically. This used to be marker analysis: three
@@ -223,6 +251,11 @@ function localEntry() {
     ck('the home page links a built stylesheet', false, 'no /assets/index-*.css in the served HTML');
   }
 
-  console.log(fails === 0 ? `\nALL ${n} SMOKE CHECKS PASS` : `\n${fails}/${n} SMOKE CHECKS FAILED`);
-  process.exitCode = fails ? 1 : 0;
+  ck(`all ${EXPECTED_SMOKE} smoke checks ran`, n + 1 === EXPECTED_SMOKE,
+    'ran ' + (n + 1) + ' of ' + EXPECTED_SMOKE);
+  const short = n < EXPECTED_SMOKE;
+  console.log(fails === 0 && !short ? `\nALL ${n} SMOKE CHECKS PASS`
+    : `\n${fails}/${n} SMOKE CHECKS FAILED`
+      + (short ? `, AND ONLY ${n} OF ${EXPECTED_SMOKE} RAN` : ''));
+  process.exitCode = fails || short ? 1 : 0;
 })().catch(e => { console.error('smoke probe could not reach the origin: ' + e.message); process.exit(2); });
