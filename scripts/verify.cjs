@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 529;
+const EXPECTED_CHECKS = 530;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9506,6 +9506,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     klasMode.mode === 'cum' && klasMode.off && /2011\.–2024\./.test(klasMode.sub)
     && /2011\.–2024\./.test(jmapExit.sub) && jmapExit.yr === '2024.' && /c=1/.test(jmapExit.hash),
     JSON.stringify({ klasMode, jmapExit }));
+
+  /* …and what it falls back TO is the reader's own last pair, not the app's boot
+     pair. The fallback used BASE and called it "the last one the reader actually
+     saw offered"; the reader's own is whatever they had before entering the JLS
+     map. Measured from a clean boot at #v=saldo&c=0&y=2005: → JLS → Regije
+     rendered #v=reg&c=1&y=2024 while → Regije directly rendered
+     #v=reg&c=0&y=2005 — so whether the reader looked at the JLS map on the way
+     decided which window their first visit to Regije showed, and their own
+     2005/annual went without a signal. Asserted as an equality between the two
+     routes, so neither can drift alone, plus the klas clamp on top of it. */
+  const jmapCarry = {};
+  const carryPress = async v => { await click(`#segView button[data-v="${v}"]`); await settle(400); };
+  for (const [k, hops] of [['viaReg', ['jmap', 'reg']], ['directReg', ['reg']],
+    ['viaYrs', ['jmap', 'yrs']], ['directYrs', ['yrs']], ['viaKlas', ['jmap', 'klas']]]) {
+    await fresh('#v=saldo&c=0&y=2005');
+    for (const v of hops) await carryPress(v);
+    jmapCarry[k] = await page.evaluate(() => ({ hash: location.hash,
+      yr: document.querySelector('#bigYear').textContent.trim() }));
+  }
+  ck('leaving the JLS map for a fresh view keeps the reader’s own window, not the app’s default',
+    jmapCarry.viaReg.hash === jmapCarry.directReg.hash
+    && jmapCarry.viaYrs.hash === jmapCarry.directYrs.hash
+    && /y=2005/.test(jmapCarry.directReg.hash) && /c=0/.test(jmapCarry.directReg.hash)
+    && /y=2011/.test(jmapCarry.viaKlas.hash),
+    JSON.stringify(jmapCarry));
 
   /* (3) the segment buttons' keyboard ring. The focus sweep in this file asserts
      the ABSENCE of Chrome's UA ring on a click; nothing asserted the PRESENCE of

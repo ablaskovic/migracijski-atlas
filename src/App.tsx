@@ -96,6 +96,19 @@ export default function App() {
      not. */
   const autoHub = useRef(false);
 
+  /* The last pair the reader actually saw offered, for the jmap fallback below.
+     That fallback used BASE and called it "the last one the reader actually saw
+     offered" — it is not: it is the app's boot pair. The reader's own is
+     whatever they had before entering the JLS map, which vmem records for the
+     OUTGOING view and never consults for a fresh destination. Measured from a
+     clean boot at #v=saldo&c=0&y=2005: → JLS → Regije rendered
+     #v=reg&c=1&y=2024 ("2024. · regije · kumulativno") while → Regije directly
+     rendered #v=reg&c=0&y=2005 — so whether the reader looked at the JLS map on
+     the way decided which window their first visit to Regije showed, and their
+     own 2005/annual was discarded without a signal. Same via Godine. That is
+     exactly what vmem was built to prevent one view over. */
+  const preJmap = useRef({ yi: INITIAL.yi, cum: INITIAL.cum });
+
   /* Sastavnica+Vrijednosti are the same shape of shared pair, and the four views
      that ignore them (LOCK_FD) also disable their controls — so a lens carried
      into one sat behind a disabled group claiming it was pressed, and came back
@@ -126,7 +139,8 @@ export default function App() {
        class — and pressing Saldo rendered annual 2018 on a ±7.490 domain instead
        of the cumulative ±44.383. Fall back to the boot pair, which is the last
        one the reader actually saw offered. */
-    const carried = s.view === 'jmap' ? { yi: BASE.yi, cum: BASE.cum } : null;
+    if (s.view !== 'jmap') preJmap.current = { yi: s.yi, cum: s.cum };
+    const carried = s.view === 'jmap' ? preJmap.current : null;
     const restore = mem ?? carried;
     if (v === 'flow' || v === 'mx') {
       if (v === 'flow' && !s.sel) { p.sel = 'HR-21'; autoHub.current = true; }
