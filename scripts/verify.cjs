@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 555;
+const EXPECTED_CHECKS = 556;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3478,7 +3478,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const de = document.documentElement;
     return { overflow: de.scrollWidth - de.clientWidth, h: Math.round(x.getBoundingClientRect().height) };
   });
+  /* `h` was collected and dropped. The check above measures the CLOSED chip
+     header; nothing asserted that the OPEN panel's header and close control
+     still clear the coarse-pointer floor, so a shrunken open-state header would
+     have had the number proving it computed, returned and thrown away — the
+     collect-and-ignore shape MA3-005 was about. Two facts, two assertions. */
   ck('390: opening a panel does not create horizontal overflow', x390.overflow <= 0, String(x390.overflow));
+  ck('390: and the open panel’s own header keeps a 44 px target',
+    x390.h >= 44, JSON.stringify(x390));
 
   /* the matrix is the densest surface — check it fits and stays legible */
   await fresh('#v=mx&c=0&y=2018&dir=out');
