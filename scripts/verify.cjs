@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 595;
+const EXPECTED_CHECKS = 596;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10150,6 +10150,35 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /→/.test(flowAria.m) && /→/.test(flowAria.f)
     && / from | to /.test(flowAria.en) && !/→/.test(flowAria.en),
     JSON.stringify(flowAria));
+
+  /* ── the colour exception says the same thing in both languages ──
+     Croatian read "boja pokazuje veličinu jednosmjernog toka prema odabranoj
+     županiji" — toward the selected county — which is the inverse of what
+     Odlasci paints: there the coloured value is fsum(sel, p), FROM the selected
+     county TO the coloured one. English read "to or from", so the two languages
+     stated different facts about the same fill. And Matrica has no selected
+     county at all — every cell is coloured by its own pair-wise one-way flow —
+     so a sentence about "the selected county" described Tokovi alone. The
+     per-direction legend notes get this right; this is the summary surface, and
+     the page that assumes nothing. Both halves are asserted against the same
+     two clauses, so they cannot diverge again. */
+  const colExc = {};
+  for (const l of ['hr', 'en']) {
+    await fresh(l === 'en' ? '#l=en' : '');
+    await click('#helpBtn');
+    await settle(300);
+    colExc[l] = await page.evaluate(() => [...document.querySelectorAll('#helpCard .help-p')]
+      .map(e => e.textContent || '')
+      .find(t => /jednog smjera|one direction between/.test(t)) || '');
+  }
+  ck('the colour exception names the pair each view colours, in both languages',
+    !/prema odabranoj županiji/.test(colExc.hr)
+    && /u Tokovima između odabrane i obojene/.test(colExc.hr)
+    && /u Matrici između retka i stupca/.test(colExc.hr)
+    && !/to or from the selected county/.test(colExc.en)
+    && /between the selected county and the coloured one/.test(colExc.en)
+    && /between the row and the column/.test(colExc.en),
+    JSON.stringify({ hr: colExc.hr.slice(-160), en: colExc.en.slice(-160) }));
 
   /* ── PageUp and PageDown keep the reader's column ──
      the APG grid pattern this file cites as its contract has them preserve it,

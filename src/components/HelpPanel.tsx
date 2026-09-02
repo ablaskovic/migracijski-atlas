@@ -205,8 +205,21 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
             the Odlasci/Dolasci case. Interpolated from the dictionary, which
             already holds every one of them, so the prose and the buttons cannot
             drift apart again. */}
-        {L(` To vrijedi za ${t('view.saldo')}, ${t('view.reg')}, ${t('view.yrs')} i smjer ${t('dir.net')}. U ${t('dir.out')}ma i ${t('dir.in')}ma (${t('view.flow')}, ${t('view.mx')}) boja pokazuje veličinu jednosmjernog toka prema odabranoj županiji — skala ide od nule prema najvećem toku i ne označava dobitak ni gubitak.`,
-          ` That holds for ${t('view.saldo')}, ${t('view.reg')}, ${t('view.yrs')} and the ${t('dir.net')} direction. In ${t('dir.out')} and ${t('dir.in')} (${t('view.flow')}, ${t('view.mx')}) the colour shows the size of the one-way flow to or from the selected county — the scale runs from zero to the largest flow and marks neither gain nor loss.`)}
+        {/* …and what that one-way flow runs BETWEEN. The Croatian said the flow
+            goes "prema odabranoj županiji" — toward the selected county — which
+            is the inverse of what Odlasci paints: there the coloured value is
+            fsum(sel, p), FROM the selected county TO the coloured one. The
+            English half said "to or from", so the two languages stated
+            different facts about the same fill. And Matrica has no selected
+            county at all: every cell is coloured by its own pair-wise one-way
+            flow, row → column or column → row, so a sentence about "the
+            selected county" described Tokovi alone. The per-direction legend
+            notes get all of this right; this is the summary surface, and the
+            page that assumes nothing. Named by the pair the cell or the county
+            actually stands for, which is true in both views and needs no
+            direction word that one of them inverts. */}
+        {L(` To vrijedi za ${t('view.saldo')}, ${t('view.reg')}, ${t('view.yrs')} i smjer ${t('dir.net')}. U ${t('dir.out')}ma i ${t('dir.in')}ma (${t('view.flow')}, ${t('view.mx')}) boja pokazuje veličinu jednog smjera između dviju županija — u ${t('view.flow')}ma između odabrane i obojene, u ${t('view.mx').slice(0, -1)}i između retka i stupca — a skala ide od nule prema najvećem toku i ne označava dobitak ni gubitak.`,
+          ` That holds for ${t('view.saldo')}, ${t('view.reg')}, ${t('view.yrs')} and the ${t('dir.net')} direction. In ${t('dir.out')} and ${t('dir.in')} (${t('view.flow')}, ${t('view.mx')}) the colour shows the size of one direction between two counties — in ${t('view.flow')} between the selected county and the coloured one, in ${t('view.mx')} between the row and the column — and the scale runs from zero to the largest flow and marks neither gain nor loss.`)}
       </div>
 
       <h3 className="help-h">{L('Izmjereno ili procjena', 'Measured or estimated')}</h3>
