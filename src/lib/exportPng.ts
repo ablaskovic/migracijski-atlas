@@ -1,6 +1,7 @@
 import {
   ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
   klasOf, paperKlasComparable, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc, marginFlow,
+  preMargin, preMarginNote,
 } from './metrics.ts';
 import { ensureFonts, fontCss } from './exportFonts.ts';
 import { paperCaveatLine, paperExportLine, paperThrLine } from './credits.ts';
@@ -241,21 +242,31 @@ function legendSpec(S: State): Leg {
 function legendNote(S: State): string {
   const all = L('Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
     'The sum of two published components — not total population change.');
+  /* …and the pre-2007 caveat, wherever the screen shows it. It was gated on
+     Godine alone, on the reasoning that Godine "is the only view whose image can
+     carry those columns off into a slide" — but a Saldo, Regije, Matrica or
+     Tokovi figure at 2003 is nothing BUT pre-2007 data. Measured over twelve
+     exported 2003 documents: the screen carries it in 4 of 4 views, the export
+     carried it in 0 of 4, under this file's own header saying the caveat the
+     screen carries has to travel with the image. Same predicate as the screen,
+     from metrics, so the gate cannot drift again. */
+  const pre = preMargin(S, S.view === 'flow' || S.view === 'mx' || marginFlow(S.flow))
+    ? ' ' + preMarginNote() : '';
   if (S.view === 'jmap') {
     return L('Samo preseljenja unutar RH (JLS↔JLS), bez inozemstva.',
       'Internal moves within Croatia only (LAU↔LAU), no international migration.');
   }
-  if ((S.view === 'flow' || S.view === 'mx') && S.dir === 'net') return t('note.pairEst');
+  if ((S.view === 'flow' || S.view === 'mx') && S.dir === 'net') return t('note.pairEst') + pre;
   /* Godine is the only view that renders 1998–2006 beside the rest, so it is the
      only one whose *image* can carry those columns off into a slide — the hatch
      that marks them on screen has no caption of its own, so the words go here. */
   if (S.view === 'yrs' && !S.cum && marginFlow(S.flow)) {
     return L('Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju.',
       'Hatched before 2007: the inter-county margins do not close before then.')
-      + (S.flow === 'all' ? ' ' + all : '');
+      + (S.flow === 'all' ? ' ' + all : '');   /* the hatch caption already names 2007 */
   }
-  if (S.view !== 'klas' && S.flow === 'all') return all;
-  return '';
+  if (S.view !== 'klas' && S.flow === 'all') return all + pre;
+  return pre.trim();
 }
 
 /* ── measured band layout, shared by both formats ───────────────────────────

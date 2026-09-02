@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 535;
+const EXPECTED_CHECKS = 536;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7736,6 +7736,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && !caveat.relThr.revision && /apsolutni prag/.test(caveat.relThr.thr || '')
     && !caveat.movedYear.revision && !!caveat.movedYear.thr,
     JSON.stringify(caveat));
+
+  /* …and the pre-2007 margin caveat travels with the image. The screen appends
+     it in Saldo, Regije, Matrica and Tokovi; the export gated it on Godine
+     alone, on the reasoning that Godine "is the only view whose image can carry
+     those columns off into a slide" — but a Saldo or Matrica figure at 2003 is
+     nothing BUT pre-2007 data. Measured over twelve exported 2003 documents: the
+     screen carries it in 4 of 4 views, the export carried it in 0 of 4, under
+     this file's own rule that the caveat the screen carries has to travel with
+     the image.
+     Nine states, and the negatives matter as much as the positives: a
+     cumulative window, a post-2007 year and a series with no inter-county margin
+     must NOT carry it, or the fix would be a sticker. Godine keeps its own
+     wording, which names the hatch. */
+  const preMargin = {};
+  for (const [k, h, want] of [
+    ['saldo2003', '#v=saldo&c=0&y=2003', true], ['reg2003', '#v=reg&c=0&y=2003', true],
+    ['mx2003', '#v=mx&dir=out&c=0&y=2003', true],
+    ['flow2003', '#v=flow&s=HR-21&dir=net&c=0&y=2003', true],
+    ['yrs2003', '#v=yrs&c=0&y=2003', true],
+    ['saldo2018', '#v=saldo&c=0&y=2018', false], ['saldoCum', '#v=saldo&c=1&y=2024', false],
+    ['ext2003', '#v=saldo&f=ext&c=0&y=2003', false],
+    ['en2003', '#l=en&v=saldo&c=0&y=2003', true],
+  ]) {
+    await fresh(h);
+    const r = await page.evaluate(() => {
+      const doc = String(window.__exportSVG(false));
+      const d = new DOMParser().parseFromString(doc, 'image/svg+xml');
+      return { screen: [...document.querySelectorAll('.legend-note')].map(e => e.textContent).join(' '),
+        band: [...d.querySelectorAll('text')].map(t => t.textContent).join(' ') };
+    });
+    const rx = k === 'yrs2003' ? /Šrafirano do 2007|Hatched before 2007/ : /Prije 2007|Before 2007/;
+    preMargin[k] = { want, screen: rx.test(r.screen), exp: rx.test(r.band) };
+  }
+  ck('the pre-2007 margin caveat reaches the exported figure of every view that shows it',
+    Object.values(preMargin).every(v => v.screen === v.want && v.exp === v.want),
+    JSON.stringify(preMargin));
   ck('and the English legend still names the source and the licence',
     /Measured/.test(enBadge.legend) && /Pitoski/.test(enBadge.legend) && /CC BY/.test(enBadge.legend),
     enBadge.legend.slice(0, 120));

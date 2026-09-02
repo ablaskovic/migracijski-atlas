@@ -1,6 +1,6 @@
 import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
-  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, pragText, fmtI, fmtR,
+  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, preMargin, preMarginNote, pragText, fmtI, fmtR,
 } from '../lib/metrics.ts';
 import { PAPER_WINDOW, paperSplit, paperThrLine } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
@@ -103,10 +103,12 @@ const PW = (): string => yrSpan(PAPER_WINDOW.from, PAPER_WINDOW.to);
    two corridor views, which are drawn from the very matrix that does not close,
    returned before it and carried none. Both halves were wrong in opposite
    directions. */
+/* the gate and the sentence come from metrics, so the screen and the exported
+   figure cannot disagree about when this caveat applies; only the tail differs,
+   because a PNG has no glossary to point at */
 const preNote = (S: State, inter: boolean): string =>
-  !S.cum && YEARS[S.yi] < 2007 && inter
-    ? L(' Prije 2007. međužupanijske margine ne zatvaraju se točno — v. „Kako čitati”.',
-      ' Before 2007 the inter-county margins do not close exactly — see “How to read”.') : '';
+  preMargin(S, inter)
+    ? ' ' + preMarginNote() + L(' — v. „Kako čitati”.', ' — see “How to read”.') : '';
 function klasNote(S: State): string {
   if (paperKlasComparable(S)) {
     if (!PAPER_KLAS_DIFF.length) {

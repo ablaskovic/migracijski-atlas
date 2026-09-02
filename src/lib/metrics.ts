@@ -383,6 +383,22 @@ export const IX2007 = YEARS.indexOf(2007);
    which are built from that very matrix, carried no caveat at all. */
 export const marginFlow = (f: Flow): boolean => f === 'tot' || f === 'int' || f === 'all';
 
+/* The pre-2007 margin caveat, as one predicate and one sentence, because it was
+   two copies and they disagreed. The screen appends it in Saldo, Regije,
+   Matrica and Tokovi; the EXPORT gated it on Godine alone, on the reasoning
+   that Godine "is the only view whose image can carry those columns off into a
+   slide" — but a Saldo or Matrica figure at 2003 is nothing BUT pre-2007 data.
+   Measured over twelve exported 2003 documents: the screen note carries the
+   caveat in 4 of 4 views, the export in 0 of 4. exportPng's own header says the
+   caveat the screen carries "has to travel with the image".
+   The two wordings still differ by their tail — the screen can point at the
+   glossary, a PNG cannot — so the shared part is the sentence and the gate. */
+export const preMargin = (S: State, inter: boolean): boolean =>
+  !S.cum && YEARS[S.yi] < 2007 && inter;
+export const preMarginNote = (): string =>
+  L('Prije 2007. međužupanijske margine ne zatvaraju se točno.',
+    'Before 2007 the inter-county margins do not close exactly.');
+
 /* ── JLS map (measured 2018, internal moves only) ── */
 export function jlsVal(p: JlsProps, dir: Dir): number {
   return dir === 'out' ? p.o : dir === 'in' ? p.i : p.i - p.o;
