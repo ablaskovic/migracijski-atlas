@@ -118,9 +118,18 @@ export default function Scrubber({ S, setYi, togglePlay }: {
   };
 
   /* Tick labels are ~28 px wide (mono 9). The 2013/2015 pair sits 2 years apart,
-     so below ~470 px of chart they collide — thin the set instead of overlapping. */
+     so below ~470 px of chart they collide — thin the set instead of overlapping.
+     The 200 px floor below it was reasoned about that same pair and is wrong for
+     the one the four-tick tier actually ends on: 2020 and YEND are five years
+     apart and YEND is end-anchored, so the two Croatian labels — 27 px with the
+     ordinal dot — need x(YEND) − x(2020) >= 42 px, i.e. 239 px of chart.
+     Measured in Croatian: at a 320 px viewport the chart is 202 px and "2020."
+     [187,3–214,3] overlaps "2025." [209–236] by 5,3 px; at 344 px by 0,9 px;
+     clear from 360. English has no ordinal dot (22 px) and never overlapped,
+     which is why this survived. The scrubber is the fixed bottom bar on a
+     phone, so it is on screen in every view. */
   const ticks = sw >= 470 ? [2000, 2005, 2010, 2013, 2015, 2020, YEND]
-    : sw >= 200 ? [2000, 2010, 2020, YEND]
+    : sw >= 239 ? [2000, 2010, 2020, YEND]
     : [2000, YEND];
   const cap = sw >= 380
     ? L('RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)',

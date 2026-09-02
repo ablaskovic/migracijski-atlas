@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 579;
+const EXPECTED_CHECKS = 580;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6930,6 +6930,48 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     paintWork.jmap.jl === 556 && paintWork.jmap.fmt > 1000
     && paintWork.mx.jl === 0 && paintWork.mx.fmt < paintWork.jmap.fmt / 2,
     JSON.stringify(paintWork));
+
+  /* ── no two tick labels overlap, at any phone width, in either language ──
+     the four-tick tier was gated at 200 px of chart and its comment reasons
+     about the 2013/2015 pair, which that tier does not contain. The pair it ends
+     on is 2020/YEND: five years apart, YEND end-anchored, and 27 px wide in
+     Croatian with the ordinal dot — so it needs 239 px, not 200. Measured
+     before: at a 320 px viewport the chart is 202 px and "2020." overlaps
+     "2025." by 5,3 px; at 344 px by 0,9. English has no ordinal dot (22 px) and
+     never overlapped, which is why it survived — so both languages are swept.
+     The scrubber is the fixed bottom bar on a phone: this is on screen in every
+     view. Only the tick row is compared; a caption on another line is not an
+     overlap. */
+  const tickFit = {};
+  for (const l of ['hr', 'en']) {
+    for (const w of [320, 344, 360, 390, 480, 768]) {
+      await page.setViewport({ width: w, height: 844 });
+      await fresh(l === 'en' ? '#l=en' : '');
+      tickFit[l + w] = await page.evaluate(() => {
+        const svg = document.querySelector('#spark');
+        if (!svg) return { none: true };
+        const ts = [...svg.querySelectorAll('text')]
+          .map(t => { const r = t.getBoundingClientRect();
+            return { y: (t.textContent || '').trim(), l: +r.left.toFixed(1), r: +r.right.toFixed(1),
+              t: +r.top.toFixed(1), b: +r.bottom.toFixed(1) }; })
+          .filter(o => /^\d{4}\.?$/.test(o.y))
+          .sort((p, q) => p.l - q.l);
+        const bad = [];
+        for (let i = 1; i < ts.length; i++) {
+          const vert = ts[i - 1].b > ts[i].t && ts[i].b > ts[i - 1].t;
+          const ov = ts[i - 1].r - ts[i].l;
+          if (vert && ov > 0) bad.push(`${ts[i - 1].y}|${ts[i].y} by ${ov.toFixed(1)}`);
+        }
+        return { n: ts.length, bad };
+      });
+    }
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('no two scrubber tick labels overlap, 320–768 px, in either language',
+    Object.values(tickFit).every(v => !v.none && v.n >= 2 && v.bad.length === 0),
+    JSON.stringify(Object.fromEntries(Object.entries(tickFit)
+      .filter(([, v]) => v.none || v.bad.length))) + ' ' +
+    JSON.stringify(Object.fromEntries(Object.entries(tickFit).map(([k, v]) => [k, v.n]))));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
