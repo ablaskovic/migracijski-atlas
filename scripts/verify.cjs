@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 606;
+const EXPECTED_CHECKS = 607;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3343,6 +3343,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && Object.values(tickViews).every(v => v.lit && v.mark && /^[\d.]+%$/.test(v.mark)
       && parseFloat(v.mark) >= 0 && parseFloat(v.mark) <= 100),
     JSON.stringify(tickViews));
+
+  /* ── the JLS rail's twenty rows are memoised, and the memo still sees Smjer ──
+     The list is 556 jlsVal calls, 556 allocations and a 556-element sort, and it
+     ran in Rail's render body — so every pointer crossing over a municipality,
+     which writes jlsHl into root State and re-renders the whole tree, rebuilt it
+     to produce the same twenty rows. 6,1 ms of self time over a 200-crossing
+     sweep. Hoisted into a useMemo, like MapView's jlsPaint next door.
+     What that hoist can get wrong is the dep array, and that IS observable: the
+     rows are read at all three Smjer settings driven through the segment in
+     place (not through the hash, which remounts and would hide a stale memo),
+     then back to net, then out to Saldo and in again. Dropping S.dir from the
+     deps makes Odlasci and Dolasci both report the NET value — measured, Grad
+     Zagreb 3.413 under all three instead of 6.193 / 9.606 / +3.413. */
+  await fresh('#v=jmap&dir=net');
+  await page.waitForFunction(() => document.querySelectorAll('#railList .rrow').length >= 20,
+    { timeout: 30000 }).catch(() => {});
+  const jrows = () => page.evaluate(() => [...document.querySelectorAll('#railList .rrow')]
+    .map(r => (r.textContent || '').replace(new RegExp('[ ]+', 'g'), ' ').trim()));
+  const jr = { net: await jrows() };
+  for (const d of ['out', 'in', 'net']) {
+    await click(`#segDir button[data-v="${d}"]`);
+    await settle(600);
+    jr[d === 'net' ? 'back' : d] = await jrows();
+  }
+  await click('#segView button[data-v="saldo"]');
+  await settle(600);
+  await click('#segView button[data-v="jmap"]');
+  await settle(800);
+  jr.again = await jrows();
+  const jsame = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  ck('the JLS rail rebuilds its twenty rows from a memo that still tracks Smjer and the view',
+    jr.net.length === 20 && jr.out.length === 20 && jr.in.length === 20
+    && !jsame(jr.net, jr.out) && !jsame(jr.out, jr.in)
+    && jsame(jr.net, jr.back) && jsame(jr.net, jr.again),
+    JSON.stringify({ net0: jr.net[0], out0: jr.out[0], in0: jr.in[0],
+      back: jsame(jr.net, jr.back), again: jsame(jr.net, jr.again) }));
   /* out/in produce the same 20 corridors by construction, so the title must not
      promise a direction the list cannot show */
   await fresh('#v=mx&y=2018&c=0&dir=out');

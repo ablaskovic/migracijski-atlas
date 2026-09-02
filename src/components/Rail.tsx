@@ -4,7 +4,7 @@ import {
 } from '../lib/metrics.ts';
 import { jlsGeo, geoStatus } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { isKeyFocus } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import PairCard from './PairCard.tsx';
@@ -84,12 +84,22 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
      was looking, and only when focus actually fell. */
   const listRef = useRef<HTMLDivElement>(null);
   const focusedRow = useRef<number | null>(null);
+  /* …and this list does not depend on the hover that rebuilds this component.
+     jlsHl lives in root State, so every pointer crossing over a municipality
+     re-rendered Rail, and the render body re-ran 556 jlsVal calls, 556
+     allocations and a 556-element sort (~5.000 comparisons) to produce the same
+     twenty rows: they are a function of the geometry and Smjer, neither of which
+     a hover touches. 6,1 ms of self time across a 200-crossing sweep. Same
+     hoist MapView's jlsPaint memo already is, in the sibling that draws the
+     features these rows rank. Gated on the view inside the memo rather than
+     around it, because a hook may not be conditional. */
+  const jAll = useMemo(() => (S.view === 'jmap' && JG ? JG.features : [])
+    .map(f => ({ iso: ISOS[f.properties.c], v: jlsVal(f.properties, S.dir), jls: f.properties.j }))
+    .sort((a, b) => b.v - a.v), [JG, S.dir, S.view]);
   let rows: Row[], m: number, fill: (d: Row) => string, big = false;
   if (S.view === 'jmap') {
     /* net: 10 biggest gainers + 10 biggest losers; gross: top 20 */
-    const all = (JG ? JG.features : []).map(f => ({ iso: ISOS[f.properties.c], v: jlsVal(f.properties, S.dir), jls: f.properties.j }))
-      .sort((a, b) => b.v - a.v);
-    rows = S.dir === 'net' ? all.slice(0, 10).concat(all.slice(-10)) : all.slice(0, 20);
+    rows = S.dir === 'net' ? jAll.slice(0, 10).concat(jAll.slice(-10)) : jAll.slice(0, 20);
     m = Math.max(...rows.map(r => Math.abs(r.v)), 1);
     const js = jmapScale(S.dir).scale;
     fill = d => js(S.dir === 'net' ? d.v : Math.abs(d.v));
@@ -131,9 +141,12 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
 
   /* only the JLS view names municipalities — building this 556-entry Map on every
      render of every view cost 556 allocations per hover frame for nothing */
-  const JNAME = S.view === 'jmap' && JG
+  /* …and gating it by view is not the same as building it once: inside the JLS
+     view the Map was still rebuilt on every hover render, which is the frame the
+     comment above is about. */
+  const JNAME = useMemo(() => (S.view === 'jmap' && JG
     ? new Map(JG.features.map(f => [f.properties.j, f.properties.n]))
-    : null;
+    : null), [JG, S.view]);
   /* Regije and JLS rows have nothing to open — there is no region selection and
      no JLS drill — so they must not claim role=button. They stayed focusable:
      that is what makes the map highlight reachable without a pointer. */
