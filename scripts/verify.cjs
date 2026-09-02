@@ -7564,16 +7564,29 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      rows, and every row and cell of the two grids, which is 756 labels and the
      only practical way to read those views with a screen reader.
      Resolved the way a screen reader resolves it, by walking ancestors. */
+  /* …and NOT the surfaces whose name is a sentence. The rule this sweep encoded
+     was "anything that voices a place name is lang=hr", and it was applied to
+     labels that are mostly not place names: measured in English, the county path
+     announced "Grad Zagreb: net migration +3,242 · 2018" under lang=hr, a matrix
+     cell "Grad Zagreb ↔ Zagrebačka: net −2,442 for Grad Zagreb · cumulative
+     estimate", a Godine cell "Grad Zagreb, 2018: +19,285", a rail row
+     "Osječko-baranjska −8.7 %". NVDA and JAWS switch voice on that attribute by
+     default, and Croatian reads the comma as the decimal mark and the dot as the
+     thousands separator — so "3,242" came out three-point-two-four-two, "−8.7"
+     is not a Croatian numeral at all, and "net migration", "for" and "cumulative
+     estimate" got Croatian phonemes. The numbers are the payload.
+     Two tables now. Surfaces whose ENTIRE string is a place name stay Croatian;
+     surfaces whose name is a sentence must resolve to the document's language,
+     which for the two grids means the cells overriding the row they hang under —
+     the rows keep lang=hr, because their own label really is just a name. */
   const langSweep = [];
   for (const [h, sel, min] of [
     ['#l=en&v=saldo&c=1&y=2024&s=HR-14', '#cardName', 1],
-    ['#l=en&v=mx&y=2018&c=0', '#map .mxc', 420],
     ['#l=en&v=mx&y=2018&c=0', '#map g[role="row"]', 21],
-    ['#l=en&v=yrs&c=1&y=2024', '#map .yrc', 315],
     ['#l=en&v=yrs&c=1&y=2024', '#map g[role="row"]', 21],
     ['#l=en&v=mx&y=2018&c=0&s=HR-14&pp=HR-21', '#pairName', 1],
     ['#l=en&v=flow&s=HR-13&y=2018&dir=out&c=0', '.legend-title span[lang]', 1],
-    ['#l=en&v=saldo&c=1&y=2024', '#railList .rrow', 21],
+    ['#l=en&v=saldo&c=1&y=2024', '#railList .rname', 21],
   ]) {
     await fresh(h);
     const r = await page.evaluate(sl => {
@@ -7581,7 +7594,30 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       const lang = e => { const a = e.closest('[lang]'); return a ? a.getAttribute('lang') : document.documentElement.lang; };
       return { n: els.length, hr: els.filter(e => lang(e) === 'hr').length };
     }, sel);
-    if (r.n < min || r.hr !== r.n) langSweep.push(`${h} ${sel} ${r.hr}/${r.n} want >=${min}`);
+    if (r.n < min || r.hr !== r.n) langSweep.push(`name-only ${h} ${sel} ${r.hr}/${r.n} want >=${min} hr`);
+  }
+  for (const [h, sel, min] of [
+    ['#l=en&v=saldo&c=1&y=2024', '#map .cnt', 21],
+    ['#l=en&v=jmap&dir=net', '#map .jl', 556],
+    ['#l=en&v=mx&y=2018&c=0', '#map .mxc', 420],
+    ['#l=en&v=yrs&c=1&y=2024', '#map .yrc', 315],
+    ['#l=en&v=saldo&c=1&y=2024', '#railList .rrow', 21],
+  ]) {
+    await fresh(h);
+    if (sel === '#map .jl') {
+      await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 25000 }).catch(() => {});
+    }
+    const r = await page.evaluate(sl => {
+      const els = [...document.querySelectorAll(sl)];
+      const lang = e => { const a = e.closest('[lang]'); return a ? a.getAttribute('lang') : document.documentElement.lang; };
+      /* and the label really is a sentence, not a bare name — otherwise this
+         table would be asserting the wrong rule for the wrong elements */
+      const mixed = els.filter(e => /[0-9]/.test(e.getAttribute('aria-label') || ''));
+      return { n: els.length, en: els.filter(e => lang(e) === 'en').length, mixed: mixed.length };
+    }, sel);
+    if (r.n < min || r.en !== r.n || r.mixed < min) {
+      langSweep.push(`sentence ${h} ${sel} en=${r.en}/${r.n} mixed=${r.mixed} want >=${min}`);
+    }
   }
   /* the JLS corridor rows need the card opened */
   await fresh('#l=en&v=flow&s=HR-21&y=2018&dir=out&c=0');
@@ -7592,7 +7628,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     return { got: !!e, lang: a ? a.getAttribute('lang') : document.documentElement.lang };
   });
   if (!jLang.got || jLang.lang !== 'hr') langSweep.push('jcard .jn ' + JSON.stringify(jLang));
-  ck('every surface that voices a place name is marked lang="hr" in English',
+  ck('a name-only surface is Croatian in English and a data label is not',
     langSweep.length === 0, langSweep.slice(0, 3).join(' | '));
   await fresh('');
 

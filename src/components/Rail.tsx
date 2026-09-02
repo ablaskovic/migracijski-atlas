@@ -226,10 +226,11 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
                number is one small graphic, and it collapses to exactly the one
                string we want announced. */
             role={canActivate(d) ? 'button' : 'img'} tabIndex={0}
-            /* .rname below carries lang="hr" for the visible text, but the
-               accessible name is this aria-label on the row, and a label cannot
-               annotate itself — so the row needs the attribute too. */
-            lang="hr" aria-label={rowAria(d, i)}
+            /* .rname below keeps lang="hr" for the visible text, which IS just a
+               place name. The row does not: its accessible name is a sentence —
+               "Osječko-baranjska −8.7 %" — and marking the row Croatian sent the
+               English-formatted number to the Croatian voice with it. */
+            aria-label={rowAria(d, i)}
             aria-expanded={owns(d) ? isOpen(d) : undefined}
             /* the rail is the natural index into the map and the 420-cell grid,
                so hovering a row lights up whatever it names: a region's counties,

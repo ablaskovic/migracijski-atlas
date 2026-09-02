@@ -516,9 +516,9 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                        on a focusable element that claims no behaviour. */
                     role="img"
                     aria-label={paint.label}
-                    /* municipality names are Croatian in both languages, so the
-                       annotation is unconditional, like the county paths' */
-                    lang="hr"
+                    /* and not here either, for the reason the county paths give:
+                       "… in, … out, net …" is a sentence carrying English words
+                       and English-formatted numbers */
                     onPointerEnter={() => setS({ jlsHl: p.j })}
                     /* touch sends leave the moment the finger lifts, which would
                        flash the readout away; keep it until the next tap instead */
@@ -608,11 +608,17 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                 <path key={iso} className={'cnt' + (iso === S.hl ? ' hl' : '') + (iso === S.sel ? ' sel' : '')
                   + (S.view === 'reg' && S.regHl && REGOF[iso] === S.regHl ? ' rhl' : '')}
                   data-iso={iso} d={cds[iso]} fill={fill(iso)} tabIndex={0} aria-label={countyAria(S, iso)}
-                  /* the label is mostly Croatian county names, whatever the
-                     document's language: without this a screen reader voices
-                     them with English phonemes (the identifier exemption that
-                     keeps them Croatian is what makes the annotation needed) */
-                  lang="hr"
+                  /* NO lang="hr" here, unlike #cardName and the rail's .rname:
+                     this label is a SENTENCE, not a name — "Grad Zagreb: net
+                     migration +3,242 · 2018" — and NVDA/JAWS/VoiceOver automatic
+                     language switching handed the whole of it to the Croatian
+                     voice in English. Croatian reads the comma as the decimal
+                     mark and the dot as the thousands separator, so "3,242" came
+                     out three-point-two-four-two and "−8.7" is not a Croatian
+                     numeral at all, while "net migration" got Croatian phonemes.
+                     The numbers are the payload; the county name inside the
+                     sentence keeps English phonemes, which is the cheaper loss.
+                     Surfaces whose ENTIRE string is a place name still carry it. */
                   /* every stroke in the map is inside the zoom transform, so a
                      hairline border grew with k — see index.css */
                   vectorEffect="non-scaling-stroke"

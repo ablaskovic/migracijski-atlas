@@ -207,6 +207,11 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
             x={x0 + c * cw} y={y0 + r * ch} width={cw} height={ch}
             fill={col(v)} stroke="#fff" strokeWidth={0.5}
             role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
+            /* the row carries lang="hr" for its own bare-name label, and language
+               resolves by walking ancestors — so without this the cell's SENTENCE
+               label went to the Croatian voice too, and "+19,285" was read as a
+               decimal. See MatrixView. */
+            lang={S.lang}
             /* The displayed year is a teal column ring and a legend sentence
                about its colour, and nothing else: arrowing across a row, every
                cell read "Grad Zagreb, 1999.: +1.627" with no state on any of

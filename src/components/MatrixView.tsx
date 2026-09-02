@@ -272,6 +272,12 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
           vectorEffect="non-scaling-stroke"
           x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
           fill="url(#mxhatch)" role="gridcell" tabIndex={-1} aria-colindex={c + 1}
+          /* the row is lang="hr" so its own bare-name label is voiced right, and
+             language resolves by walking ancestors — which handed these SENTENCE
+             labels to the Croatian voice as well. The cell says what document it
+             is in; the county name inside it takes English phonemes, which is the
+             cheaper loss against reading "−2,442" as a decimal. */
+          lang={S.lang}
           aria-label={L(`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`,
             `${D[a].n} — diagonal: moves within the same county are not part of the inter-county matrix`)}
           onPointerEnter={() => setS({ pairHl: [a, b] })}
@@ -289,7 +295,9 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
             fill={col(S.dir === 'net' ? v : Math.abs(v))}
             stroke={isHl ? '#20262B' : '#fff'} strokeWidth={isHl ? 1.6 : 0.5}
             role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
-            aria-label={cellAria(a, b, v)}
+            /* see the diagonal cell above: the row's lang="hr" must not reach a
+               label that is a sentence with English numbers in it */
+            lang={S.lang} aria-label={cellAria(a, b, v)}
             /* activating a cell opens the corridor card in the rail and leaves
                the grid standing, so the cell is the control that owns it —
                same contract `.cnt` has with the county card */
