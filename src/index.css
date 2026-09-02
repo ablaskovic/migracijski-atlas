@@ -587,9 +587,21 @@ body.stage-collapsed .main{flex:none;height:420px}
 .play{width:40px;display:flex;align-items:center;justify-content:center;color:var(--acc)}
 .play svg{width:20px;height:20px;fill:currentColor}
 .scrub-chart{flex:1;min-width:0;position:relative}
-/* touch-action:none — setPointerCapture does not stop the browser claiming a
-   near-vertical drag as a page scroll, which cancels the gesture mid-scrub */
-.scrub-chart svg{display:block;width:100%;height:96px;cursor:ew-resize;touch-action:none}
+/* `none` was chosen because setPointerCapture does not stop the browser claiming
+   a near-vertical drag as a page scroll, which cancels the gesture mid-scrub. It
+   also took the gesture the browser SHOULD claim. At 390×844 this chart is 96 px
+   tall at the bottom of the viewport, under the thumb, and `none` meant a finger
+   placed there to swipe the page up changed the year from 2016 to 2002 on
+   touch-down alone and left scrollY exactly where it was — the commonest gesture
+   on a phone, swallowed, rewriting the app's primary state.
+   `pan-y` concedes the vertical axis only: a near-vertical drag scrolls the page
+   and the pointercancel that follows is the one onUp already handles, while a
+   horizontal drag still reaches the scrub. Scrubber defers the first scrub on a
+   touch pointer until the finger has moved, so a rested thumb changes nothing.
+   `pinch-zoom` with it, so a two-finger gesture belongs to the browser rather
+   than walking the year: the scrub is a one-finger horizontal drag and nothing
+   else. */
+.scrub-chart svg{display:block;width:100%;height:96px;cursor:ew-resize;touch-action:pan-y pinch-zoom}
 #spark:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .big-year{width:122px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding-left:12px}
 /* Stretched and right-aligned rather than shrink-to-fit. `align-items:flex-end`

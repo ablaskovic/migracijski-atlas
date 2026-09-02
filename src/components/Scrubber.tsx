@@ -50,13 +50,39 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     const yi = YEARS.indexOf(y);
     if (yi !== S.yi) setYi(yi);
   };
-  const drag = useRef(false);
+  /* WHICH pointer owns the drag, not merely that one does — the lesson useZoom
+     records for its own pinch ("Identity is what a gesture is") and this never
+     learned. A shared boolean meant every pointer scrubbed and any pointerup
+     killed all of them. Measured at 390×844 with two real touch handles: the
+     SECOND touchStart alone jumped the year 2003 → 2020, and the following
+     frames alternated between the two fingers — 2004 2019 2005 2018 2006 2017
+     2007 2016 2008 2015 2009 2014 2010 2013, fourteen year changes and fourteen
+     history writes in ~270 ms, ending on whichever finger moved last. Lifting
+     one finger then killed the survivor: dragging it 40 % of the bar left the
+     year at 2013. And a pinch straddling the map and the pinned bar became a
+     year change — the map stayed at scale(1) while the year went 2018 → 2024. */
+  const drag = useRef<number | null>(null);
+  /* …and on a touch pointer the first scrub waits for movement. #spark is 96 px
+     tall at the bottom of a 390×844 phone, under the thumb, with
+     touch-action:none — so a finger placed at (94,817) to swipe the page up
+     changed the year from 2016 to 2002 on touch-down alone, and the 90 px swipe
+     that followed left scrollY exactly where it was. The most ordinary gesture
+     on a phone was swallowed by the timeline and rewrote the app's primary
+     state. The same DEAD-px idea useZoom takes, so a press is still a press —
+     paired with touch-action:pan-y in the stylesheet, which lets the browser
+     claim a near-vertical drag and send the pointercancel onUp already
+     handles. */
+  const DEAD_X = 4;
+  const pending = useRef<number | null>(null);
   const onDown = (ev: ReactPointerEvent<SVGSVGElement>) => {
-    drag.current = true;
+    if (drag.current !== null) return;   /* a second finger is not a scrub */
+    drag.current = ev.pointerId;
     /* throws NotFoundError if the pointer is already gone by the time we run
        (synthetic events, some assistive tech) — capture is an optimisation for
        the drag, not a precondition for scrubbing */
     try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch { /* no capture, still scrubs */ }
+    if (ev.pointerType === 'touch') { pending.current = ev.clientX; return; }
+    pending.current = null;
     scrubTo(ev);
   };
   /* Self-correcting, because the flag is cleared only by a pointerup ON the svg —
@@ -66,13 +92,21 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      scrubbed the year with no button held. `ev.buttons` is the authority on
      whether anything is still pressed, and it costs one test per move. */
   const onMove = (ev: ReactPointerEvent<SVGSVGElement>) => {
-    if (!drag.current) return;
-    if (ev.pointerType === 'mouse' && !ev.buttons) { drag.current = false; return; }
+    if (drag.current !== ev.pointerId) return;
+    if (ev.pointerType === 'mouse' && !ev.buttons) { drag.current = null; return; }
+    if (pending.current !== null) {
+      if (Math.abs(ev.clientX - pending.current) < DEAD_X) return;
+      pending.current = null;
+    }
     scrubTo(ev);
   };
   /* pointercancel fires when the browser claims the gesture as a page scroll —
      without it the drag flag sticks and the next hover scrubs the year */
-  const onUp = () => { drag.current = false; };
+  const onUp = (ev: ReactPointerEvent<SVGSVGElement>) => {
+    if (drag.current !== ev.pointerId) return;   /* the other finger's lift is not this drag's end */
+    drag.current = null;
+    pending.current = null;
+  };
 
   /* Tick labels are ~28 px wide (mono 9). The 2013/2015 pair sits 2 years apart,
      so below ~470 px of chart they collide — thin the set instead of overlapping. */

@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 537;
+const EXPECTED_CHECKS = 538;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3700,6 +3700,56 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the inert scrubber says aria-disabled instead of only looking dead',
     sparkInert.disabled === 'true' && sparkInert.tab === '-1' && sparkInert.pe !== 'none',
     JSON.stringify(sparkInert));
+
+  /* ── the timeline is under the thumb, and it used to take the whole gesture ──
+     At 390×844 #spark is 96 px tall at the bottom of a fixed bar — measured at
+     [56,740,256,96] of an 844 px viewport — and it carried touch-action:none,
+     so the browser could never claim a swipe there. onDown scrubbed on
+     pointerdown, before any movement. Measured with real touch handles from
+     #v=saldo&y=2016&c=0 scrolled to 300: a finger placed at (94,817) changed
+     the year 2016 → 2002 on touch-down alone, and the 90 px upward swipe that
+     followed left scrollY at 300 — the commonest gesture on a phone, swallowed,
+     rewriting the app's primary state. `ev.buttons`, the protection this file
+     documents, is mouse-only.
+     Both halves asserted, and the third leg is the cost: a horizontal drag must
+     still scrub, or the fix would be a disabling. */
+  {
+    const tcdp = await page.createCDPSession();
+    await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+    await fresh('#v=saldo&y=2016&c=0');
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await settle(300);
+    const yr = () => page.evaluate(() => document.querySelector('#bigYear').textContent.trim());
+    const sp = await page.evaluate(() => { const r = document.querySelector('#spark').getBoundingClientRect();
+      return { x: Math.round(r.left + r.width * 0.15), y: Math.round(r.top + r.height / 2),
+        ta: getComputedStyle(document.querySelector('#spark')).touchAction }; });
+    const thumb = { ta: sp.ta, y0: await yr() };
+    await tcdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sp.x, y: sp.y, id: 1 }] });
+    await settle(200);
+    thumb.afterDown = await yr();
+    for (let i = 1; i <= 6; i++) {
+      await tcdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sp.x, y: sp.y - i * 15, id: 1 }] });
+    }
+    await tcdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await settle(400);
+    thumb.afterSwipe = await yr();
+    await fresh('#v=saldo&y=2016&c=0');
+    const sp2 = await page.evaluate(() => { const r = document.querySelector('#spark').getBoundingClientRect();
+      return { x: Math.round(r.left + r.width * 0.15), y: Math.round(r.top + r.height / 2) }; });
+    await tcdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sp2.x, y: sp2.y, id: 1 }] });
+    for (let i = 1; i <= 8; i++) {
+      await tcdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sp2.x + i * 20, y: sp2.y, id: 1 }] });
+    }
+    await tcdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await settle(400);
+    thumb.afterHorizontal = await yr();
+    await tcdp.detach();
+    await page.setViewport({ width: 1440, height: 900 });
+    ck('a thumb resting on the phone timeline scrubs nothing, and the page still scrolls under it',
+      /pan-y/.test(thumb.ta) && thumb.afterDown === thumb.y0 && thumb.afterSwipe === thumb.y0
+      && thumb.afterHorizontal !== thumb.y0,
+      JSON.stringify(thumb));
+  }
 
   /* ── P3: no panel flag without a panel behind it ──
      the JLS chip only exists in Tokovi. Carried elsewhere it still set
