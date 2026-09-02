@@ -1457,6 +1457,14 @@ body.stage-collapsed .main{flex:none;height:420px}
   /* pressed-by-background is invisible here; pressed-by-border is not */
   .seg button[aria-pressed="true"],.jtabs button[aria-pressed="true"],
   .helpbtn.on,.labbtn.on{outline:2px solid Highlight;outline-offset:-2px;color:Highlight}
-  /* and the two-tone focus ring loses its white halo to the forced palette */
-  .fr-ink,.jl:focus-visible{stroke:Highlight}
+  /* and the two-tone focus ring loses its white halo to the forced palette.
+     Written as a bare `.fr-ink` this never applied: the base rule is
+     `.focusring .fr-ink` at (0,2,0) against (0,1,0) here, and a media query
+     adds no specificity, so the dash stayed #20262B on whatever Canvas the
+     theme forced — invisible on a black one, where only the untouched white
+     halo carried the indicator at all. Measured with forced-colors:active and
+     a county focused: ring stroke rgb(32,38,43), not Highlight. The
+     `.jl:focus-visible` half won on equal specificity and later position, so
+     the block half-worked and the half that did not was silent. */
+  .focusring .fr-ink,.jl:focus-visible{stroke:Highlight}
 }
