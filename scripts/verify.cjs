@@ -9053,10 +9053,33 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     view0: document.querySelector('#segView button').textContent,
     pressed: document.querySelector('#segLang button[data-l="en"]').getAttribute('aria-pressed'),
   }));
+  /* …the DECIMAL separator included, which this check's name claims and only an
+     integer proved. All three English numbers pinned anywhere in this file are
+     the same integer on the same surface, +41,986; there was no assertion of a
+     value of the shape digit-point-digit anywhere in it. Leaving NUM1.en on
+     hr-HR — a shared instance, a third locale, a refactor of numR — gives every
+     percentage in the English UI a Croatian comma: the rail, the legend axis,
+     the tooltip rows, all 21 county labels, the Godine cells, the threshold
+     readout and both export formats. Injected into dist, this file went red
+     once, on the zoom-caption check, whose name sends a maintainer looking for
+     an untranslated label on four controls. A relative denominator is where the
+     decimal actually reaches the reader. */
+  await fresh('#l=en&v=saldo&c=1&y=2024&d=rel11');
+  const enDec = await page.evaluate(() => ({
+    val: (document.querySelector('#railList .rrow .rval') || {}).textContent || '',
+    ticks: [...document.querySelectorAll('#legend .legend-lbls span')].map(e => e.textContent),
+    label: (document.querySelector('#railList .rrow') || {}).getAttribute('aria-label') || '',
+  }));
+  await fresh('#l=en&v=saldo&c=1&y=2024');
   ck('English renders English separators, and says so in <html lang>',
     en1.lang === 'en' && en1.val === '+41,986' && en1.top === 'Grad Zagreb'
-    && en1.view0 === 'Net' && en1.pressed === 'true',
-    JSON.stringify(en1));
+    && en1.view0 === 'Net' && en1.pressed === 'true'
+    /* the decimal, on a surface that has one: a point between digits and no
+       comma between them anywhere in the row, the axis or the label */
+    && /\d\.\d/.test(enDec.val) && !/\d,\d/.test(enDec.val)
+    && enDec.ticks.some(t => /\d\.\d/.test(t)) && !enDec.ticks.some(t => /\d,\d/.test(t))
+    && !/\d,\d/.test(enDec.label),
+    JSON.stringify({ en1, enDec }));
   /* 2.5.3 again, in the other language: rowName() feeds both halves, so if the
      separator rule survived translation this holds without further work. */
   ck('and the rail row label still contains its visible text',
