@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 495;
+const EXPECTED_CHECKS = 496;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6837,6 +6837,41 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /not total population change/.test(enNote.card) && /clicking the map/.test(enNote.flow)
     && /someone’s departure/.test(enNote.mx) && /only year with a measured flow matrix/.test(enNote.pair),
     JSON.stringify(enNote));
+
+  /* …and the glossary, which is the largest body of prose in the app and which
+     no sweep above can reach: the panel has no hash parameter, so every
+     `fresh('#l=en&…')` in this block opens a document whose help card is shut.
+     It has to be clicked open, and its tabs walked.
+     What that hid: the English half of the colour rule named eight controls by
+     their CROATIAN labels — "That holds for Saldo, Regije, Godine and the Neto
+     direction. In Odlasci and Dolasci (Tokovi, Matrica) …" — while those
+     segments read Net / Regions / Years and Out / In / Net on the English
+     screen. The one sentence telling an English reader when the colour means
+     gain-versus-loss and when it means magnitude-only pointed at controls that
+     are not on the page, and the paragraph's own comment records that it was
+     their only source for the Odlasci/Dolasci case.
+     CRO is widened with the view and direction labels, which is what makes the
+     glossary sweep able to see this class at all. */
+  const CROCTL = /\b(saldo|klasifikacij\w*|regije|godine|tokovi|matrica|odlasc\w*|dolasc\w*)\b/i;
+  await fresh('#l=en&v=saldo&c=1&y=2024');
+  await click('#helpBtn');
+  const enHelp = await page.evaluate(async () => {
+    const card = document.querySelector('#helpCard');
+    if (!card) return { absent: true };
+    const tabs = [...card.querySelectorAll('[role="tab"]')];
+    const seen = [];
+    for (const tb of tabs.length ? tabs : [null]) {
+      if (tb) { tb.click(); await new Promise(r => setTimeout(r, 160)); }
+      seen.push(card.textContent || '');
+    }
+    return { tabs: tabs.length, text: seen.join(' · ') };
+  });
+  const helpBad = enHelp.absent ? ['#helpCard absent']
+    : [...(enHelp.text.match(CRO) || []), ...(enHelp.text.match(CROCTL) || [])].slice(0, 5);
+  await click('#helpX');
+  ck('the glossary reads in English too, including the control names it cites',
+    !enHelp.absent && enHelp.text.length > 2000 && helpBad.length === 0,
+    JSON.stringify({ tabs: enHelp.tabs, len: enHelp.text.length, bad: helpBad }));
 
   /* Who gets which language, on a fresh visit with nothing shared and nothing
      stored. Two signals — the browser's language list and where the reader is —

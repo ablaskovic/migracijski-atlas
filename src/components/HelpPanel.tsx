@@ -183,8 +183,18 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
             unconditionally, the paragraph above was the exact inverse of what
             those two directions paint, and it was the reader's only source for
             them until the legend gained its own colour sentence. */}
-        {L(' To vrijedi za Saldo, Regije, Godine i smjer Neto. U Odlascima i Dolascima (Tokovi, Matrica) boja pokazuje veličinu jednosmjernog toka prema odabranoj županiji — skala ide od nule prema najvećem toku i ne označava dobitak ni gubitak.',
-          ' That holds for Saldo, Regije, Godine and the Neto direction. In Odlasci and Dolasci (Tokovi, Matrica) the colour shows the size of the one-way flow to or from the selected county — the scale runs from zero to the largest flow and marks neither gain nor loss.')}
+        {/* The English half named eight controls by their CROATIAN labels — Saldo,
+            Regije, Godine, Neto, Odlasci, Dolasci, Tokovi, Matrica — none of
+            which appears anywhere in the English UI, where those segments read
+            Net / Regions / Years and Out / In / Net. So the sentence that tells
+            an English reader when the colour means gain-versus-loss and when it
+            means magnitude-only pointed at controls they cannot find, and the
+            comment above records that this paragraph was their only source for
+            the Odlasci/Dolasci case. Interpolated from the dictionary, which
+            already holds every one of them, so the prose and the buttons cannot
+            drift apart again. */}
+        {L(` To vrijedi za ${t('view.saldo')}, ${t('view.reg')}, ${t('view.yrs')} i smjer ${t('dir.net')}. U ${t('dir.out')}ma i ${t('dir.in')}ma (${t('view.flow')}, ${t('view.mx')}) boja pokazuje veličinu jednosmjernog toka prema odabranoj županiji — skala ide od nule prema najvećem toku i ne označava dobitak ni gubitak.`,
+          ` That holds for ${t('view.saldo')}, ${t('view.reg')}, ${t('view.yrs')} and the ${t('dir.net')} direction. In ${t('dir.out')} and ${t('dir.in')} (${t('view.flow')}, ${t('view.mx')}) the colour shows the size of the one-way flow to or from the selected county — the scale runs from zero to the largest flow and marks neither gain nor loss.`)}
       </div>
 
       <h3 className="help-h">{L('Izmjereno ili procjena', 'Measured or estimated')}</h3>
