@@ -342,6 +342,22 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      costs one red line at the end instead of the last tenth of the coverage.
      All 58 call sites and the four raw page.click sites go through here. */
   const missed = [];
+  /* A navigation that times out is the same class of flake as a slow mount and
+     it lands one frame earlier: `networkidle0` can miss its 30 s budget on a
+     contended runner while the page itself is perfectly healthy, and the throw
+     unwinds the run from inside the helper. Measured on this build — a run
+     aborted at 419/482 on exactly that. Retried once against the weaker
+     condition, because a network that will not go quiet is not the same thing as
+     a document that will not load; if both fail it is recorded and the mount
+     wait below decides whether anything is really wrong. */
+  const goTo = async u => {
+    for (const waitUntil of ['networkidle0', 'domcontentloaded']) {
+      try { await page.goto(u, { waitUntil, timeout: 30000 }); return true; }
+      catch { /* fall through to the weaker condition, then give up */ }
+    }
+    missed.push('goto ' + u.replace(url, '') || '/');
+    return false;
+  };
   const click = async sel => {
     const el = await page.waitForSelector(sel, { timeout: 10000 }).catch(() => null);
     if (!el) { missed.push('click ' + sel); return false; }
@@ -352,8 +368,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
   /* fresh boot helper: hash state is read at module init, so force a real reload */
   const fresh = async h => {
-    await page.goto('about:blank');
-    await page.goto(url + h, { waitUntil: 'networkidle0' });
+    await page.goto('about:blank').catch(() => {});
+    await goTo(url + h);
     /* Wait for the app, not for a stopwatch. `networkidle0` says the network went
        quiet, which is not the same as React having mounted — and every block
        after a fresh() reads the DOM straight away, so a slow mount surfaces as
@@ -372,7 +388,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     let up = await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 })
       .then(() => true, () => false);
     if (!up) {
-      await page.goto(url + h, { waitUntil: 'networkidle0' });
+      await goTo(url + h);
       up = await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 })
         .then(() => true, () => false);
       if (!up) missed.push('mount ' + (h || '/'));
