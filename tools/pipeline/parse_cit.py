@@ -85,8 +85,8 @@ for r in rows:
 def add(*names):
     return {'d':[sum(R[n]['d'][i] for n in names) for i in range(5)],
             'o':[sum(R[n]['o'][i] for n in names) for i in range(5)]}
-G = {'hr': R['Hrvatska'],
-     'sus': add('Bosna i Hercegovina','Srbija','Kosovo','Sjeverna Makedonija','Albanija','Crna Gora'),
+SUS = ('Bosna i Hercegovina','Srbija','Kosovo','Sjeverna Makedonija','Albanija','Crna Gora')
+G = {'hr': R['Hrvatska'], 'sus': add(*SUS),
      'ukr': R['Ukrajina'], 'eu': R['Europska unija'], 'az': R['Azija']}
 tot = R['Ukupno']
 G['ost'] = {'d':[tot['d'][i]-sum(G[k]['d'][i] for k in G) for i in range(5)],
@@ -101,7 +101,8 @@ assert all(v >= 0 for k in G for v in G[k]['d']+G[k]['o']), 'negative residual'
 # differently-scoped aggregate that double-counted movers already in 'sus', the
 # double count would flow straight into a smaller 'ost', and the only assert that
 # could catch it is the non-negativity one above — which fires only once the
-# double count exceeds the whole residual.
+# double count exceeds the whole residual. Neither identity below closes that
+# gap either; the third assert in the loop is the one that does.
 # These two identities are the sheet's own and are checked, not derived.
 # Through `row()`, because R only holds rows that had a non-zero value: a
 # republication in which a referenced row goes all-zero — Nepoznato and Oceanija
@@ -118,6 +119,27 @@ for i in range(5):
         assert tot[f][i] == sum(row(n)[f][i] for n in
             ('Hrvatska','Europa','Azija','Afrika','Sjeverna i Srednja Amerika',
              'Južna Amerika','Oceanija','Nepoznato')), ('Ukupno != sum of continents', years[i], f)
+        # …and the leaf composition of the groups, which neither identity above
+        # constrains. Both are invariant under a CONSISTENT transfer between two
+        # rows: report Ukrajina's movers inside the 'Europska unija' aggregate
+        # and take them out of 'Ostale europske zemlje' — the re-scoping named
+        # above, and the one an accession actually produces — and Europa still
+        # equals EU + ostale, Ukupno still equals the eight top-level rows, and
+        # the whole double count lands in 'ost', the top-down remainder.
+        # Executed on a workbook edited exactly that way: ost doseljeni 2024
+        # 5.409 -> 1.879, a residual 65% short, every assert green, exit 0.
+        # Re-deriving 'ost' bottom-up out of the leaf rows does NOT catch it:
+        # substitute the two identities above and OstEur - sus - ukr + Afrika +
+        # … is the same expression as tot minus the five groups, so it passes on
+        # both edited workbooks. What is independent of them is containment: the
+        # seven rows this script lifts out of 'Ostale europske zemlje' have to
+        # still be inside it. On the shipped sheet they are, with 270 to 2.490 of
+        # unlisted headroom per year and flow; the Ukrajina edit puts them 1.746
+        # over. A transfer smaller than that headroom — the Crna Gora variant's
+        # 253 — still passes: this bounds the double count, it does not forbid it.
+        assert (sum(row(n)[f][i] for n in SUS) + row('Ukrajina')[f][i]
+            <= row('Ostale europske zemlje')[f][i]), (
+            'sus + Ukrajina no longer inside Ostale europske zemlje', years[i], f)
 out = {'years': years, 'tot': tot, 'g': G}
 write_json('../../src/data/citizen.json', out, ensure_ascii=False, separators=(',',':'))
 # headline checks
