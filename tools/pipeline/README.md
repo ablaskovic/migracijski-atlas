@@ -8,8 +8,10 @@ python3 parse_nat.py     # raw/pregled-zupanije.xlsx 7.4.1 -> nat arrays in atla
 python3 parse_cit.py     # raw/stan-2026-2-1_tablice-hr.xlsx I T2 -> citizen.json
 python3 parse_demo.py    # raw/stan-2026-2-1_tablice-hr.xlsx I T3 / II T2 / I T4 -> demo.json
 python3 parse_jls.py     # ext/pitoski.xlsx GRAVITY + raw/po-jls.xlsx 7.5.18 -> jls_drill.json
-python3 parse_jlsmap.py  # ext/pitoski.xlsx GRAVITY -> ext/jls_stats.json (per-JLS in/out)
-node   geo_jls.cjs       # ext/jls_stats.json + raw/jls_geo_osm.geojson -> geo_jls.json
+python3 parse_jlsmap.py  # ext/pitoski.xlsx GRAVITY + raw/po-jls.xlsx + ref/od2018.json
+                         #   + atlas_data2.json -> ext/jls_stats.json (per-JLS in/out)
+node   geo_jls.cjs       # ext/jls_stats.json + raw/jls_geo_osm.geojson
+                         #   + src/data/geo_counties.json -> geo_jls.json
 python3 ipf.py           # od2018.json + margins -> odm.json (2018 measured, rest IPF)
 ```
 
@@ -78,6 +80,14 @@ itself opens the correct relative paths from `tools/pipeline/`.
 
 - **`geo_counties.json`**, **`geo_regions5.json`** — mapshaper one-liners over
   geoBoundaries ADM1, recorded only in the handoff's provenance section.
+  `geo_counties.json` is nonetheless an INPUT to `geo_jls.cjs`, twice over: it is
+  the county-containment test that disambiguates duplicate JLS names, and Grad
+  Zagreb's municipality polygon in `geo_jls.json` is a verbatim copy of HR-21's
+  geometry from it (checked: the two are byte-identical). Re-run the mapshaper
+  one-liner and `geo_jls.cjs` has to run again, or the JLS map keeps the old
+  boundary for its own headline value while the county map shows the new one.
+  The feature order matters too — `geo_jls.cjs` re-sorts it numerically to line
+  up with `atlas_data2`'s key order, and the stored county index depends on that.
 - **`jls_drill.json`** — the JLS-to-JLS edge list descends from the 31 MB Pitoski
   figshare download, which is not committed here.
 
