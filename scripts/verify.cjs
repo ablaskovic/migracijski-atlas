@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 480;
+const EXPECTED_CHECKS = 481;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -238,7 +238,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      sixteen bootLang pages and the two font-swap pages recorded nothing at all.
      Every page the suite opens goes through here now, and the assertion is
      repeated at end-of-run beside the second zero-errors check. */
+  /* ONE ledger for every page the suite opens. The two listeners used to be
+     installed on the main page alone, so roughly twenty-two full app boots —
+     all fifteen language-detection cases, the stored-choice boot, the Back
+     journey, the link-versus-stored pair and both font-swap modes — ran outside
+     both "zero page/console errors" brackets. A pageerror thrown just after
+     mount on any of them left the narrow property each of those checks asserts
+     intact (documentElement.lang was already set), recorded nothing, and both
+     bracket checks stayed green. The file's whole CSP enforcement story is that
+     "Chrome logs every violation to the console, and this suite asserts zero
+     console errors twice" — which was not true on any page but one. */
+  const errors = [];
+  const ledger = pg => {
+    pg.on('pageerror', e => errors.push('pageerror: ' + e.message));
+    /* the URL as well as the text: Chrome's "Failed to load resource" message
+       does not name what failed, and every deliberate-abort scrub in this file
+       has to be able to drop exactly the one it caused and nothing else */
+    pg.on('console', m => {
+      if (m.type() !== 'error') return;
+      const at = (m.location() || {}).url || '';
+      errors.push('console: ' + m.text() + (at ? ' @ ' + at : ''));
+    });
+    return pg;
+  };
   const watch = async (pg, abortIf) => {
+    ledger(pg);
     await pg.setCacheEnabled(false);
     await pg.setRequestInterception(true);
     /* ONE handler per page: a second `page.on('request')` makes both call
@@ -295,16 +319,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     if (blockEntry && /\/assets\/index-[\w-]+\.js$/.test(u)) return r.abort();
     return r.continue();
   });
-  const errors = [];
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-  /* the URL as well as the text: Chrome's "Failed to load resource" message does
-     not name what failed, and the deliberate-abort scrub below has to be able to
-     drop exactly the one it caused and nothing else */
-  page.on('console', m => {
-    if (m.type() !== 'error') return;
-    const at = (m.location() || {}).url || '';
-    errors.push('console: ' + m.text() + (at ? ' @ ' + at : ''));
-  });
+  ledger(page);
 
   await page.goto(url, { waitUntil: 'networkidle0' });
   await settle(500);
@@ -5835,6 +5850,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       });
     }
     await p2.close();
+  }
+  /* The fallback pass aborts every .woff2 on purpose, and now that every page
+     feeds the one ledger those aborts land in it like any other error. Scrubbed
+     by URL and counted, the way the geo and entry-chunk scrubs are, so this can
+     only ever remove what it minted — and the count proves the abort predicate
+     is still doing something, which is the half a blanket wipe would lose. */
+  {
+    const had = errors.length;
+    for (let i = errors.length - 1; i >= 0; i--) {
+      if (/\.woff2/.test(errors[i]) && /ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+    }
+    ck('the font-swap pass aborted the faces it meant to, and nothing else',
+      had - errors.length >= 1 && errors.length === 0,
+      JSON.stringify({ dropped: had - errors.length, left: errors.slice(0, 2) }));
   }
   const swapMoved = ['hd', 'main', 'ft', 'scrub'].map(k => ({ k,
     dTop: +(swap.real[k][0] - swap.fallback[k][0]).toFixed(1),
