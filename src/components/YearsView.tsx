@@ -207,6 +207,13 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
             x={x0 + c * cw} y={y0 + r * ch} width={cw} height={ch}
             fill={col(v)} stroke="#fff" strokeWidth={0.5}
             role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
+            /* The displayed year is a teal column ring and a legend sentence
+               about its colour, and nothing else: arrowing across a row, every
+               cell read "Grad Zagreb, 1999.: +1.627" with no state on any of
+               them, so a screen-reader user could not tell which column the map,
+               the rail and the scrubber were showing. `gridcell` supports
+               aria-selected and NVDA/JAWS announce it. */
+            aria-selected={yi === S.yi || undefined}
             /* the cell states its own county, PERIOD and value: #tip is
                aria-hidden, so this string is the only copy of the number.
                The period, not the year: in cumulative mode the number is the

@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 521;
+const EXPECTED_CHECKS = 522;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6268,6 +6268,30 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /^Grad Zagreb, 2018\.: \+3\.242$/.test(yrsAria.ann.lab)
     && /migracijski saldo/.test(yrsAria.cum.grid) && /migracijski saldo/.test(yrsAria.ann.grid),
     JSON.stringify(yrsAria));
+
+  /* …and which column the rest of the app is showing, which the grid stated in
+     colour alone: a teal column ring, and a legend sentence explaining the ring
+     by its colour. Arrowing across a row every cell read "Grad Zagreb, 1999.:
+     +1.627" with no state on any of them, and after Enter set the year the cell
+     that was now the selection still exposed nothing — `git log -S aria-selected
+     -- src` was empty, the state had never had a non-visual twin (4.1.2, 1.4.1).
+     Asserted as a column: exactly the 21 cells of the displayed year, and it
+     moves when the year does. */
+  await fresh('#v=yrs&c=0&y=1999');
+  const yrsCol = await page.evaluate(() => {
+    const on = [...document.querySelectorAll('#map .yrc[aria-selected="true"]')];
+    return { n: on.length, years: [...new Set(on.map(e => e.dataset.y))],
+      total: document.querySelectorAll('#map .yrc').length };
+  });
+  await fresh('#v=yrs&c=0&y=2016');
+  const yrsCol2 = await page.evaluate(() => {
+    const on = [...document.querySelectorAll('#map .yrc[aria-selected="true"]')];
+    return { n: on.length, years: [...new Set(on.map(e => e.dataset.y))] };
+  });
+  ck('the displayed year is a column state, not only a colour',
+    yrsCol.n === 21 && yrsCol.years.join() === '1999' && yrsCol.total > 500
+    && yrsCol2.n === 21 && yrsCol2.years.join() === '2016',
+    JSON.stringify({ yrsCol, yrsCol2 }));
   /* …and the ORDER of those rows, which nothing asserted at a state where it
      could move. Godine ranks by the window total in the series on screen —
      `yrsOrder(flow, den, cols)` — and the legend under it says so
