@@ -185,6 +185,21 @@ export function decodeHash(hash: string): Patch {
   if (at('citz')) { o.jls = false; o.age = false; }
   else if (at('jls')) o.age = false;
 
+  /* …and a dropped flag takes its tab with it. Each `cz`/`jl`/`ag` sets a flag
+     AND a tab, and every repair above drops only the flag — so a tab the codec
+     said it had ignored survived into state, invisible until the panel opened.
+     `#v=saldo&c=1&y=2024&jl=2` booted with jls false and the URL laundered to
+     `#v=saldo&c=1&y=2024`, and then pressing Tokovi and opening the JLS chip
+     showed "Unutar županije" instead of the default and re-emitted `jl=2` — a
+     state the reader could not reproduce from the link they were left with,
+     against this codec's own contract that unknown or invalid fields are
+     ignored. A 40.048-hash fuzz found 55 unstable boots and every one was this
+     shape. Read `at()`, like every other repair here, so the test is what the
+     link BOOTS rather than what its patch happened to carry. */
+  if (!at('citz')) delete o.citzTab;
+  if (!at('jls')) delete o.jlsTab;
+  if (!at('age')) delete o.ageTab;
+
   /* A preset index is only honoured when the state this link actually boots still
      matches the preset it names. Seeding that comparison from the preset itself
      made every key the URL omits compare against its own value and pass

@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 581;
+const EXPECTED_CHECKS = 582;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7002,6 +7002,41 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     ['scrambled', 'canonical'].every(k => storyHist[k].added === 1 && storyHist[k].capAfter
       && !storyHist[k].back.cap && /^#v=saldo&c=1&y=2024$/.test(storyHist[k].back.hash)),
     JSON.stringify(storyHist));
+
+  /* ── a flag the codec drops takes its tab with it ──
+     each of cz/jl/ag sets a FLAG and a TAB, and every repair dropped only the
+     flag — so a tab the codec said it had ignored survived into state, invisible
+     until the panel opened. #v=saldo&c=1&y=2024&jl=2 boots with jls false and
+     launders the URL to #v=saldo&c=1&y=2024; pressing Tokovi and opening the JLS
+     chip then showed "Unutar županije" instead of the default and re-emitted
+     jl=2 — a state the reader cannot reproduce from the link they were left
+     with, against this codec's own contract that invalid fields are ignored. A
+     40.048-hash fuzz found 55 unstable boots and every one was this shape.
+     Compared against the control link rather than against a literal tab name, so
+     a renamed default cannot make it pass. */
+  const tabCarry = {};
+  for (const [k, start] of [['dirty', '#v=saldo&c=1&y=2024&jl=2'], ['clean', '#v=saldo&c=1&y=2024']]) {
+    await fresh(start);
+    tabCarry[k] = { booted: await page.evaluate(() => location.hash) };
+    await click('#segView button[data-v="flow"]');
+    await settle(500);
+    await click('#jcardHd');
+    await settle(400);
+    Object.assign(tabCarry[k], await page.evaluate(() => ({ hash: location.hash,
+      tab: ([...document.querySelectorAll('#jlsTabs button')]
+        .find(b => b.getAttribute('aria-pressed') === 'true') || {}).textContent || null })));
+  }
+  await fresh('#v=saldo&c=1&y=2024&cz=1&ag=2');
+  const agCarry = { booted: await page.evaluate(() => location.hash) };
+  await click('#ageHd');
+  await settle(400);
+  agCarry.hash = await page.evaluate(() => location.hash);
+  ck('a hash flag the codec discards does not leave its panel tab behind',
+    tabCarry.dirty.booted === tabCarry.clean.booted
+    && tabCarry.dirty.hash === tabCarry.clean.hash
+    && tabCarry.dirty.tab === tabCarry.clean.tab && !!tabCarry.clean.tab
+    && !/ag=2/.test(agCarry.hash) && !/ag=/.test(agCarry.booted),
+    JSON.stringify({ tabCarry, agCarry }));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
