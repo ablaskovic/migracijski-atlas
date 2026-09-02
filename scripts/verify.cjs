@@ -662,21 +662,49 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      UPWARD and painted 94 px over the Sastavnica group, unreachable because body
      is overflow:hidden and height-locked. Simulated here by shrinking the stage
      directly, which is the condition the setting produces. */
-  const legEscape = await page.evaluate(async () => {
-    const box = document.querySelector('.map-box');
-    const prev = box.style.height;
-    box.style.height = '150px';
-    box.style.flex = 'none';
-    await new Promise(r => setTimeout(r, 250));
-    const b = box.getBoundingClientRect(), l = document.querySelector('.legend').getBoundingClientRect();
-    const c = document.querySelector('.ctrls').getBoundingClientRect();
-    const ov = Math.max(0, Math.min(l.right, c.right) - Math.max(l.left, c.left))
-      * Math.max(0, Math.min(l.bottom, c.bottom) - Math.max(l.top, c.top));
-    box.style.height = prev; box.style.flex = '';
-    return { escapes: l.top < b.top - 1, overCtrls: Math.round(ov), legH: Math.round(l.height) };
+  /* …under the setting itself, not under a geometry that resembles it.
+     The simulation set `.map-box{height:150px}`, which the OTHER half of the
+     same fix — `min-height:180px` — clamps: measured, the box went 570 → 180,
+     never 150. And the suite runs at default type, where the Saldo legend is
+     88 px inside a 180 px box, so the cap is never loaded at all. Mutation-
+     tested: stripping `max-height` and `overflow-y` from `.legend`, the exact
+     revert of the guard this check is named for, left it reporting
+     {escapes:false, overCtrls:0, legH:88} and printing ok. Under
+     minimumFontSize=24 the identical strip gives {escapes:true,
+     overCtrls:6119, legH:201} — the defect this check exists for, exactly
+     reproducible and completely invisible to it.
+     puppeteer cannot set that preference per page, so it takes a second
+     browser, the way the font-swap and language boots already take extra
+     pages. `root >= 24` is the floor that proves the flag took effect: a Chrome
+     that ignored it would otherwise pass this vacuously at default type. */
+  const mfsBrowser = await puppeteer.launch({
+    args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR',
+      '--blink-settings=minimumFontSize=24,minimumLogicalFontSize=24'],
   });
-  ck('the legend stays inside the map box when the stage is squeezed',
-    !legEscape.escapes && legEscape.overCtrls === 0, JSON.stringify(legEscape));
+  let legEscape;
+  try {
+    const pg = await watch(await mfsBrowser.newPage());
+    await pinHr(pg);
+    await pg.emulateTimezone('Europe/Zagreb');
+    await pg.setViewport({ width: 1440, height: 900 });
+    await pg.goto(url + '#v=saldo&c=1&y=2024', { waitUntil: 'networkidle0' });
+    await pg.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+    await settle(500);
+    legEscape = await pg.evaluate(() => {
+      const b = document.querySelector('.map-box').getBoundingClientRect();
+      const l = document.querySelector('.legend').getBoundingClientRect();
+      const c = document.querySelector('.ctrls').getBoundingClientRect();
+      const ov = Math.max(0, Math.min(l.right, c.right) - Math.max(l.left, c.left))
+        * Math.max(0, Math.min(l.bottom, c.bottom) - Math.max(l.top, c.top));
+      return { root: parseFloat(getComputedStyle(document.documentElement).fontSize),
+        escapes: l.top < b.top - 1, overCtrls: Math.round(ov),
+        legH: Math.round(l.height), boxH: Math.round(b.height) };
+    });
+    await pg.close();
+  } finally { await mfsBrowser.close(); }
+  ck('the legend stays inside the map box under the reader’s own minimum font size',
+    legEscape.root >= 24 && !legEscape.escapes && legEscape.overCtrls === 0
+    && legEscape.legH <= legEscape.boxH, JSON.stringify(legEscape));
   /* …and the type tracks the reader's own font-size preference. All 74
      font-size declarations in index.css were literal px, including the base, so
      Chrome's Appearance → Font size — the single most discoverable text-size
