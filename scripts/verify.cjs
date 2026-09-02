@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 567;
+const EXPECTED_CHECKS = 568;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9434,6 +9434,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     ['hr', 'en'].every(l => nameFix[l].name && nameFix[l].vis
       && nameFix[l].name.startsWith(nameFix[l].vis) && nameFix[l].labId === 'storyLab'),
     JSON.stringify(nameFix));
+
+  /* ── PageUp and PageDown keep the reader's column ──
+     the APG grid pattern this file cites as its contract has them preserve it,
+     and moveF already resolves the diagonal along its direction of travel. The
+     jump handler stepped the COLUMN unconditionally, so from any cell in column
+     0 PageUp targets [0,0] — the diagonal — and landed the reader on [0,1], row
+     0 of a different corridor; PageDown in the last column was the mirror,
+     [20,19] for [19,20]. Walked with the keyboard, not focused: the roving stop
+     is React state, and .focus() alone leaves the handler reading the old cell. */
+  const mxPage = {};
+  const pageLeg = async (steps, key) => {
+    await fresh('#v=mx&y=2018&c=0&dir=out');
+    await page.waitForSelector('.mxc[tabindex="0"]', { timeout: 20000 }).catch(() => {});
+    await page.evaluate(() => document.querySelector('.mxc[tabindex="0"]').focus());
+    await settle(200);
+    const cell = () => page.evaluate(() => {
+      const e = document.activeElement;
+      return e && e.getAttribute ? [e.getAttribute('data-a'), e.getAttribute('data-b')] : null;
+    });
+    for (const k of steps) { await page.keyboard.press(k); await settle(140); }
+    const before = await cell();
+    await page.keyboard.press(key);
+    await settle(240);
+    return { before, after: await cell() };
+  };
+  /* the case the fix is named for: column 0, where PageUp targets the diagonal */
+  mxPage.col0 = await pageLeg(['ArrowDown', 'ArrowDown', 'ArrowLeft'], 'PageUp');
+  mxPage.up = await pageLeg(['ArrowDown', 'ArrowDown'], 'PageUp');
+  mxPage.down = await pageLeg(Array(19).fill('ArrowRight'), 'PageDown');
+  mxPage.mid = await pageLeg(['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowDown', 'ArrowDown'], 'PageUp');
+  mxPage.home = await pageLeg(['ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowRight'], 'Home');
+  const sameCol = r => !!r.before && !!r.after && r.before[1] === r.after[1] && r.before[0] !== r.after[0];
+  ck('PageUp and PageDown move along the reader’s own column, Home along the row',
+    sameCol(mxPage.col0) && sameCol(mxPage.up) && sameCol(mxPage.down) && sameCol(mxPage.mid)
+    && mxPage.home.before[0] === mxPage.home.after[0]
+    && mxPage.home.before[1] !== mxPage.home.after[1],
+    JSON.stringify(mxPage));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));

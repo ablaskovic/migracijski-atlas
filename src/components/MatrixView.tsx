@@ -197,8 +197,21 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
       setFc(([r, c]) => {
         const j = jump[e.key]!;
         let nr = j[0] < 0 ? r : j[0], nc = j[1] < 0 ? c : j[1];
-        /* the diagonal holds no value — step off it the way moveF does */
-        if (nr === nc) { if (nc < n - 1) nc += 1; else nc -= 1; }
+        /* the diagonal holds no value — step off it the way moveF does, along
+           the jump's OWN axis. Stepping the column unconditionally threw the
+           reader out of the column they were paging: from any cell in column 0,
+           PageUp targets [0,0], the diagonal, and this landed them on [0,1] —
+           row 0 of a different corridor. Measured from [2,0] (HR-02 → HR-21):
+           PageUp put focus on [HR-21, HR-01]. PageDown in the last column was
+           the mirror, [20,19] instead of [19,20]. The APG grid pattern this
+           file cites as its contract has PageUp/PageDown preserve the column,
+           and moveF already resolves the diagonal along its direction of
+           travel; only the jump handler lost the axis. */
+        if (nr === nc) {
+          if (j[1] < 0) nr += nr === 0 ? 1 : -1;
+          else if (nc < n - 1) nc += 1;
+          else nc -= 1;
+        }
         return [nr, nc];
       });
       return;
