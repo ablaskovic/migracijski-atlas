@@ -6,6 +6,16 @@
    lifts. Neither maps onto hover, so both are special-cased against this flag —
    read once, since a device does not change input class mid-session. */
 export const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches;
+/* …and the OTHER coarse question, which is the one index.css asks. Every 44 px
+   touch token lives under `any-pointer:coarse` — true when any available input
+   is coarse — while the flag above is `pointer:coarse`, the PRIMARY input. On a
+   touch laptop or a Surface those two disagree: the tokens double and a
+   threshold keyed on the flag above does not, so MapView's claim that "the class
+   and the CSS cannot disagree about which pointer this is" was false on exactly
+   the devices where a thumb reaches the controls. Kept separate rather than
+   widened, because the tap semantics above are genuinely about the primary
+   pointer: a mouse user on a touch laptop should keep the hover tooltip. */
+export const TOKENS_COARSE = typeof matchMedia === 'function' && matchMedia('(any-pointer:coarse)').matches;
 
 let tipNode: HTMLDivElement | null = null;
 /* last pointer position, kept even while the tip is hidden: it becomes visible

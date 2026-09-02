@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 482;
+const EXPECTED_CHECKS = 483;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2185,8 +2185,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      #citzHd .pair-note — both headers dead, and a header is those panels' only
      pointer affordance. Clean at 900 px tall, broken at 768 and 700, which is
      the single most common desktop viewport and every touchscreen up to 900. */
+  /* 901×800 and 901×760 are in the list for a reason the others are not: they
+     are where `.map-stage` is squeezed BELOW `.map-box`'s own 180 px floor by a
+     corridor card in flow, so a guard keyed on the box could not see it.
+     Measured before the fix, 901×800 touch: stage 140 px against a floored
+     180 px box, the stage-anchored dock at y=459 inside the top strip's 445–489
+     lane, and elementFromPoint at the centre of #ageHd returning #helpBtn. */
   const shortStage = [];
   for (const [w, h, touch] of [[1024, 768, true], [1024, 768, false], [1280, 700, false],
+    [901, 800, true], [901, 760, true], [930, 800, true],
     [1366, 768, false], [1440, 900, false], [1600, 1000, false]]) {
     await page.setViewport({ width: w, height: h, isMobile: touch, hasTouch: touch });
     await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
@@ -2212,6 +2219,35 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     });
     if (bad.length) shortStage.push(`${w}x${h}${touch ? ' touch' : ''} ${bad.join(',')}`);
   }
+  /* …and the outcome, not only the hit test: a real touchscreen tap on the
+     centre of "Dob i spol" has to open the age panel. Measured before the fix at
+     901×800 with a coarse pointer and a corridor open, it opened the GLOSSARY —
+     the strip is z-index 6 against the dock's 4, so it took the tap — while the
+     `stage-tight` class that reflows the dock could never apply, because its
+     114/174 px thresholds sat under a floor the measured box could not go below.
+     The threshold also read `pointer:coarse` while every 44 px token it is sized
+     against reads `any-pointer:coarse`; on a touch laptop those disagree. */
+  await page.setViewport({ width: 901, height: 800, isMobile: false, hasTouch: true });
+  await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+  const tightTap = await page.evaluate(() => {
+    const e = document.querySelector('#ageHd');
+    const b = e.getBoundingClientRect();
+    return { at: [Math.round(b.left + b.width / 2), Math.round(b.top + b.height / 2)],
+      cls: document.querySelector('.map-wrap').className,
+      stageH: Math.round(document.querySelector('.map-stage').getBoundingClientRect().height),
+      boxH: Math.round(document.querySelector('.map-box').getBoundingClientRect().height) };
+  });
+  await page.touchscreen.tap(tightTap.at[0], tightTap.at[1]);
+  await settle(300);
+  const tightOpened = await page.evaluate(() => ({
+    help: !!document.querySelector('#helpCard'),
+    age: document.querySelector('#agec').classList.contains('open') }));
+  ck('a tap on the age chip opens the age panel where the stage is squeezed under the box’s floor',
+    tightTap.stageH < tightTap.boxH && tightTap.cls.includes('stage-tight')
+    && tightOpened.age && !tightOpened.help,
+    JSON.stringify({ ...tightTap, ...tightOpened }));
+  await page.setViewport({ width: 1440, height: 900 });
+
   ck('the corridor card clears the chip dock at every stage height, not only at 900 px',
     shortStage.length === 0, shortStage.slice(0, 3).join(' | '));
 

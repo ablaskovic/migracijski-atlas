@@ -17,7 +17,7 @@ import MatrixView from './MatrixView.tsx';
 import YearsView from './YearsView.tsx';
 import HelpPanel from './HelpPanel.tsx';
 import StoryBar from './StoryBar.tsx';
-import { moveTip, COARSE } from '../lib/tip.ts';
+import { moveTip, COARSE, TOKENS_COARSE } from '../lib/tip.ts';
 import { L } from '../lib/i18n.ts';
 import { focusSoon, isKeyFocus } from '../lib/state.ts';
 import { offCentre } from '../lib/anchors.ts';
@@ -34,14 +34,34 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  /* The STAGE's height as well as the box's. `.map-box` carries min-height:180px
+     (288 in the mobile layout), so it can never measure below that — and every
+     threshold keyed on it therefore sat under a floor it could not reach:
+     `stage-tight` (114 fine / 174 coarse) was unreachable by construction, and
+     with it index.css's whole two-row dock rule. Worse, the premise that
+     ".map-box is the stage's only in-flow child, so the two are the same box"
+     fails exactly where the protection is wanted. Measured at 901×800 with a
+     coarse pointer and a corridor card in flow: the stage was 140 px against the
+     box's floored 180, the stage-anchored chip dock rose to y=459 into the top
+     strip's 445–489 lane, and a real touchscreen tap on the centre of "Dob i
+     spol" opened the GLOSSARY — the exact defect stage-tight exists to prevent.
+     Both are measured; the shorter one decides. */
+  const [stageH, setStageH] = useState(0);
   useEffect(() => {
     const ro = new ResizeObserver(es => {
-      const r = es[0].contentRect;
-      setSize(s => (s.w === r.width && s.h === r.height ? s : { w: r.width, h: r.height }));
+      for (const e of es) {
+        const r = e.contentRect;
+        if (e.target === wrapRef.current) setSize(s => (s.w === r.width && s.h === r.height ? s : { w: r.width, h: r.height }));
+        else setStageH(h => (h === r.height ? h : r.height));
+      }
     });
     ro.observe(wrapRef.current!);
+    const stage = wrapRef.current?.parentElement;
+    if (stage) ro.observe(stage);
     return () => ro.disconnect();
   }, []);
+  /* what the overlays actually have to fit inside */
+  const stageFit = stageH ? Math.min(size.h, stageH) : size.h;
 
   /* Which feature actually holds focus, kept out of S: presentation only, and
      deliberately separate from `hl` (hover) for the reason v2.0.4 documented.
@@ -415,15 +435,18 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
        two-high chip dock at once. The strip runs from top:14 to 14 + --hbw and
        the dock occupies 12 + 2 × --chiph from the bottom, so they collide below
        their sum — 114 px with a fine pointer, 174 px with a coarse one, where
-       both tokens double. The strip is z-index 6 against the dock's 4, so it took
+       both tokens double. Read from TOKENS_COARSE — `any-pointer:coarse`, the
+       query the tokens themselves use — not from tip.ts's COARSE, which is
+       `pointer:coarse`: on a touch laptop those disagree, the tokens doubled and
+       this threshold did not. The strip is z-index 6 against the dock's 4, so it took
        the tap: measured at 1024×600 with a coarse pointer, pressing the centre of
        "Dob i spol" opened the glossary instead of the age panel, and at 901×600
        elementFromPoint over #citzHd returned #helpBtn. Both thresholds are read
-       from the same COARSE flag the tokens are, so the class and the CSS cannot
+       from the same query the tokens are, so the class and the CSS cannot
        disagree about which pointer this is. */
-    <div className={'map-wrap' + (size.h && size.h < 340 ? ' stage-short' : '')
-      + (size.h && size.h < (COARSE ? 174 : 114) ? ' stage-tight' : '')}
-      style={{ '--stageh': size.h + 'px' } as CSSProperties}>
+    <div className={'map-wrap' + (stageFit && stageFit < 340 ? ' stage-short' : '')
+      + (stageFit && stageFit < (TOKENS_COARSE ? 174 : 114) ? ' stage-tight' : '')}
+      style={{ '--stageh': stageFit + 'px' } as CSSProperties}>
       <DetailCard S={S} setS={setS} />
       {/* outside .map-box on purpose: at ≤900 it leaves the overlay layer and
           sits in normal flow above the map, like the detail card. Floating, it
