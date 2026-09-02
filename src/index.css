@@ -1318,12 +1318,14 @@ body.stage-collapsed .main{flex:none;height:420px}
      this changes what fits in it, not what it covers. */
   .rname{font-size:0.75rem}
   .rval{font-size:0.75rem}
-  /* and the name column widens to hold them. 120 px was already one pixel short
-     of the longest names at 11 px (measured: Dubrovačko-neretvanska wanted
-     123,8) and 12 px wants 135, so three of 21 counties were reaching the
-     ellipsis. The 20 px comes off the bar, which is a comparison aid with 168 px
-     to spare here, not off the number, which is the value itself. */
-  .rrow{grid-template-columns:140px 1fr 60px}
+  /* No .rrow columns here any more. This block used to widen the name column to
+     140 px for the 12 px phone type, and the base rule now declares exactly
+     that — its own comment records the move: "the 140 px column the project
+     documents as the fix lived only in the ≤560 px block". What was left was a
+     byte-identical override under a comment still narrating a widening that no
+     longer happens, in a file whose comments are the record of its measured
+     decisions: a maintainer tuning phone rail columns would have edited a
+     no-op and read a false causal story off it. */
   /* keep the 18px top padding from the ≤900 block — it is the handle's lane.
      Shrinking it here would put the handle on top of the chart, which then
      swallows the tap and scrubs the year instead of collapsing. */
