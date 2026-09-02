@@ -142,8 +142,15 @@ export const SHORTN: Record<string, string> = {
   'HR-13': 'Zadarska', 'HR-14': 'Osječko-bar.', 'HR-15': 'Šibensko-kn.', 'HR-16': 'Vukovarsko-srij.',
   'HR-17': 'Splitsko-dalm.', 'HR-18': 'Istarska', 'HR-19': 'Dubrovačko-ner.', 'HR-20': 'Međimurska', 'HR-21': 'Grad Zagreb',
 };
-/* Citizenship groups. The ISO country codes inside the neighbourhood label are
-   left alone — they are identifiers, and they are what the DZS table lists. */
+/* Citizenship groups. The abbreviations inside the neighbourhood label are the
+   DZS table's own, not ISO alpha-2: BiH, SRB and CG are Croatian national short
+   forms where ISO would say BA, RS and ME, and only XK, MK and AL happen to
+   coincide. They stay because they are what the source prints — except CG,
+   which is the Republic of the Congo in ISO, so the English label reads ME.
+   This note used to call all six "ISO country codes … left alone", which was
+   wrong about three of them and about the one that is in fact translated: a
+   maintainer correcting either side to match the comment would have changed
+   visible copy in both languages. */
 const CG_: [string, string, string, string][] = [
   ['hr', 'Hrvatska', 'Croatia', '#20262B'],
   ['sus', 'Susjedstvo (BiH·SRB·XK·MK·AL·CG)', 'Neighbourhood (BiH·SRB·XK·MK·AL·ME)', '#A08C6A'],
