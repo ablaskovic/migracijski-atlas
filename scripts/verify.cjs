@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 475;
+const EXPECTED_CHECKS = 476;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1857,6 +1857,51 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const pcWide = await page.evaluate(() => getComputedStyle(document.querySelector('.paircard')).position);
   ck('.paircard drops to static below 960 px and floats above it',
     pcNarrow === 'static' && pcWide === 'absolute', pcNarrow + ' / ' + pcWide);
+
+  /* …and the docked one has to live inside the rail's height budget. It was
+     given `max-height:none;overflow-y:visible` on the reasoning that "docked in
+     the rail there is no dock to clear" — true, and it dropped the rail's own
+     budget with the chip dock's. As a flex item its `min-height:auto` resolves
+     to min-content, so it never shrank: measured 236 px at every window from
+     1024×600 to 1920×1080, with .rail-list absorbing the whole deficit. At
+     1440×900 that left 6 of the 20 corridor rows, at 1366×768 one, and at
+     1366×657, 1280×720 and 1280×609 the ranking was a 4 px strip with none —
+     while all 20 rows stayed tabbable, so focusing the fourth left 4 px of a
+     29 px row inside the scroller (2.4.11). Worse, the rail leaked: #railYear,
+     which states the period and the honesty badge, ended 21 px BELOW the rail
+     box and .rail-hint 71 px below it, painted under svg#spark — a control that
+     sets the year on pointerdown. Measured at the tightest window the sweeps
+     use. */
+  await page.setViewport({ width: 1366, height: 657 });
+  await fresh('#v=mx&c=0&y=2018&dir=net&s=HR-14&pp=HR-21');
+  const railBudget = await page.evaluate(async () => {
+    const rail = document.querySelector('.rail').getBoundingClientRect();
+    const list = document.querySelector('.rail-list').getBoundingClientRect();
+    const card = document.querySelector('.paircard');
+    const rows = [...document.querySelectorAll('#railList .rrow')];
+    const vis = rows.filter(r => {
+      const b = r.getBoundingClientRect();
+      return b.top >= list.top - 1 && b.bottom <= list.bottom + 1;
+    }).length;
+    rows[3].focus();
+    await new Promise(r => setTimeout(r, 150));
+    const fb = rows[3].getBoundingClientRect();
+    const inside = Math.max(0, Math.min(list.bottom, fb.bottom) - Math.max(list.top, fb.top));
+    const below = sel => {
+      const e = document.querySelector(sel);
+      return e ? Math.round(e.getBoundingClientRect().bottom - rail.bottom) : -999;
+    };
+    return { rows: rows.length, vis, list: Math.round(list.height),
+      cardScrolls: card.scrollHeight > card.clientHeight + 1 || card.getBoundingClientRect().height < 236,
+      focusInside: Math.round(inside), rowH: Math.round(fb.height),
+      yr: below('#railYear'), hint: below('.rail-hint') };
+  });
+  ck('the docked corridor card leaves the ranking a share of the rail, and nothing below it',
+    railBudget.rows === 20 && railBudget.vis >= 1 && railBudget.list >= 50
+    && railBudget.cardScrolls && railBudget.focusInside >= railBudget.rowH - 1
+    && railBudget.yr <= 0 && railBudget.hint <= 0,
+    JSON.stringify(railBudget));
+  await page.setViewport({ width: 1440, height: 900 });
 
   /* ── a phone held sideways is not a desktop ──
      The scrolling layout used to be gated on width alone, and the pinned

@@ -469,13 +469,25 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .card-sub{font-family:var(--mono);font-size:0.5625rem;color:var(--mut);letter-spacing:.06em;margin:1px 0 4px}
 .card svg{display:block;width:100%;height:128px}
 
-.rail{width:292px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+/* `overflow:hidden` is a containment, not a look: the rail is a fixed-height
+   flex column and its children have to live inside it. Without it a docked
+   corridor card that refused to shrink pushed #railYear — the line that states
+   the period and the honesty badge — and .rail-hint out of the bottom of the
+   rail entirely: measured at 1366×657 they ended 21 px and 71 px BELOW the rail
+   box, painted under svg#spark, a control that sets the year on pointerdown. */
+.rail{width:292px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .rail-hd{padding:10px 14px 8px;border-bottom:1px solid var(--line)}
 .rail-year{font-family:var(--disp);font-weight:500;font-size:0.9375rem;letter-spacing:.04em}
 /* 2px, not 6: the list is 21 rows of a fixed ranking and the rows below just
    grew to a 24px target, so the four pixels a side are worth more spent on
    fitting the ranking than on breathing room the row padding already gives. */
-.rail-list{flex:1;overflow-y:auto;padding:2px 0}
+/* …and a floor under the ranking, for the same reason .map-box carries one. The
+   docked card's cap is a share of the RAIL, not of what is left after the
+   header, the period line and the hint — so on the shortest windows the cap
+   alone still left the list at 15 px with none of the 20 corridors on it. Two
+   rows is the least that reads as a ranking, and the card shrinks past its own
+   cap to pay for them. */
+.rail-list{flex:1;overflow-y:auto;padding:2px 0;min-height:58px}
 /* min-height is the WCAG 2.5.8 target, not a look: the row was 291×19 and all
    21 of them failed the audit at every desktop width (19 px of content box, and
    14 px of "safe clickable space" between neighbours where 24 is asked for).
@@ -723,8 +735,17 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    Same component, no overlay geometry to negotiate. */
 .rail .paircard{position:static;width:auto;top:auto;right:auto;box-shadow:none;
   border:0;border-bottom:1px solid var(--line);border-radius:0;padding:8px 14px 10px;
-  /* docked in the rail there is no dock to clear, and no --stageh to read */
-  max-height:none;overflow-y:visible}
+  /* Docked in the rail there is no chip dock to clear and no --stageh to read —
+     but there IS a height budget, and dropping the cap dropped that too. As a
+     flex item of the column its `min-height:auto` resolves to min-content, so it
+     never shrank: measured 236 px at every window from 1024×600 to 1920×1080,
+     with .rail-list absorbing the whole deficit. At 1440×900 that left 6 of the
+     20 corridor rows visible, at 1366×768 one, and at 1366×657, 1280×720 and
+     1280×609 the ranking was a 4 px strip with none — while all 20 rows stayed
+     tabbable, so focusing the fourth left 4 px of a 29 px row inside the
+     scroller (2.4.11). The rail's own budget, then: half to the card, half to
+     the ranking, and the card scrolls exactly the way its floating twin does. */
+  flex:0 1 auto;min-height:0;max-height:50%;overflow-y:auto}
 /* the row the open card describes — teal, matching the grid's selection ring */
 .rrow.selrow{box-shadow:inset 2px 0 0 var(--acc)}
 /* `nowrap` on the row meant the docked variant could not give: between 901 and
