@@ -62,6 +62,17 @@ export const fmtR: Pick<Intl.NumberFormat, 'format'> = { format: n => minus(numR
    which is a fact about the picture and therefore a fact the legend has to
    state — so the number lives here rather than as a literal in the filter and
    a different literal in the sentence. */
+/* Which margin the IPF fit reproduces, in the one wording every surface uses.
+   MA3-021 replaced "skalirana na DZS margine" on the two legend notes and in
+   the glossary because it reads as both margins being reproduced, when only
+   the out-margin is exact — the columns drift ±4 from 2007 and by up to +146
+   per county in 1998–2006 after the rescale. The pair card and the footer kept
+   the old shape, so a corridor card sat directly under a legend describing the
+   same estimate differently. One string now, so they cannot part again. */
+export const ipfMargins = (): string =>
+  L('struktura 2018. skalirana na DZS odseljene; doseljeni približno',
+    'the 2018 structure scaled to CBS out-margins; in-margins approximate');
+
 export const ARC_MIN = 5;
 export const arcMinNote = (): string =>
   L(`Koridori ispod ${ARC_MIN} osoba nisu ucrtani. `, `Corridors under ${ARC_MIN} people are not drawn. `);

@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 572;
+const EXPECTED_CHECKS = 573;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9598,6 +9598,36 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /Corridors under 5 people are not drawn/.test(arcGap.enNet.note),
     JSON.stringify({ net: arcGap.net.arcs, out: arcGap.out.arcs, rows: arcGap.net.rows,
       hr: arcGap.net.note.slice(0, 90), en: arcGap.enNet.note.slice(0, 90) }));
+
+  /* ── one wording for which margin the IPF fit reproduces ──
+     MA3-021 replaced "skalirana na DZS margine" on the two legend notes and in
+     the glossary because it reads as BOTH margins being reproduced, when only
+     the out-margin is exact — the columns drift ±4 from 2007 and by up to +146
+     per county in 1998–2006 after the rescale. The corridor card and the
+     always-visible footer kept the old shape, so a card sat directly under a
+     legend describing the same estimate differently. The sentence is one export
+     now; the footer takes the short form of the same claim, because it is the
+     last in-flow item in a body pinned to one viewport and the full clause costs
+     it a line at 1024 and 960 px. */
+  const ipfSay = {};
+  for (const [k, h] of [['hr', '#v=mx&c=0&y=2002&s=HR-14&pp=HR-21'],
+    ['en', '#l=en&v=mx&c=0&y=2002&s=HR-14&pp=HR-21']]) {
+    await fresh(h);
+    ipfSay[k] = await page.evaluate(() => ({
+      note: (document.querySelector('.pair-note') || {}).textContent || '',
+      legend: (document.querySelector('#legend .legend-note') || {}).textContent || '',
+      foot: (document.querySelector('.ft') || {}).textContent || '' }));
+  }
+  const IPF_HR = 'struktura 2018. skalirana na DZS odseljene; doseljeni približno';
+  const IPF_EN = 'the 2018 structure scaled to CBS out-margins; in-margins approximate';
+  ck('the card, the legend and the footer name the same fitted margin',
+    ipfSay.hr.note.includes(IPF_HR) && ipfSay.hr.legend.includes(IPF_HR)
+    && /IPF procjena na DZS odseljene/.test(ipfSay.hr.foot)
+    && ipfSay.en.note.includes(IPF_EN) && ipfSay.en.legend.includes(IPF_EN)
+    && /IPF estimate on CBS out-margins/.test(ipfSay.en.foot)
+    && !/na DZS marginama|on CBS margins/.test(
+      ipfSay.hr.note + ipfSay.hr.foot + ipfSay.en.note + ipfSay.en.foot),
+    JSON.stringify({ hr: ipfSay.hr.note, en: ipfSay.en.note }));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));

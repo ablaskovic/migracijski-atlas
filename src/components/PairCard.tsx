@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
-import { YEARS, Y0, YEND, SHORTN, getOD, fsum, badgeText, flowBadge, flowKind, fmtI, sgn } from '../lib/metrics.ts';
+import { YEARS, Y0, YEND, SHORTN, getOD, fsum, badgeText, flowBadge, flowKind, fmtI, sgn, ipfMargins } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -134,8 +134,8 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
           cum-aware and left this note on the year. */}
       <div className="pair-note">{!S.cum && flowKind(S.yi, S.cum) === 'meas'
         ? L('Jedina godina s izmjerenom matricom tokova.', 'The only year with a measured flow matrix.')
-        : L('Točka 2018. je izmjerena; ostale su godine IPF procjena na DZS marginama.',
-          'The 2018 point is measured; the other years are IPF estimates on CBS margins.')}</div>
+        : L('Točka 2018. je izmjerena; ostale su godine IPF procjena — ',
+          'The 2018 point is measured; the other years are IPF estimates — ') + ipfMargins() + '.'}</div>
     </div>
   );
 }

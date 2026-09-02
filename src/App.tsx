@@ -841,7 +841,18 @@ export default function App() {
             'tab. 7.4.1.–7.4.3. (July 2026) · citizenship, age, countries: CBS STAN-2026-2-1 · 2018 flows: CBS special processing, counties and LAUs (')}
           <a className="paper-link" href={sources()[1].href} target="_blank" rel="noopener noreferrer"
             aria-label={`${L('Pitoski i sur. 2021', 'Pitoski et al. 2021')} — ${sources()[1].note}. ${NEWTAB()}`}>{L('Pitoski i sur. 2021', 'Pitoski et al. 2021')}</a>, CC BY) ·
-          {L('ostale godine: IPF procjena na DZS marginama · granice županija:', 'other years: IPF estimate on CBS margins · county boundaries:')}{' '}
+          {/* "na DZS marginama" claimed both margins are reproduced, and only the
+              out-margin is exact — the columns drift ±4 from 2007 and by up to
+              +146 per county in 1998–2006 after the rescale. MA3-021 replaced
+              exactly that shape on the two legend notes and in the glossary and
+              left this one. The short form here rather than ipfMargins() in
+              full: this footer is the last in-flow item in a body pinned to one
+              viewport, so every line it gains comes straight off .map-box —
+              measured, the full clause costs a line at 1024 and 960 px. Naming
+              the fitted margin is the correction; the whole sentence lives in
+              the legends and on the card, which have the room for it. */}
+          {L('ostale godine: IPF procjena na DZS odseljene · granice županija:',
+            'other years: IPF estimate on CBS out-margins · county boundaries:')}{' '}
           <a className="paper-link" href={sources()[3].href} target="_blank" rel="noopener noreferrer"
             aria-label={`geoBoundaries — ${sources()[3].note}. ${NEWTAB()}`}>geoBoundaries</a>{L('/OSM, granice JLS:', '/OSM, LAU boundaries:')}{' '}
           <a className="paper-link" href={sources()[2].href} target="_blank" rel="noopener noreferrer"
