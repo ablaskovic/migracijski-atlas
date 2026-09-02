@@ -566,6 +566,16 @@ body.stage-collapsed .main{flex:none;height:420px}
 .rrow{display:grid;grid-template-columns:140px 1fr 60px;align-items:center;gap:8px;
   min-height:24px;padding:2.5px 14px;cursor:pointer;border-left:3px solid transparent}
 .rrow:hover,.rrow.hl{background:#EEF0EA;border-left-color:var(--acc)}
+/* Inside the ring, not outside it. .rail-list is overflow-y:auto with 2px 0
+   padding, and a row fills its content box exactly — so the global
+   outline-offset:2px put the ring 4 px past a clip 2 px away vertically and 0 px
+   horizontally. Measured at 1440×900: both side bands cut on every row, the first
+   row's whole top band and the last row's whole bottom band cut as well, leaving
+   the first row with a single 2 px line under it as its only focus-specific mark
+   — and the rest of its appearance (teal border-left, grey fill) is what plain
+   hover paints anyway, so a keyboard reader could not tell the two apart. Same
+   answer .seg, .jtabs, #spark and svg#map already take in this file. */
+.rrow:focus-visible{outline-offset:-2px}
 .rrow.big{padding:6px 14px}
 .rname{font-size:0.6875rem;line-height:1.25;overflow-wrap:anywhere}
 .rbar-track{position:relative;height:9px}

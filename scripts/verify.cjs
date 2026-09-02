@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 553;
+const EXPECTED_CHECKS = 554;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10403,6 +10403,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     !segRing.none && segRing.fv && segRing.style === 'solid'
     && parseFloat(segRing.width) >= 2 && parseFloat(segRing.offset) < 0,
     JSON.stringify(segRing));
+
+  /* …and the rail rows' ring, which is the same defect one container over. The
+     check above tests a rule; this one tests the geometry, because a ring can be
+     correct and still be cut. .rail-list is overflow-y:auto with `2px 0` padding
+     and a row fills its content box exactly, so the global outline-offset:2px put
+     the ring 4 px past a clip 2 px away vertically and 0 px horizontally:
+     measured at 1440×900, both side bands gone on every row, the first row's
+     whole top band and the last row's whole bottom band gone as well. What
+     survived on the first row was a single 2 px line under it — and the teal
+     border-left and grey fill around it are what plain hover paints, so a
+     keyboard reader had nothing that said "focused" rather than "pointed at".
+     Both ends of the list, because the two clip differently. */
+  await fresh('#v=saldo&y=2020&c=0');
+  await page.waitForSelector('#railList .rrow', { timeout: 30000 }).catch(() => {});
+  const railRing = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#railList .rrow')];
+    const lb = document.querySelector('#railList').getBoundingClientRect();
+    return rows.length < 2 ? { short: rows.length } : { n: rows.length,
+      ends: [0, rows.length - 1].map(i => {
+        const row = rows[i];
+        row.focus();
+        const c = getComputedStyle(row);
+        const w = parseFloat(c.outlineWidth), off = parseFloat(c.outlineOffset);
+        const b = row.getBoundingClientRect();
+        return { i, fv: row.matches(':focus-visible'), w, off,
+          /* positive = the ring reaches past the clip on that side */
+          cut: Math.max(lb.left - (b.left - off - w), lb.top - (b.top - off - w),
+            (b.right + off + w) - lb.right, (b.bottom + off + w) - lb.bottom) };
+      }) };
+  });
+  ck('a rail row tabbed onto draws a ring its own scroll container does not clip',
+    railRing.n >= 2 && railRing.ends.every(e => e.fv && e.w >= 2 && e.cut <= 0),
+    JSON.stringify(railRing));
 
   /* (4) the export's font fetch, failed and wedged. Both paths degrade to the
      documented fallback — the figure names the families instead of embedding
