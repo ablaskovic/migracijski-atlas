@@ -220,8 +220,16 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
                documents: at ~9 px a tap that navigates is a tap that misfires */
             onClick={() => { if (!COARSE) pickYear(yi); }} />
           {showNum && fitsNum(txt) && (
+            /* aria-hidden: the cell's own aria-label already carries this
+               number, and the <g role="presentation"> around the pair is
+               flattened, so at a viewport where numbers render each row owned 21
+               gridcells interleaved with 20 loose StaticText nodes — measured at
+               1920×1080, 417 of them in Matrica and 315 in Godine, every value
+               announced twice and NVDA's row reading alternating cell / stray
+               text. The suite never saw it: it runs at 1440×900, where the cell
+               is 19 px and no number is drawn. */
             <text className="mxnum" x={x0 + c * cw + cw / 2} y={y0 + r * ch + ch / 2 + numFs * 0.35}
-              textAnchor="middle" fontSize={numFs} fontFamily={MONO} fill="#20262B" pointerEvents="none">
+              textAnchor="middle" fontSize={numFs} fontFamily={MONO} fill="#20262B" pointerEvents="none" aria-hidden="true">
               {txt}
             </text>
           )}
@@ -257,6 +265,20 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
         </pattern>
       </defs>
       <g transform={`translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`} ref={gridRef}>
+        {/* aria-hidden, because ARIA 1.2 lets a `grid` own only rows and rowgroups
+            and these sat directly under it: measured on the AX tree, the grid node's
+            children were 42 generic nodes (21 row names + 21 column names) followed
+            by 21 rows, none of them ignored, and the document declares no
+            columnheader or rowheader anywhere. In browse mode that is 42 bare
+            county names read before the table with nothing tying them to a column;
+            in table mode they are unreachable, and crossing a row announces a
+            column NUMBER because there is no header to announce. Nothing is lost by
+            hiding them: every row carries its county as its own accessible name and
+            every cell's label names both axes outright ("Grad Zagreb ⇄ Zagrebačka:
+            neto −2.442 …"). The alternative — a real header row of columnheader
+            cells — would shift every aria-rowindex and the aria-rowcount for
+            announcements the cell names already make. */}
+        <g aria-hidden="true">
         {order.map((iso, r) => (
           <text key={iso} x={x0 - 6} y={y0 + r * ch + ch / 2 + 3} textAnchor="end"
             lang="hr" fontSize={rowFs} fontFamily={MONO}
@@ -277,6 +299,7 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
             fill={cols[c] === S.yi || hlC === c ? '#20262B' : '#5F6A72'}
             transform={`translate(${x0 + c * cw + cw / 2 + 3},${y0 - 6}) rotate(-60)`}>{yr(YEARS[yi])}</text>
         ))}
+        </g>
         {rows}
         {/* Pre-2007 is the softest part of the series and this is the first view
             that renders those years beside the rest instead of one at a time.

@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 486;
+const EXPECTED_CHECKS = 487;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7549,7 +7549,48 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     return { adjust: cs.forcedColorAdjust, border: cs.borderTopWidth, img: cs.backgroundImage.slice(0, 24) };
   });
   await forced(false);
+
+  /* ── the two grids own rows, and rows own cells ──
+     ARIA 1.2 lets a `grid` own only row and rowgroup, and both grids owned their
+     axis labels directly: measured on the AX tree, Matrica's grid node had 42
+     unignored generic children (21 row names + 21 column names) before its 21
+     rows, and Godine 49 — none aria-hidden, and the document declares no
+     columnheader or rowheader anywhere. In browse mode that is 42 bare county
+     names read before the table with nothing tying them to a column; in table
+     mode they are unreachable, and crossing a row announces a column NUMBER
+     because there is no header to announce.
+     And wherever a cell is wide enough to print its value, the
+     `<g role="presentation">` around the pair is flattened, so each row owned its
+     gridcells interleaved with loose StaticText numbers — 417 of them in Matrica
+     at 1920×1080 and 315 in Godine, every value announced twice, NVDA's row
+     reading alternating cell / stray text. The suite ran at 1440×900, where the
+     cell is 19 px and no number is drawn, so it never saw that half at all —
+     which is why this measures at 1920×1080. */
+  await page.setViewport({ width: 1920, height: 1080 });
+  const gridOwn = [];
+  for (const [h, label] of [['#v=mx&y=2018&c=0&dir=out', 'mx'], ['#v=yrs&c=0&y=2024', 'yrs']]) {
+    await fresh(h);
+    const nums = await page.evaluate(() => document.querySelectorAll('#map .mxnum').length);
+    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+    const byId = new Map(nodes.map(x => [x.nodeId, x]));
+    const grid = nodes.find(x => x.role && x.role.value === 'grid');
+    const kids = grid ? (grid.childIds || []).map(i => byId.get(i)).filter(Boolean).filter(x => !x.ignored) : [];
+    const rows = kids.filter(x => x.role.value === 'row');
+    const cellsBad = rows.flatMap(r => (r.childIds || []).map(i => byId.get(i)).filter(Boolean)
+      .filter(x => !x.ignored && x.role.value !== 'gridcell').map(x => x.role.value));
+    gridOwn.push({ label, nums, kids: kids.length, rows: rows.length,
+      notRow: kids.filter(x => x.role.value !== 'row').map(x => x.role.value).slice(0, 3),
+      cellsBad: cellsBad.slice(0, 3), nBad: cellsBad.length });
+  }
+  await page.setViewport({ width: 1440, height: 900 });
   await cdp.detach();
+  /* the number floor is what makes the second half meaningful: at a viewport
+     where nothing is printed there is nothing to be announced twice */
+  ck('each grid owns only rows, and each row only gridcells, even where the cells print their values',
+    gridOwn.length === 2 && gridOwn.every(g => g.nums > 100 && g.rows === 21
+      && g.kids === g.rows && g.nBad === 0),
+    JSON.stringify(gridOwn));
+
   ck('forced colors keeps the two colour keys legible and the pressed state visible',
     fcKlas.distinct === 3 && fcKlas.adjust === 'none' && parseFloat(fcKlas.outline) >= 2
     && fcBar.adjust === 'none' && parseFloat(fcBar.border) >= 1 && /gradient/.test(fcBar.img),

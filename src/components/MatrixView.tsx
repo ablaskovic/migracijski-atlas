@@ -314,9 +314,17 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
                at 2.5–3.6:1. A halo removes the dependency instead of tuning it:
                ink on its own white outline is 15.29:1 over every fill, and the
                palette stays exactly as documented. */
+            /* aria-hidden: the cell's own aria-label already carries this
+               number, and the <g role="presentation"> around the pair is
+               flattened, so at a viewport where numbers render each row owned 21
+               gridcells interleaved with 20 loose StaticText nodes — measured at
+               1920×1080, 417 of them in Matrica and 315 in Godine, every value
+               announced twice and NVDA's row reading alternating cell / stray
+               text. The suite never saw it: it runs at 1440×900, where the cell
+               is 19 px and no number is drawn. */
             <text className="mxnum" x={x0 + c * cell + cell / 2} y={y0 + r * cell + cell / 2 + 2.5}
               textAnchor="middle" fontSize={numFs} fontFamily={MONO}
-              fill="#20262B" pointerEvents="none">
+              fill="#20262B" pointerEvents="none" aria-hidden="true">
               {fmtI.format(Math.round(v))}
             </text>
           )}
@@ -346,6 +354,20 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
         </pattern>
       </defs>
       <g transform={`translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`} ref={gridRef}>
+      {/* aria-hidden, because ARIA 1.2 lets a `grid` own only rows and rowgroups
+          and these sat directly under it: measured on the AX tree, the grid node's
+          children were 42 generic nodes (21 row names + 21 column names) followed
+          by 21 rows, none of them ignored, and the document declares no
+          columnheader or rowheader anywhere. In browse mode that is 42 bare
+          county names read before the table with nothing tying them to a column;
+          in table mode they are unreachable, and crossing a row announces a
+          column NUMBER because there is no header to announce. Nothing is lost by
+          hiding them: every row carries its county as its own accessible name and
+          every cell's label names both axes outright ("Grad Zagreb ⇄ Zagrebačka:
+          neto −2.442 …"). The alternative — a real header row of columnheader
+          cells — would shift every aria-rowindex and the aria-rowcount for
+          announcements the cell names already make. */}
+      <g aria-hidden="true">
       {MXORD.map((iso, r) => (
         <text key={'r' + iso} x={x0 - 6} y={y0 + r * cell + cell / 2 + 3} textAnchor="end"
           lang="hr" fontSize={rowFs} fontFamily={MONO}
@@ -359,6 +381,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
           fill={hl && hl[1] === iso ? '#20262B' : '#5F6A72'}
           transform={`translate(${x0 + c * cell + cell / 2 + 3},${y0 - 6}) rotate(-65)`}>{SHORTN[iso]}</text>
       ))}
+      </g>
       {rows}
       {/* trace lines back to the axes — bolding two labels is not enough to find
           one pair among 420 cells */}
