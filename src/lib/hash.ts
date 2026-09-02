@@ -18,8 +18,17 @@ export function encodeHash(S: State): string {
   /* Omitted when it matches the reader's own default (BASE resolves that from
      the stored choice, then the browser), which is what keeps a plain link
      language-neutral: shared without `l=`, it opens in whatever the recipient
-     reads. Present the moment the language was *chosen*, so a link shared from
-     the English view arrives in English. */
+     reads. So it is present while the choice differs from that default — on the
+     visit where a Croatian browser first presses EN — and gone from the next
+     boot onward, because storeLang has by then made the choice the default.
+     Measured: press EN and the address reads #l=en&v=klas&c=1&y=2024; reload the
+     same tab and it reads #v=klas&c=1&y=2024, still in English.
+     That is the intended trade, not a gap: a returning English reader shares a
+     neutral link rather than forcing English on a Croatian recipient, which is
+     the harm state.ts's precedence rule exists to avoid, and the suite asserts
+     the second URL carries no `l=`. This note used to promise the link carries
+     the language "the moment it was chosen", which is true of the first visit
+     and of no visit after it. */
   if (S.lang !== BASE.lang) p.set('l', S.lang);
   p.set('v', S.view);
   /* "same as BASE" is the omission rule, and decodeHash's story guard reads it
