@@ -7,7 +7,7 @@ import {
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowKind, jlsVal, jmapScale, countyAria, fmtI, fmtR, sgn,
   ARC_MIN,
 } from '../lib/metrics.ts';
-import { jlsGeo, regGeo, jlsFailed, regFailed, retryGeo, geoStatus } from '../lib/geoAsync.ts';
+import { jlsGeo, regGeo, jlsFailed, regFailed, retryGeo, cancelRetry, geoStatus } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
 import PairCard from './PairCard.tsx';
@@ -87,6 +87,14 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
   const [jf, setJf] = useState(0);
   /* whether the last retry press found no network at all — see retryGeo */
   const [offline, setOffline] = useState(false);
+  /* …and it is dropped when this view is no longer the one asking. retryGeo arms
+     a reload for when the connection returns; scoped to nothing it fired under a
+     reader who had long since moved to a view that works offline, taking the
+     zoom transform and the per-view year memory with it — both deliberately
+     outside the hash, so the reload could not restore them. The notice that
+     explained the deferral lives in this branch, so leaving the branch is
+     exactly when the promise stops being visible and stops being wanted. */
+  useEffect(() => cancelRetry, [S.view]);
   const jNav = useRef(false);
   const jgRef = useRef<SVGGElement>(null);
   useEffect(() => {

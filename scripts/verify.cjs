@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 602;
+const EXPECTED_CHECKS = 603;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5689,6 +5689,44 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the geometry retry is a 44 px target on the pointer that reaches it',
     !retryTap.missing && retryTap.coarse && retryTap.h >= 44 && retryTap.w >= 44,
     JSON.stringify(retryTap));
+  /* …and it is dropped when the reader leaves the view that armed it. retryGeo
+     registers a reload for when the connection returns, and it was scoped to
+     nothing and never removed — so a reader who pressed the retry offline in the
+     JLS view, went back to Klasifikacija (which works completely offline,
+     exports included), rebuilt a zoom transform and a per-view year window, and
+     reconnected an hour later had the document reload under them, taking vmem
+     and the zoom with it. Both are deliberately outside the hash, so the reload
+     cannot restore them: the exact loss the deferral exists to avoid, arriving
+     by another door, with the notice that explained it long off screen.
+     Both halves, because the promise still has to be kept: a reader who stays in
+     the failing view gets the reload they were told about. */
+  const deferred = {};
+  for (const leave of [false, true]) {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    await pg.setViewport({ width: 1440, height: 900 });
+    await pg.setRequestInterception(true);
+    pg.on('request', r => (/geo_jls/.test(r.url()) ? r.abort() : r.continue()));
+    await pg.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+    await pg.waitForFunction(() => !!document.querySelector('#jretry'), { timeout: 20000 }).catch(() => {});
+    await settle(500);
+    await pg.evaluate(() => { window.__mark = 'SESSION'; });
+    await pg.setOfflineMode(true);
+    await pg.click('#jretry');
+    await settle(450);
+    const armed = await pg.evaluate(() => !!document.querySelector('#joffline'));
+    if (leave) { await pg.click('#segView button[data-v="klas"]'); await settle(550); }
+    await pg.setOfflineMode(false);
+    await pg.evaluate(() => window.dispatchEvent(new Event('online')));
+    await settle(1200);
+    deferred[leave ? 'left' : 'stayed'] = { armed,
+      ...(await pg.evaluate(() => ({ mark: window.__mark || 'GONE', hash: location.hash }))) };
+    await pg.close();
+  }
+  ck('a deferred reload keeps its promise in the view that armed it and is dropped on the way out',
+    deferred.stayed.armed && deferred.stayed.mark === 'GONE'
+    && deferred.left.armed && deferred.left.mark === 'SESSION' && /v=klas/.test(deferred.left.hash),
+    JSON.stringify(deferred));
   ck('an empty rail and the map both name the missing geometry instead of promising rows',
     railGone.jl === 0 && railGone.rows === 0 && /Geometrija JLS nije u/.test(railGone.txt)
     && !/Strelice/.test(railGone.aria) && /Geometrija JLS nije u/.test(railGone.aria),

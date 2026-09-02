@@ -131,14 +131,34 @@ export function loadRegGeo(speculative = false): Promise<void> {
    session in exactly the state it exists for.
    So: reload when there is a network to reload over, and otherwise wait for one.
    `offline` is the answer the caller renders instead of a dead button. */
+/* …and the deferred reload is disarmable, because it was armed for the rest of
+   the session and scoped to nothing. A reader offline in the JLS view presses
+   the retry, goes back to Klasifikacija — which works completely offline,
+   exports included — rebuilds a zoom transform and a per-view year window, and
+   an hour later the connection returns and the document reloads under them,
+   taking vmem and the zoom with it. Both are deliberately outside the hash, so
+   a reload cannot restore them: that is the exact loss this deferral exists to
+   avoid, arriving by another door, with the notice that explained it long off
+   screen. Every press armed one more.
+   The caller owns the arming now and drops it when the view that asked is no
+   longer the view on screen. Pressing retry again is one click; an unannounced
+   reload is not recoverable at all. */
+let disarmOnline: (() => void) | null = null;
 export function retryGeo(): 'reloading' | 'offline' {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    window.addEventListener('online', () => location.reload(), { once: true });
+    disarmOnline?.();
+    const ac = new AbortController();
+    window.addEventListener('online', () => location.reload(), { once: true, signal: ac.signal });
+    disarmOnline = () => { ac.abort(); disarmOnline = null; };
     return 'offline';
   }
   location.reload();
   return 'reloading';
 }
+/** Drop a deferred reload that is no longer wanted. Safe to call when none is armed. */
+export const cancelRetry = (): void => { disarmOnline?.(); };
+/** Whether one is armed — for the suite, and for the notice that explains it. */
+export const retryArmed = (): boolean => disarmOnline !== null;
 
 /* Called once from App. Loads what the current view needs immediately, and warms
    the rest on a timer so switching views is instant without either payload ever
