@@ -383,9 +383,18 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
       </div>
       <div className="help-p">{privacyState()}</div>
 
+      {/* Državljanstvo is on the wrong side of this sentence, and its own panel
+          says so twice. It follows the scrubber inside 2021–2025 — measured, the
+          Skupine rows read Hrvatska +10.622 −25.950 at 2021 and +16.843 −13.138
+          at 2025 — and clamps outside it, announcing the clamp through
+          #citzClamp. Its footer states the rule (“odabir godine prati vremensku
+          vrpcu unutar 2021.–2025.”), so the glossary was the only surface
+          claiming otherwise, about a panel the reader can watch move. Zemlje is
+          fixed at DEMO.year and says so in #zemFixed, Dob i spol reads no year
+          at all, and JLS is 2018 by construction — those three are right. */}
       <div className="help-note">
-        {L('Vremenska vrpca ne mijenja panele Državljanstvo (2021.–2025.), Zemlje i Dob i spol (samo 2025.) ni prikaz JLS 2018. — njihov je opseg ispisan u zaglavlju svakog panela.',
-          'The time scrubber does not change the Citizenship (2021–2025), Countries or Age and sex (2025 only) panels, nor the LAU 2018 view — each panel states its own scope in its header.')}
+        {L('Vremenska vrpca pomiče panel Državljanstvo samo unutar 2021.–2025.; izvan toga se drži posljednje objavljene godine i to javlja. Panele Zemlje i Dob i spol (samo 2025.) ni prikaz JLS 2018. ne mijenja — opseg je ispisan u zaglavlju svakog panela.',
+          'The time scrubber moves the Citizenship panel only within 2021–2025; outside that it holds the last published year and says so. It does not change the Countries or Age and sex (2025 only) panels, nor the LAU 2018 view — each states its own scope in its header.')}
       </div>
     </div>
   );

@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 554;
+const EXPECTED_CHECKS = 555;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10436,6 +10436,40 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a rail row tabbed onto draws a ring its own scroll container does not clip',
     railRing.n >= 2 && railRing.ends.every(e => e.fv && e.w >= 2 && e.cut <= 0),
     JSON.stringify(railRing));
+
+  /* ── the glossary's scrubber-scope note has to match what the panels do ──
+     it listed Državljanstvo among the panels the time scrubber "ne mijenja",
+     and that panel is the one exception: it follows the scrubber inside
+     2021–2025 and clamps outside it, announcing the clamp through #citzClamp,
+     with its own footer stating the rule. The reader could watch it move under a
+     sentence saying it would not. Asserted as behaviour against copy, in both
+     languages, so neither half can drift alone. */
+  const czMove = {};
+  for (const y of [2021, 2023, 2025, 2015]) {
+    await fresh(`#v=saldo&c=0&y=${y}&cz=1`);
+    await page.waitForSelector('#citzRows', { timeout: 20000 }).catch(() => {});
+    czMove[y] = await page.evaluate(() => ({
+      rows: (document.querySelector('#citzRows')?.textContent || '').replace(/\s+/g, ' ').trim(),
+      clamp: (document.querySelector('#citzClamp')?.textContent || '').trim().length > 0 }));
+  }
+  const czNote = {};
+  for (const l of ['hr', 'en']) {
+    await fresh(`${l === 'en' ? '#l=en' : ''}`);
+    await click('#helpBtn');
+    await settle(250);
+    czNote[l] = await page.evaluate(() => [...document.querySelectorAll('#helpCard .help-note')]
+      .map(e => e.textContent || '').find(t => /Vremenska vrpca|time scrubber/.test(t)) || '');
+  }
+  ck('the glossary says the citizenship panel moves with the scrubber, because it does',
+    new Set([czMove[2021].rows, czMove[2023].rows, czMove[2025].rows]).size === 3
+    && !czMove[2021].clamp && czMove[2015].clamp
+    && czMove[2015].rows === czMove[2025].rows
+    && /Dr[žz]avljanstvo samo unutar/.test(czNote.hr) && !/ne mijenja panele Dr/.test(czNote.hr)
+    && /Citizenship panel only within/.test(czNote.en)
+    && /Zemlje i Dob i spol/.test(czNote.hr) && /Countries or Age and sex/.test(czNote.en),
+    JSON.stringify({ clamps: [czMove[2021].clamp, czMove[2015].clamp],
+      distinct: new Set([czMove[2021].rows, czMove[2023].rows, czMove[2025].rows]).size,
+      hr: czNote.hr.slice(0, 60), en: czNote.en.slice(0, 60) }));
 
   /* (4) the export's font fetch, failed and wedged. Both paths degrade to the
      documented fallback — the figure names the families instead of embedding
