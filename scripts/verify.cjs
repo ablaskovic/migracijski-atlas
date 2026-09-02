@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 556;
+const EXPECTED_CHECKS = 557;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6814,14 +6814,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       heads: [...c.querySelectorAll('.help-h')].map(h => h.textContent.trim()),
       body: c.textContent,
       srcs: [...c.querySelectorAll('.help-src a')].map(a => a.getAttribute('href')),
-      font: !!c.querySelector('a[href$="OFL-IBMPlex.txt"]'),
+      /* Both, and reachable. licences.ts records why there are two: "one link
+         for three families from two holders was both wrong and the reason
+         public/fonts/OFL-Oswald.txt shipped with nothing on the site reaching
+         it — OFL §2 requires the licence to travel with the font software, and a
+         file nobody can find has not travelled". This asserted the IBM half
+         only, so deleting the Oswald entry regressed the exact obligation the
+         fix was written for, green. A present href is also not a present file:
+         the resolved URLs are fetched below. */
+      font: ['OFL-IBMPlex.txt', 'OFL-Oswald.txt']
+        .every(f => !!c.querySelector('a[href$="' + f + '"]')),
+      fontHrefs: [...c.querySelectorAll('a[href$=".txt"]')].map(x => x.href),
     };
   });
   ck('the glossary lists each source with its terms, and links the font licence',
     glLic.heads.includes('Licencije i izvori') && glLic.srcs.length === 4 && glLic.font
     && /CC BY 4\.0/.test(glLic.body) && /MIT/.test(glLic.body)
     && /ne prosljeđujte ih/.test(glLic.body),
-    JSON.stringify({ srcs: glLic.srcs.length, font: glLic.font }));
+    JSON.stringify({ srcs: glLic.srcs.length, font: glLic.font, hrefs: glLic.fontHrefs }));
   /* The exported figure is the one artifact with no link to click, so its terms
      go on it as text — and unlike the study line, they apply to every view. */
   const licK = await expNote('#v=klas');
@@ -9855,6 +9865,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     asset: await httpGet(base + '/assets/verify-missing.js'),
     font: await httpGet(base + '/fonts/verify-missing.woff2'),
   };
+  /* …and both files answer. A dead link is the state OFL §2 forbids just as
+     surely as a missing one, and nothing in this file or smoke.cjs had ever
+     fetched either. Down here rather than beside its own check, because httpGet
+     is declared at the top of this block and the glossary runs long before it. */
+  const oflFetch = {};
+  for (const f of ['OFL-IBMPlex.txt', 'OFL-Oswald.txt']) {
+    const u = (glLic.fontHrefs || []).find(x => x.endsWith(f));
+    const r = u ? await httpGet(u) : null;
+    oflFetch[f] = r ? { status: r.status, len: (r.body || '').length,
+      ofl: /SIL OPEN FONT LICENSE/i.test(r.body || '') } : { missing: true };
+  }
+  ck('and both OFL texts the glossary points at actually answer',
+    Object.values(oflFetch).every(r => r.status === 200 && r.len > 3000 && r.ofl),
+    JSON.stringify(oflFetch));
   ck('a sub-path boots the app through the rewrite while a missing asset still 404s',
     rw.sub.status === 200 && /id="root"/.test(rw.sub.body)
     && rw.deep.status === 200 && /id="root"/.test(rw.deep.body)
