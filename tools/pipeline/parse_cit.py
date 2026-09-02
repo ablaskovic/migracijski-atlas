@@ -55,7 +55,16 @@ rows = list(ws.iter_rows(values_only=True))
 def to_int(x):
     s = str(x).strip() if x is not None else ''
     return 0 if s in ('','-','–') else int(float(s))
-hdr = next(r for r in rows if r[0] == 'Zemlja državljanstva')
+# Stripped, like the row loop six lines down and like parse_jls and
+# parse_jlsmap — trailing whitespace in a DZS header cell is not
+# hypothetical: the other committed workbook, raw/po-jls.xlsx sheet 7.5.18.,
+# pads its own labels — A10 is 'Zagrebačka  ' and B10 'Zagreb       '. Without
+# the strip, one trailing space here left next() with nothing to yield and the
+# operator got a bare StopIteration: no message, no line of prose, no hint
+# that a header cell had gained whitespace — the opposite of the signal
+# README.md tells them to investigate before touching an assert.
+hdr = next((r for r in rows if r[0] and str(r[0]).strip() == 'Zemlja državljanstva'), None)
+assert hdr, 'I T2 header row not found — did the sheet layout change?'
 years = [int(str(v).rstrip('.')) for v in hdr[1:] if v not in (None,'')]
 assert years == [2021,2022,2023,2024,2025], years
 # ── the columns are anchored, not assumed ────────────────────────────────────
