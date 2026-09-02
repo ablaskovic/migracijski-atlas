@@ -5128,6 +5128,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       }).length,
       cw: b0.width, ch: b0.height,
       sel: document.querySelectorAll('#map .yrsel').length,
+      /* WHICH column it rings, not merely that one exists. `selC` is
+         `cols.indexOf(S.yi)` over a cumulative column set offset by +13 from the
+         YEARS index — exactly the mapping an off-by-one or a raw-S.yi regression
+         corrupts — and the ring still renders when selC runs off the grid.
+         Measured: moving both ring rects three columns left, so the teal marker
+         sits on 2021 while the scrubber reads 2024, left `sel === 1` and the
+         check green. This grid IS the app's year picker, so a ring on the wrong
+         column tells the reader the wrong year is selected. Compared as boxes
+         rather than as x attributes, so a move to transform-based positioning
+         cannot slip past it. */
+      selOn: (() => {
+        const ring = document.querySelector('#map .yrsel rect');
+        const cell = document.querySelector('#map .yrc[data-y="2024"]');
+        if (!ring || !cell) return null;
+        const a = ring.getBoundingClientRect(), b = cell.getBoundingClientRect();
+        return Math.abs(a.left - b.left) < 1 && Math.abs(a.width - b.width) < 1;
+      })(),
       pre: document.querySelectorAll('#map .yrpre').length,
       railRole: document.querySelector('#railList .rrow').getAttribute('role'),
       card: !!document.querySelector('#card.show'),
@@ -5191,8 +5208,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     ygSweep.length === 0, ygSweep.slice(0, 3).join(' | '));
   await page.setViewport({ width: 1440, height: 900 });
   await fresh('#v=yrs&c=1&y=2024');
-  ck('the selected year is marked and no pre-2007 hatch appears in cumulative mode',
-    yg.sel === 1 && yg.pre === 0, JSON.stringify({ sel: yg.sel, pre: yg.pre }));
+  ck('the selected year is marked on its own column, and no pre-2007 hatch appears in cumulative mode',
+    yg.sel === 1 && yg.selOn === true && yg.pre === 0,
+    JSON.stringify({ sel: yg.sel, selOn: yg.selOn, pre: yg.pre }));
   /* nothing to open here — the row IS the county's series, so a rail row must not
      claim role=button, and no county card may be painted over the grid */
   ck('Godine rail rows are role=img and no county card covers the grid',
