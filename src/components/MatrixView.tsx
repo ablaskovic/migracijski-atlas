@@ -84,6 +84,21 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
   const numFs = Math.min(8.5, cell / 3);
   const showNum = cell >= 22;
   const fitsNum = useCallback((str: string) => str.length * numFs * 0.6 <= cell - 3, [numFs, cell]);
+  /* What the cell prints, once, so the fit test measures the string that is
+     drawn. Neto is a signed quantity and every other rendering of the same cell
+     said so — the aria-label "neto +925 za Grad Zagreb", the tooltip, the rail
+     row, the diverging legend axis "−12.169 / 0 / +12.169", and the sibling grid
+     one file over (Godine: 315 texts, 0 unsigned). The cells alone formatted it
+     like a gross flow: at 1920×1080, #v=mx&c=1&y=2024&dir=net drew 398 numbers,
+     208 of them unsigned positives. The matrix is antisymmetric, so a reader was
+     shown "925" here and "−925" at the mirror and had to know the first was a
+     gain and not a flow. Worse, the minus costs a glyph, so fitsNum admitted the
+     gain where it rejected the loss: 18 corridors printed on the gaining side
+     only, biasing the printed half of the grid toward gains. Both exporters
+     clone the live SVG, so the figure carried it too. Signing costs that glyph
+     on both sides now — 398 numbers become 380, symmetric instead of biased. */
+  const numTxt = useCallback((v: number) =>
+    S.dir === 'net' ? sgn(Math.round(v), fmtI) : fmtI.format(Math.round(v)), [S.dir]);
   const hl = S.pairHl;
   const hlR = hl ? MXORD.indexOf(hl[0]) : -1, hlC = hl ? MXORD.indexOf(hl[1]) : -1;
   /* The selected corridor — the one the card in the rail describes. Orthogonal to
@@ -352,7 +367,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
                  phone, so a tap that navigates is a tap that misfires — touch
                  reads the corridor instead (see the .mxhit overlay below). */
               onClick={() => { if (!wasTouch()) live.current.drill(a, b); }} />
-            {showNum && Math.abs(v) >= 1 && fitsNum(fmtI.format(Math.round(v))) && (
+            {showNum && Math.abs(v) >= 1 && fitsNum(numTxt(v)) && (
               /* No ink/white flip any more: measured against the shipping Lab
                  ramps there is no threshold that works, because there are bands
                  where *neither* colour reaches the 4.5:1 this ≤8.5 px text owes.
@@ -373,7 +388,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
               <text className="mxnum" x={x0 + c * cell + cell / 2} y={y0 + r * cell + cell / 2 + 2.5}
                 textAnchor="middle" fontSize={numFs} fontFamily={MONO}
                 fill="#20262B" pointerEvents="none" aria-hidden="true">
-                {fmtI.format(Math.round(v))}
+                {numTxt(v)}
               </text>
             )}
           </g>,
@@ -390,7 +405,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
     }
     return rows;
   }, [n, x0, y0, cell, S.dir, S.yi, S.cum, S.lang, hl, fc, selR, selC, showNum, numFs,
-    col, cellAria, fitsNum]);
+    col, cellAria, fitsNum, numTxt]);
 
   return (
     /* tabIndex -1 for the skip link — see the county map in MapView */

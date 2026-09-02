@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 545;
+const EXPECTED_CHECKS = 546;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8420,6 +8420,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       neg.length > 0 && neg.every(t => t.includes('−') && !t.includes('-')),
       JSON.stringify(neg.slice(0, 3)));
   }
+
+  /* ── and a Neto cell prints a signed quantity ──
+     the loop above only ever saw the negatives: it filters on /[-−]/, so an
+     unsigned positive was invisible to it. The cells used to format Neto exactly
+     like a gross flow — 398 numbers at this viewport, 208 of them unsigned —
+     while the same cell's aria-label, its tooltip, its rail row, the diverging
+     legend axis and the sibling grid all signed it. And because the minus costs
+     a glyph the fit test admitted the gain where it rejected the loss, so 18 of
+     the 210 corridors printed on the gaining side only. Both halves are asserted
+     here: every Neto number signed, no Odlasci number signed, and the printed
+     set symmetric across the diagonal. */
+  const numSign = {};
+  for (const [k, h] of [['net', '#v=mx&y=2018&c=0&dir=net'], ['out', '#v=mx&y=2018&c=0&dir=out']]) {
+    await fresh(h);
+    numSign[k] = await page.evaluate(() => {
+      const txt = [...document.querySelectorAll('.mxnum')].map(t => (t.textContent || '').trim());
+      const pairs = new Map();
+      for (const rect of document.querySelectorAll('.mxc')) {
+        const m = /^(.+?) . (.+?): /.exec(rect.getAttribute('aria-label') || '');
+        if (!m) continue;
+        const key = [m[1], m[2]].sort().join('|');
+        pairs.set(key, (pairs.get(key) || 0) + (rect.parentElement.querySelector('.mxnum') ? 1 : 0));
+      }
+      return { n: txt.length, signed: txt.filter(t => t[0] === '+' || t[0] === '−').length,
+        oneSided: [...pairs.values()].filter(v => v === 1).length };
+    });
+  }
+  ck('a Neto cell prints its number signed, on both sides of the corridor or neither',
+    numSign.net.n > 300 && numSign.net.signed === numSign.net.n && numSign.net.oneSided === 0
+    && numSign.out.n > 300 && numSign.out.signed === 0,
+    JSON.stringify(numSign));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* The arc-dash and pair-badge encodings, in the other language. Both used to
