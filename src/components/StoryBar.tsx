@@ -23,10 +23,21 @@ export function StorySelect({ S, applyStory, resetAll }: {
      shipped build: Nalaz 1, Nalaz 1, Nalaz 1 — the other fourteen findings
      unreachable without knowing to open the popup first, and each press firing a
      full view jump. */
+  /* The one header control whose name did not contain its visible label.
+     Every other group in Header associates its .ctrl-lab through
+     aria-labelledby, and Header's own comment invokes 2.5.3 for exactly
+     this — “a speech-input user saying what they can see would have missed
+     the link”. Here the label read “Nalazi” and the accessible name
+     “Odabir nalaza”, which does not contain it; in English “Findings”
+     against “Choose a finding”, likewise. So “click Nalazi” matched
+     nothing, and a screen reader announced a name no sighted colleague
+     could read out. The visible label leads and the descriptive part
+     follows it, so the name both starts with what is on screen and still
+     says what the control does. */
   return (
-    <div className="ctrl storysel"><span className="ctrl-lab">{t('ctrl.story')}</span>
+    <div className="ctrl storysel"><span className="ctrl-lab" id="storyLab">{t('ctrl.story')}</span>
       <div className="storysel-row">
-        <select id="story" aria-label={L('Odabir nalaza', 'Choose a finding')} value={S.story ?? -1}
+        <select id="story" aria-label={t('ctrl.story') + L(' — odabir nalaza', ' — choose a finding')} value={S.story ?? -1}
           onChange={e => { const i = +e.target.value; if (i >= 0) applyStory(i); }}>
           <option value={-1}>{S.story != null ? (S.story + 1) + L('. nalaz…', '. finding…') : L('odaberi…', 'choose…')}</option>
           {STORIES.map((st, i) => <option key={i} value={i}>{(i + 1) + '. ' + st.label}</option>)}
