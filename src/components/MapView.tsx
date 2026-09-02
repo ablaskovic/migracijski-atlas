@@ -26,9 +26,12 @@ import { useSuspendMapStops } from '../lib/suspendMap.ts';
 import { useZoom } from '../lib/useZoom.ts';
 import type { Patch, State } from '../lib/types.ts';
 
-export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCorridor, toggleCitz, toggleJls, toggleAge, toggleHelp }: {
+export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetSeq, openCorridor, toggleCitz, toggleJls, toggleAge, toggleHelp }: {
   S: State; setS: (p: Patch) => void; selectCounty: (iso: string) => void;
-  setHL: (iso: string | null) => void; resetSeq: number;
+  setHL: (iso: string | null) => void;
+  /* the same-value guard the county paths already use, for the 556 that fire
+     four handlers each — see App, where the two writers are declared together */
+  setJlsHl: (j: number | null) => void; resetSeq: number;
   openCorridor: (a: string, b: string) => void;
   toggleCitz: () => void; toggleJls: () => void;
   toggleAge: () => void; toggleHelp: () => void;
@@ -653,10 +656,10 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                     /* not while a pinch owns the pointers: the coarse branch
                        suppresses the matching leave, so a two-finger gesture
                        left a municipality readout parked over the zoomed map */
-                    onPointerEnter={() => { if (!zoom.gesturing.current) setS({ jlsHl: p.j }); }}
+                    onPointerEnter={() => { if (!zoom.gesturing.current) setJlsHl(p.j); }}
                     /* touch sends leave the moment the finger lifts, which would
                        flash the readout away; keep it until the next tap instead */
-                    onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ jlsHl: null }); }}
+                    onPointerLeave={e => { if (e.pointerType !== 'touch') setJlsHl(null); }}
                     /* A tap fires pointerover, pointerenter, pointerdown, pointerup
                        and pointerleave — and no pointermove. So on the one device
                        class this tip exists for (Tooltip says it outright: on a
@@ -676,7 +679,13 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                     onPointerDown={moveTip}
                     onPointerMove={moveTip}
                     onFocus={e => {
-                      setS({ jlsHl: p.j });
+                      /* through the guard, not through setS: clicking a municipality
+                         raises pointerenter first, which has already written this
+                         exact value, and `up` spreads into a fresh object that
+                         Object.is never matches — so the raw write re-rendered
+                         the whole app for state that did not change. The blur
+                         below pairs with pointerleave the same way. */
+                      setJlsHl(p.j);
                       /* clicking a municipality focuses it, and the ring plus the
                          tip-jump that follow are both keyboard behaviour: the
                          pointer already placed the tip on pointermove */
@@ -685,7 +694,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                       const r = e.currentTarget.getBoundingClientRect();
                       moveTip({ clientX: r.right, clientY: r.bottom });
                     }}
-                    onBlur={() => { setJFoc(false); if (!COARSE) setS({ jlsHl: null }); }}
+                    onBlur={() => { setJFoc(false); if (!COARSE) setJlsHl(null); }}
                     onKeyDown={e => {
                       /* Shift+arrow is the documented keyboard pan and useZoom
                          listens for it on the window; matching on `e.key` alone

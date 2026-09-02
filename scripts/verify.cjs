@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 605;
+const EXPECTED_CHECKS = 606;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8463,6 +8463,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('both exits of the chip-dock measurement bail out on an unchanged panel',
     panelSets === 2 && panelGuarded === 2 && dockFlow === 'static',
     JSON.stringify({ panelSets, panelGuarded, dockFlow }));
+  /* ── and the 556 municipalities write their highlight through the guard ──
+     App declares two same-value guards as a matched pair, setHL and setJlsHl,
+     and only the first reached the map: the 556 .jl paths called setS directly
+     from four handlers each. Two ordinary sequences then wrote the same value
+     twice — click a municipality and pointerenter has already set jlsHl to it
+     before onFocus sets it again; move off a focused one and pointerleave nulls
+     it before onBlur nulls it again — and `up` spreads into a fresh object,
+     which Object.is never matches, so each was a whole-tree render for state
+     that did not change. One JLS crossing costs 5,64 ms of task at 1× CPU.
+     Read out of the source for the same reason as the check above: an extra
+     render with identical output mutates no DOM. The behaviour those four
+     handlers still owe is measured at :3337 and by the roving-focus checks. */
+  const jlsRaw = [...mvSrc.matchAll(new RegExp('setS[(][{] jlsHl', 'g'))].length;
+  const jlsGuarded = [...mvSrc.matchAll(new RegExp('setJlsHl[(]', 'g'))].length;
+  const appSrc = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8');
+  ck('the JLS paths write their highlight through the guard App declares for it',
+    jlsRaw === 0 && jlsGuarded === 4 && /<MapView[^>]*setJlsHl=[{]setJlsHl[}]/.test(appSrc),
+    JSON.stringify({ jlsRaw, jlsGuarded, passed: /setJlsHl=[{]setJlsHl[}]/.test(appSrc) }));
 
   /* The dock covers cells when it is CLOSED too — the case nothing was watching.
      `panel` used to be reported only while a chip was open, so the collapsed
