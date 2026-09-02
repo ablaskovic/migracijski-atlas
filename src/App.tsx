@@ -677,29 +677,32 @@ export default function App() {
          open, and "Escape reaches every dismissible surface" has to mean from
          there too. */
       if (ev.key === 'Escape') {
-        if (s.help) { up({ help: false }); focusSoon('#helpBtn'); return; }
+        /* `true`: every hand-back in this cascade is driven by this keypress, and
+           the ones that return focus to an element that already has it cannot be
+           seen by :focus-visible at all — see focusSoon in state.ts. */
+        if (s.help) { up({ help: false }); focusSoon('#helpBtn', true); return; }
         if (s.pair) {
           /* in Matrica the corridor *is* the selection, so both halves go; focus
              returns to the cell that opened it, the rail row otherwise */
           up(s.view === 'mx' ? { sel: null, pair: null } : { pair: null });
           focusSoon(s.view === 'mx'
             ? '.mxc[data-a="' + s.sel + '"][data-b="' + s.pair + '"], #railList .rrow[data-iso="' + s.pair + '"]'
-            : '#railList .rrow[data-iso="' + s.pair + '"]');
+            : '#railList .rrow[data-iso="' + s.pair + '"]', true);
           return;
         }
         if (s.citz || s.jls || s.age) {
           up({ citz: false, jls: false, age: false });
-          focusSoon(s.citz ? '#citzHd' : s.jls ? '#jcardHd' : '#ageHd');
+          focusSoon(s.citz ? '#citzHd' : s.jls ? '#jcardHd' : '#ageHd', true);
           return;
         }
         /* the Nalazi banner was the one dismissible surface missing from this
            cascade — it has a × like every other, and focus goes back to the
            picker that opened it, like every other */
-        if (s.story != null) { up({ story: null }); focusSoon('#story'); return; }
+        if (s.story != null) { up({ story: null }); focusSoon('#story', true); return; }
         /* in Tokovi `sel` is the hub, not a dismissible selection */
         if (s.sel && s.view !== 'flow') {
           up({ sel: null });
-          focusSoon('.cnt[data-iso="' + s.sel + '"], #railList .rrow[data-iso="' + s.sel + '"]');
+          focusSoon('.cnt[data-iso="' + s.sel + '"], #railList .rrow[data-iso="' + s.sel + '"]', true);
           return;
         }
         /* Last layer: the tooltip. 1.4.13 wants hover/focus content dismissible

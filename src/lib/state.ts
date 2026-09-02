@@ -60,12 +60,30 @@ export const STORY_KEYS = ['view', 'flow', 'den', 'cum', 'yi', 'dir', 'sel', 'pa
    element is a silent no-op that leaves focus on <body> — the exact bug this
    helper exists to prevent. A stale `jl=1` in a permalink used to aim Escape at
    a `#jcardHd` that measured 0×0, and focus went nowhere. */
-export function focusSoon(sel: string) {
+/* `kb` says the hand-back was driven by a key, and it exists because
+   `:focus-visible` cannot answer for it when focus does not MOVE. A reader who
+   clicked a county and then pressed Escape is handed focus back to the element
+   that already has it: Chromium re-evaluates the pseudo on the keypress and
+   paints the ring, Firefox does not re-evaluate at all — measured on
+   `.cnt[data-iso="HR-14"]`, dash "4px, 2.5px" in Chromium and none in Firefox,
+   leaving the county holding keyboard focus on a role=button with no indicator
+   (2.4.7). The marker is the app saying what the engine cannot be asked, and it
+   is opt-in: only the Escape paths pass it, so a mouse click on a card's × —
+   which also lands here — still hands focus back without drawing a ring. It
+   clears on the next blur or pointerdown, so it never outlives its own gesture. */
+export function focusSoon(sel: string, kb = false) {
   requestAnimationFrame(() => {
     for (const el of document.querySelectorAll<HTMLElement | SVGElement>(sel)) {
       if (!el.getClientRects().length) continue;   /* not rendered — cannot take focus */
       el.focus();
-      if (document.activeElement === el) return;
+      if (document.activeElement !== el) continue;
+      if (kb) {
+        el.setAttribute('data-kf', '');
+        const drop = () => el.removeAttribute('data-kf');
+        el.addEventListener('blur', drop, { once: true });
+        el.addEventListener('pointerdown', drop, { once: true });
+      }
+      return;
     }
   });
 }
@@ -80,5 +98,8 @@ export function focusSoon(sel: string) {
    which is how the suite drives it. Older engines without the pseudo throw on
    `matches`, and there the honest default is to keep the ring. */
 export function isKeyFocus(el: Element): boolean {
+  /* …or the app said so itself: see focusSoon's `kb` above, for the hand-back
+     where focus does not move and the pseudo is never re-evaluated. */
+  if (el.hasAttribute('data-kf')) return true;
   try { return el.matches(':focus-visible'); } catch { return true; }
 }

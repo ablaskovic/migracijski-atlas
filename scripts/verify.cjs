@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 570;
+const EXPECTED_CHECKS = 571;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9509,6 +9509,66 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && mxPage.home.before[0] === mxPage.home.after[0]
     && mxPage.home.before[1] !== mxPage.home.after[1],
     JSON.stringify(mxPage));
+
+  /* ── Escape's hand-back marks its own target ──
+     the ring is drawn from :focus-visible, and that pseudo cannot answer for a
+     hand-back where focus does not MOVE: a reader who clicked a county and then
+     pressed Escape is handed focus back to the element that already has it.
+     Chromium re-evaluates on the keypress and paints the dashed ring; Firefox
+     does not re-evaluate at all — measured on .cnt[data-iso="HR-14"], dash
+     "4px, 2.5px" in Chromium and none in Firefox, leaving the county holding
+     keyboard focus on a role=button with no indicator (2.4.7).
+     Two things are asserted, because only one of them is observable here. The
+     LIFECYCLE is behaviour and shows in any engine: no marker after the click,
+     a marker after Escape, and none again after a re-click — so the marker never
+     outlives its own gesture and a mouse reader never gains a ring. The RULE is
+     the half Firefox needs, and in Chromium :focus-visible would paint the same
+     pixels either way, so it is read out of the cascade instead of off a pixel. */
+  await fresh('#v=saldo&c=1&y=2024');
+  const kfPoint = await page.evaluate(() => {
+    const el = document.querySelector('.cnt[data-iso="HR-14"]');
+    const r = el.getBoundingClientRect();
+    for (let fy = 0.3; fy <= 0.75; fy += 0.1) {
+      for (let fx = 0.2; fx <= 0.85; fx += 0.1) {
+        const x = Math.round(r.left + r.width * fx), y = Math.round(r.top + r.height * fy);
+        if (document.elementFromPoint(x, y) === el) return { x, y };
+      }
+    }
+    return null;
+  });
+  const kfRead = () => page.evaluate(() => {
+    const el = document.querySelector('.cnt[data-iso="HR-14"]');
+    return { focused: document.activeElement === el, kf: el.hasAttribute('data-kf') };
+  });
+  let kfRing = { noPoint: true };
+  if (kfPoint) {
+    await page.mouse.click(kfPoint.x, kfPoint.y);
+    await settle(350);
+    const click1 = await kfRead();
+    await page.keyboard.press('Escape');
+    await settle(350);
+    const esc = await kfRead();
+    await page.mouse.click(kfPoint.x, kfPoint.y);
+    await settle(350);
+    const click2 = await kfRead();
+    const rule = await page.evaluate(() => {
+      let found = 0;
+      for (const sh of document.styleSheets) {
+        let rules;
+        try { rules = sh.cssRules; } catch { continue; }
+        for (const r of rules) {
+          if (r.selectorText && /\[data-kf\]:focus/.test(r.selectorText)) found++;
+        }
+      }
+      return found;
+    });
+    kfRing = { click1, esc, click2, rule };
+  }
+  ck('Escape marks the element it hands focus back to, and only for that gesture',
+    !kfRing.noPoint && kfRing.click1.focused && !kfRing.click1.kf
+    && kfRing.esc.focused && kfRing.esc.kf && !kfRing.click2.kf
+    && kfRing.rule >= 5,
+    JSON.stringify(kfRing));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));

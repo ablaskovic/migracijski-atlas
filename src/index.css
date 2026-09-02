@@ -406,8 +406,16 @@ body.stage-collapsed .main{flex:none;height:420px}
    A dash is orthogonal to colour, so focus survives on top of hover (ink) and
    selection (teal) without hiding either. */
 /* Keyboard focus only — the UA ring is killed above, for every graphic at once. */
-.cnt:focus-visible{stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
-.cnt.sel:focus-visible{stroke:var(--acc);stroke-width:2.4}
+/* …and the same, for a hand-back the engine cannot mark. Escape returns focus to
+   an element that already has it, and Firefox does not re-evaluate :focus-visible
+   when focus does not move — measured on .cnt[data-iso="HR-14"] after a click and
+   an Escape: Chromium draws the dashed ring, Firefox draws nothing and the county
+   holds keyboard focus on a role=button with no indicator (2.4.7). focusSoon sets
+   data-kf only on the keyboard paths and clears it on the next blur or
+   pointerdown, so this is the app answering for its own hand-back rather than a
+   second heuristic competing with the pseudo. */
+.cnt:focus-visible,.cnt[data-kf]:focus{stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
+.cnt.sel:focus-visible,.cnt.sel[data-kf]:focus{stroke:var(--acc);stroke-width:2.4}
 /* 1.4.11 — a *single-tone* ring cannot clear 3:1 against a diverging data ramp,
    and this one was being drawn as the feature's own stroke, i.e. directly on
    the colour it has to contrast with. Measured against the shipping Lab ramp:
@@ -1021,10 +1029,10 @@ body.stage-collapsed .main{flex:none;height:420px}
 .mxc{cursor:pointer}
 /* the cell keeps a stroke of its own, but the ring that has to clear 3:1 against
    the fill is the two-tone overlay below — same reasoning as .focusring */
-.mxc:focus-visible{stroke:var(--ink);stroke-width:2}
+.mxc:focus-visible,.mxc[data-kf]:focus{stroke:var(--ink);stroke-width:2}
 /* the diagonal is tabindex=-1 (the roving stop steps over it) but a click still
    focuses it, and it had no rule of its own at all */
-.mxd:focus-visible{stroke:var(--ink);stroke-width:2}
+.mxd:focus-visible,.mxd[data-kf]:focus{stroke:var(--ink);stroke-width:2}
 /* in-cell numbers: a white halo instead of an ink/white flip, because the flip
    has no working threshold — see the comment in MatrixView.tsx */
 .mxnum{paint-order:stroke;stroke:#fff;stroke-width:2.2;stroke-linejoin:round}
@@ -1040,7 +1048,7 @@ body.stage-collapsed .main{flex:none;height:420px}
    solid black bar precisely because it leaned on a stylesheet the standalone
    document does not ship with. */
 .yrc{cursor:pointer}
-.yrc:focus-visible{stroke:var(--ink);stroke-width:2}
+.yrc:focus-visible,.yrc[data-kf]:focus{stroke:var(--ink);stroke-width:2}
 /* arrowheads carry arc direction — colour alone read the wrong way for dolasci */
 .arch{pointer-events:none;opacity:.9}
 /* the hub marker is a location mark, not a control — it was the one overlay above
@@ -1048,7 +1056,7 @@ body.stage-collapsed .main{flex:none;height:420px}
 .hubdot{pointer-events:none}
 /* hovering a region row in the rail lights that region's counties */
 .cnt.rhl{stroke:var(--ink);stroke-width:1.6}
-.jl:focus-visible{stroke:var(--acc);stroke-width:1.6}
+.jl:focus-visible,.jl[data-kf]:focus{stroke:var(--acc);stroke-width:1.6}
 .citz-clamp{font-family:var(--mono);font-size:0.5625rem;letter-spacing:.04em;color:var(--loss);
   margin-top:5px;line-height:1.35}
 
