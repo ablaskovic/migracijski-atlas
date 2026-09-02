@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 484;
+const EXPECTED_CHECKS = 485;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6120,7 +6120,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      asserted instead is the degradation index.css promises — never a skip, and
      the detail line says which of the two ran. */
   const fbHere = swap.widths.every(x => x.loaded);
-  const fbMode = fbHere ? 'metric-matched faces present' : 'local() faces absent (documented degradation)';
+  const fbMode = fbHere ? 'metric-matched faces present'
+    : 'absent: ' + swap.widths.filter(x => !x.loaded).map(x => x.f).join(', ');
   /* with the faces absent the swap moves things by definition; what still has to
      hold is that the stack degrades to something usable rather than to nothing */
   const laidOut = snap => ['header.hd', 'main.main', '.ft', '#scrubBox']
@@ -6135,13 +6136,53 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     Object.keys(swap.fallback).length >= 12
     && (fbHere ? swapMoved.length === 0 : laidOut(swap.fallback) && laidOut(swap.real)),
     fbMode + ' ' + JSON.stringify(swapMoved.slice(0, 3)));
+  /* PER FACE, because that is the contract index.css states: "if local()
+     resolves to nothing — Arial Narrow is frequently absent on Linux — the face
+     is skipped and the stack behaves exactly as it did before". The gate was
+     all-or-nothing on both arms, so a machine in the ordinary mixed state failed
+     the suite on a configuration the stylesheet explicitly supports: measured
+     with only local('Arial Narrow') broken, the two Plex faces load and measure
+     0,0023–0,0031 while Oswald does not, `fbHere` goes false, and the else-arm's
+     `every(x => !x.loaded)` is false too — red, with the app and the CSS
+     behaving exactly as documented. A face that resolved is held to the bar; a
+     face that did not is skipped, and the detail line names it. */
   ck('and each fallback face is closer to its webfont’s width than doing nothing',
     swap.widths.length === 4 && swap.widths.every(x => x.webfont)
-    && (fbHere ? swap.widths.every(x => x.fb <= x.raw && x.fb < 0.02)
-      /* every one skipped, which is what index.css says happens — a face that
-         resolved but measured wrong would fail both arms */
-      : swap.widths.every(x => !x.loaded)),
+    && swap.widths.every(x => (x.loaded ? x.fb <= x.raw && x.fb < 0.02 : true)),
     fbMode + ' ' + JSON.stringify(swap.widths));
+
+  /* …and the RULES, not only their effect. Every clause above infers "this
+     machine lacks the faces" from the exact observation a broken rule produces,
+     so the two are indistinguishable: measured, mistyping the three local()
+     names in the built CSS — local('Arial') → local('Ariall') and the rest —
+     turns all four `loaded` flags false and every font-swap check passes, on a
+     Windows machine that HAS the faces as readily as on a Linux runner that does
+     not. The CLS guarantee they exist to pin is then asserted by nothing
+     anywhere. A declaration cannot be satisfied by a face being absent, so the
+     names are read back out of the stylesheet the page actually served. */
+  const faceSrc = await page.evaluate(() => {
+    const out = [];
+    for (const sh of document.styleSheets) {
+      try {
+        for (const r of sh.cssRules) {
+          if (r.constructor.name === 'CSSFontFaceRule' && /Fallback/.test(r.style.getPropertyValue('font-family'))) {
+            out.push(r.style.getPropertyValue('src'));
+          }
+        }
+      } catch { /* an unreadable sheet — none is served here */ }
+    }
+    return out;
+  });
+  const wantLocal = { "local(\"Arial\")": 3, "local(\"Courier New\")": 2, "local(\"Arial Narrow\")": 2 };
+  const gotLocal = {};
+  for (const src of faceSrc) {
+    const k = (src.match(/local\(("?)[^)]*\)/) || [''])[0].replace(/'/g, '"');
+    gotLocal[k] = (gotLocal[k] || 0) + 1;
+  }
+  ck('the metric-matched fallbacks still name the faces they are adjusted to',
+    faceSrc.length === 7
+    && Object.entries(wantLocal).every(([k, v]) => gotLocal[k] === v),
+    JSON.stringify({ n: faceSrc.length, got: gotLocal }));
 
   /* ══ v2.2.0 — the second language ═══════════════════════════════════════
      The atlas is Croatian and stays Croatian by default; English exists so it
