@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  D, SHORTN, YEARS, DOM, IX2007, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, fmtR, sgn,
+  D, SHORTN, YEARS, DOM, IX2007, FLOWN, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { L, yr } from '../lib/i18n.ts';
+import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Godine — 21 counties × the whole series, one cell per county-year.
@@ -207,9 +207,17 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
             x={x0 + c * cw} y={y0 + r * ch} width={cw} height={ch}
             fill={col(v)} stroke="#fff" strokeWidth={0.5}
             role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
-            /* the cell states its own county, year and value: #tip is
-               aria-hidden, so this string is the only copy of the number */
-            aria-label={`${D[iso].n}, ${yr(YEARS[yi])}: ${txt}`}
+            /* the cell states its own county, PERIOD and value: #tip is
+               aria-hidden, so this string is the only copy of the number.
+               The period, not the year: in cumulative mode the number is the
+               2011–year sum, and a bare year said it was that year's figure.
+               Measured at #v=yrs&c=1&y=2018, Grad Zagreb / 2018 announced
+               "+19.285" as a 2018 value where 2018 alone is +3.242 — while the
+               tooltip on the same cell read "2011.–2018. +19.285", the scrubber
+               sub-line "2011.–2018." and the legend title carried the span too.
+               Every sighted surface named the period and the only AT surface did
+               not. countyAria states it the same way for the same value. */
+            aria-label={`${D[iso].n}, ${S.cum ? yrSpan(2011, YEARS[yi]) : yr(YEARS[yi])}: ${txt}`}
             onPointerEnter={() => setS({ yrHl: [iso, yi] })}
             /* see the matrix cell: a tap has no pointermove to position from,
                and the leave question is per pointer, not per session */
@@ -259,8 +267,11 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   return (
     /* tabIndex -1 for the skip link — see the county map in MapView */
     <svg id="map" role="grid" tabIndex={-1} aria-rowcount={nR} aria-colcount={nC}
-      aria-label={L('Županije kroz godine — strelice pomiču odabir, Enter postavlja godinu prikaza',
-        'Counties over time — arrow keys move the selection, Enter sets the displayed year')}
+      /* …and the series, once on the grid rather than 588 times in the cells:
+         tot/int/ext/nat/all all announced "Grad Zagreb, 2018.: …" with nothing
+         saying which of the five the number was. */
+      aria-label={L(`Županije kroz godine · ${FLOWN[S.flow]} — strelice pomiču odabir, Enter postavlja godinu prikaza`,
+        `Counties over time · ${FLOWN[S.flow]} — arrow keys move the selection, Enter sets the displayed year`)}
       {...zoom.bind} style={zoom.style}>
       <defs>
         <pattern id="yrhatch" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">

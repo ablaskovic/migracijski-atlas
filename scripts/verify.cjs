@@ -6206,7 +6206,6 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       rows: document.querySelectorAll('#map [role="row"]').length,
       tab0: document.querySelectorAll('#map .yrc[tabindex="0"]').length,
       rowcount: grid.getAttribute('aria-rowcount'), colcount: grid.getAttribute('aria-colcount'),
-      aria0: cells[0].getAttribute('aria-label'),
       gridcells: cells.filter(c => c.getAttribute('role') === 'gridcell').length,
       overLegend: cells.filter(c => {
         const r = c.getBoundingClientRect();
@@ -6244,8 +6243,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && yg.rowcount === '21' && yg.colcount === '15', JSON.stringify(yg).slice(0, 200));
   ck('roving tabindex: exactly one of the 315 cells is a tab stop',
     yg.tab0 === 1, String(yg.tab0));
-  ck('a cell states its own county, year and value (#tip is aria-hidden)',
-    /^Grad Zagreb, 2011\.: \+2\.139$/.test(yg.aria0), yg.aria0);
+  /* …the PERIOD, not a bare year, and the series once on the grid. In cumulative
+     mode the number is the 2011–year sum and the label said it was that year's
+     figure: measured at #v=yrs&c=1&y=2018, Grad Zagreb / 2018 announced "+19.285"
+     as a 2018 value where 2018 alone is +3.242 — while the tooltip on the same
+     cell read "2011.–2018. +19.285", the scrubber sub-line "2011.–2018." and the
+     legend title carried the span too. Every sighted surface named the period
+     and the only AT surface did not. Nor did anything say WHICH series the
+     number was: tot/int/ext/nat/all all announced the same string.
+     Pinned in the state where the old form was indistinguishable (2011, where
+     cumulative equals annual) and in one where it is not. */
+  const yrsAria = {};
+  for (const [k, h, iso, y] of [['cum', '#v=yrs&c=1&y=2018', 'HR-21', '2018'],
+    ['ann', '#v=yrs&c=0&y=2018', 'HR-21', '2018']]) {
+    await fresh(h);
+    yrsAria[k] = await page.evaluate((i, yy) => {
+      const e = document.querySelector(`#map .yrc[data-iso="${i}"][data-y="${yy}"]`);
+      return { lab: e ? e.getAttribute('aria-label') : null,
+        grid: document.querySelector('#map').getAttribute('aria-label') };
+    }, iso, y);
+  }
+  ck('a cell states its own county, period and value, and the grid states the series',
+    /^Grad Zagreb, 2011\.–2018\.: \+19\.285$/.test(yrsAria.cum.lab)
+    && /^Grad Zagreb, 2018\.: \+3\.242$/.test(yrsAria.ann.lab)
+    && /migracijski saldo/.test(yrsAria.cum.grid) && /migracijski saldo/.test(yrsAria.ann.grid),
+    JSON.stringify(yrsAria));
   /* …and the ORDER of those rows, which nothing asserted at a state where it
      could move. Godine ranks by the window total in the series on screen —
      `yrsOrder(flow, den, cols)` — and the legend under it says so
