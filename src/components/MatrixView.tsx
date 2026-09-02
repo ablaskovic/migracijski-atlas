@@ -132,6 +132,24 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
     gridRef.current?.querySelector<SVGRectElement>(
       `.mxc[data-a="${MXORD[fc[0]]}"][data-b="${MXORD[fc[1]]}"]`)?.focus();
   }, [fc]);
+  /* …and it has to stay there when the map moves under it. The tip is placed
+     once, from the focused feature’s bbox corner, and the same hook adds +, −,
+     0 and Shift+arrows on the window — none of which re-placed it. Measured on
+     HR-18: placed 20 px from its corner, then + + takes the county to 2,6× and
+     the tip stays where it was, 351 px away; two Shift+→ make it 920 px, still
+     shown and still describing a county nowhere near it. That is the "one
+     county’s numbers anchored over another" failure the placement was written
+     for, reached through the keys this same file adds for the same readers.
+     Only while the feature really holds focus, so a pointer reader’s tip is
+     never moved out from under the pointer. */
+  useEffect(() => {
+    const el = gridRef.current?.querySelector<SVGRectElement>(
+      `.mxc[data-a="${MXORD[fc[0]]}"][data-b="${MXORD[fc[1]]}"]`);
+    if (!el || document.activeElement !== el) return;
+    const r = el.getBoundingClientRect();
+    moveTip({ clientX: r.right, clientY: r.bottom });
+  }, [zoom.t, fc]);
+
   /* Move the roving tab stop onto the selected corridor, so the grid's one tab
      stop is the cell the open card describes — and so Escape / the card's ×,
      which return focus to that cell, do not leave focus on a `tabindex="-1"`

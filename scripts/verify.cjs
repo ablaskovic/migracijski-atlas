@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 559;
+const EXPECTED_CHECKS = 560;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9187,6 +9187,52 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const eyeNarrow = await eyeFs(390, '#l=en&v=klas');
   const eyeNarrowHr = await eyeFs(390, '#v=klas');
   await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── a keyboard-placed readout follows the map it points at ──
+     the tip is placed once, from the focused feature's bbox corner, and the same
+     hook that places it adds +, −, 0 and Shift+arrows on the window — none of
+     which re-placed it. Measured on HR-18 at 1440×900: placed 20 px from its
+     corner, then two + take the county to 2,56× and the tip stays where it was,
+     351 px away, still shown and still naming a county nowhere near it. Matrica
+     294 px and the JLS map 126 px on the same gesture. That is the "one county's
+     numbers anchored over another" failure the placement exists to prevent,
+     reached through the keys this app adds for exactly the readers who cannot
+     use the pointer path. A feature panned off the viewport is exempt: the tip
+     is clamped into the page then, which is correct. */
+  const tipFollow = {};
+  for (const [k, h, sel, steps] of [
+    ['saldo', '#v=saldo&c=1&y=2024', '.cnt[data-iso="HR-18"]', 2],
+    ['mx', '#v=mx&c=0&y=2018&dir=out', '.mxc[tabindex="0"]', 2],
+    /* one step in jmap: a municipality at 2,56× leaves the viewport */
+    ['jmap', '#v=jmap&dir=net', '.jl[tabindex="0"]', 1]]) {
+    await fresh(h);
+    await page.waitForSelector(sel, { timeout: 30000 }).catch(() => {});
+    const gap = () => page.evaluate(s => {
+      const el = document.querySelector(s), t = document.querySelector('#tip');
+      if (!el || !t) return null;
+      const a = el.getBoundingClientRect(), b = t.getBoundingClientRect();
+      const dx = Math.max(a.left - b.right, b.left - a.right, 0);
+      const dy = Math.max(a.top - b.bottom, b.top - a.bottom, 0);
+      return { gap: Math.round(Math.hypot(dx, dy)),
+        onScreen: a.right > 0 && a.left < innerWidth && a.bottom > 0 && a.top < innerHeight,
+        shown: getComputedStyle(t).opacity !== '0' && (t.textContent || '').trim().length > 0 };
+    }, sel);
+    await page.evaluate(s => document.querySelector(s).focus(), sel);
+    await settle(300);
+    const placed = await gap();
+    for (let i = 0; i < steps; i++) { await page.keyboard.press('+'); await settle(220); }
+    const zoomed = await gap();
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.up('Shift');
+    await settle(250);
+    tipFollow[k] = { placed, zoomed, panned: await gap() };
+  }
+  const tipNear = r => !!r && r.shown && (!r.onScreen || r.gap <= 60);
+  ck('a keyboard-placed readout follows its feature through zoom and pan',
+    Object.values(tipFollow).every(v => v.placed && v.placed.onScreen && v.placed.gap <= 60
+      && tipNear(v.zoomed) && v.zoomed.onScreen && tipNear(v.panned)),
+    JSON.stringify(tipFollow));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));

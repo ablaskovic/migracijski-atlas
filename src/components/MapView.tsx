@@ -98,11 +98,30 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
     jgRef.current?.querySelectorAll<SVGPathElement>('.jl')[jf]?.focus();
   }, [jf]);
 
+
   /* wheel/pinch zoom + drag pan; identity by default so nothing else shifts */
   /* the glossary is a dialog and owns the keyboard while it is open — see useZoom */
   const zoom = useZoom(size.w, size.h, S.help,
     /* a pinch is not a probe — see useZoom and the two grids' pick() */
     () => setS({ hl: null, pairHl: null, yrHl: null, jlsHl: null }));
+  /* …and it has to stay there when the map moves under it. The tip is placed
+     once, from the focused feature’s bbox corner, and the same hook adds +, −,
+     0 and Shift+arrows on the window — none of which re-placed it. Measured on
+     HR-18: placed 20 px from its corner, then + + takes the county to 2,6× and
+     the tip stays where it was, 351 px away; two Shift+→ make it 920 px, still
+     shown and still describing a county nowhere near it. That is the "one
+     county’s numbers anchored over another" failure the placement was written
+     for, reached through the keys this same file adds for the same readers.
+     Only while the feature really holds focus, so a pointer reader’s tip is
+     never moved out from under the pointer. */
+  useEffect(() => {
+    const el = fIso
+      ? wrapRef.current?.querySelector<SVGPathElement>(`.cnt[data-iso="${fIso}"]`)
+      : jFoc ? jgRef.current?.querySelectorAll<SVGPathElement>('.jl')[jf] : null;
+    if (!el || document.activeElement !== el) return;
+    const r = el.getBoundingClientRect();
+    moveTip({ clientX: r.right, clientY: r.bottom });
+  }, [zoom.t, fIso, jFoc, jf]);
   const [covered, setCovered] = useState(false);
   /* The zoom reset unmounts itself, and only its CLICK path hands focus on. The
      documented keys do the same unmount from useZoom's window handler: with the

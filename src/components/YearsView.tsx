@@ -112,6 +112,23 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
     navRef.current = false;
     gridRef.current?.querySelector<SVGRectElement>(focusSel)?.focus();
   }, [focusSel]);
+  /* …and it has to stay there when the map moves under it. The tip is placed
+     once, from the focused feature’s bbox corner, and the same hook adds +, −,
+     0 and Shift+arrows on the window — none of which re-placed it. Measured on
+     HR-18: placed 20 px from its corner, then + + takes the county to 2,6× and
+     the tip stays where it was, 351 px away; two Shift+→ make it 920 px, still
+     shown and still describing a county nowhere near it. That is the "one
+     county’s numbers anchored over another" failure the placement was written
+     for, reached through the keys this same file adds for the same readers.
+     Only while the feature really holds focus, so a pointer reader’s tip is
+     never moved out from under the pointer. */
+  useEffect(() => {
+    const el = gridRef.current?.querySelector<SVGRectElement>(focusSel);
+    if (!el || document.activeElement !== el) return;
+    const r = el.getBoundingClientRect();
+    moveTip({ clientX: r.right, clientY: r.bottom });
+  }, [zoom.t, focusSel]);
+
   /* Changing Sastavnica reorders the rows and changing mode drops nine columns,
      so a stop parked at [20, 27] can end up outside the grid it belongs to. */
   useEffect(() => {
