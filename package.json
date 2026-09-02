@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc --noEmit && oxlint --deny-warnings && vite build",
     "lint": "oxlint --deny-warnings",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",

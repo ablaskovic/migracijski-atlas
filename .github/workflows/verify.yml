@@ -9,6 +9,17 @@
 # hitting it. `npm run smoke`, the one thing that probes the deployed origin,
 # was manual too.
 #
+# This workflow adds DETECTION, and it loses the race it is in: Vercel promotes
+# the deploy while these jobs are still running. So the two cheap gates moved
+# into the deploy itself — `npm run build` is now
+# `tsc --noEmit && oxlint --deny-warnings && vite build`, and vercel.json names
+# it as the buildCommand, so a type error or a lint failure stops the build
+# instead of being reported after it shipped. The puppeteer suite stays here:
+# a Chrome download on a Vercel builder is not worth the minutes, and it is the
+# slow half. What that leaves unprotected is a commit that typechecks and lints
+# and still breaks checks — for which the answer is a required status check on
+# main, which lives in the repository settings and not in a file.
+#
 # puppeteer is deliberately not a devDependency — the README explains that it is
 # to spare a fresh clone and a cold deploy the Chrome download. That argument is
 # about clones and deploys, not about a CI runner that installs once per job, so

@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 530;
+const EXPECTED_CHECKS = 531;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9461,6 +9461,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /immutable/.test(assetHdr['cache-control'] || '')
     && /must-revalidate/.test(docHdr['cache-control'] || ''),
     JSON.stringify({ asset: assetHdr['cache-control'], doc: docHdr['cache-control'] }));
+
+  /* …and the deploy runs the cheap gates before it ships. The CI workflow is
+     DETECTION and it loses the race it is in: Vercel promotes the deploy while
+     those jobs are still running, so a commit that transpiles but carries a type
+     error reached readers and was reported afterwards — the failure the
+     workflow's own header narrates. vercel.json declared no buildCommand and
+     `npm run build` was `vite build` alone, which typechecks nothing.
+     Read off the two files rather than inferred: the deploy names a build
+     command, that command is the repo's own, and the repo's own runs tsc and
+     oxlint before vite. */
+  const gate = (() => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+    const vc = JSON.parse(fs.readFileSync(path.resolve('vercel.json'), 'utf8'));
+    return { build: pkg.scripts?.build || '', cmd: vc.buildCommand || '' };
+  })();
+  ck('the deploy build typechecks and lints before it bundles',
+    /^npm run build$/.test(gate.cmd.trim())
+    && /tsc --noEmit/.test(gate.build) && /oxlint --deny-warnings/.test(gate.build)
+    && /vite build/.test(gate.build)
+    && gate.build.indexOf('tsc --noEmit') < gate.build.indexOf('vite build')
+    && gate.build.indexOf('oxlint') < gate.build.indexOf('vite build'),
+    JSON.stringify(gate));
 
   /* ══════════ fixes that shipped with no check behind them ══════════
      Seven app-side repairs landed touching zero lines of this file, so reverting
