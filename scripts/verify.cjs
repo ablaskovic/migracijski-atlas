@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 514;
+const EXPECTED_CHECKS = 515;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3714,11 +3714,63 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     gloss.pan && gloss.grid, JSON.stringify(gloss));
 
   /* ── the two big geometry payloads are no longer on the critical path ── */
-  const chunks = await page.evaluate(() => performance.getEntriesByType('resource')
-    .filter(r => /\.js$/.test(r.name)).map(r => r.name.split('/').pop()));
-  ck('geo_jls and geo_regions5 ship as their own chunks, not in the entry',
-    chunks.some(c => /^geo_jls/.test(c)) && chunks.some(c => /^geo_regions5/.test(c))
-    && chunks.filter(c => /^index-/.test(c)).length === 1, chunks.join(','));
+  /* …measured on the ARTIFACT and on the waterfall, not on a stopwatch. This
+     read performance entries straight after fresh(''), a Saldo view that imports
+     no geometry: the two chunk names were there only because geoAsync's
+     speculative warm fires 1.500 ms after mount, so what it pinned was that the
+     checks above it had burned enough wall time first. Executed: at fresh()+0
+     the entries hold no geo chunk and both appear at +1,7 s — reorder or delete
+     the two glossary checks above and this went red against an unchanged app,
+     and removing the warm (a perf remedy the project's own record invites) fails
+     it too. Meanwhile the property in the section title could break in silence:
+     a modulepreload for either chunk in index.html, or a manualChunks entry that
+     keeps a static import in its own file, puts both payloads back in the boot
+     waterfall with every conjunct still green.
+     So: the files exist and index.html does not pull them in — read off disk,
+     because that is where the claim lives — and then the waterfall is watched
+     rather than sampled, with each chunk required to start AFTER the load event.
+     The second half still requires both to arrive, i.e. it pins the speculative
+     warm as a shipped behaviour — but it waits for the responses instead of
+     hoping the checks above it were slow enough, and it says which side of the
+     load event they landed on, which is the property the section title claims. */
+  const geoArt = URLMODE ? null : (() => {
+    const ad = path.resolve(arg, 'assets');
+    const files = fs.existsSync(ad) ? fs.readdirSync(ad) : [];
+    const html = fs.existsSync(path.resolve(arg, 'index.html'))
+      ? fs.readFileSync(path.resolve(arg, 'index.html'), 'utf8') : '';
+    return {
+      jls: files.filter(f => /^geo_jls-.*\.js$/.test(f)).length,
+      reg: files.filter(f => /^geo_regions5-.*\.js$/.test(f)).length,
+      entry: files.filter(f => /^index-.*\.js$/.test(f)).length,
+      inHtml: (html.match(/geo_(?:jls|regions5)/g) || []).length,
+    };
+  })();
+  const geoWait = Promise.all([
+    page.waitForResponse(r => /geo_jls-/.test(r.url()), { timeout: 20000 }).catch(() => null),
+    page.waitForResponse(r => /geo_regions5-/.test(r.url()), { timeout: 20000 }).catch(() => null),
+  ]);
+  await page.goto('about:blank');
+  await page.goto(url, { waitUntil: 'load' });
+  const geoResp = (await geoWait).filter(Boolean).length;
+  const geoWhen = await page.evaluate(() => {
+    const nav = performance.getEntriesByType('navigation')[0];
+    const load = nav ? nav.loadEventEnd : 0;
+    return { load: Math.round(load),
+      g: performance.getEntriesByType('resource')
+        .filter(r => /geo_(?:jls|regions5)-/.test(r.name))
+        .map(r => ({ n: r.name.split('/').pop().split('-')[0], after: r.startTime > load })),
+      index: performance.getEntriesByType('resource')
+        .filter(r => /\/assets\/index-.*\.js$/.test(r.name)).length };
+  });
+  ck('geo_jls and geo_regions5 ship as their own chunks, and index.html pulls in neither',
+    URLMODE
+      ? geoWhen.index === 1 && geoWhen.g.length === 2
+      : geoArt.jls === 1 && geoArt.reg === 1 && geoArt.entry === 1 && geoArt.inHtml === 0,
+    JSON.stringify({ geoArt, index: geoWhen.index }));
+  ck('and both arrive after the load event rather than in the boot waterfall',
+    geoResp === 2 && geoWhen.g.length === 2 && geoWhen.g.every(x => x.after) && geoWhen.load > 0,
+    JSON.stringify({ geoResp, ...geoWhen }));
+  await fresh('');
   /* dist mode measures the file; URL mode has no directory to measure, so it
        reads the served entry chunk's own transfer size instead of reporting 0 */
   const entryKB = URLMODE
