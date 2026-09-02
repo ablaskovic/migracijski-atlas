@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 tools/pipeline/ext/
+
+# Python bytecode from the pipeline scripts
+__pycache__/
