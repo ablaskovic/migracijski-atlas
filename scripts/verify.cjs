@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 568;
+const EXPECTED_CHECKS = 570;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5596,6 +5596,29 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       txt: l ? (l.textContent || '').trim() : '',
       aria: m ? m.getAttribute('aria-label') || '' : '' };
   });
+  /* …and the retry is a 44 px target where it is reached. It is the only
+     affordance in this state, and the state is a failed chunk on a flaky mobile
+     network — a touch context by construction — yet the coarse-pointer block
+     re-padded eleven control classes and never .geostat button: measured 119×24
+     against 44 for every sibling. Same omission as .labbtn and the zoom reset
+     before it. Its own viewport, because the re-pad sweep runs in a healthy app
+     where this button does not exist. */
+  await page.setViewport({ width: 1024, height: 768, hasTouch: true, isMobile: false });
+  await page.goto('about:blank');
+  await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!document.querySelector('#jretry'), { timeout: 15000 }).catch(() => {});
+  await settle(400);
+  const retryTap = await page.evaluate(() => {
+    const b = document.querySelector('#jretry');
+    if (!b) return { missing: true };
+    const r = b.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height),
+      coarse: matchMedia('(any-pointer:coarse)').matches };
+  });
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the geometry retry is a 44 px target on the pointer that reaches it',
+    !retryTap.missing && retryTap.coarse && retryTap.h >= 44 && retryTap.w >= 44,
+    JSON.stringify(retryTap));
   ck('an empty rail and the map both name the missing geometry instead of promising rows',
     railGone.jl === 0 && railGone.rows === 0 && /Geometrija JLS nije u/.test(railGone.txt)
     && !/Strelice/.test(railGone.aria) && /Geometrija JLS nije u/.test(railGone.aria),
@@ -10523,6 +10546,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       adjust: bars.length ? getComputedStyle(bars[0]).forcedColorAdjust : null,
       zero: z ? getComputedStyle(z).backgroundColor : null };
   });
+  /* …and the focus ring, which this block intends to take the system Highlight
+     and never did. The override was written as a bare `.fr-ink` — (0,1,0) —
+     against a base rule of `.focusring .fr-ink` at (0,2,0), and a media query
+     adds no specificity, so the dash stayed #20262B on whatever Canvas the
+     theme forced: invisible on a black-canvas theme, where only the untouched
+     white halo carried the indicator. The `.jl:focus-visible` half of the same
+     selector list did win, so the block half-worked and the half that did not
+     was silent. Asserted against the ink token rather than for a particular
+     Highlight value, which the emulation picks. */
+  await fresh('#v=saldo&c=1&y=2024');
+  const fcRing = await page.evaluate(async () => {
+    document.querySelector('.cnt[data-iso="HR-18"]').focus();
+    await new Promise(r => setTimeout(r, 250));
+    const g = document.querySelector('.focusring');
+    const jl = document.querySelector('.jl');
+    return { has: !!g, fc: matchMedia('(forced-colors: active)').matches,
+      ink: g ? getComputedStyle(g.querySelector('.fr-ink')).stroke : null,
+      jl: !!jl };
+  });
+  ck('the forced-colors override actually reaches the focus ring it names',
+    fcRing.has && fcRing.fc && !!fcRing.ink && fcRing.ink !== 'rgb(32, 38, 43)',
+    JSON.stringify(fcRing));
   await forced(false);
 
   /* ── the two grids own rows, and rows own cells ──
