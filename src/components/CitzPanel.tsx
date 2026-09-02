@@ -166,7 +166,11 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
               {/* Mounted whether or not it has something to say: a live region
                   inserted already populated is not guaranteed to announce, which
                   is the pattern #srLive follows and this one did not. Empty it
-                  paints nothing — see .citz-clamp:empty. */}
+                  paints nothing — it carries only type
+                  styles and has no box of its own, which is what lets it stay in the
+                  tree. It is NOT on the `:empty{display:none}` rule — cc8bec5 took
+                  it off precisely so the region keeps registering, and putting it
+                  back would recreate MA3-057. */}
               <div className="citz-clamp" id="citzClamp" role="status" aria-live="polite">
                 {!inRange && L(`Vremenska vrpca je na ${yrOf(YEARS[S.yi])} — izvan objavljenog raspona, prikazano ${yrOf(y)}`,
                   `The time scrubber is at ${yrOf(YEARS[S.yi])} — outside the published range, showing ${yrOf(y)}`)}
