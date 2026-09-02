@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 582;
+const EXPECTED_CHECKS = 583;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7043,6 +7043,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && tabCarry.dirty.tab === tabCarry.clean.tab && !!tabCarry.clean.tab
     && !/ag=2/.test(agCarry.hash) && !/ag=/.test(agCarry.booted),
     JSON.stringify({ tabCarry, agCarry }));
+
+  /* ── a pointer scrub takes the year, and the film lets go ──
+     the interval kept advancing under the finger: press play at 2000 and then
+     press the chart at its midpoint and the year jumps to 2012 with #play still
+     aria-pressed=true, and 1,5 s later — button still held — #bigYear reads
+     2014. The drag fought the film. App stops playback when a corridor opens on
+     the grounds that "every other route stops playback"; the app's primary
+     control did not. The arrow keys are the other half and must NOT stop it:
+     they are how a reader nudges a running film, which is why they go through
+     the window handler rather than through the scrubber. */
+  await fresh('#v=saldo&c=0&y=2000');
+  await click('#play');
+  await settle(350);
+  const scrubStop = {};
+  {
+    const at = await page.evaluate(() => {
+      const r = document.querySelector('#spark').getBoundingClientRect();
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+    });
+    await page.mouse.click(at.x, at.y);
+    await settle(300);
+    const read = () => page.evaluate(() => ({ y: document.querySelector('#bigYear').textContent.trim(),
+      playing: document.querySelector('#play').getAttribute('aria-pressed') }));
+    scrubStop.justAfter = await read();
+    await settle(1500);
+    scrubStop.later = await read();
+  }
+  await fresh('#v=saldo&c=0&y=2000');
+  await click('#play');
+  await settle(350);
+  await page.keyboard.press('ArrowRight');
+  await settle(300);
+  scrubStop.arrow = await page.evaluate(() => ({ y: document.querySelector('#bigYear').textContent.trim(),
+    playing: document.querySelector('#play').getAttribute('aria-pressed') }));
+  await page.evaluate(() => { const p = document.querySelector('#play');
+    if (p.getAttribute('aria-pressed') === 'true') p.click(); });
+  ck('a pointer scrub stops the film and keeps its year; an arrow key does not',
+    scrubStop.justAfter.playing === 'false' && scrubStop.later.playing === 'false'
+    && scrubStop.later.y === scrubStop.justAfter.y && scrubStop.arrow.playing === 'true',
+    JSON.stringify(scrubStop));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text

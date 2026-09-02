@@ -8,7 +8,7 @@ import { L, t, yr as yrL, yrSpan } from '../lib/i18n.ts';
 import type { State } from '../lib/types.ts';
 
 export default function Scrubber({ S, setYi, togglePlay }: {
-  S: State; setYi: (yi: number) => void; togglePlay: () => void;
+  S: State; setYi: (yi: number, stop?: boolean) => void; togglePlay: () => void;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [sw, setSw] = useState(0);
@@ -48,7 +48,17 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     let y = Math.round(x.invert(ev.clientX - rect.left));
     y = Math.max(S.cum || S.view === 'klas' ? 2011 : Y0, Math.min(YEND, y));
     const yi = YEARS.indexOf(y);
-    if (yi !== S.yi) setYi(yi);
+    /* …and the film stops, because the reader just took the year themselves.
+       Without it the interval kept advancing under the finger and the drag
+       fought the film: measured, press play at 2000 and then press the chart
+       at its midpoint — the year jumps to 2012 with #play still
+       aria-pressed=true, and 1,5 s later, button still held, #bigYear reads
+       2014. App stops playback when a corridor opens, on the grounds that
+       "every other route stops playback"; the primary control did not.
+       Only the POINTER path: the arrow keys step the year by design and are
+       how a reader nudges a running film, which is why they go through the
+       window handler and not through here. */
+    if (yi !== S.yi) setYi(yi, true);
   };
   /* WHICH pointer owns the drag, not merely that one does — the lesson useZoom
      records for its own pinch ("Identity is what a gesture is") and this never

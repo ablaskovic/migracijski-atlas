@@ -252,7 +252,10 @@ export default function App() {
     const open = s.sel === a && s.pair === b;
     up(open ? { sel: null, pair: null } : { sel: a, pair: b, playing: false });
   };
-  const setYi = (yi: number) => up({ yi });
+  /* `stop` is the pointer scrub saying the reader has taken the year: see
+     Scrubber. The keyboard arrows call this without it and leave the film
+     running, which is what lets a reader nudge one. */
+  const setYi = (yi: number, stop = false) => up(stop ? { yi, playing: false } : { yi });
   /* The Nalazi picker is the third route into a view, and it used to run none of
      the entry clamps the other two implement — `setView` for a segment press,
      `decodeHash` for a link. Measured, four consequences shipped through it:
