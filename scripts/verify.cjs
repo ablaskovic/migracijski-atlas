@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 538;
+const EXPECTED_CHECKS = 539;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3750,6 +3750,76 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       && thumb.afterHorizontal !== thumb.y0,
       JSON.stringify(thumb));
   }
+
+  /* …and the drag belongs to ONE pointer. The flag was a shared boolean, so
+     every pointer scrubbed and any pointerup killed all of them — the lesson
+     useZoom records for its own pinch ("Identity is what a gesture is") and this
+     never learned. Measured at 390×844 with two real touch handles, each leg in
+     its own page so a pinch-zoomed viewport cannot pollute the next: the second
+     touchStart alone jumped the year 2003 → 2021, and the following frames
+     alternated between the fingers — 2003, 2004, 2019, 2005, 2006, 2007 — while
+     lifting one finger left the survivor dead.
+     The alternation is what is asserted, because it is what identity fixes: the
+     owning finger travels right, so the years it produces must be monotonic. A
+     sequence that goes back and forth is two fingers driving one drag. */
+  const twoFinger = await (async () => {
+    const leg = async fn => {
+      const pg = await watch(await browser.newPage());
+      await pinHr(pg);
+      const c = await pg.createCDPSession();
+      await pg.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+      await pg.goto(url + '#v=saldo&y=2003&c=0', { waitUntil: 'domcontentloaded' });
+      await pg.waitForFunction(() => !!document.querySelector('#spark'), { timeout: 20000 }).catch(() => {});
+      await settle(700);
+      const yr = () => pg.evaluate(() => document.querySelector('#bigYear').textContent.trim());
+      const b = await pg.evaluate(() => { const r = document.querySelector('#spark').getBoundingClientRect();
+        return { l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; });
+      const out = await fn({ cdp: c, yr, b, y: b.t + b.h / 2 });
+      await c.detach(); await pg.close();
+      return out;
+    };
+    const pinch = await leg(async ({ cdp, yr, b, y }) => {
+      const start = await yr();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.l + 40, y, id: 1 }] });
+      await settle(120);
+      const afterFirst = await yr();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [
+        { x: b.l + 40, y, id: 1 }, { x: b.l + b.w - 40, y, id: 2 }] });
+      await settle(120);
+      const afterSecond = await yr();
+      const seq = [];
+      for (let i = 1; i <= 7; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [
+          { x: b.l + 40 + i * 8, y, id: 1 }, { x: b.l + b.w - 40 - i * 8, y, id: 2 }] });
+        seq.push(await yr());
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      return { start, afterFirst, afterSecond, seq };
+    });
+    const survivor = await leg(async ({ cdp, yr, b, y }) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.l + 40, y, id: 1 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [
+        { x: b.l + 40, y, id: 1 }, { x: b.l + 120, y, id: 2 }] });
+      await settle(150);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [{ x: b.l + 40, y, id: 1 }] });
+      await settle(150);
+      const before = await yr();
+      for (let i = 1; i <= 8; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: b.l + 40 + i * 22, y, id: 1 }] });
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await settle(300);
+      return { before, after: await yr() };
+    });
+    return { pinch, survivor };
+  })();
+  const tfYears = twoFinger.pinch.seq.map(t => parseInt(t, 10));
+  ck('the year scrub belongs to one finger: a second does not drive it and lifting it does not end it',
+    twoFinger.pinch.afterFirst === twoFinger.pinch.start
+    && twoFinger.pinch.afterSecond === twoFinger.pinch.start
+    && tfYears.every((v, i) => !i || v >= tfYears[i - 1])
+    && twoFinger.survivor.after !== twoFinger.survivor.before,
+    JSON.stringify(twoFinger));
 
   /* ── P3: no panel flag without a panel behind it ──
      the JLS chip only exists in Tokovi. Carried elsewhere it still set
