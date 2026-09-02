@@ -7363,13 +7363,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
           if (ov > 1) hits.push(t.textContent.trim() + '×' + s.id + '=' + Math.round(ov));
         }
       }
-      return { labs: labs.length, strip: strip.length, hits,
+      /* #helpBtn is the one that collided and the only strip member Godine
+         mounts: it draws no county labels, so #labBtn is the hidden lane span,
+         and #zoomRst exists only above 1×. Its presence is the floor. */
+      return { labs: labs.length, help: strip.some(x => x.id === 'helpBtn'), hits,
         cells: document.querySelectorAll('#map .yrc').length };
     });
   }
   await page.setViewport({ width: 1440, height: 900 });
   ck('no Godine year label is painted under the map’s top strip',
-    Object.values(yrLane).every(v => v.labs === 28 && v.strip >= 2 && v.cells === 588
+    Object.values(yrLane).every(v => v.labs === 28 && v.help && v.cells === 588
       && v.hits.length === 0),
     JSON.stringify(yrLane));
   /* …and the exported twin of that legend has to be readable on a machine that
