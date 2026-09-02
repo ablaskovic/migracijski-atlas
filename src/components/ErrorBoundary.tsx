@@ -85,12 +85,24 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
           <span className="boot-eyebrow">DZS · 1998.–2025.</span>
           <span className="boot-title">Migracijski atlas županija</span>
         </div>
+        {/* Both halves annotated. The document is lang=hr (or lang=en), and this
+            was one text run carrying both languages — so a screen reader voiced
+            the English half with Croatian phonemes, and the reverse on the
+            English page, for the one instruction a stranded reader gets.
+            index.html's own no-JS fallback already wraps its English half in
+            <span lang="en">; this component, written to survive a failure of
+            the i18n path itself, mixed the two. Literals only, so the rule
+            above still holds: nothing here can throw. */}
         <p className="boot-fail" id="renderFail" style={{ opacity: 1 }}>
-          Prikaz se nije mogao iscrtati. <a href={here} onClick={reload}>Osvježite stranicu</a>
-          {' — ili '}<a href={plain} id="renderFailPlain">otvorite bez poveznice na prikaz</a>.
-          {' / The view could not be drawn. '}
-          <a href={here} onClick={reload}>Reload the page</a>
-          {' — or '}<a href={plain}>open it without the permalink</a>.
+          <span lang="hr">
+            Prikaz se nije mogao iscrtati. <a href={here} onClick={reload}>Osvježite stranicu</a>
+            {' — ili '}<a href={plain} id="renderFailPlain">otvorite bez poveznice na prikaz</a>.
+          </span>
+          {' / '}
+          <span lang="en">
+            The view could not be drawn. <a href={here} onClick={reload}>Reload the page</a>
+            {' — or '}<a href={plain}>open it without the permalink</a>.
+          </span>
         </p>
       </div>
     );
