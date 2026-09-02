@@ -1357,6 +1357,12 @@ body.stage-collapsed .main{flex:none;height:420px}
      the 24 px WCAG 2.5.8 asks for outright. It is hidden below 900 px, so a
      coarse pointer on a tablet was exactly where it was reachable and undersized. */
   .labbtn{min-height:44px;padding:4px 10px}
+  /* …and the geometry retry, the last control this block missed. It is the only
+     affordance in the state it appears in — a failed chunk on a flaky mobile
+     network, which is a touch context by construction — and it measured 119×24
+     with hasTouch at 1024×768 while every sibling here is 44. Same shape as
+     .labbtn above and the zoom reset before it. */
+  .geostat button{min-height:44px;padding:4px 14px}
   .play{width:48px}
 }
 
