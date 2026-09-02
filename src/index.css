@@ -140,11 +140,12 @@
   --mono:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   --sans:'IBM Plex Sans','IBM Plex Sans Fallback',system-ui,sans-serif;
   --disp:'Oswald','Oswald Fallback','Arial Narrow',sans-serif;
-  /* The "?" button's side. .zoomrst is parked immediately left of it, so the two
-     positions are one measurement, not two — the coarse-pointer rule grew the
-     button 22 → 44 px and left .zoomrst anchored to clear a 22 px button, which
-     put "⤢ 1,6×" straight through the "?" on every touch device, at both
-     breakpoints. Deriving .zoomrst's offset from this makes that unrepresentable. */
+  /* The "?" button's side — its width and height, and nothing else now. It used
+     to be half of .zoomrst's offset as well, because the coarse-pointer rule
+     grew the button 22 → 44 px and left .zoomrst anchored to clear a 22 px one,
+     which put "⤢ 1,6×" straight through the "?" on every touch device at both
+     breakpoints. .mapstrip lays the three controls out as a row instead, so no
+     control encodes another's width at all and that class of drift is gone. */
   --hbw:22px;
   /* One chip header's own height. The dock anchors the floating panel body off
      the stack of two of them, so the offset and the box it clears have to be
@@ -815,14 +816,37 @@ body.stage-collapsed .main{flex:none;height:420px}
 /* the mig+prirodno caveat, in the one card that shows the sum without it */
 .card-note{font-size:0.5625rem;color:var(--mut);margin-top:4px;line-height:1.35}
 
-/* map corner toggle for county labels */
-/* z-index 6, with .helpbtn and .zoomrst: the map's top strip is one lane and it
-   sits above the dock. At 4 it tied with .chipdock and DOM order decided —
-   the dock is a later sibling, so it painted over the button and took its
-   clicks (measured at 941x700 in Tokovi with a corridor open: 0 of 9 face
+/* ── the map's top strip ──
+   One right-anchored row, rather than three absolutely-positioned controls each
+   reserving space for its neighbour by hand. The reserve was a literal:
+   `.helpbtn{right:108px}` encoded "16 px offset plus whatever the labels button
+   happens to render at", while .labbtn has no width and its font-size is a rem —
+   so the reserve was fixed and the box it reserved for was not. Commit 0d72df7
+   converted all 74 literal px font-sizes to rem precisely so text scales, which
+   is what moves .labbtn, and 108 was not converted with them. Measured at
+   1440×900 as the gap between .labbtn's left edge and the "?"'s right: +15,9 px
+   at Chrome's default 16 px root, +1,3 px at the "Large" 20 px preset, and
+   −13,2 px at "Very large" 24 px — where elementFromPoint at the centre of
+   #helpBtn returns #labBtn, so the glossary's own button hands its click to the
+   labels toggle. Identical in both locales; a coarse pointer overlapped from
+   20 px onward but --hbw:44px kept the "?" centre clear, so the mouse-only
+   desktop was the one that lost the button.
+   A row cannot drift for any label text, font size or locale, and it deletes
+   both places .zoomrst re-derived the same stale 108. pointer-events:none on the
+   row with auto on the children: it spans only its content, but a bare wrapper
+   over the map is still a click shield waiting to happen.
+   z-index 6 moves here with it, and the reason is unchanged: the strip is one
+   lane and it sits above the dock. At 4 it tied with .chipdock and DOM order
+   decided — the dock is a later sibling, so it painted over the button and took
+   its clicks (measured at 941×700 in Tokovi with a corridor open: 0 of 9 face
    points reachable, and a real click at the centre opened the Dob i spol panel
    instead of toggling the labels). Stacking by intent, not by source order. */
-.labbtn{position:absolute;top:14px;right:16px;z-index:6;font-family:var(--mono);font-size:0.59375rem;
+.mapstrip{position:absolute;top:14px;right:16px;z-index:6;
+  display:flex;gap:8px;align-items:flex-start;pointer-events:none}
+.mapstrip>*{pointer-events:auto}
+
+/* map corner toggle for county labels */
+.labbtn{font-family:var(--mono);font-size:0.59375rem;
   letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
 .labbtn:hover{color:var(--ink)}
@@ -831,12 +855,12 @@ body.stage-collapsed .main{flex:none;height:420px}
 /* Zoom reset — shares the top strip with the labels toggle rather than sitting
    at top:44/right:16, which is exactly where .paircard lands: the card has the
    higher z-index, so opening a corridor while zoomed hid the only way back. */
-/* Top strip, right to left: labels toggle (16), help (108), zoom reset (138).
-   Top-left is spoken for by the detail card and the JLS chip, and top:44/right:16
-   is where .paircard lands — which is exactly where the zoom reset used to sit,
-   under a card with a higher z-index. */
-/* right = the "?" anchor + its own side + an 8 px gap, so the pair cannot drift */
-.zoomrst{position:absolute;top:14px;right:calc(108px + var(--hbw) + 8px);z-index:6;font-family:var(--mono);font-size:0.59375rem;
+/* Top strip, right to left: labels toggle, help, zoom reset — order now set by
+   .mapstrip's flow rather than by three offsets. Top-left is spoken for by the
+   detail card and the JLS chip, and top:44/right:16 is where .paircard lands —
+   which is exactly where the zoom reset used to sit, under a card with a higher
+   z-index. */
+.zoomrst{font-family:var(--mono);font-size:0.59375rem;
   letter-spacing:.08em;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
 .zoomrst:hover{color:var(--ink)}
@@ -854,7 +878,7 @@ body.stage-collapsed .main{flex:none;height:420px}
 .geostat button:hover{background:var(--acc);color:var(--panel)}
 
 /* "Kako čitati" — the only place the vocabulary is explained */
-.helpbtn{position:absolute;top:14px;right:108px;z-index:6;font-family:var(--mono);font-size:0.6875rem;
+.helpbtn{font-family:var(--mono);font-size:0.6875rem;
   line-height:1;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;width:var(--hbw);height:var(--hbw)}
 .helpbtn:hover{color:var(--ink)}
@@ -1147,11 +1171,10 @@ body.stage-collapsed .main{flex:none;height:420px}
   .scrub-tog::before{content:'';position:absolute;left:-24px;right:-24px;top:0;bottom:-10px}
   .scrub-tog:hover{color:var(--ink)}
   .scrub-tog svg{width:16px;height:16px;fill:currentColor}
-  /* top strip at 390: jcard chip left, Nalazi right; labels are desktop/export-only,
-     so help and zoom reset slide over into the space it frees */
+  /* top strip at 390: jcard chip left, Nalazi right; labels are desktop/export-only.
+     The other two used to need their own offsets to slide into the space it
+     frees; in the row a display:none item takes its gap with it. */
   .labbtn{display:none}
-  .helpbtn{right:16px}
-  .zoomrst{right:calc(16px + var(--hbw) + 8px)}
   .storysel select{width:100%}
 }
 

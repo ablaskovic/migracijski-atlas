@@ -690,12 +690,16 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           </g>
         </svg>
       )}
-      {/* Source order = paint order, left to right: zoom reset (right:138),
-          help (right:108), labels (right:16). All three are absolutely
-          positioned, so nothing moves on screen — but Tab followed the DOM,
-          which ran the other way, and a sighted keyboard reader watched focus
-          jump right, left, further left across one row of three buttons
-          (2.4.3). */}
+      {/* Source order = paint order, left to right: zoom reset, help, labels.
+          They used to be three absolutely-positioned controls, each reserving
+          space for its neighbour with a literal — which held at Chrome's default
+          root font size and stopped holding at its "Very large" one, where the
+          labels toggle grew across the "?" and took its clicks. .mapstrip is
+          that row, laid out rather than measured, so the order below is now the
+          layout as well as the paint and the Tab order it was written for: a
+          sighted keyboard reader used to watch focus jump right, left, further
+          left across one row of three buttons (2.4.3). */}
+      <div className="mapstrip">
       {zoom.zoomed && (() => { const zk = Math.round(zoom.t.k * 10) / 10; return (
         /* Resetting the zoom unmounts this button, so focus had nowhere to go;
            hand it to the neighbouring map control. The title and the aria-label
@@ -725,6 +729,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
         <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
           onClick={() => setS({ labels: !S.labels })}>{L('Aa oznake', 'Aa labels')}</button>
       )}
+      </div>
       {/* The 475 KB municipal geometry is its own chunk, so "not here yet" and
           "never arriving" are two different states and the view has to name
           both. It used to name neither: `jlsGeo()` returns null before the

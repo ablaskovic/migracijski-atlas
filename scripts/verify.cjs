@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 500;
+const EXPECTED_CHECKS = 501;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1872,6 +1872,51 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the overlay sweep compared a real set of overlays',
     zr.n >= 4 && ['#labBtn', '#helpBtn', '#zoomRst', '#pair', '#legend'].every(i => zr.ids.includes(i)),
     JSON.stringify(zr.ids));
+
+  /* …and it compared them at ONE root font size, which is the size at which the
+     top strip happened to fit. `.helpbtn{right:108px}` reserved a literal for a
+     labels button whose own width is rem-driven, so the reserve was fixed and
+     the box it reserved for was not. Measured at 1440×900 as the gap between
+     #labBtn's left edge and the "?"'s right: +15,9 px at Chrome's default 16 px
+     root, +1,3 px at "Large" (20 px), −13,2 px at "Very large" (24 px) — where
+     elementFromPoint at the centre of #helpBtn returned #labBtn and the glossary
+     handed its click to the labels toggle. Both locales, and a coarse pointer
+     overlapped from 20 px on.
+     Every preset the browser offers, then, on both pointer types, and asserting
+     the hit as well as the geometry: an 8 px sliver that still overlaps is not a
+     button. #labBtn is display:none below 900 px and under the coarse rule, so
+     its absence is a pass and only the two that remain are compared. */
+  const stripCdp = await page.createCDPSession();
+  const strip = [];
+  for (const touch of [false, true]) {
+    for (const fs of [16, 20, 24]) {
+      await page.setViewport({ width: 1440, height: 900, hasTouch: touch, isMobile: false });
+      await stripCdp.send('Page.setFontSizes', { fontSizes: { standard: fs, fixed: fs } });
+      await fresh('#v=saldo&c=1&y=2024');
+      await page.evaluate(() => document.querySelector('#map').dispatchEvent(
+        new WheelEvent('wheel', { deltaY: -300, clientX: 400, clientY: 300, bubbles: true, cancelable: true })));
+      await settle(350);
+      strip.push({ fs, touch, ...await page.evaluate(() => {
+        const box = id => { const e = document.querySelector(id); if (!e) return null;
+          const b = e.getBoundingClientRect(); return b.width ? b : null; };
+        const hit = id => { const b = box(id); if (!b) return 'absent';
+          const h = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+          return h ? (h.id || h.tagName) : null; };
+        const help = box('#helpBtn'), lab = box('#labBtn'), zr2 = box('#zoomRst');
+        return { gapLab: lab && help ? +(lab.left - help.right).toFixed(1) : null,
+          gapZr: zr2 && help ? +(help.left - zr2.right).toFixed(1) : null,
+          hits: [hit('#helpBtn'), hit('#labBtn'), hit('#zoomRst')] };
+      }) });
+    }
+  }
+  await stripCdp.detach();
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the map top strip keeps its three controls apart at every browser font preset',
+    strip.length === 6 && strip.every(r =>
+      (r.gapLab === null || r.gapLab >= 0) && r.gapZr !== null && r.gapZr >= 0
+      && r.hits[0] === 'helpBtn' && (r.hits[1] === 'absent' || r.hits[1] === 'labBtn')
+      && r.hits[2] === 'zoomRst'),
+    JSON.stringify(strip));
 
   /* ── help panel: the one stable glossary ── */
   await fresh('');
