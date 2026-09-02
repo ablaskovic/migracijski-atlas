@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 504;
+const EXPECTED_CHECKS = 511;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -280,7 +280,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await page.setRequestInterception(true);
   /* one handler only — a second `page.on('request')` makes both call continue()
      on the same request and puppeteer throws "Request is already handled" */
-  let blockGeoChunk = false, blockEntry = false;
+  let blockGeoChunk = false, blockEntry = false, blockFonts = false;
+  /* requests parked by blockFonts === 'hang', so they can be released at the end
+     of that check rather than left holding the interceptor */
+  const heldFonts = [];
   /* `{ re, gate, done, n }` while a chunk request is being held open, null
      otherwise. `n` counts how many requests were actually parked, which is what
      proves the reader's own view change issued no request of its own and really
@@ -317,6 +320,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* a purged hashed chunk against a cached index.html — the ordinary way the
        first-paint placeholder is left with nothing to replace it */
     if (blockEntry && /\/assets\/index-[\w-]+\.js$/.test(u)) return r.abort();
+    /* the export's OWN font fetch, failed or wedged on demand. Set only after a
+       page has loaded, so the @font-face fetches at boot are untouched and only
+       exportFonts' re-fetch meets it. */
+    if (blockFonts && /\.woff2(\?|$)/.test(u)) {
+      if (blockFonts === 'hang') { heldFonts.push(r); return; }
+      return r.respond({ status: 404, contentType: 'text/html', body: '<h1>404</h1>' });
+    }
     return r.continue();
   });
   ledger(page);
@@ -8489,6 +8499,174 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /immutable/.test(assetHdr['cache-control'] || '')
     && /must-revalidate/.test(docHdr['cache-control'] || ''),
     JSON.stringify({ asset: assetHdr['cache-control'], doc: docHdr['cache-control'] }));
+
+  /* ══════════ fixes that shipped with no check behind them ══════════
+     Seven app-side repairs landed touching zero lines of this file, so reverting
+     any of them left it printing ALL CHECKS PASS. Four were graded high at the
+     time. One check each, in this file's own idiom. */
+
+  /* (1) ctrl/meta-wheel is the browser's page zoom, not the map's. useZoom yields
+     it — the map must neither consume the gesture nor move under it. The only two
+     WheelEvent dispatches in this file set no ctrlKey. */
+  await fresh('');
+  const ctrlWheel = await page.evaluate(() => {
+    const m = document.querySelector('#map');
+    const tf = () => m.querySelector('g[transform]').getAttribute('transform');
+    const before = tf();
+    const ev = new WheelEvent('wheel', { deltaY: -300, clientX: 400, clientY: 300, bubbles: true, cancelable: true, ctrlKey: true });
+    m.dispatchEvent(ev);
+    const after = tf();
+    /* the plain gesture must still be taken, or "did not zoom" proves nothing */
+    const plain = new WheelEvent('wheel', { deltaY: -300, clientX: 400, clientY: 300, bubbles: true, cancelable: true });
+    m.dispatchEvent(plain);
+    return { prevented: ev.defaultPrevented, moved: after !== before,
+      plainPrevented: plain.defaultPrevented, before };
+  });
+  ck('ctrl+wheel stays the browser’s page zoom and the map does not move under it',
+    !ctrlWheel.prevented && !ctrlWheel.moved && ctrlWheel.plainPrevented,
+    JSON.stringify(ctrlWheel));
+
+  /* (2) Vrijeme is locked in Klasifikacija and in the JLS map, and both locks
+     used to lie about what they were showing. segMode derives the EFFECTIVE
+     value, so entering klas from an annual state reports "kumulativno"; and
+     leaving jmap for a view never visited falls back to the BOOT pair rather
+     than carrying jmap's imposed 2018/godišnje into it. */
+  await fresh('#v=saldo&c=0&y=2024');
+  await click('#segView button[data-v="klas"]');
+  const klasMode = await page.evaluate(() => ({
+    mode: document.querySelector('#segMode button[aria-pressed="true"]').dataset.v,
+    off: document.querySelector('#segMode').classList.contains('off'),
+    sub: document.querySelector('#bigYearSub').textContent.trim() }));
+  await fresh('#v=jmap&c=0&y=2018');
+  await click('#segView button[data-v="saldo"]');
+  const jmapExit = await page.evaluate(() => ({
+    sub: document.querySelector('#bigYearSub').textContent.trim(),
+    yr: document.querySelector('#bigYear').textContent.trim(), hash: location.hash }));
+  ck('a locked Vrijeme reports what the view shows, and leaving the JLS map does not carry its imposition',
+    klasMode.mode === 'cum' && klasMode.off && /2011\.–2024\./.test(klasMode.sub)
+    && /2011\.–2024\./.test(jmapExit.sub) && jmapExit.yr === '2024.' && /c=1/.test(jmapExit.hash),
+    JSON.stringify({ klasMode, jmapExit }));
+
+  /* (3) the segment buttons' keyboard ring. The focus sweep in this file asserts
+     the ABSENCE of Chrome's UA ring on a click; nothing asserted the PRESENCE of
+     the app's own on a Tab. Pressed with a real key, because :focus-visible keys
+     off trusted input. */
+  await fresh('');
+  const segRing = await (async () => {
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press('Tab');
+      const r = await page.evaluate(() => {
+        const el = document.activeElement;
+        if (!el || !el.closest || !el.closest('.seg')) return null;
+        const c = getComputedStyle(el);
+        return { id: el.closest('.seg').id, style: c.outlineStyle, width: c.outlineWidth,
+          offset: c.outlineOffset, fv: el.matches(':focus-visible') };
+      });
+      if (r) return r;
+    }
+    return { none: true };
+  })();
+  ck('a segment button tabbed onto draws the app’s own ring, inset so it cannot be clipped',
+    !segRing.none && segRing.fv && segRing.style === 'solid'
+    && parseFloat(segRing.width) >= 2 && parseFloat(segRing.offset) < 0,
+    JSON.stringify(segRing));
+
+  /* (4) the export's font fetch, failed and wedged. Both paths degrade to the
+     documented fallback — the figure names the families instead of embedding
+     them — and neither may leave #pngBtn disabled reading '…' for the session,
+     which is what an unbounded fetch did before the 8 s abort. */
+  const errs0 = errors.length;
+  blockFonts = '404';
+  await fresh('');
+  const font404 = await page.evaluate(async () => {
+    const doc = String(window.__exportSVG(false));
+    return { faces: (doc.match(/@font-face/g) || []).length,
+      names: /IBM Plex Mono/.test(doc) && /Oswald/.test(doc), n: doc.length };
+  });
+  await click('#pngBtn');
+  await page.waitForFunction(() => !document.querySelector('#pngBtn').disabled, { timeout: 12000 }).catch(() => {});
+  const png404 = await page.evaluate(() => ({ disabled: document.querySelector('#pngBtn').disabled,
+    label: document.querySelector('#pngBtn').textContent }));
+  blockFonts = 'hang';
+  await fresh('');
+  const tFont0 = Date.now();
+  await click('#pngBtn');
+  await page.waitForFunction(() => !document.querySelector('#pngBtn').disabled, { timeout: 20000 }).catch(() => {});
+  const pngHang = { ms: Date.now() - tFont0, ...await page.evaluate(() => ({
+    disabled: document.querySelector('#pngBtn').disabled,
+    label: document.querySelector('#pngBtn').textContent })) };
+  blockFonts = false;
+  for (const r of heldFonts.splice(0)) { try { await r.abort(); } catch { /* the page cancelled it first */ } }
+  /* the deliberate 404 and the abort each log a resource failure of their own,
+     and inside this window they are the only ones that can arrive */
+  for (let i = errors.length - 1; i >= errs0; i--) {
+    if (/woff2/.test(errors[i]) || /Failed to load resource/.test(errors[i])) errors.splice(i, 1);
+  }
+  await fresh('');
+  ck('a failed or wedged font fetch degrades the export instead of holding the button for the session',
+    font404.faces === 0 && font404.names && font404.n > 5000
+    && !png404.disabled && png404.label !== '…'
+    && !pngHang.disabled && pngHang.label !== '…' && pngHang.ms < 15000
+    && errors.length === errs0,
+    JSON.stringify({ font404, png404, pngHang, errs: errors.length - errs0 }));
+
+  /* (5) the corridor arcs are painted from the same scale the counties are, in
+     both directions — `dv(v)` for neto and `sq(|v|)` for the one-way pair, the
+     exact functions MapView's own `fill(iso)` calls on the same value. They used
+     to carry a fixed ink, so the key described a scale nothing on the map used.
+     Set membership against the county fills rather than against the key's
+     gradient stops: the bar is sampled at eleven points and an arc's value lands
+     between them, so "equals a stop" would fail on a correct build. Every arc
+     ink must be some county's fill, and there must be many of them — one fixed
+     colour is a set of size one. */
+  const arcRamp = [];
+  for (const h of ['#v=flow&s=HR-21&c=0&y=2018&dir=out', '#v=flow&s=HR-21&c=0&y=2018&dir=net']) {
+    await fresh(h);
+    arcRamp.push({ dir: h.slice(-3), ...await page.evaluate(() => {
+      const norm = c => (c || '').replace(/\s/g, '');
+      const arcs = [...document.querySelectorAll('.arc')];
+      const inks = [...new Set(arcs.map(a => norm(a.getAttribute('stroke'))))];
+      const fills = new Set([...document.querySelectorAll('#map .cnt')].map(c => norm(getComputedStyle(c).fill)));
+      return { n: arcs.length, distinct: inks.length, fills: fills.size,
+        offRamp: inks.filter(i => !fills.has(i)) };
+    }) });
+  }
+  ck('the corridor arcs are inked from the same ramp the counties are, not a fixed colour',
+    arcRamp.length === 2 && arcRamp.every(a => a.n >= 10 && a.distinct >= 5
+      && a.fills >= 10 && a.offRamp.length === 0),
+    JSON.stringify(arcRamp));
+
+  /* (6) the hub dot is decoration drawn over its own county, so it must not take
+     the county's clicks. The KMAX check pins its size; nothing pinned its
+     hit-testing. */
+  await fresh('#v=flow&s=HR-21&c=0&y=2018&dir=net');
+  const hubHit = await page.evaluate(() => {
+    const d = document.querySelector('.hubdot');
+    if (!d) return { absent: true };
+    const r = d.getBoundingClientRect();
+    const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { pe: getComputedStyle(d).pointerEvents, w: +r.width.toFixed(1),
+      hit: h ? (h.getAttribute('data-iso') || h.tagName) : null };
+  });
+  ck('the hub dot is decoration: the click at its centre reaches the county under it',
+    !hubHit.absent && hubHit.pe === 'none' && hubHit.w > 4 && hubHit.hit === 'HR-21',
+    JSON.stringify(hubHit));
+
+  /* (7) Croatian has three plural forms and the glossary implemented two, so a
+     count in the 2–4 form read with the 5+ ending. The sentence is derived from
+     PAPER_KLAS_DIFF, so it is the live data that has to come out declined. */
+  await fresh('');
+  await click('#helpBtn');
+  const plural = await page.evaluate(() => {
+    const t = document.querySelector('#helpCard').textContent;
+    return { osoba: /606 osoba/.test(t), osobe: /302 osobe/.test(t),
+      wrong: /302 osoba\b/.test(t) || /606 osobe\b/.test(t),
+      cite: (t.match(/[^.]*606 osoba[^.]*\./) || [''])[0].slice(-60) };
+  });
+  ck('the glossary declines its own counts, all three Croatian plural forms of them',
+    plural.osoba && plural.osobe && !plural.wrong, JSON.stringify(plural));
+  await page.evaluate(() => document.querySelector('#helpX')?.click());
+  await settle(200);
 
   /* ── M-11: the two corridor repairs must not disagree ──
      `#v=mx&s=X&pp=X` looked complete to the lone-half test, passed it, and was
