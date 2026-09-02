@@ -5,6 +5,23 @@ Other years = IPF: 2018 structure rescaled to exact DZS margins from atlas_data2
 (rows = oi 'odseljeni u drugu zupaniju', cols = ii 'doseljeni iz druge zupanije').
 1998-2006 margins don't balance (DZS asymmetry, max 550) -> in-margins rescaled proportionally.
 Integer rounding: largest remainder per row (rows exact; col drift <= ~5)."""
+# …and the CONSOLE, not only the files. Commit 85a1086's encoding sweep gave
+# every open() an explicit encoding='utf-8' and left sys.stdout locale-derived,
+# so on Windows a REDIRECTED stdout is cp1252 — and every one of these scripts
+# prints Croatian place, country or group names AFTER it has written its payload.
+# Measured: `python parse_demo.py > refresh.log` writes src/data/demo.json
+# correctly, then raises UnicodeEncodeError on the first č of the top-countries
+# line and exits 1, so the byte-size read-back on the next line — the script's
+# only post-write self-check — never runs. The operator is left with a failed run
+# over a file that has in fact been overwritten, which is exactly the signal
+# README.md tells them to trust and go hunting for a DZS revision behind.
+# errors='replace' rather than a hard failure: a mangled glyph on a genuinely
+# non-Unicode terminal is strictly better than aborting after the write.
+import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 import json, numpy as np
 ISOS=[f'HR-{i:02d}' for i in range(1,22)]
 od=json.load(open('ref/od2018.json', encoding='utf-8'))
