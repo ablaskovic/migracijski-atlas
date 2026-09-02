@@ -8006,15 +8006,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         total += t.length;
         if (parseFloat(cs.fontSize) >= 12) big += t.length;
       }
-      const clipped = [...document.querySelectorAll('#railList .rname, #railList .rval')]
-        .filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent);
-      return { pct: +(big / total * 100).toFixed(2), total, clipped: clipped.length };
+      /* the count, so "nothing clipped" cannot be an empty list — see the
+         desktop twin of this sweep and cf1922b */
+      const q = [...document.querySelectorAll('#railList .rname, #railList .rval')];
+      const clipped = q.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent);
+      return { pct: +(big / total * 100).toFixed(2), total, seen: q.length, clipped: clipped.length };
     }) });
   }
   ck('no view loses ground on phone type, and no rail cell is clipped to fit',
     legible.length === 7
-    && legible.every(r => r.pct >= r.floor && r.total > 500 && r.clipped === 0),
-    JSON.stringify(legible.filter(r => r.pct < r.floor || r.clipped > 0)) + ' ' + JSON.stringify(legible.map(r => r.v + ':' + r.pct)));
+    /* `seen` for the same reason the desktop twin has it: a clipped count of 0
+       over an empty selector is not a pass. Regije has the smallest rail at
+       five region rows, so ten cells is the floor every view clears. */
+    && legible.every(r => r.pct >= r.floor && r.total > 500 && r.seen >= 10 && r.clipped === 0),
+    JSON.stringify(legible.filter(r => r.pct < r.floor || r.clipped > 0 || r.seen < 10)) + ' ' + JSON.stringify(legible.map(r => r.v + ':' + r.pct)));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* The other half of 2.5.8, and the one that failed at *every* desktop width:
@@ -10086,11 +10091,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     await fresh('#v=mx&c=0&y=2018&dir=net');
     if (over) await page.addStyleTag({ content: spacing });
     await settle(150);
-    const clipped = await page.evaluate(() =>
-      [...document.querySelectorAll('#railList .rname, #railList .rval')]
-        .filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent).slice(0, 3));
+    /* …having measured something. This was a pure absence assertion over a
+       selector: a classname drift, or a view that stops rendering the labels,
+       leaves an empty list and [].filter(...).length === 0 prints ok over zero
+       elements. Measured here: 40 label cells normally, and with all of them
+       removed the condition is still true. cf1922b states the house position
+       for exactly this — "no population floor, so a selector rename left it
+       printing ok having measured nothing" — and floored the sibling segment
+       sweep; these never got it. The Matrica rail is 20 corridor rows, so 40. */
+    const clipped = await page.evaluate(() => {
+      const q = [...document.querySelectorAll('#railList .rname, #railList .rval')];
+      return { seen: q.length,
+        bad: q.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent).slice(0, 3) };
+    });
     ck(`no rail label is clipped at ${w} px${over ? ' under the 1.4.12 overrides' : ''}`,
-      clipped.length === 0, JSON.stringify(clipped));
+      clipped.seen >= 40 && clipped.bad.length === 0, JSON.stringify(clipped));
   }
   await page.setViewport({ width: 1440, height: 900 });
 
