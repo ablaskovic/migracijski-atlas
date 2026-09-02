@@ -83,6 +83,19 @@ export default function App() {
      first-entry jump still wins the first time. Ephemeral — never in the hash. */
   const vmem = useRef<Partial<Record<View, { yi: number; cum: boolean }>>>({});
 
+  /* Tokovi needs a hub, so entering it without one mints HR-21. That is an
+     imposition, not a selection, and the exit rule below — which keeps a plain
+     `sel` because "a county selection the destination renders perfectly well" —
+     could not tell the two apart. Measured from a clean boot: Saldo → Tokovi →
+     Saldo left #card.show open on Grad Zagreb, its path aria-expanded, and
+     `s=HR-21` in the permalink, with the reader having selected nothing at any
+     point; Klasifikacija → Tokovi → Regije the same, carrying the first-entry
+     2018 pair with it. Through Matrica, which imposes no hub, the round trip
+     leaves no card — which is the behaviour the whole trip should have had.
+     Remembered, so the imposed hub dies on the way out and a chosen one does
+     not. */
+  const autoHub = useRef(false);
+
   /* Sastavnica+Vrijednosti are the same shape of shared pair, and the four views
      that ignore them (LOCK_FD) also disable their controls — so a lens carried
      into one sat behind a disabled group claiming it was pressed, and came back
@@ -116,7 +129,7 @@ export default function App() {
     const carried = s.view === 'jmap' ? { yi: BASE.yi, cum: BASE.cum } : null;
     const restore = mem ?? carried;
     if (v === 'flow' || v === 'mx') {
-      if (v === 'flow' && !s.sel) p.sel = 'HR-21';
+      if (v === 'flow' && !s.sel) { p.sel = 'HR-21'; autoHub.current = true; }
       if (!s.flowSeen) { p.flowSeen = true; p.cum = false; p.yi = IX2018; }
       else if (restore) { p.yi = restore.yi; p.cum = restore.cum; }
     } else if (v !== 'jmap' && restore) { p.yi = restore.yi; p.cum = restore.cum; }
@@ -136,7 +149,11 @@ export default function App() {
        render perfectly well: pick a county in Saldo, look at Tokovi, come back,
        and the card was gone though nothing about it had become unrenderable. The
        `pair` half goes either way — no other view can describe it. */
-    if (corr(s.view) && !corr(v)) { if (s.pair) p.sel = null; p.pair = null; }
+    if (corr(s.view) && !corr(v)) {
+      if (s.pair || autoHub.current) p.sel = null;
+      p.pair = null;
+      autoHub.current = false;
+    }
     /* `sel` alone is a hub in Tokovi and a detail-card selection in Saldo /
        Klasifikacija / Regije. Matrica and the JLS map have neither: a county
        picked in Saldo used to keep its 1998–2025 card painted over the 21×21
@@ -174,7 +191,8 @@ export default function App() {
        whose numbers had all changed. Partner-preservation is defensible when
        the partner is what you picked; here the *hub* is, so the pair is stale
        by construction. (Carried open as finding 27 through two passes.) */
-    if (s.view === 'flow') up({ sel: iso, ...(s.sel !== iso ? { pair: null } : {}) });
+    /* re-hubbing IS a choice, so the imposed-hub flag is spent */
+    if (s.view === 'flow') { autoHub.current = false; up({ sel: iso, ...(s.sel !== iso ? { pair: null } : {}) }); }
     else up({ sel: s.sel === iso ? null : iso });
   };
   const openPair = (iso: string) => {

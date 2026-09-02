@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 528;
+const EXPECTED_CHECKS = 529;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5704,6 +5704,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && !!carried.name && /Grad Zagreb/.test(carried.name)
     && !dropped.card && !/pp=/.test(dropped.hash) && !/s=HR/.test(dropped.hash) && dropped.detail === 0,
     JSON.stringify({ carried, dropped }));
+
+  /* …and the hub Tokovi IMPOSES is not one of them. Entering Tokovi without a
+     hub mints HR-21, and the exit rule above kept it as a plain county
+     selection: measured from a clean boot, Saldo → Tokovi → Saldo left
+     #card.show open on Grad Zagreb, its path aria-expanded and `s=HR-21` in the
+     permalink, with the reader having selected nothing at any point — and
+     Klasifikacija → Tokovi → Regije the same, carrying the first-entry 2018 pair
+     along. Through Matrica, which imposes no hub, the round trip leaves no card.
+     Four legs, because the rule is a distinction and not a blanket: the imposed
+     hub dies on the way out, a county the reader picked before Tokovi survives
+     (which is what the exit rule was written for), and a re-hub inside Tokovi
+     survives too. */
+  const hubLeak = {};
+  const hubPress = async v => { await click(`#segView button[data-v="${v}"]`); await settle(300); };
+  const hubSnap = () => page.evaluate(() => ({ card: !!document.querySelector('#card.show'),
+    name: (document.querySelector('#cardName') || {}).textContent || null, hash: location.hash }));
+  await fresh('#v=saldo&c=1&y=2024');
+  hubLeak.boot = await hubSnap();
+  await hubPress('flow'); await hubPress('saldo');
+  hubLeak.back = await hubSnap();
+  await fresh('#v=klas&c=1&y=2024');
+  await hubPress('flow'); await hubPress('reg');
+  hubLeak.viaReg = await hubSnap();
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  hubLeak.picked = await hubSnap();
+  await hubPress('flow'); await hubPress('saldo');
+  hubLeak.pickedBack = await hubSnap();
+  await fresh('#v=saldo&c=1&y=2024');
+  await hubPress('flow');
+  await page.evaluate(() => document.querySelector('#map .cnt[data-iso="HR-13"]')
+    .dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await settle(400);
+  await hubPress('saldo');
+  hubLeak.rehub = await hubSnap();
+  ck('the hub Tokovi imposes does not follow the reader out as a county card',
+    !hubLeak.boot.card && !hubLeak.back.card && !/s=HR/.test(hubLeak.back.hash)
+    && !hubLeak.viaReg.card && !/s=HR/.test(hubLeak.viaReg.hash)
+    && hubLeak.picked.card && hubLeak.pickedBack.card && /s=HR-18/.test(hubLeak.pickedBack.hash)
+    && hubLeak.rehub.card && /s=HR-13/.test(hubLeak.rehub.hash),
+    JSON.stringify(hubLeak));
 
   /* half a corridor is not a corridor: each of these used to be a mark or an
      Escape-eating flag with nothing on screen behind it */
