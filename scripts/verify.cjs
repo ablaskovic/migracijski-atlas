@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 476;
+const EXPECTED_CHECKS = 479;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1088,6 +1088,95 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const defLeg = await page.evaluate(() => document.querySelector('#legend').textContent);
   ck('default legend states blue=gain / red=loss',
     defLeg.includes('dobiva stanovnike') && defLeg.includes('gubi ih'), defLeg.slice(0, 80));
+
+  /* …and the map has to obey the sentence the check above asserts it prints.
+     Nothing in this file tied a colour to the value it encodes. Four lines read
+     a data colour at all, and every one is RELATIONAL — the Godine cell equals
+     the Saldo county, the matrix rail bar equals the matrix cell — or a bare
+     count of distinct legend swatches, so a global inversion satisfies all of
+     them. Measured: reversing the three-stop range in divScale, one line, paints
+     Grad Zagreb (+41.986, the largest gainer) rgb(186,64,41) and
+     Osječko-baranjska rgb(122,138,175) across Saldo, Regije, Godine and
+     Matrica-net, under a legend still labelled −44.383 · 0 · +44.383, while
+     Klasifikacija still paints Grad Zagreb blue and the glossary still prints
+     "Plavo — županija dobiva stanovnike" — two views of the same county
+     disagreeing, and the stated rule false — and the suite printed ALL CHECKS
+     PASS. Swapping KCOL's gain/loss did too, and so did swapping the sequential
+     ramp's endpoints.
+     Compared against the stylesheet's own --gain/--loss so the palette keeps one
+     source of truth and a deliberate re-skin moves both together, and decided
+     here rather than in the page so the arithmetic is written once. Nearest-of-
+     two rather than exact: the ramp is an Lab interpolation and only its
+     DIRECTION is the claim being made — the relational checks cover the rest. */
+  const rgb = c => {
+    const m = /(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(String(c));
+    if (m) return [+m[1], +m[2], +m[3]];
+    const h = /^#?([0-9a-fA-F]{6})$/.exec(String(c).trim());
+    return h ? [0, 2, 4].map(i => parseInt(h[1].slice(i, i + 2), 16)) : null;
+  };
+  /* 'gain' | 'loss' | null — which of the two tokens the fill sits nearer */
+  const side = (fill, gain, loss) => {
+    const f = rgb(fill), g = rgb(gain), l = rgb(loss);
+    if (!f || !g || !l) return null;
+    const d = q => Math.hypot(f[0] - q[0], f[1] - q[1], f[2] - q[2]);
+    return d(g) < d(l) ? 'gain' : 'loss';
+  };
+  const tokens = () => page.evaluate(() => {
+    const t = getComputedStyle(document.documentElement);
+    return { gain: t.getPropertyValue('--gain').trim(), loss: t.getPropertyValue('--loss').trim() };
+  });
+  /* The tilt of a colour: blue minus red. A sequential ramp runs from the same
+     near-white to one end or the other, so every county on it is faintly tinted
+     and the LIGHTNESS carries the value while the tilt carries the direction —
+     which is the claim under test. Averaged over the counties rather than taken
+     from the extreme one, because at these tints the plain RGB distance between
+     the two tokens is only ~11 units apart and would decide the question on
+     noise. */
+  const tilt = c => { const q = rgb(c); return q ? q[2] - q[0] : 0; };
+  const meanTilt = async () => {
+    const cs = await page.evaluate(() => [...document.querySelectorAll('.cnt')].map(e => getComputedStyle(e).fill));
+    return cs.length ? cs.reduce((a, c) => a + tilt(c), 0) / cs.length : 0;
+  };
+
+  await fresh('#v=saldo&c=1&y=2024');
+  const pal = await tokens();
+  const divCol = await page.evaluate(() => ({
+    /* the largest gainer and the largest loser on this exact view */
+    hr21: getComputedStyle(document.querySelector('.cnt[data-iso="HR-21"]')).fill,
+    hr14: getComputedStyle(document.querySelector('.cnt[data-iso="HR-14"]')).fill,
+  }));
+  const divSide = { up: side(divCol.hr21, pal.gain, pal.loss), down: side(divCol.hr14, pal.gain, pal.loss) };
+  ck('a gaining county is painted the gain colour and a losing one the loss colour',
+    !!pal.gain && !!pal.loss && divSide.up === 'gain' && divSide.down === 'loss',
+    JSON.stringify({ ...pal, ...divCol, ...divSide }));
+
+  /* …and the three-class palette, a second scale making the same claim in words:
+     the swatch beside "pobjednice" has to be the gain colour. */
+  await fresh('#v=klas&c=1&y=2024');
+  const klasSw = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#legend *')].filter(r => r.querySelector
+      && r.querySelector('.legend-sw') && r.querySelectorAll('.legend-sw').length === 1);
+    const pick = re => {
+      const r = rows.find(x => re.test(x.textContent));
+      return r ? getComputedStyle(r.querySelector('.legend-sw')).backgroundColor : '';
+    };
+    return { rows: rows.length, win: pick(/pobjednice/), lose: pick(/gubitnice/) };
+  });
+  const klasSide = { w: side(klasSw.win, pal.gain, pal.loss), l: side(klasSw.lose, pal.gain, pal.loss) };
+  ck('the “pobjednice” swatch is the gain colour and “gubitnice” the loss colour',
+    klasSw.rows >= 3 && klasSide.w === 'gain' && klasSide.l === 'loss',
+    JSON.stringify({ ...klasSw, ...klasSide }));
+
+  /* …and the sequential ramp, whose whole meaning is which end it runs to. */
+  await fresh('#v=flow&s=HR-21&c=0&y=2018&dir=in');
+  const rampIn = await meanTilt();
+  await fresh('#v=flow&s=HR-21&c=0&y=2018&dir=out');
+  const rampOut = await meanTilt();
+  const want = { gain: Math.sign(tilt(pal.gain)), loss: Math.sign(tilt(pal.loss)) };
+  ck('the arrivals ramp runs to the gain colour and the departures ramp to the loss colour',
+    want.gain !== 0 && want.loss !== 0 && want.gain !== want.loss
+    && Math.sign(rampIn) === want.gain && Math.sign(rampOut) === want.loss,
+    JSON.stringify({ rampIn: Math.round(rampIn), rampOut: Math.round(rampOut), ...want }));
   /* The page must opt out of the browser's own dark-mode rewrite. Without a
      declaration Chrome applies Auto Dark Theme to an Android reader in dark
      mode, which inverts the HTML and leaves the SVG alone: measured under
