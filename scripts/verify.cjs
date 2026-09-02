@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 522;
+const EXPECTED_CHECKS = 523;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -476,6 +476,40 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      the bare number read as a fourth net. */
   ck('citz 2024 Azija doseljeni +26.601', citz.rows.includes('+26.601'));
   ck('citz source note names STAN-2026-2-1', citz.note.includes('STAN-2026-2-1'));
+  /* …and the bars carry their own edge and stay legible in the years that are
+     not selected (1.4.11). cgroups() stacks 'ost' (#C6CCC4) last, so the topmost
+     segment of every arrivals bar and the bottommost of every departures bar was
+     that pale grey against the panel: 1,59:1 selected and 1,22:1 dimmed. The
+     visible top of the 2024 bar was therefore the teal segment BELOW it, and the
+     bar read ~5,8 px shorter than its value — 5.409 of 70.391 arrivals, 7,7 %.
+     At 0,45 / 0,30 every segment of the other four years was under 2:1 (Hrvatska
+     1,86, EU 1,66, Ukrajina 1,53, Azija 1,50, Susjedstvo 1,35), so the
+     year-to-year comparison the panel exists for was unreadable. index.css
+     records the same rule for the swatch beside it and gives it a --mut border;
+     the bars had no stroke at all. */
+  const citzEdge = await page.evaluate(() => {
+    const svg = document.querySelector('#citzSvg');
+    const panel = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim();
+    const frames = [...svg.querySelectorAll('.citz-frame')];
+    const rgb = c => { const h = /^#([0-9a-f]{6})$/i.exec(String(c || '').trim());
+      if (h) return [0, 2, 4].map(k => parseInt(h[1].slice(k, k + 2), 16));
+      const m = String(c || '').match(new RegExp('rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)'));
+      return m ? [+m[1], +m[2], +m[3]] : null; };
+    const lum = p => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(p[0]) + 0.7152 * f(p[1]) + 0.0722 * f(p[2]); };
+    const a = frames[0] && rgb(getComputedStyle(frames[0]).stroke), b = rgb(panel);
+    return {
+      n: frames.length,
+      widths: [...new Set(frames.map(e => +e.getAttribute('stroke-width')))].sort((p, q) => p - q),
+      contrast: a && b ? +((Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)).toFixed(2) : null,
+      minOp: Math.min(...[...svg.querySelectorAll('rect:not(.citz-frame)')]
+        .map(e => parseFloat(e.getAttribute('opacity')))),
+    };
+  });
+  ck('every citizenship stack carries an edge that clears 3:1, and no year is dimmed out of legibility',
+    citzEdge.n === 10 && citzEdge.widths.length === 2 && citzEdge.widths[1] > citzEdge.widths[0]
+    && citzEdge.contrast >= 3 && citzEdge.minOp >= 0.7,
+    JSON.stringify(citzEdge));
 
   /* ── prirodno / ukupna promjena flows ── */
   await click('#segFlow button[data-v="nat"]');

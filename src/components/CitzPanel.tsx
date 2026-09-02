@@ -27,16 +27,36 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
   const sO = scaleLinear().domain([0, mO]).range([y0, h - mB]);
 
   const bars: ReactElement[] = [];
+  /* 1.4.11, on the panel's own terms. cgroups() stacks with 'ost' (#C6CCC4)
+     last, so the topmost segment of every arrivals bar and the bottommost of
+     every departures bar was that pale grey: measured against the chip body,
+     1,59:1 selected and 1,22:1 dimmed, so the visible top of the 2024 bar was
+     the teal segment below it and the bar read ~5,8 px shorter than its value.
+     At 0,45 / 0,30 EVERY segment of the four unselected years was under 2:1 —
+     Hrvatska 1,86, EU 1,66, Ukrajina 1,53, Azija 1,50, Susjedstvo 1,35 — so the
+     year-to-year comparison this panel exists for was unreadable. index.css
+     records the same rule for the swatch beside it ("its own edge has to clear
+     3:1") and gives it a --mut border; the bars had no stroke at all.
+     The dimmed years go to 0,7 (ink 4,0:1, gain 3,9:1) and each stack gets its
+     own outline, which is what now carries the total's edge — so the selected
+     year is emphasised by the weight of that outline rather than by an opacity
+     split that cost the other four their legibility. */
+  const frames: ReactElement[] = [];
   yy.forEach((yr, i) => {
     let up = 0, dn = 0;
     for (const [k, , col] of cgroups()) {
       const dv = CIT.g[k].d[i], ov = CIT.g[k].o[i];
       if (dv > 0) bars.push(<rect key={`${yr}${k}d`} x={x(yr)} width={x.bandwidth()}
-        y={sD(up + dv)} height={sD(up) - sD(up + dv)} fill={col} opacity={yr === y ? 1 : 0.45} />);
+        y={sD(up + dv)} height={sD(up) - sD(up + dv)} fill={col} opacity={yr === y ? 1 : 0.7} />);
       if (ov > 0) bars.push(<rect key={`${yr}${k}o`} x={x(yr)} width={x.bandwidth()}
-        y={sO(dn)} height={sO(dn + ov) - sO(dn)} fill={col} opacity={yr === y ? 0.72 : 0.3} />);
+        y={sO(dn)} height={sO(dn + ov) - sO(dn)} fill={col} opacity={yr === y ? 0.72 : 0.7} />);
       up += dv; dn += ov;
     }
+    const sw = yr === y ? 1.4 : 0.6;
+    if (up > 0) frames.push(<rect key={`${yr}fd`} className="citz-frame" x={x(yr)} width={x.bandwidth()}
+      y={sD(up)} height={y0 - sD(up)} strokeWidth={sw} />);
+    if (dn > 0) frames.push(<rect key={`${yr}fo`} className="citz-frame" x={x(yr)} width={x.bandwidth()}
+      y={y0} height={sO(dn) - y0} strokeWidth={sw} />);
   });
 
   const td = CIT.tot.d[ci], to = CIT.tot.o[ci], ts = td - to;
@@ -106,6 +126,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
             <>
               <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={L('Doseljeni i odseljeni prema državljanstvu', 'Arrivals and departures by citizenship')}>
                 {bars}
+                {frames}
                 {/* through the formatter, not `{yr}.` — the trailing dot is a
                     Croatian ordinal and this axis printed it in both languages.
                     The parameter was shadowing the imported `yr` helper, which is

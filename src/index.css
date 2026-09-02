@@ -729,6 +729,10 @@ body.stage-collapsed .main{flex:none;height:420px}
 .citz-rows{display:grid;grid-template-columns:11px 1fr auto auto;gap:2px 7px;align-items:center;
   font-size:0.625rem;margin-top:6px}
 .citz-rows .sw{width:11px;height:11px;border:1px solid var(--mut)}
+/* …and the bars themselves, which had no edge: the pale outermost segment sat
+   at 1,22–1,59:1 against the panel, so the top of the bar was invisible and the
+   value read short. Same rule as the swatch above (1.4.11). */
+.citz-frame{fill:none;stroke:var(--mut)}
 .citz-rows .cv{font-family:var(--mono);font-size:0.59375rem;text-align:right;color:var(--mut)}
 .citz-rows .ct{font-weight:500;border-top:1px solid var(--line);padding-top:2px}
 .citz-note{font-size:0.5625rem;color:var(--mut);margin-top:5px;line-height:1.35}
