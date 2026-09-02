@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 540;
+const EXPECTED_CHECKS = 541;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2456,6 +2456,51 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   ck('no map overlay overlaps another, 960–1600 px wide and 700–900 px tall',
     midOv.length === 0, midOv.slice(0, 4).join(' | '));
+
+  /* …and the chip panel a reader opens is not covered by the corridor card. The
+     dock sits at z-index 4 against the card's 5, which is right while its panels
+     are collapsed and wrong the moment one is open: the body is anchored above
+     the two headers and rises into the card's lane. Measured at 1440×900 with a
+     corridor open and Državljanstvo pressed, the card [824,238–1132,474] covered
+     the top 296×224 px of the body — the Skupine/Zemlje tab row and the whole
+     chart — with elementFromPoint on both tabs returning the card. Same at
+     1024×700 and 1920×900, and the age panel identically.
+     Last opened wins. The card then sits under the panel, so it goes inert while
+     it does — a control that cannot be seen or clicked must not be a tab stop
+     either, which is the rule the county card already follows under the
+     glossary. Three states, because the fix must not spread: panel open, panel
+     shut, and Matrica, where the card is docked in the rail and nothing covers
+     it. */
+  const dockOver = {};
+  for (const [k, h, vw, vh] of [
+    ['open', '#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net&cz=1', 1440, 900],
+    ['age', '#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net&ag=1', 1440, 900],
+    ['narrow', '#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net&cz=1', 1024, 700],
+    ['shut', '#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net', 1440, 900],
+    ['mx', '#v=mx&s=HR-21&pp=HR-01&c=0&y=2018&dir=net&cz=1', 1440, 900],
+  ]) {
+    await page.setViewport({ width: vw, height: vh });
+    await fresh(h);
+    dockOver[k] = await page.evaluate(() => {
+      const pair = document.querySelector('#pair');
+      const body = document.querySelector('.chipcard.open .chip-body');
+      const at = el => { if (!el) return null; const r = el.getBoundingClientRect();
+        const e = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+        return e ? (e.id || e.className.baseVal || e.className || e.tagName) : null; };
+      return { inert: !!pair && pair.hasAttribute('inert'),
+        pairH: pair ? Math.round(pair.getBoundingClientRect().height) : 0,
+        xHit: at(document.querySelector('#pairX')),
+        tabs: body ? [...body.querySelectorAll('.jtabs button')].map(at) : null };
+    });
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the chip panel a reader opens comes forward, and the card it covers stops being a tab stop',
+    ['open', 'age', 'narrow'].every(k => dockOver[k].tabs && dockOver[k].tabs.length >= 2
+      && dockOver[k].tabs.every(t => /BUTTON/i.test(String(t))) && dockOver[k].inert
+      && dockOver[k].pairH > 100)
+    && !dockOver.shut.inert && dockOver.shut.xHit === 'pairX'
+    && !dockOver.mx.inert && dockOver.mx.xHit === 'pairX',
+    JSON.stringify(dockOver));
   /* A count floor cannot see an element that was never admitted: `n` is computed
      from the same filtered list, so an id the filter drops can neither raise
      `bad` nor lower `n`, and the sweep reported a healthy 3–6 while comparing

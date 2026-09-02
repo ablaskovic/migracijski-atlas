@@ -653,6 +653,21 @@ body.stage-collapsed .main{flex:none;height:420px}
    dock is one panel wide at every width and the two cannot overlap each other.
    MapView measures the union of the header stack and the open body to lay the
    matrix grid out around it — not this box, which no longer contains the body. */
+/* The dock sits under the corridor card at z-index 4 against its 5, which is
+   right while its panels are collapsed — the card is the thing the reader just
+   opened. It stops being right the moment a panel IS open: the body is anchored
+   above the two headers and rises into the card's lane, and the card won.
+   Measured at 1440×900 with a corridor open and Državljanstvo pressed, the card
+   [824,238–1132,474] covered the top 296×224 px of the body — the
+   Skupine/Zemlje tab row and the whole chart — with elementFromPoint on both
+   tabs returning the card. Same at 1024×700, 1920×900 and 3840×900, and the age
+   panel identically.
+   Last opened wins, which is the rule a reader already has in their head: the
+   panel they just pressed comes forward, and the card is whole again the moment
+   they close it. Capping the card against the open body instead was measured
+   too — it clears the overlap but shrinks the card to 20 px, which is the empty
+   sliver this file has a rule against. */
+.chipdock:has(.chipcard.open){z-index:6}
 .chipdock{position:absolute;right:16px;bottom:12px;z-index:4;display:flex;
   flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100% - 32px);
   /* The room a floating body actually has. It cannot be a percentage: the body

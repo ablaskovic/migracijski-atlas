@@ -42,7 +42,15 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
   const cx = x(YEARS[S.yi]);
 
   return (
-    <div className="paircard" id="pair">
+    /* inert while a chip panel is open over it, the way the county card is inert
+       under the glossary and for the same reason: the dock now comes forward
+       when the reader opens a panel, so this card's own × sits underneath it —
+       measured at 1440×900, elementFromPoint at the centre of #pairX returned
+       .jcard-cap. A control that cannot be seen or clicked must not be a tab
+       stop either. Only in Tokovi: in Matrica the card is docked in the rail,
+       where nothing covers it. */
+    <div className="paircard" id="pair"
+      inert={(S.view === 'flow' && (S.citz || S.age)) || undefined}>
       <div className="card-hd">
         {/* lang="hr", like the county card’s heading — two place names */}
         <h2 className="card-name" id="pairName" lang="hr">{SHORTN[sel]} ⇄ {SHORTN[pair]}</h2>
