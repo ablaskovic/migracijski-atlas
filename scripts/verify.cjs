@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 515;
+const EXPECTED_CHECKS = 516;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4888,11 +4888,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     }
   }
   {
+    /* The one scrub in this file with no `net::` qualifier and no assertion. Its
+       three siblings all carry both, and the comment on one of them condemns
+       exactly this shape — "the pattern matched any net:: failure with no URL
+       test". Unqualified, ANY console error whose recorded line mentions
+       geo_regions5 is deleted, and every error here is stored with its @ url: a
+       CSP violation, a TypeError React logs from that module, a genuine
+       non-deliberate fetch failure. The geo_jls scrub 40 lines down then finds a
+       clean ledger and both zero-error checks pass over a broken property.
+       And `void before` threw away the drop count, so nothing said the
+       deliberate warm abort had produced an error at all: if the 1,5 s warm
+       stops firing, the scrub drops nothing, the warm-latch check above passes
+       vacuously — no warm, no latched UI — and the suite is green over a deleted
+       feature. >= 1 only, not a clean ledger: geo_jls entries from the blocked
+       jmap window before this are legitimately still in it. */
     const before = errors.length;
     for (let i = errors.length - 1; i >= 0; i--) {
-      if (/geo_regions5/.test(errors[i])) errors.splice(i, 1);
+      if (/geo_regions5/.test(errors[i]) && /ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
     }
-    void before;
+    ck('the aborted regions warm left exactly the error it had to, and only it was swept',
+      before - errors.length >= 1, before + ' → ' + errors.length);
   }
   /* Back into the blocked jmap state the retry below needs: the speculative-warm
      probe above navigated away from it, and #jretry only exists while the chunk
