@@ -1358,6 +1358,20 @@ body.stage-collapsed .main{flex:none;height:420px}
   .legend-bar,.legend-sw,.citz-rows .sw,.zbar span{forced-color-adjust:none}
   .legend-bar,.legend-sw,.citz-rows .sw{border:1px solid CanvasText}
   .legend-mark{background:CanvasText;width:3px;box-shadow:none;forced-color-adjust:none}
+  /* The block reasoned about the map and its two keys and forgot the rail, which
+     is the third surface painted from the same scale: `.rbar`'s background-color
+     is set inline from the d3 ramp (Rail.tsx), so forced-colors replaced all 21
+     magnitude bars and the zero divider with Canvas — measured against the page
+     behind them at 1,00:1, bars that kept their 9,5 / 2,6 / 0,3 px widths and
+     painted nothing. Rank, name and value survive as CanvasText, so what was
+     lost is the redundant magnitude encoding the rail shares with the map — the
+     same argument this block already accepted for the legends.
+     No border here, unlike the legends: a 1 px edge on a 0,3 px bar would report
+     a magnitude four times the one in the data. The zero line takes CanvasText
+     outright rather than opting out `--line`, whose pale grey is invisible on a
+     dark forced background. */
+  .rbar{forced-color-adjust:none}
+  .rbar-zero{background:CanvasText}
   /* pressed-by-background is invisible here; pressed-by-border is not */
   .seg button[aria-pressed="true"],.jtabs button[aria-pressed="true"],
   .helpbtn.on,.labbtn.on{outline:2px solid Highlight;outline-offset:-2px;color:Highlight}

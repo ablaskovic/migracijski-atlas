@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 498;
+const EXPECTED_CHECKS = 499;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8020,6 +8020,23 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const cs = getComputedStyle(b);
     return { adjust: cs.forcedColorAdjust, border: cs.borderTopWidth, img: cs.backgroundImage.slice(0, 24) };
   });
+  /* …and the third surface painted from that scale, which the block forgot: the
+     rail's 21 magnitude bars carry an inline background-color from the same d3
+     ramp, so forced-colors turned all of them and the zero divider into Canvas —
+     measured at 1,00:1 against the page, bars keeping their 9,5 / 2,6 / 0,3 px
+     widths and painting nothing. Distinctness alone would not have caught it:
+     three identical blacks are three identical blacks whether or not they match
+     the page, so this compares the bar ink against the body behind it. */
+  const fcRail = await page.evaluate(() => {
+    const body = getComputedStyle(document.body).backgroundColor;
+    const bars = [...document.querySelectorAll('#railList .rbar')];
+    const bg = bars.map(e => getComputedStyle(e).backgroundColor);
+    const z = document.querySelector('.rbar-zero');
+    return { n: bars.length, distinct: new Set(bg).size, body,
+      sameAsPage: bg.filter(c => c === body).length,
+      adjust: bars.length ? getComputedStyle(bars[0]).forcedColorAdjust : null,
+      zero: z ? getComputedStyle(z).backgroundColor : null };
+  });
   await forced(false);
 
   /* ── the two grids own rows, and rows own cells ──
@@ -8067,6 +8084,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     fcKlas.distinct === 3 && fcKlas.adjust === 'none' && parseFloat(fcKlas.outline) >= 2
     && fcBar.adjust === 'none' && parseFloat(fcBar.border) >= 1 && /gradient/.test(fcBar.img),
     JSON.stringify({ fcKlas, fcBar }));
+
+  ck('forced colors keeps the rail ranked in ink rather than in blank rows',
+    fcRail.n === 21 && fcRail.adjust === 'none' && fcRail.sameAsPage === 0
+    && fcRail.distinct >= 10 && fcRail.zero !== null && fcRail.zero !== fcRail.body,
+    JSON.stringify(fcRail));
 
   /* ── M-18: the differential stroke test exercised 2 of 9 documented selectors ──
      The strong measurement — it rasterises rather than reading attributes — ran
