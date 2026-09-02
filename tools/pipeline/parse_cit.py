@@ -58,6 +58,24 @@ def to_int(x):
 hdr = next(r for r in rows if r[0] == 'Zemlja državljanstva')
 years = [int(str(v).rstrip('.')) for v in hdr[1:] if v not in (None,'')]
 assert years == [2021,2022,2023,2024,2025], years
+# ── the columns are anchored, not assumed ────────────────────────────────────
+# Every assert below this point compares rows to each other in the SAME columns,
+# so all of them are invariant under any uniform column transformation — and the
+# year check filtered blanks out before comparing, so a merged or spacer column a
+# republication introduces was invisible to it. Executed on the shipped workbook
+# with one blank column inserted before the data: the script ran to exit 0 with
+# every assert green and wrote a citizen.json whose arrivals series was
+# [0, 40424, 46287, 39218, 38997] — a zero followed by the real DEPARTURES of
+# 2021-2024 — and whose departures were the real arrivals. Outer nets would have
+# caught it before ship, but this parser is the tool the README tells an operator
+# to trust after a refresh, and it said all checks passed.
+# So: the year labels must sit where the slice below assumes they do, and the
+# sub-header must say which of each pair is which.
+ycols = [i for i, v in enumerate(hdr[:12]) if v not in (None, '')]
+assert ycols == [0, 1, 3, 5, 7, 9], ('year labels moved', ycols)
+sub = rows[rows.index(hdr) + 1]
+assert [str(v).strip() if v is not None else None for v in sub[1:11]] == \
+    ['doseljeni', 'odseljeni'] * 5, ('doseljeni/odseljeni order moved', sub[1:11])
 R = {}
 for r in rows:
     if r[0] is None: continue
@@ -84,11 +102,20 @@ assert all(v >= 0 for k in G for v in G[k]['d']+G[k]['o']), 'negative residual'
 # double count would flow straight into a smaller 'ost', and the only assert that
 # could catch it is the non-negativity one above — which fires only once the
 # double count exceeds the whole residual.
-# These two identities are the sheet's own and are checked, not derived:
+# These two identities are the sheet's own and are checked, not derived.
+# Through `row()`, because R only holds rows that had a non-zero value: a
+# republication in which a referenced row goes all-zero — Nepoznato and Oceanija
+# are the plausible ones — made this die with a bare KeyError from inside a
+# generator expression, which reads like a bug in the parser rather than like
+# the source revision it is. The assert below says the same thing in the words
+# the README tells the operator to look for.
+def row(n):
+    assert n in R, ('row missing or all-zero in the workbook: ' + n)
+    return R[n]
 for i in range(5):
     for f in ('d','o'):
-        assert R['Europa'][f][i] == R['Europska unija'][f][i] + R['Ostale europske zemlje'][f][i],             ('Europa != EU + ostale europske', years[i], f)
-        assert tot[f][i] == sum(R[n][f][i] for n in
+        assert row('Europa')[f][i] == row('Europska unija')[f][i] + row('Ostale europske zemlje')[f][i],             ('Europa != EU + ostale europske', years[i], f)
+        assert tot[f][i] == sum(row(n)[f][i] for n in
             ('Hrvatska','Europa','Azija','Afrika','Sjeverna i Srednja Amerika',
              'Južna Amerika','Oceanija','Nepoznato')), ('Ukupno != sum of continents', years[i], f)
 out = {'years': years, 'tot': tot, 'g': G}
