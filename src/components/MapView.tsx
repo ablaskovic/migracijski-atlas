@@ -338,8 +338,19 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
      dependency is real, since these strings are the reader's language. The two
      branches are exactly what L would pick, and App keeps S.lang and the mirror
      in step synchronously (it sets both in one writer, before the render). */
+  /* …and the view term, which the three memos above carry and this one did not.
+     The mechanism is stated verbatim one screen up: a dep list "correct and
+     stable in itself" but with no view term recomputes everywhere, because
+     geoAsync warms both chunks on a timer and JGEO is non-null in every view.
+     So the 556 signed-√ Lab evaluations and 556 accessible names — 1.668
+     fmtI.format calls — ran in Saldo, Klasifikacija, Regije, Tokovi, Matrica
+     and Godine: once per session when the warm lands, and again on every Smjer
+     press and every language toggle. A/B measured on dist at 1440×900 in
+     Matrica over 24 Smjer presses, geo_jls served against aborted: +3,97 and
+     +3,47 ms of script per press across two runs. All of it thrown away — the
+     JSX that consumes this is reachable only in jmap. */
   const jlsPaint = useMemo(() => {
-    if (!JGEO) return null;
+    if (!JGEO || S.view !== 'jmap') return null;
     const { scale } = jmapScale(S.dir);
     const hr = S.lang === 'hr';
     return JGEO.features.map(f => {
@@ -352,7 +363,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           : `${q.n}, ${SHORTN[ISOS[q.c]]}: ${fmtI.format(q.i)} in, ${fmtI.format(q.o)} out, net ${sgn(q.i - q.o, fmtI)}`,
       };
     });
-  }, [JGEO, S.dir, S.lang]);
+  }, [JGEO, S.view, S.dir, S.lang]);
 
   /* county fill per state — port of update().
      The scale is built once per render, not once per county: `fill` runs 21 times

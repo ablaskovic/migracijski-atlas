@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 578;
+const EXPECTED_CHECKS = 579;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6882,6 +6882,54 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /v=klas/.test(klasLink.klas) && /c=1/.test(klasLink.klas)
     && /c=0/.test(klasLink.back.hash) && /\+7\.010/.test(klasLink.back.top),
     JSON.stringify(klasLink));
+
+  /* ── the JLS paint is not computed in views that draw no municipality ──
+     the three projection memos beside it carry a view term and jlsPaint did not,
+     and the mechanism is stated verbatim one screen above them: a dep list
+     "correct and stable in itself" but with no view term recomputes everywhere,
+     because geoAsync warms both chunks on a timer and JGEO is non-null in every
+     view. So 556 signed-√ Lab evaluations and 556 accessible names — 1.668
+     Intl.NumberFormat.format calls — ran on every Smjer press in Matrica and
+     Tokovi and on every language toggle anywhere, and every one of them was
+     discarded: the JSX that reads jlsPaint is reachable only in jmap.
+     Counted rather than timed, because a call count is the same number on any
+     machine and a millisecond is not. Measured on one Smjer press after the warm
+     timer has landed: 2.131 calls in Matrica before, 463 after, against the JLS
+     map's own 1.711 — the difference is exactly the 556 × 3 this memo makes. */
+  const paintWork = {};
+  {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    await pg.setViewport({ width: 1440, height: 900 });
+    await pg.evaluateOnNewDocument(() => {
+      /* `format` is an accessor on the prototype, and reading it there throws */
+      const g = Object.getOwnPropertyDescriptor(Intl.NumberFormat.prototype, 'format').get;
+      Object.defineProperty(Intl.NumberFormat.prototype, 'format', {
+        configurable: true,
+        get() {
+          const inner = g.call(this);
+          return function (...a) { window.__fmt = (window.__fmt || 0) + 1; return inner(...a); };
+        },
+      });
+    });
+    for (const [k, h] of [['mx', '#v=mx&y=2018&c=0&dir=out'], ['jmap', '#v=jmap&dir=out']]) {
+      await pg.goto('about:blank');
+      await pg.goto(url + h, { waitUntil: 'domcontentloaded' });
+      await pg.waitForFunction(() => !!document.querySelector('#map'), { timeout: 20000 }).catch(() => {});
+      /* the warm timer fires at ~1,5 s and is what makes JGEO non-null here */
+      await settle(2600);
+      await pg.evaluate(() => { window.__fmt = 0; });
+      await pg.click('#segDir button[data-v="in"]');
+      await settle(700);
+      paintWork[k] = await pg.evaluate(() => ({ fmt: window.__fmt,
+        jl: document.querySelectorAll('#map .jl').length }));
+    }
+    await pg.close();
+  }
+  ck('a Smjer press in Matrica does not repaint 556 municipalities it never draws',
+    paintWork.jmap.jl === 556 && paintWork.jmap.fmt > 1000
+    && paintWork.mx.jl === 0 && paintWork.mx.fmt < paintWork.jmap.fmt / 2,
+    JSON.stringify(paintWork));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
