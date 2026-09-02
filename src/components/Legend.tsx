@@ -241,7 +241,16 @@ export default function Legend({ S }: { S: State }) {
             one footnote's worth of it. The per-county detail is in the glossary;
             this line has to fit above the map. */}
         <div className="legend-note">{L('Plavo: regija dobiva stanovnike · crveno: gubi ih. Rad predlaže pet regija i njihova središta, ali ne objavljuje popis županija — raspored po županijama je tumačenje atlasa; v. „Kako čitati”.',
-          'Blue: the region gains people · red: it loses them. The paper proposes five regions and their centres but publishes no county list — assigning counties to them is the atlas’s reading; see “How to read”.')}{preNote(S, marginFlow(S.flow))}</div>
+          'Blue: the region gains people · red: it loses them. The paper proposes five regions and their centres but publishes no county list — assigning counties to them is the atlas’s reading; see “How to read”.')}
+          {/* …and what the sum IS, which this one legend did not say. Saldo says
+              it, Godine says it, and exportPng adds it for every non-klas view —
+              including the export OF THIS ONE. Measured at #v=reg&c=1&y=2024&f=all:
+              the screen legend contained "Zbroj dviju" false, its own exported
+              figure true. So the only on-screen surface for regional totals of
+              the two-component sum was the one that did not qualify it. */}
+          {S.flow === 'all' && L(' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
+            ' The sum of two published components — not total population change.')}
+          {preNote(S, marginFlow(S.flow))}</div>
       </div>
     );
   }

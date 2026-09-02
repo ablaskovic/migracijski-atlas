@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 584;
+const EXPECTED_CHECKS = 585;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7083,6 +7083,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     scrubStop.justAfter.playing === 'false' && scrubStop.later.playing === 'false'
     && scrubStop.later.y === scrubStop.justAfter.y && scrubStop.arrow.playing === 'true',
     JSON.stringify(scrubStop));
+
+  /* ── every view that can show the two-component sum says what it is ──
+     Saldo says it, Godine says it, and exportPng adds it for every non-klas view
+     — including the export OF the Regije screen. The Regije legend did not, so
+     the one on-screen surface for regional totals of that sum was the one that
+     did not qualify it: measured at #v=reg&c=1&y=2024&f=all, the screen legend
+     contained "Zbroj dviju" false and its own exported figure true. Asserted
+     against the export in the same state, which is what makes the disagreement
+     visible, and with an f=int control so a clause bolted on unconditionally
+     would fail too. */
+  const zbroj = {};
+  for (const [k, h] of [['reg', '#v=reg&c=1&y=2024&f=all'], ['saldo', '#v=saldo&c=1&y=2024&f=all'],
+    ['yrs', '#v=yrs&c=0&y=2024&f=all'], ['regInt', '#v=reg&c=1&y=2024&f=int'],
+    ['enReg', '#l=en&v=reg&c=1&y=2024&f=all']]) {
+    await fresh(h);
+    zbroj[k] = await page.evaluate(() => {
+      const n = (document.querySelector('#legend .legend-note') || {}).textContent || '';
+      const svg = window.__exportSVG(false) || '';
+      return { screen: /Zbroj dviju|sum of two published/.test(n),
+        exp: /Zbroj dviju|sum of two published/.test(svg) };
+    });
+  }
+  ck('the mig+prirodno caveat is on every screen whose export carries it',
+    zbroj.reg.screen && zbroj.reg.exp && zbroj.saldo.screen && zbroj.yrs.screen
+    && zbroj.enReg.screen && !zbroj.regInt.screen && !zbroj.regInt.exp,
+    JSON.stringify(zbroj));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
