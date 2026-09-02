@@ -5341,15 +5341,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      it between them; no other view can render it, so both halves die there. */
   await fresh('#v=mx&y=2018&c=0&dir=out&s=HR-21&pp=HR-01');
   await click('#segView button[data-v="flow"]');
-  const carried = await page.evaluate(() => ({ hash: location.hash,
-    name: document.querySelector('#pairName') ? document.querySelector('#pairName').textContent : null,
-    where: document.querySelector('#pair') && document.querySelector('#pair').closest('aside.rail') ? 'rail' : 'map' }));
+  /* `where` used to read `qs('#pair') && qs('#pair').closest('aside.rail') ? 'rail' : 'map'`,
+     so an ABSENT card made the falsy left operand yield 'map' — the exact value
+     the assertion demands — while `name`, the one field that proves the card
+     rendered, was collected and used in no clause. A refactor of the dock/float
+     split that stopped rendering PairCard in Tokovi would keep the hash carrying
+     s= and pp= and pass the check whose name promises "the card floats again";
+     executed with #pair removed from the live page, the carried-side conjunction
+     was true. The mxOpen helper above handles the same case correctly and this
+     inline probe had diverged from it. */
+  const carried = await page.evaluate(() => {
+    const pair = document.querySelector('#pair');
+    return { hash: location.hash,
+      name: document.querySelector('#pairName') ? document.querySelector('#pairName').textContent : null,
+      where: pair ? (pair.closest('aside.rail') ? 'rail' : 'map') : null };
+  });
   await fresh('#v=mx&y=2018&c=0&dir=out&s=HR-21&pp=HR-01');
   await click('#segView button[data-v="saldo"]');
   const dropped = await page.evaluate(() => ({ hash: location.hash, card: !!document.querySelector('#pair'),
     detail: document.querySelector('#card').textContent.length }));
   ck('Matrica → Tokovi keeps the corridor (and the card floats again); → Saldo drops it',
     /s=HR-21/.test(carried.hash) && /pp=HR-01/.test(carried.hash) && carried.where === 'map'
+    && !!carried.name && /Grad Zagreb/.test(carried.name)
     && !dropped.card && !/pp=/.test(dropped.hash) && !/s=HR/.test(dropped.hash) && dropped.detail === 0,
     JSON.stringify({ carried, dropped }));
 
