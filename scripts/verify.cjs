@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 536;
+const EXPECTED_CHECKS = 537;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7772,6 +7772,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the pre-2007 margin caveat reaches the exported figure of every view that shows it',
     Object.values(preMargin).every(v => v.screen === v.want && v.exp === v.want),
     JSON.stringify(preMargin));
+
+  /* …and a grid figure is its ink, not the hole a legend leaves. The two grids
+     are laid out for a screen that also holds the legend and the chip dock, and
+     the exported figure carries neither: measured at 1440×900, Matrica's 1148 px
+     image had its cells between x 445 and 831 — 360 px of nothing left of the
+     first row label, 318 right, 34 % of the width carrying data — Godine 414
+     against 14, and at 1024×768 Matrica 151 against 330.
+     Cropped rather than re-laid-out, so the screen keeps the geometry it was
+     verified with and only the artefact changes. Grids only, at 1× only, and the
+     county maps must stay untouched — which is the second half of the check. */
+  const cropOut = {};
+  for (const [k, h, sel, vw, vh] of [
+    ['mx1440', '#v=mx&y=2018&c=0&dir=out', '.mxc', 1440, 900],
+    ['yrs1440', '#v=yrs&c=0&y=2022', '.yrc', 1440, 900],
+    ['mx1024', '#v=mx&y=2018&c=0&dir=out', '.mxc', 1024, 768],
+    ['saldo', '#v=saldo&c=1&y=2024', '.cnt', 1440, 900],
+  ]) {
+    await page.setViewport({ width: vw, height: vh });
+    await fresh(h);
+    cropOut[k] = await page.evaluate(s => {
+      const d = new DOMParser().parseFromString(String(window.__exportSVG(false)), 'image/svg+xml');
+      const root = d.documentElement;
+      const inner = [...d.querySelectorAll('svg')].find(e => e !== root);
+      return { mapW: inner ? +inner.getAttribute('width') : null,
+        viewBox: inner ? inner.getAttribute('viewBox') : null,
+        liveW: document.querySelector('#map').clientWidth,
+        cells: d.querySelectorAll(s).length };
+    }, sel);
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  const cropped = k => cropOut[k].mapW !== null && cropOut[k].mapW < cropOut[k].liveW && !!cropOut[k].viewBox;
+  ck('an exported grid is cropped to its own ink, and an exported map is not',
+    cropped('mx1440') && cropped('yrs1440') && cropped('mx1024')
+    && !cropped('saldo') && cropOut.saldo.viewBox === null
+    && cropOut.mx1440.cells === 420 && cropOut.mx1024.cells === 420
+    && cropOut.yrs1440.cells === 588 && cropOut.saldo.cells === 21,
+    JSON.stringify(cropOut));
   ck('and the English legend still names the source and the licence',
     /Measured/.test(enBadge.legend) && /Pitoski/.test(enBadge.legend) && /CC BY/.test(enBadge.legend),
     enBadge.legend.slice(0, 120));

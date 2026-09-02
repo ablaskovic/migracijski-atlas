@@ -79,9 +79,41 @@ function drawnH(node: SVGSVGElement): number {
   } catch { return h; }
 }
 
+/* The two grids are laid out for a screen that also holds a legend and a chip
+   dock, and the exported figure carries neither — so it inherited the hole they
+   leave. Measured at 1440×900: Matrica's 1148 px figure has its cells between
+   x 445 and 831, 360 px of nothing to the left of the first row label and 318 to
+   the right, 34 % of the width carrying data; Godine 414 px left against 14
+   right; at 1024×768 Matrica 151 against 330. A published figure should be its
+   ink.
+   Cropped rather than re-laid-out: the screen keeps the geometry it was verified
+   with, and only the artefact changes. Grids only — the maps are already their
+   own frame — and only at 1×, for the reason drawnH gives: above it the frame is
+   one the reader chose. Client rects, because #map carries no viewBox and its
+   user units are CSS px. */
+const CROP_PAD = 20;
+function gridCrop(node: SVGSVGElement): { x: number; y: number; w: number; h: number } | null {
+  if (node.getAttribute('role') !== 'grid') return null;
+  const tf = node.querySelector('g[transform]')?.getAttribute('transform') ?? '';
+  const k = Number(/scale(([d.]+))/.exec(tf)?.[1] ?? 1);
+  if (Math.abs(k - 1) > 0.001) return null;
+  const r = node.getBoundingClientRect();
+  const ink = [...node.querySelectorAll('.mxc, .mxd, .yrc, text')]
+    .map(e => e.getBoundingClientRect()).filter(q => q.width > 0 && q.height > 0);
+  if (ink.length < 20) return null;
+  const x0 = Math.min(...ink.map(q => q.left)), x1 = Math.max(...ink.map(q => q.right));
+  const y0 = Math.min(...ink.map(q => q.top)), y1 = Math.max(...ink.map(q => q.bottom));
+  const x = Math.max(0, Math.floor(x0 - r.left - CROP_PAD));
+  const y = Math.max(0, Math.floor(y0 - r.top - CROP_PAD));
+  const w = Math.min(node.clientWidth - x, Math.ceil(x1 - r.left + CROP_PAD) - x);
+  const h = Math.min(node.clientHeight - y, Math.ceil(y1 - r.top + CROP_PAD) - y);
+  return w > 0 && h > 0 && (w < node.clientWidth || h < node.clientHeight) ? { x, y, w, h } : null;
+}
+
 /* clone the live map SVG and bake class/CSS-var-provided presentation into
    attributes so the standalone document renders identically */
-function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight, face = fontCss()): SVGSVGElement {
+function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight, face = fontCss(),
+  crop: { x: number; y: number; w: number; h: number } | null = null): SVGSVGElement {
   const clone = node.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   /* The faces, if they have been fetched. The serialised map is rasterised in
@@ -93,8 +125,9 @@ function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight, fac
     st.textContent = face;
     clone.insertBefore(st, clone.firstChild);
   }
-  clone.setAttribute('width', String(node.clientWidth));
-  clone.setAttribute('height', String(h));
+  clone.setAttribute('width', String(crop ? crop.w : node.clientWidth));
+  clone.setAttribute('height', String(crop ? crop.h : h));
+  if (crop) clone.setAttribute('viewBox', `${crop.x} ${crop.y} ${crop.w} ${crop.h}`);
   clone.querySelectorAll('.cnt').forEach(p => {
     p.setAttribute('stroke', p.classList.contains('sel') ? '#0F7D8C' : '#fff');
     p.setAttribute('stroke-width', p.classList.contains('sel') ? '2.2' : '0.8');
@@ -463,9 +496,10 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
      The geometry, the band and the clone are taken in one synchronous pass, so
      the image describes the instant the reader pressed on; the faces are the
      only thing the await is for, and they go into the clone afterwards. */
-  const w = node.clientWidth, h = drawnH(node);
+  const crop = gridCrop(node);
+  const w = crop ? crop.w : node.clientWidth, h = crop ? crop.h : drawnH(node);
   const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
-  const clone = bakeMapClone(node, uid(), h, '');
+  const clone = bakeMapClone(node, uid(), h, '', crop);
   const face = await ensureFonts();
   if (face) {
     const st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
@@ -584,10 +618,11 @@ const txt = (x: number, y: number, s: string, attrs: string) => `<text x="${x}" 
    or not at all. */
 
 export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
-  const w = node.clientWidth, h = drawnH(node);
+  const crop = gridCrop(node);
+  const w = crop ? crop.w : node.clientWidth, h = crop ? crop.h : drawnH(node);
   const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
   const u = uid();
-  const clone = bakeMapClone(node, u, h);
+  const clone = bakeMapClone(node, u, h, fontCss(), crop);
   clone.setAttribute('y', String(TOP));
   const per = B.per;
   const leg = legendSpec(S);
