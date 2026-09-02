@@ -166,9 +166,9 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
         </div>
         <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">{t('ctrl.flow')}</span>
           <Seg id="segFlow" labId="segFlowLab" value={eff ? eff.flow : S.flow} off={lockFD} title={OFF_TIP()} onPick={v => setS({ flow: v })}
-            opts={[['tot', L('Migracije', 'Migration')], ['int', t('flow.int')], ['ext', t('flow.ext')], ['nat', t('flow.nat')], ['all', t('flow.all')]]} />
+            opts={[['tot', t('flow.tot')], ['int', t('flow.int')], ['ext', t('flow.ext')], ['nat', t('flow.nat')], ['all', t('flow.all')]]} />
         </div>
-        <div className="ctrl" id="cDen"><span className="ctrl-lab" id="segDenLab">{L('Vrijednosti', 'Values')}</span>
+        <div className="ctrl" id="cDen"><span className="ctrl-lab" id="segDenLab">{t('ctrl.den')}</span>
           <Seg id="segDen" labId="segDenLab" value={eff ? eff.den : S.den} off={lockFD} title={OFF_TIP()} onPick={v => setS({ den: v })}
             opts={[['abs', t('den.abs')], ['rel11', t('den.rel11')], ['relest', t('den.relest')]]} />
         </div>

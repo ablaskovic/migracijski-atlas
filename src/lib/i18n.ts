@@ -210,17 +210,27 @@ const dict = {
      itself. Parenthesised and in caps because it is a qualifier on the name, not
      part of it; the <h1> is uppercased by the stylesheet anyway, and the tab and
      the export are not. */
+  /* Nor 'ctrl.thr', 'ctrl.lang', 'ctrl.reset' or 'badge.cumTitle', for the same
+     reason and with the same history: all four were rendered nowhere, and the
+     first three named their control something the app had stopped calling it —
+     Prag against the header’s ‘Prag „gubitnice”’, Jezik against the deliberately
+     bilingual literal aria-label="Jezik / Language", Poništi against a ⟲ button
+     that carries 'ctrl.resetTitle'. A copy editor renaming the threshold control
+     would have edited the wrong string and seen nothing change. Two of the six
+     were wired instead of deleted, because their peers in the same enumerated
+     group already come from here: 'ctrl.den' and 'flow.tot' now hold the words
+     the header renders. 'badge.cumTitle' pinned the uppercase form per locale,
+     but the export band upper-cases the whole title line (exportPng.ts), so the
+     pinned strings never reached a figure; the honesty label itself is
+     'badge.cum', which is live and shared. */
   'hd.title': { hr: 'Migracijski atlas županija', en: 'County Migration Atlas (CROATIA)' },
   'ctrl.view': { hr: 'Prikaz', en: 'View' },
   'ctrl.flow': { hr: 'Sastavnica', en: 'Component' },
-  'ctrl.den': { hr: 'Mjera', en: 'Measure' },
+  'ctrl.den': { hr: 'Vrijednosti', en: 'Values' },
   'ctrl.time': { hr: 'Vrijeme', en: 'Time' },
   'ctrl.dir': { hr: 'Smjer', en: 'Direction' },
-  'ctrl.thr': { hr: 'Prag', en: 'Threshold' },
   'ctrl.export': { hr: 'Izvoz', en: 'Export' },
   'ctrl.story': { hr: 'Nalazi', en: 'Findings' },
-  'ctrl.lang': { hr: 'Jezik', en: 'Language' },
-  'ctrl.reset': { hr: 'Poništi', en: 'Reset' },
   'ctrl.resetTitle': { hr: 'Vrati na početni prikaz', en: 'Back to the opening view' },
 
   /* views */
@@ -233,7 +243,7 @@ const dict = {
   'view.yrs': { hr: 'Godine', en: 'Years' },
 
   /* components / measures */
-  'flow.tot': { hr: 'Ukupno', en: 'Total' },
+  'flow.tot': { hr: 'Migracije', en: 'Migration' },
   'flow.int': { hr: 'Unutarnje', en: 'Internal' },
   'flow.ext': { hr: 'Vanjske', en: 'External' },
   'flow.nat': { hr: 'Prirodno', en: 'Natural' },
@@ -259,7 +269,6 @@ const dict = {
   'badge.meas': { hr: 'izmjereno', en: 'measured' },
   'badge.est': { hr: 'procjena (IPF)', en: 'estimate (IPF)' },
   'badge.cum': { hr: 'kumulativna procjena', en: 'cumulative estimate' },
-  'badge.cumTitle': { hr: 'KUMULATIVNA PROCJENA', en: 'CUMULATIVE ESTIMATE' },
   'note.pairEst': {
     hr: 'Neto parova je strukturna procjena.',
     en: 'Pair nets are a structural estimate.',

@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 548;
+const EXPECTED_CHECKS = 549;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7121,6 +7121,36 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the pre-2007 margin caveat is shown exactly where it is true',
     preGate.length === 0, preGate.slice(0, 3).join(' | '));
 
+
+  /* ── every dictionary key is a key somebody renders ──
+     i18n.ts states its own rule at the top: shared, enumerated labels live in
+     `dict` because "they are referenced from several places and must agree",
+     and everything else is written in place. It also records applying that rule
+     once, deleting 'hd.eyebrow' — "a copy edit here would have changed nothing
+     on screen while looking like it had". Six keys had been left behind, four of
+     them naming a control something the app had stopped calling it: 'ctrl.den'
+     said Mjera/Measure while the header rendered Vrijednosti/Values, 'flow.tot'
+     said Ukupno/Total against Migracije/Migration, 'ctrl.thr' said Prag against
+     "Prag „gubitnice”", 'ctrl.lang' Jezik against the bilingual literal. A copy
+     editor sent to rename any of them would have edited the wrong string.
+     Static, because the count is a property of the tree and not of a run: the
+     alternative — reading every rendered label back — cannot see a key that is
+     rendered nowhere, which is the whole defect. */
+  const dictScan = (() => {
+    const root = path.resolve(__dirname, '../src');
+    const i18n = path.join(root, 'lib', 'i18n.ts');
+    const keys = [...fs.readFileSync(i18n, 'utf8')
+      .matchAll(/^ {2}'([a-z]+\.[A-Za-z0-9]+)': \{/gm)].map(m => m[1]);
+    const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => {
+      const p = path.join(d, e.name);
+      return e.isDirectory() ? walk(p) : /\.tsx?$/.test(e.name) && p !== i18n ? [p] : [];
+    });
+    const blob = walk(root).map(f => fs.readFileSync(f, 'utf8')).join('\n');
+    return { n: keys.length, dead: keys.filter(k => !blob.includes(`'${k}'`)) };
+  })();
+  ck('no dictionary key is a second, unrendered name for a control',
+    dictScan.n >= 30 && dictScan.dead.length === 0,
+    JSON.stringify(dictScan));
   /* …and the number the glossary puts on it has to be the payload's. The IPF
      paragraph quantified the caveat as "464–550 osoba" for 1998.–2006. —
      measured from src/data/atlas_data2.json, four of those nine years are 218,
