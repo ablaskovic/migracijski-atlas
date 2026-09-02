@@ -80,14 +80,13 @@ function drawnH(node: SVGSVGElement): number {
 
 /* clone the live map SVG and bake class/CSS-var-provided presentation into
    attributes so the standalone document renders identically */
-function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight): SVGSVGElement {
+function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight, face = fontCss()): SVGSVGElement {
   const clone = node.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   /* The faces, if they have been fetched. The serialised map is rasterised in
      its own browsing context, which cannot see document.fonts — so without this
      every in-map string fell back to an installed face while the band around it
      drew in the real one. See exportFonts.ts. */
-  const face = fontCss();
   if (face) {
     const st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     st.textContent = face;
@@ -441,10 +440,27 @@ const caveatLine = (S: State): string =>
     : S.view === 'klas' ? paperThrLine(S.thrRel) : '';
 
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
-  await ensureFonts();
+  /* Snapshot first, wait second. `ensureFonts()` can take up to its 8 s timeout,
+     and while it does the scrubber, Play and the view buttons stay live — only
+     #pngBtn is disabled. The band was drawn from `S`, captured at click time,
+     while the map was cloned AFTER the await, from whatever was on screen by
+     then. Measured with the woff2 requests held and the year arrowed 2019 → 2020
+     during the wait: the band said "MIGRACIJSKI SALDO 2019." over a clone whose
+     21 fills were the 2020 state, and the export completed after 10,0 s with no
+     error. Switching to Matrica during the wait detached the captured node
+     entirely (clientWidth 0) and the same path failed as "canvas too large".
+     The geometry, the band and the clone are taken in one synchronous pass, so
+     the image describes the instant the reader pressed on; the faces are the
+     only thing the await is for, and they go into the clone afterwards. */
   const w = node.clientWidth, h = drawnH(node);
   const B = bandLayout(S, w), TOP = B.top, BOT = B.bot;
-  const clone = bakeMapClone(node, uid(), h);
+  const clone = bakeMapClone(node, uid(), h, '');
+  const face = await ensureFonts();
+  if (face) {
+    const st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    st.textContent = face;
+    clone.insertBefore(st, clone.firstChild);
+  }
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
   const img = new Image();
   /* try/FINALLY, and revoked the moment the load settles. It used to be revoked

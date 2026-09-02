@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 534;
+const EXPECTED_CHECKS = 535;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9753,6 +9753,58 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && !pngHang.disabled && pngHang.label !== '…' && pngHang.ms < 15000
     && errors.length === errs0,
     JSON.stringify({ font404, png404, pngHang, errs: errors.length - errs0 }));
+
+  /* …and the figure describes ONE instant. exportPNG awaited ensureFonts first
+     and cloned the map after it: the band was drawn from the state captured at
+     click time, the map from whatever was on screen up to 8 s later. While that
+     wait runs only #pngBtn is disabled — the scrubber, Play and the view buttons
+     stay live. Measured with the woff2 requests held and the year arrowed
+     2019 → 2020 during the wait: the band read "MIGRACIJSKI SALDO 2019." over a
+     clone whose 21 county fills were the 2020 state, and the export completed
+     after 10,0 s with no error at all. Switching view instead detached the
+     captured node and the same path failed as "canvas too large".
+     Asserted against the clone itself, not the file: the serialised fills must
+     be the ones on screen when the button was pressed, and not the ones that
+     replaced them. */
+  const raceErrs = errors.length;
+  await page.evaluateOnNewDocument(() => {
+    window.__clone = null;
+    const ser = XMLSerializer.prototype.serializeToString;
+    XMLSerializer.prototype.serializeToString = function (nd) {
+      const s = ser.call(this, nd);
+      if (!window.__clone) window.__clone = s;
+      return s;
+    };
+  });
+  blockFonts = 'hang';
+  await fresh('#v=saldo&c=0&y=2019');
+  const fillsNow = () => page.evaluate(() => [...document.querySelectorAll('#map .cnt')]
+    .map(p => getComputedStyle(p).fill.replace(/\s+/g, '')).join('|'));
+  const raceBefore = await fillsNow();
+  await page.evaluate(() => { window.__clone = null; document.querySelector('#pngBtn').click(); });
+  await settle(250);
+  await page.evaluate(() => document.querySelector('#spark').focus());
+  await page.keyboard.press('ArrowRight');
+  await settle(500);
+  const raceAfter = await fillsNow();
+  await page.waitForFunction(() => !document.querySelector('#pngBtn').disabled, { timeout: 20000 }).catch(() => {});
+  const raceClone = await page.evaluate(() => {
+    const s = window.__clone || '';
+    return [...s.matchAll(/<path[^>]*class="cnt[^"]*"[^>]*>/g)]
+      .map(m => (/fill="([^"]+)"/.exec(m[0]) || [])[1]).filter(Boolean)
+      .map(c => c.replace(/\s+/g, '')).join('|');
+  });
+  blockFonts = false;
+  for (const r of heldFonts.splice(0)) { try { await r.abort(); } catch { /* cancelled */ } }
+  await settle(400);
+  for (let i = errors.length - 1; i >= raceErrs; i--) {
+    if (/woff2/.test(errors[i]) || /Failed to load resource/.test(errors[i])) errors.splice(i, 1);
+  }
+  await fresh('');
+  ck('a PNG pressed during a slow font fetch ships the map the reader pressed on',
+    raceBefore !== raceAfter && raceClone === raceBefore && errors.length === raceErrs,
+    JSON.stringify({ changed: raceBefore !== raceAfter, cloneIsBefore: raceClone === raceBefore,
+      cloneIsAfter: raceClone === raceAfter, n: raceClone.split('|').length }));
 
   /* (5) the corridor arcs are painted from the same scale the counties are, in
      both directions — `dv(v)` for neto and `sq(|v|)` for the one-way pair, the
