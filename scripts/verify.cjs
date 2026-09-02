@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 588;
+const EXPECTED_CHECKS = 589;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7217,6 +7217,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* and ordinary wrapping is untouched */
     && wrapGuard.plain.out.join('|') === 'one two|three four|five',
     JSON.stringify(wrapGuard));
+
+  /* ── the corridor card shows its chart, not just its heading ──
+     the scrolling layout was gated at (pointer:coarse) and (max-height:700px),
+     and 700 was one pixel short of the band that needed it. Above it the coarse
+     chrome — the doubled header and scrubber — still applies while the desktop
+     layout does not give way, so --stageh fell to 247 px at 1024×701 and
+     .paircard's cap resolved to 247 − 76 − 2×44 = 83 px for 253 px of content:
+     the 110 px chart cut at a third and the readout row with its honesty badge
+     below the fold of an 83 px scroller. Measured: 81 px at 1024×701, 90 at
+     1100×710, 100 at 1280×720, 148 at 1024×768. The desktop layout's own note
+     reasoned no floor was needed from a measurement at 1024×768, where the card
+     gets 150 px — 701 is a different number.
+     Asserted against the card's OWN parts rather than a literal: the header and
+     the chart are why this card exists, so their measured sum is the floor, and
+     a restyle that changes either moves the bar with it. Fine-pointer controls
+     at the same sizes, because the coarse chrome is the whole mechanism. */
+  const pairRoom = {};
+  for (const [w, h, touch] of [[1024, 701, true], [1100, 710, true], [1280, 720, true],
+    [1024, 768, true], [1024, 800, true], [1024, 768, false], [1440, 900, false]]) {
+    await page.setViewport({ width: w, height: h, hasTouch: touch, isMobile: false });
+    await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
+    pairRoom[`${w}x${h}${touch ? 'c' : 'f'}`] = await page.evaluate(() => {
+      const c = document.querySelector('.paircard');
+      if (!c) return { none: true };
+      const svg = c.querySelector('svg');
+      const hd = c.firstElementChild;
+      const need = (svg ? svg.getBoundingClientRect().height : 0)
+        + (hd ? hd.getBoundingClientRect().height : 0);
+      return { h: Math.round(c.clientHeight), sh: Math.round(c.scrollHeight),
+        need: Math.round(need), ok: c.clientHeight >= need - 1 };
+    });
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the corridor card keeps room for its chart on a coarse pointer, not only below 700 px',
+    Object.values(pairRoom).every(v => !v.none && v.need > 100 && v.ok),
+    JSON.stringify(pairRoom));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text

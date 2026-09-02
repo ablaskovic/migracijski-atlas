@@ -1114,7 +1114,17 @@ body.stage-collapsed .main{flex:none;height:420px}
    arrangement of a top strip, a two-high dock and a legend can fit, with both
    chip headers returning .paircard from elementFromPoint. The scrolling layout
    gives the map its own 288 px and lets the page grow instead. */
-@media (max-width:900px), (max-height:560px), ((pointer:coarse) and (max-height:700px)){
+/* …and 700 was one pixel short of the band that needed it. On a coarse pointer
+   the doubled header and scrubber leave --stageh at 247 px at 1024×701, so
+   .paircard's cap resolves to 247 − 76 − 2×44 = 83 px for 254 px of content:
+   the 110 px chart is cut at a third and the readout row with its honesty badge
+   sits below the fold of an 83 px scroller. 92 px at 1100×710, 102 px at
+   1280×720. The desktop layout's own note reasoned no floor was needed from a
+   measurement at 1024×768, where the card gets 150 px — 701 is a different
+   number, and everything between them got the coarse chrome without the
+   scrolling layout's relief. 780 covers the whole band up to the height that
+   measurement was taken at. */
+@media (max-width:900px), (max-height:560px), ((pointer:coarse) and (max-height:780px)){
   /* Desktop pins the app to one viewport (body is a flex column, height:100%).
      On mobile the content is simply taller than the screen: leaving it flex made
      every child flex-shrink instead of overflow — the rail collapsed to 0 px and
