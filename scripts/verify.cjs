@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 576;
+const EXPECTED_CHECKS = 578;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6843,6 +6843,45 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && paleClaim.t1998.n === 21 && paleClaim.t1998.distinct > 10
     && paleClaim.e1998.n === 21 && paleClaim.e1998.distinct > 10,
     JSON.stringify({ hr: glPale.hr.slice(-110), ends: paleClaim.t1998.ends }));
+
+  /* ── a press that changes nothing changes nothing ──
+     setView had no `v === s.view` guard and Seg calls onPick for every click,
+     including the one already aria-pressed — so the whole transition ran on an
+     inert press: measured with the film running, clicking the pressed Saldo
+     segment stopped it and nulled every highlight. And Klasifikacija, which is
+     unconditionally cumulative, left S.cum wherever it was while encodeHash
+     emitted it: #v=klas&c=0&y=2024 renders a screen identical to the c=1 one and
+     then diverges on the next press, Saldo giving +7.010 from one and +41.986
+     from the other. Both are about state the reader did not choose; both are
+     asserted here, with the transitions that MUST still act. */
+  await fresh('#v=saldo&c=0&y=2000');
+  await click('#play');
+  await settle(400);
+  const inertPress = { playing0: await page.evaluate(() =>
+    document.querySelector('#play').getAttribute('aria-pressed')) };
+  await click('#segView button[data-v="saldo"]');
+  await settle(400);
+  inertPress.samePress = await page.evaluate(() =>
+    document.querySelector('#play').getAttribute('aria-pressed'));
+  await click('#segView button[data-v="reg"]');
+  await settle(450);
+  inertPress.realChange = await page.evaluate(() =>
+    document.querySelector('#play').getAttribute('aria-pressed'));
+  ck('a press on the pressed view segment leaves the film running, a real change stops it',
+    inertPress.playing0 === 'true' && inertPress.samePress === 'true'
+    && inertPress.realChange === 'false', JSON.stringify(inertPress));
+  await fresh('#v=saldo&c=0&y=2024');
+  await click('#segView button[data-v="klas"]');
+  await settle(400);
+  const klasLink = { klas: await page.evaluate(() => location.hash) };
+  await click('#segView button[data-v="saldo"]');
+  await settle(400);
+  klasLink.back = await page.evaluate(() => ({ hash: location.hash,
+    top: (document.querySelector('#railList .rrow') || {}).textContent || '' }));
+  ck('Klasifikacija mints the cumulative link it renders, and Saldo gets the reader’s own pair back',
+    /v=klas/.test(klasLink.klas) && /c=1/.test(klasLink.klas)
+    && /c=0/.test(klasLink.back.hash) && /\+7\.010/.test(klasLink.back.top),
+    JSON.stringify(klasLink));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
