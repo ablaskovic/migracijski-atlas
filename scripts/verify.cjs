@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 580;
+const EXPECTED_CHECKS = 581;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6972,6 +6972,36 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     JSON.stringify(Object.fromEntries(Object.entries(tickFit)
       .filter(([, v]) => v.none || v.bad.length))) + ' ' +
     JSON.stringify(Object.fromEntries(Object.entries(tickFit).map(([k, v]) => [k, v.n]))));
+
+  /* ── a typed story link is one history entry, whatever order its keys are in ──
+     onPop mirrored the address into lastView and left lastStory at null, so a
+     non-canonical story link was pushed twice: the browser records the fragment
+     navigation as one entry, then the history effect sees story != lastStory,
+     canonicalises the key order — so the early return cannot fire — and pushes a
+     second. Measured from #v=saldo&c=1&y=2024 with history.length 2, pasting
+     #v=saldo&st=2&c=1&y=2024&f=all gave 4, and Back landed on the same story
+     again with a phantom stop left in Forward. Both orders are asserted, because
+     the canonical one always behaved and is what makes the other's extra entry
+     visible as a difference rather than as a number to be believed. */
+  const storyHist = {};
+  for (const [k, h] of [['scrambled', 'v=saldo&st=2&c=1&y=2024&f=all'],
+    ['canonical', 'v=saldo&f=int&c=1&y=2024&st=8']]) {
+    await fresh('#v=saldo&c=1&y=2024');
+    const len0 = await page.evaluate(() => history.length);
+    await page.evaluate(x => { location.hash = x; }, h);
+    await settle(800);
+    const after = await page.evaluate(() => ({ len: history.length,
+      cap: ((document.querySelector('#storyBar') || {}).textContent || '').trim().length > 0 }));
+    await page.goBack();
+    await settle(700);
+    storyHist[k] = { added: after.len - len0, capAfter: after.cap,
+      back: await page.evaluate(() => ({ hash: location.hash,
+        cap: ((document.querySelector('#storyBar') || {}).textContent || '').trim().length > 0 })) };
+  }
+  ck('a story link adds one history entry and one Back leaves it, in any key order',
+    ['scrambled', 'canonical'].every(k => storyHist[k].added === 1 && storyHist[k].capAfter
+      && !storyHist[k].back.cap && /^#v=saldo&c=1&y=2024$/.test(storyHist[k].back.hash)),
+    JSON.stringify(storyHist));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
