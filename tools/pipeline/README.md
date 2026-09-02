@@ -138,9 +138,17 @@ audit flagged the difference; both halves check out:
   from outside does not. The 25th is `Grad Zagreb`, which genuinely has no
   geometry in the extract.
 
-No pipeline script was executed in either audit, and none is executed by
+No audit has executed a pipeline script in place, and none is executed by
 `npm run verify` — the data files are inputs to the app, and the suite verifies
-them by recomputing the ground-truth table from what ships.
+them by recomputing the ground-truth table from what ships. The byte-for-byte
+rerun of `ipf.py` reported above was done in a fix pass rather than an audit,
+in a scratch copy with the output path redirected and the repo left clean; the
+pass after 2.6.1 repeated it and did the same for `parse_cit.py`. (The sentence
+this replaces said "in either audit", which named the two that existed when it
+was written; more have run since, and the paragraph above it now reports a
+rerun — so a maintainer met "it was rerun and verified" and "nothing was
+executed" thirty lines apart with no way to tell which was stale. Both were
+true. Only one said whose run it was.)
 
 ### `atlas_data2.json` is reproducible here — the old note was wrong
 
