@@ -9706,6 +9706,8 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      The block above cannot see it: it boots at `/?l=en`, where a raw pathname
      is a perfectly good same-origin link. Its own page, because the getter is
      global to the document it is installed in. */
+  /* the ledger mark this leg scrubs back to */
+  const ebHad = errors.length;
   const ebOrigin = await (async () => {
     const pg = await watch(await browser.newPage());
     await pinHr(pg);
