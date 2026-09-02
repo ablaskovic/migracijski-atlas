@@ -355,13 +355,20 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
           <rect x={x0 + hlC * cell} y={y0} width={cell} height={n * cell} vectorEffect="non-scaling-stroke" />
         </g>
       )}
+      {/* Inside the zoom transform like everything else in the grid, so the width
+          is multiplied by k without this: measured at the 4,096× the suite's own
+          zoom sweep reaches, these nine 1,1 px rules drew 4,51 px, and 8,8 px at
+          KMAX — the region boundaries and the grid's own frame reading as data
+          instead of as structure. Godine's equivalents already declare it; these
+          nine were the ones left, and they carry no class, so no extension of
+          the sweep's hand-list could ever have selected them. */}
       {BLOCKS.slice(0, -1).map(b => (
         <g key={'b' + b}>
-          <line x1={x0 + b * cell} x2={x0 + b * cell} y1={y0} y2={y0 + n * cell} stroke="#20262B" strokeWidth={1.1} />
-          <line x1={x0} x2={x0 + n * cell} y1={y0 + b * cell} y2={y0 + b * cell} stroke="#20262B" strokeWidth={1.1} />
+          <line x1={x0 + b * cell} x2={x0 + b * cell} y1={y0} y2={y0 + n * cell} stroke="#20262B" strokeWidth={1.1} vectorEffect="non-scaling-stroke" />
+          <line x1={x0} x2={x0 + n * cell} y1={y0 + b * cell} y2={y0 + b * cell} stroke="#20262B" strokeWidth={1.1} vectorEffect="non-scaling-stroke" />
         </g>
       ))}
-      <rect x={x0} y={y0} width={n * cell} height={n * cell} fill="none" stroke="#20262B" strokeWidth={1.1} />
+      <rect x={x0} y={y0} width={n * cell} height={n * cell} fill="none" stroke="#20262B" strokeWidth={1.1} vectorEffect="non-scaling-stroke" />
       {/* The selected corridor, the one the rail's card describes. Teal, because
           in this app teal is control/selection and never data — so it cannot be
           read as a value the way another ink stroke could. The cell ring is

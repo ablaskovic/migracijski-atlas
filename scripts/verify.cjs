@@ -7409,7 +7409,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         const q = [...document.querySelectorAll(t)];
         declares[t] = q.length > 0 && q.every(e => e.getAttribute('vector-effect') === 'non-scaling-stroke');
       }
-      return { moved, px: a.length / 4, declares };
+      /* …and the same question asked of the DOM rather than of a typed list,
+         because a typed list cannot name what it does not know about. Matrica's
+         eight region rules and its grid outline carry no class at all, so no
+         extension of ['.mxc','.mxd','.mxsel rect'] could ever have selected
+         them — and the raster half above cannot see them either: it strips
+         `vector-effect` and diffs, so an element that never declared the
+         attribute is byte-identical in both rasters and contributes 0 changed
+         pixels. That diff can prove a declared attribute works; it can never
+         find a stroke that fattens. Measured at the sweep's own 3-press zoom
+         (k = 4,096) those nine drew 4,51 px of a 1,1 px rule while the check
+         printed ok.
+         The flow arcs, their casings and the hub dot are exempt: they divide
+         their own stroke width by k by design, which is the other way of
+         solving the same problem. */
+      const scaling = [...document.querySelectorAll('#map g [stroke]')]
+        .filter(e => e.getAttribute('stroke') !== 'none')
+        .filter(e => !e.matches('.arc, .arccase, .hubdot'))
+        .filter(e => e.getAttribute('vector-effect') !== 'non-scaling-stroke')
+        .map(e => e.tagName + '.' + (e.getAttribute('class') || e.parentElement?.getAttribute('class') || '?'));
+      return { moved, px: a.length / 4, declares, scaling: scaling.slice(0, 6), nScaling: scaling.length };
     }, sels);
   };
   for (const [hash, z, sels] of [
@@ -7420,7 +7439,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ]) {
     const r = await strokeScan(hash, z, sels);
     ck(`zooming ${hash.slice(3, 8)} does not fatten its strokes, and every stroke declares it`,
-      r.moved > 2000 && Object.values(r.declares).every(Boolean),
+      r.moved > 2000 && Object.values(r.declares).every(Boolean) && r.nScaling === 0,
       JSON.stringify(r));
   }
   await fresh('');
