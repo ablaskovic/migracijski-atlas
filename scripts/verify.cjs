@@ -3697,8 +3697,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const t = document.querySelector('#helpCard').textContent;
     document.querySelector('#helpX').click();
     /* `t.includes('0')` was a tautology — the glossary text also contains
-       "2021.–2025.", "−4.500", "1.4". Match the key as its own word instead. */
-    return { zoom: t.includes('zumiraju'), zero: /\b0\b/.test(t),
+       "2021.–2025.", "−4.500", "1.4". Matching the key as its own word was not
+       enough either: \b0\b is satisfied by two permanent strings elsewhere in
+       the card, the colour rule's "Sredina skale je 0, tj. ravnoteža" and
+       "CC BY 4.0" in the licences. Executed on the live text, deleting exactly
+       the reset-key clause left both conjuncts true — so trimming the Controls
+       paragraph could un-document the only keyboard route back to 1× while this
+       stayed green, which is the failure the note above claims to have fixed.
+       The key and its verb, then, in either language. */
+    return { zoom: t.includes('zumiraju'), zero: /0\s*(vraća|resets)/.test(t),
       pan: t.includes('Shift'), grid: t.includes('PageUp') };
   });
   ck('the glossary documents the zoom keys it now has',
