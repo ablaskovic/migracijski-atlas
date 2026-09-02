@@ -475,7 +475,18 @@ export default function App() {
     const measure = () => {
       const h = (sel: string) => document.querySelector(sel)?.getBoundingClientRect().height ?? 0;
       const room = window.innerHeight - h('header.hd') - h('#scrubBox') - h('.ft');
-      document.body.classList.toggle('stage-collapsed', room < 180);
+      /* …and only where there is a pinned column to rescue. Below 900 px (and at
+         the other two stacked-layout conditions) index.css already turns .main
+         into a block in a scrolling document, which is this fix's own remedy
+         arrived at by a different route — applying it there as well forced
+         .main to a 420 px box inside a layout that wants `height:auto`, and the
+         rail landed below the footer with three of its rows under the fixed
+         scrubber. `display` is the signal because it is what that block sets and
+         what this class never touches, so the test cannot oscillate on its own
+         effect the way a height or an overflow would. */
+      const main = document.querySelector('.main');
+      const pinned = !!main && getComputedStyle(main).display !== 'block';
+      document.body.classList.toggle('stage-collapsed', pinned && room < 180);
     };
     measure();
     const ro = new ResizeObserver(measure);
