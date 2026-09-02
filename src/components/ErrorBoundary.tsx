@@ -58,12 +58,26 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
        navigation: measured, no request, no reload, #renderFail still on screen
        and the href unchanged — App is unmounted, so nothing answers the popstate
        either. It only reloaded when the URL happened to carry a query string.
+       And every one of them was built from a RAW `location.pathname`, which on
+       this deploy is attacker-shaped. vercel.json rewrites index.html for every
+       path outside /assets/ and /fonts/, so `https://migracijski-atlas.hr//evil.example/`
+       is a URL the site answers with the app — and there `location.pathname` is
+       the string `//evil.example/`, which as an href is a protocol-relative URL
+       the browser resolves against the scheme alone. Measured on a forced render
+       throw at that address: all four links, the two reading “Osvježite
+       stranicu” / “Reload the page” among them, resolved to
+       http://evil.example/ — off-origin, under the atlas’s own eyebrow and
+       title, at the moment the reader has been told something went wrong and
+       asked to click. `location.origin` is a plain string read that cannot
+       throw, so the rule below still holds; absolute, a leading `//` in the path
+       can no longer be read as an authority.
        `location.reload()` is a literal call on `location`, inside this file's own
        "built from literals and location alone" rule, and it re-requests the same
        URL, which is what the word promises. The plain pair keeps the query and
        drops only the fragment, which is exactly what it says. */
-    const here = location.pathname + location.search + location.hash;
-    const plain = location.pathname + location.search;
+    const at = location.origin + location.pathname + location.search;
+    const here = at + location.hash;
+    const plain = at;
     const reload = (e: MouseEvent) => { e.preventDefault(); location.reload(); };
     return (
       <div className="boot" role="alert">

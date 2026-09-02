@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 549;
+const EXPECTED_CHECKS = 551;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9569,6 +9569,58 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('…and pressing the reload link actually reloads the document',
     reloadWorks.marker === 'gone' && !reloadWorks.fail && reloadWorks.map
     && reloadWorks.href === '/?l=en', JSON.stringify(reloadWorks));
+  /* …and none of the four may leave the origin. Every href was built from a raw
+     `location.pathname`, and vercel.json rewrites index.html for every path
+     outside /assets/ and /fonts/ — so `https://migracijski-atlas.hr//evil.example/`
+     is a URL this site answers with the app, and there `location.pathname` is
+     the string `//evil.example/`, which as an href is a protocol-relative URL
+     the browser resolves against the scheme alone. Measured on a forced render
+     throw at that address, before the fix: all four links, the two reading
+     "Osvježite stranicu" / "Reload the page" among them, resolved to
+     http://evil.example/ — under the atlas's own eyebrow and title, at the
+     moment the reader has been told something went wrong and asked to click.
+     The block above cannot see it: it boots at `/?l=en`, where a raw pathname
+     is a perfectly good same-origin link. Its own page, because the getter is
+     global to the document it is installed in. */
+  const ebOrigin = await (async () => {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    await pg.goto(url + '/evil.example/?l=en#v=saldo&c=1&y=2024&s=HR-18',
+      { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await pg.waitForSelector('#map .cnt', { timeout: 30000 }).catch(() => {});
+    await settle(400);
+    const r = await pg.evaluate(async () => {
+      Object.defineProperty(Intl.NumberFormat.prototype, 'format', {
+        get() { throw new TypeError('verify: forced render failure'); }, configurable: true });
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      await new Promise(r2 => setTimeout(r2, 800));
+      const f = document.querySelector('#renderFail');
+      return { path: location.pathname, origin: location.origin, fail: !!f,
+        offOrigin: f ? [...f.querySelectorAll('a')]
+          .filter(a => !a.href.startsWith(location.origin + '/')).map(a => a.href) : ['no boundary'],
+        n: f ? f.querySelectorAll('a').length : 0 };
+    });
+    await pg.close();
+    return r;
+  })();
+  /* the two console lines are delivered over CDP, not by the evaluate that caused
+     them, so give them a tick to land before counting */
+  await settle(300);
+  /* This leg mints the same two lines the block above does — React's uncaught-error
+     line and componentDidCatch — and the splice below counts on finding exactly
+     two, so it removes its own here, by the message it minted and by count. */
+  {
+    const had = errors.length;
+    for (let i = errors.length - 1; i >= ebHad; i--) {
+      if (/verify: forced render failure/.test(errors[i])) errors.splice(i, 1);
+    }
+    ck('the second forced failure logged exactly its own two lines and nothing else',
+      had - errors.length === 2 && errors.length === ebHad,
+      JSON.stringify({ dropped: had - errors.length, left: errors.slice(ebHad, ebHad + 2) }));
+  }
+  ck('the boundary keeps its four recovery links on this origin from a //-shaped path',
+    ebOrigin.path === '//evil.example/' && ebOrigin.fail && ebOrigin.n === 4
+    && ebOrigin.offOrigin.length === 0, JSON.stringify(ebOrigin));
   /* The fault was ours and it logs twice — React's own uncaught-error line and
      ErrorBoundary's componentDidCatch — so it is spliced out here rather than
      left to fail the ledger assertion below. Named by the message this block
