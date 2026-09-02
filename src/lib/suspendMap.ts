@@ -37,8 +37,26 @@ export function useSuspendMapStops(active: boolean, key: string) {
       f.setAttribute('tabindex', '-1');
     }
     return () => {
+      /* …but idempotent was not enough, because the guard is true for exactly
+         the cell it must not fire on. When the roving stop moves, React writes
+         tabindex="-1" onto the cell it left — so the recorded "0" was written back
+         beside the live stop. Measured at 1440×900 in Matrica, where the
+         glossary is deliberately non-modal: open it, click a second cell, press
+         Escape, and `.mxc[tabindex="0"]` is ["HR-21/HR-01", "HR-05/HR-21"]. Same
+         on the JLS map with a chip open, where Shift+Tab from #labBtn then walks
+         two municipalities in a row. The arrow-key freeze that note describes is
+         gone — focus moved to identity — but the duplicate stop is not.
+         A stop that appeared during the suspension is React's own answer to
+         where the stop is, and it wins: no recorded "0" is restored beside it.
+         Scoped to a stop that is NOT one of the suspended elements, so the
+         county map — 21 paths that all carry tabIndex={0} — still restores all
+         21 if React happens to have rewritten one of them. */
+      const live = document.getElementById('map')?.querySelector('[tabindex="0"]');
+      const moot = !!live && !moved.some(([el]) => el === live);
       moved.forEach(([el, v]) => {
-        if (el.isConnected && el.getAttribute('tabindex') === '-1') el.setAttribute('tabindex', v);
+        if (el.isConnected && el.getAttribute('tabindex') === '-1' && !(moot && v === '0')) {
+          el.setAttribute('tabindex', v);
+        }
       });
     };
     /* `key` carries whatever remounts the map's focusable content — the view,

@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 517;
+const EXPECTED_CHECKS = 518;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4208,6 +4208,68 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     bootWalk.length === 2 && bootWalk.every(w => w.covered === 0 && w.moved >= 5 && w.outside > 10),
     JSON.stringify(bootWalk));
   await page.setViewport({ width: 1440, height: 900 });
+
+  /* …and the restore must not put a stale stop back beside the live one. Above
+     900 px the glossary and the chip panels are deliberately non-modal, so the
+     roving stop can move while one is open — and the hook's idempotency guard,
+     `getAttribute('tabindex') === '-1'`, is true for exactly the cell React
+     writes -1 onto when it moves. Measured at 1440×900 in Matrica: open the
+     glossary, click a second cell, press Escape, and `.mxc[tabindex="0"]` is
+     ["HR-21/HR-01", "HR-21/HR-02"]. Same on the JLS map with a chip open, where
+     Shift+Tab then walks two municipalities in a row. The suite counted stops
+     only at boot and after End, so neither was visible.
+     The third leg is the guard against the guard: the county map's 21 paths all
+     carry tabIndex={0}, and all 21 have to come back. */
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('#v=mx&y=2018&c=0&dir=out');
+  await page.waitForFunction(() => document.querySelectorAll('#map .mxc').length > 100, { timeout: 15000 }).catch(() => {});
+  const roveWas = await page.evaluate(() => {
+    const e = document.querySelector('.mxc[tabindex="0"]');
+    return e ? [e.dataset.a, e.dataset.b] : null;
+  });
+  await click('#helpBtn');
+  const roveTarget = await page.evaluate(was => {
+    const live = was && document.querySelector(`.mxc[data-a="${was[0]}"][data-b="${was[1]}"]`);
+    const card = document.querySelector('#helpCard').getBoundingClientRect();
+    for (const c of document.querySelectorAll('#map .mxc')) {
+      if (c === live) continue;
+      const r = c.getBoundingClientRect();
+      if (r.width < 5 || r.height < 5) continue;
+      const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+      if (x >= card.left && x <= card.right && y >= card.top && y <= card.bottom) continue;
+      if (document.elementFromPoint(x, y) !== c) continue;
+      return { x, y };
+    }
+    return null;
+  }, roveWas);
+  if (roveTarget) await page.mouse.click(roveTarget.x, roveTarget.y);
+  await settle(350);
+  await page.keyboard.press('Escape');
+  await settle(400);
+  const roveMx = await page.evaluate(() => ({ help: !!document.querySelector('#helpCard'),
+    zero: [...document.querySelectorAll('.mxc[tabindex="0"]')].map(e => e.dataset.a + '/' + e.dataset.b) }));
+  await fresh('#v=jmap&dir=net&cz=1');
+  await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 25000 }).catch(() => {});
+  await page.evaluate(() => {
+    const l = document.querySelector('.jl[tabindex="0"]') || document.querySelector('.jl');
+    l.focus();
+    l.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  });
+  await settle(350);
+  await page.keyboard.press('Escape');
+  await settle(400);
+  const roveJl = await page.evaluate(() => ({ citz: !!document.querySelector('#citz.open'),
+    n: document.querySelectorAll('.jl[tabindex="0"]').length }));
+  await fresh('#v=saldo&c=1&y=2024&cz=1');
+  const roveCntSusp = await page.evaluate(() => document.querySelectorAll('#map .cnt[tabindex="0"]').length);
+  await page.keyboard.press('Escape');
+  await settle(400);
+  const roveCnt = await page.evaluate(() => document.querySelectorAll('#map .cnt[tabindex="0"]').length);
+  ck('closing an overlay leaves one roving stop, not the stale one beside the live one',
+    !!roveTarget && !roveMx.help && roveMx.zero.length === 1
+    && !roveJl.citz && roveJl.n === 1
+    && roveCntSusp === 0 && roveCnt === 21,
+    JSON.stringify({ roveWas, roveMx, roveJl, roveCntSusp, roveCnt }));
 
   /* ── P2: the dialog owns the keyboard while it holds focus ──
      Space is exercised elsewhere with focus on a <button> (l.629), on <body>
