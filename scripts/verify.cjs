@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 488;
+const EXPECTED_CHECKS = 489;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -727,11 +727,44 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR',
       '--blink-settings=minimumFontSize=24,minimumLogicalFontSize=24'],
   });
-  let legEscape;
+  let legEscape, mfsRoom;
   try {
     const pg = await watch(await mfsBrowser.newPage());
     await pinHr(pg);
     await pg.emulateTimezone('Europe/Zagreb');
+    /* …and the layout the same setting collapses. A root the reader raised
+       changes no viewport dimension, so none of index.css's three
+       stacked-layout conditions can see it and the pinned one-viewport column
+       has nothing to give. Measured at 1280×800 before the fix: .main, .rail
+       and .map-stage all 0 px, .map-box holding at its own 180 px floor and
+       overflowing that 0 px stage, the stage-anchored chip dock painted over
+       the control row (33.069 px² of overlap with .ctrls), and the last 10 px of
+       the footer — the sources and licences line — below a viewport whose body
+       is overflow:hidden. At minimumFontSize=18 the same window is intact
+       (stage 242 px), so the collapse happens between the two. */
+    await pg.setViewport({ width: 1280, height: 800 });
+    await pg.goto(url + '#v=saldo&c=0&y=2018', { waitUntil: 'networkidle0' });
+    await pg.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+    await settle(600);
+    mfsRoom = await pg.evaluate(async () => {
+      const h = sel => { const e = document.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().height) : -1; };
+      const ov = (a, b) => {
+        const A = document.querySelector(a), B = document.querySelector(b);
+        if (!A || !B) return -1;
+        const p = A.getBoundingClientRect(), q = B.getBoundingClientRect();
+        return Math.round(Math.max(0, Math.min(p.right, q.right) - Math.max(p.left, q.left))
+          * Math.max(0, Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top)));
+      };
+      const ft = document.querySelector('.ft');
+      ft.scrollIntoView({ block: 'end' });
+      await new Promise(r => setTimeout(r, 300));
+      const r = ft.getBoundingClientRect();
+      return { root: parseFloat(getComputedStyle(document.documentElement).fontSize),
+        main: h('.main'), rail: h('.rail'), stage: h('.map-stage'), box: h('.map-box'),
+        bodyOv: getComputedStyle(document.body).overflowY,
+        dockOverCtrls: ov('.chipdock', '.ctrls'),
+        ftReached: r.bottom <= innerHeight + 1 && r.top < innerHeight };
+    });
     await pg.setViewport({ width: 1440, height: 900 });
     await pg.goto(url + '#v=saldo&c=1&y=2024', { waitUntil: 'networkidle0' });
     await pg.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
@@ -751,6 +784,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the legend stays inside the map box under the reader’s own minimum font size',
     legEscape.root >= 24 && !legEscape.escapes && legEscape.overCtrls === 0
     && legEscape.legH <= legEscape.boxH, JSON.stringify(legEscape));
+  ck('…and the stage still exists there, the dock stays off the controls, and the footer can be reached',
+    mfsRoom.root >= 24 && mfsRoom.main >= 180 && mfsRoom.rail >= 180 && mfsRoom.stage >= 180
+    && mfsRoom.dockOverCtrls === 0 && mfsRoom.bodyOv !== 'hidden' && mfsRoom.ftReached,
+    JSON.stringify(mfsRoom));
   /* …and the type tracks the reader's own font-size preference. All 74
      font-size declarations in index.css were literal px, including the base, so
      Chrome's Appearance → Font size — the single most discoverable text-size

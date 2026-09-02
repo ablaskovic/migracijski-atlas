@@ -448,6 +448,29 @@ export default function App() {
     return () => { delete window.__exportPNG; delete window.__exportSVG; };
   }, []);
   useEffect(() => { document.body.classList.toggle('panel-open', S.citz || S.jls || S.age || S.help); }, [S.citz, S.jls, S.age, S.help]);
+  /* …and whether the stage still has room to exist. A reader who raises Chrome's
+     minimum font size changes no viewport dimension, so none of index.css's
+     stacked-layout media queries can see it and the pinned one-viewport column
+     squeezes .main to nothing. Measured against the three boxes below rather
+     than against the stage itself, because `stage-collapsed` resizes the stage
+     and would then oscillate: the header, the scrubber and the footer are
+     content-sized and the class does not move them. 180 is .map-box's own floor
+     — below that the stage cannot hold the map. See body.stage-collapsed. */
+  useEffect(() => {
+    const measure = () => {
+      const h = (sel: string) => document.querySelector(sel)?.getBoundingClientRect().height ?? 0;
+      const room = window.innerHeight - h('header.hd') - h('#scrubBox') - h('.ft');
+      document.body.classList.toggle('stage-collapsed', room < 180);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    for (const sel of ['header.hd', '#scrubBox', '.ft']) {
+      const el = document.querySelector(sel);
+      if (el) ro.observe(el);
+    }
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, []);
   /* The tab title is the one piece of copy index.html has to guess at: it is
      static markup, parsed before any of this has run, so it ships Croatian and
      is corrected here once the language is known. An effect is late enough,

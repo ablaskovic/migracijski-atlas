@@ -329,6 +329,30 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .thr-val{font-family:var(--mono);font-size:0.75rem;min-width:52px}
 
 .main{flex:1;display:flex;min-height:0}
+/* A root font-size the reader raised is invisible to every viewport media query
+   — 24 px on a 1280×800 laptop is still 1280×800 — so none of the three
+   stacked-layout conditions below fire and body keeps height:100% with
+   overflow:hidden. Nothing then gives. Measured with Chrome's Appearance →
+   Font size at its maximum (minimumFontSize=24) on 1280×800: .main, .rail and
+   .map-stage all measured 0 px while .map-box held at its own 180 px floor and
+   overflowed that 0 px stage; the chip dock, anchored to the stage, was painted
+   over the control row (33.069 px² of overlap with .ctrls); and the last 10 px
+   of the footer — the sources and licences line — sat below a viewport whose
+   body cannot scroll. At minimumFontSize=18 the same window is intact (stage
+   242 px), so the collapse happens between the two.
+   The trigger is the measured collapse, not a dimension: App compares the
+   viewport against the header, the scrubber and the footer — three boxes this
+   class does not resize, so the test cannot oscillate — and sets the class when
+   what is left cannot hold the map box's own floor. The page then scrolls,
+   exactly as it does below 900 px, and .main keeps a floor so the stage, the
+   rail and the dock have somewhere to be. */
+body.stage-collapsed{height:auto;overflow-y:auto}
+/* A definite height, not a floor: with the body scrolling, `flex:1` lets .main
+   take its content's natural height — measured 1.241 px, the rail's 21 rows at a
+   24 px root — and a 1.241 px map is not a fix. 420 keeps the stage above the
+   180 px the map box needs and lets the rail scroll inside itself the way it
+   does at every other size. */
+body.stage-collapsed .main{flex:none;height:420px}
 .map-wrap{flex:1;position:relative;min-width:0;display:flex;flex-direction:column}
 /* the measured map area — overlays that must stay over the map anchor to this */
 /* The map area and the chip dock, together. The dock is absolutely positioned
