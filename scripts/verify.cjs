@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 609;
+const EXPECTED_CHECKS = 610;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10982,6 +10982,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       badHr: citeHr.filter(x => !x.includes('2021.')).slice(0, 2),
       badEn: citeEn.filter(x => x.includes('2021.')).slice(0, 2),
       legend: citeLegend.slice(-60) }));
+
+  /* ── one apostrophe, in the copy as well as in the comments ──
+     24 English strings already used ’; four visible ones used the ASCII quote —
+     the county chart's accessible name ("The selected year's values"), the
+     corridor chart's twice ("the county's total flows" and the same sentence
+     again), and the export licence line ("its sources' terms"), which is baked
+     into every figure this app produces. Croatian copy was already consistent.
+     Comments are stripped before the scan: this is about what a reader sees, and
+     the comments in this repo are English prose full of ordinary apostrophes.
+     Both shapes, because the singular and the plural possessive fail
+     differently — year's and sources' — and the second is the one on the
+     exported image. */
+  const APO = String.fromCharCode(39);
+  const BLOCKC = new RegExp('/[*][^]*?[*]/', 'g');
+  const LINEC = new RegExp('^[ ]*//.*$', 'gm');
+  const APO1 = new RegExp('[A-Za-z]' + APO + '(s|t|re|ve|ll|d|m)[ .,)]', 'g');
+  const APO2 = new RegExp('s' + APO + ' [a-z]', 'g');
+  const straight = [];
+  (function walk(d) {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) { walk(f); continue; }
+      if (!/[.]tsx?$/.test(e.name)) continue;
+      const noc = fs.readFileSync(f, 'utf8').replace(BLOCKC, '').replace(LINEC, '');
+      for (const rx of [APO1, APO2]) {
+        for (const m of noc.matchAll(rx)) {
+          straight.push(e.name + ': ' + noc.slice(Math.max(0, m.index - 24), m.index + 12));
+        }
+      }
+    }
+  })(path.resolve(__dirname, '../src'));
+  ck('no English string in the app carries a straight apostrophe',
+    straight.length === 0, straight.slice(0, 3).join(' ; '));
   const chipMoves = [];
   for (const W of [1440, 1024]) {
     await page.setViewport({ width: W, height: 900 });

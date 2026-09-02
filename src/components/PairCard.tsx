@@ -73,7 +73,7 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
         `annual flow ${yrSpan(Y0, YEND)}, this corridor only · area: net for ${SHORTN[sel]} · solid line: ${SHORTN[sel]} → ${SHORTN[pair]} · dashed: ${SHORTN[pair]} → ${SHORTN[sel]}`)}</div>
       <svg id="pairSvg" viewBox={`0 0 ${w} ${h}`} role="img"
         aria-label={L(`Koridor ${SHORTN[sel]} i ${SHORTN[pair]} — samo selidbe između te dvije županije, ne ukupni tokovi županije. Godišnji tok ${yrSpan(Y0, YEND)}, raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`,
-          `Corridor ${SHORTN[sel]} and ${SHORTN[pair]} — only moves between these two counties, not the county's total flows. Annual flow ${yrSpan(Y0, YEND)}, range ±${fmtI.format(m)}. The selected year's values are below the chart.`)}>
+          `Corridor ${SHORTN[sel]} and ${SHORTN[pair]} — only moves between these two counties, not the county’s total flows. Annual flow ${yrSpan(Y0, YEND)}, range ±${fmtI.format(m)}. The selected year’s values are below the chart.`)}>
         <defs>
           <clipPath id={uid + 'p'}><rect width={w} height={y(0)} /></clipPath>
           <clipPath id={uid + 'n'}><rect y={y(0)} width={w} height={h - y(0)} /></clipPath>

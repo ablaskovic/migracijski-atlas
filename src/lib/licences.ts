@@ -144,4 +144,4 @@ export const FONT_NOTICE = [
    the study's method may claim. */
 export const exportLicenceLine = (): string =>
   L(`Slika: ${IMG_LICENCE} · kod: ${CODE_LICENCE} · podaci pod uvjetima izvora (DZS · Pitoski i sur. 2021. CC BY · granice ODbL)`,
-    `Figure: ${IMG_LICENCE} · code: ${CODE_LICENCE} · data under its sources' terms (CBS · Pitoski et al. 2021 CC BY · boundaries ODbL)`);
+    `Figure: ${IMG_LICENCE} · code: ${CODE_LICENCE} · data under its sources’ terms (CBS · Pitoski et al. 2021 CC BY · boundaries ODbL)`);

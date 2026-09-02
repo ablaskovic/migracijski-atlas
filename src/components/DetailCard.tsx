@@ -51,7 +51,7 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
           the reading order; role=img + a name collapses them into one figure */}
       <svg id="cardSvg" viewBox={`0 0 ${w} ${h}`} role="img"
         aria-label={L(`${D[sel].n} — godišnji saldo ${yrSpan(Y0, YEND)}, raspon ±${fmtI.format(m)}. Vrijednosti za odabranu godinu su ispod grafikona.`,
-          `${D[sel].n} — annual net ${yrSpan(Y0, YEND)}, range ±${fmtI.format(m)}. The selected year's values are below the chart.`)}>
+          `${D[sel].n} — annual net ${yrSpan(Y0, YEND)}, range ±${fmtI.format(m)}. The selected year’s values are below the chart.`)}>
         <defs>
           <clipPath id={uid + 'p'}><rect width={w} height={y(0)} /></clipPath>
           <clipPath id={uid + 'n'}><rect y={y(0)} width={w} height={h - y(0)} /></clipPath>
