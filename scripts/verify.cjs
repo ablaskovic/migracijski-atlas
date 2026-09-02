@@ -7426,7 +7426,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      query is half of what these links have to carry: a reader who arrived
      there has nothing stored (storeLang persists only an explicit toggle), so
      an affordance that drops it returns them to the Croatian page. */
-  await fresh('/?l=en#v=saldo&c=1&y=2024&s=HR-18');
+  await fresh('?l=en#v=saldo&c=1&y=2024&s=HR-18');
   const boundary = await page.evaluate(async () => {
     const before = document.querySelector('#root').innerHTML.length;
     /* A fault React must actually observe. The old injection — a throwing
