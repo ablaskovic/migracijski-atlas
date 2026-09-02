@@ -138,8 +138,20 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      clear from 360. English has no ordinal dot (22 px) and never overlapped,
      which is why this survived. The scrubber is the fixed bottom bar on a
      phone, so it is on screen in every view. */
-  const ticks = sw >= 470 ? [2000, 2005, 2010, 2013, 2015, 2020, YEND]
-    : sw >= 239 ? [2000, 2010, 2020, YEND]
+  /* Every threshold below compares the chart's WIDTH against a number calibrated
+     for label type at the reference root size. Now that the labels are rem — so
+     that a reader who raises the browser's font size gets bigger tick years and
+     not just bigger prose — the same chart holds proportionally fewer of them,
+     and the thresholds have to move with the type. Measured with the labels
+     converted and these numbers left alone: at a 24 px root, "2020." met
+     "2025." again at 390 px and the caption ran outside the chart at 560.
+     `su` is the width in units of the reference type, so every number here goes
+     on meaning what it measured. */
+  const rootPx = typeof getComputedStyle === 'function'
+    ? parseFloat(getComputedStyle(document.documentElement).fontSize) || 16 : 16;
+  const su = sw * 16 / rootPx;
+  const ticks = su >= 470 ? [2000, 2005, 2010, 2013, 2015, 2020, YEND]
+    : su >= 239 ? [2000, 2010, 2020, YEND]
     : [2000, YEND];
   const cap = sw >= 380
     ? L('RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)',
@@ -254,7 +266,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
               )}
               {ticks.map(t => (
                 <text key={t} x={x(t)} y={sh - 4} textAnchor={t === YEND ? 'end' : 'middle'}
-                  fontSize={9} fontFamily="var(--mono)" fill="var(--mut)">{yrL(t)}</text>
+                  fontSize="0.5625rem" fontFamily="var(--mono)" fill="var(--mut)">{yrL(t)}</text>
               ))}
               {/* Where the band ends. Drawn after the data, like the EU rule, so
                   it is not half-hidden behind the two filled areas — a shaded

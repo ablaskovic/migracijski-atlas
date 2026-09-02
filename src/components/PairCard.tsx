@@ -96,10 +96,10 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
         <path d={lineG(ins)!} fill="none" stroke="#1D4E89" strokeWidth={1.3} strokeDasharray="4 2.5" />
         <circle cx={x(2018)} cy={h - mB} r={3} fill="none" stroke="var(--acc)" strokeWidth={1.5} />
         {[2000, 2010, 2020].map(t => (
-          <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize={8.5}
+          <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize="0.53125rem"
             fontFamily="var(--mono)" fill="var(--mut)">{yr(t)}</text>
         ))}
-        <text x={w - mR} y={mT + 2} textAnchor="end" fontSize={8.5}
+        <text x={w - mR} y={mT + 2} textAnchor="end" fontSize="0.53125rem"
           fontFamily="var(--mono)" fill="var(--mut)">{'±' + fmtI.format(m)}</text>
         <line y1={mT} y2={h - mB} stroke="var(--acc)" strokeWidth={1.4} x1={cx} x2={cx} />
       </svg>

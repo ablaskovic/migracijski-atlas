@@ -45,13 +45,13 @@ export default function AgePanel({ S, setS, toggleAge }: {
               : L('Unutarnja migracija prema starosti', 'Internal migration by age')}>
             {ext ? (
               <>
-                <text x={cx - gap - 2} y={mT - 5} textAnchor="end" fontSize={8}
+                <text x={cx - gap - 2} y={mT - 5} textAnchor="end" fontSize="0.5rem"
                   fontFamily="var(--mono)" fill="#B5341F">{L('− odseljeni', '− departures')}</text>
-                <text x={cx + gap + 2} y={mT - 5} fontSize={8}
+                <text x={cx + gap + 2} y={mT - 5} fontSize="0.5rem"
                   fontFamily="var(--mono)" fill="#1D4E89">{L('doseljeni +', 'arrivals +')}</text>
               </>
             ) : (
-              <text x={cx + gap + 2} y={mT - 5} fontSize={8}
+              <text x={cx + gap + 2} y={mT - 5} fontSize="0.5rem"
                 fontFamily="var(--mono)" fill="var(--mut)">{L('preseljeni', 'moves')}</text>
             )}
             {DEMO.ages.map((a, i) => {
@@ -60,7 +60,7 @@ export default function AgePanel({ S, setS, toggleAge }: {
               const hl = i === peakIx;
               return (
                 <g key={a}>
-                  <text x={cx} y={y + rowH - 2.5} textAnchor="middle" fontSize={7.5}
+                  <text x={cx} y={y + rowH - 2.5} textAnchor="middle" fontSize="0.46875rem"
                     fontFamily="var(--mono)" fontWeight={hl ? 700 : 400}
                     fill={hl ? 'var(--ink)' : 'var(--mut)'}>{a}</text>
                   {ext ? (

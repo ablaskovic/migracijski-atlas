@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 599;
+const EXPECTED_CHECKS = 600;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -990,6 +990,53 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* a floor, so a stylesheet that failed to load cannot pass by sweeping nothing */
     && fsScale.seen >= 60 && fsScale.px.length === 0,
     JSON.stringify({ before: fsScale.before, after: fsScale.after, seen: fsScale.seen, px: fsScale.px.slice(0, 4) }));
+
+  /* ── the numbers grow with the reader's own type, not only the prose ──
+     the px-to-rem conversion reached index.css and stopped there: all 74 CSS
+     declarations scale, and every SVG-drawn label kept a literal px. So a reader
+     who set Chrome's font size to Very large got a 1,5× header, rail and footer
+     around chart type that did not move — measured at defaultFontSize 24, .rname
+     11 → 16,5 px and .ft 9,5 → 14,25 while the timeline's year ticks stayed
+     9 px, the card axes 8,5 and the age bands 7,5. On an atlas whose purpose is
+     reading small numbers, the numbers were the one thing that did not grow, and
+     the ratio between them and the prose beside them got worse.
+     The two explanatory captions stay fixed on purpose: they are chrome laid out
+     against the chart's own geometry, and growing them collides with the EU
+     marker and the chart's right edge — measured, at 320 px with a 24 px root.
+     What scales is what a reader is asked to read. */
+  const svgType = {};
+  {
+    const bigger = await puppeteer.launch({
+      args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR'],
+    });
+    try {
+      for (const [k, br] of [['base', browser], ['big', bigger]]) {
+        const pg = await watch(await br.newPage());
+        await pinHr(pg);
+        const c = await pg.createCDPSession();
+        if (k === 'big') await c.send('Page.setFontSizes', { fontSizes: { standard: 24, fixed: 24 } });
+        await pg.setViewport({ width: 1440, height: 1000 });
+        await pg.goto(url + '#v=saldo&c=1&y=2024&s=HR-18&cz=1', { waitUntil: 'domcontentloaded' });
+        await pg.waitForFunction(() => !!document.querySelector('#spark'), { timeout: 20000 }).catch(() => {});
+        await settle(600);
+        svgType[k] = await pg.evaluate(() => {
+          const g = s => { const e = document.querySelector(s); return e ? parseFloat(getComputedStyle(e).fontSize) : null; };
+          const tick = [...document.querySelectorAll('#spark text')]
+            .find(e => /^\d{4}\.?$/.test((e.textContent || '').trim()));
+          return { root: parseFloat(getComputedStyle(document.documentElement).fontSize),
+            tick: tick ? parseFloat(getComputedStyle(tick).fontSize) : null,
+            axis: g('#cardSvg text'), citz: g('#citzSvg text'), rname: g('.rname') };
+        });
+        await c.detach();
+        await pg.close();
+      }
+    } finally { await bigger.close(); }
+  }
+  ck('the chart labels scale with the reader’s font size, like the prose beside them',
+    svgType.base.root === 16 && svgType.big.root === 24
+    && ['tick', 'axis', 'citz', 'rname'].every(f =>
+      svgType.base[f] > 0 && Math.abs(svgType.big[f] / svgType.base[f] - 1.5) < 0.02),
+    JSON.stringify(svgType));
   await click('path[data-iso="HR-18"]');
   const cardRow = await page.evaluate(() => ({
     row: document.querySelector('#cardRow')?.textContent || '',

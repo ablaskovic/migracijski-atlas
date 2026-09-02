@@ -144,7 +144,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                     The parameter was shadowing the imported `yr` helper, which is
                     why the literal was reached for in the first place. */}
                 {yy.map(v => (
-                  <text key={v} x={x(v)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize={9}
+                  <text key={v} x={x(v)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize="0.5625rem"
                     fontFamily="var(--mono)" fontWeight={v === y ? 600 : 400}
                     fill={v === y ? 'var(--acc)' : 'var(--mut)'}>{yrOf(v)}</text>
                 ))}

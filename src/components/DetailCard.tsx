@@ -78,10 +78,10 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
         <path d={lineG(nats)!} fill="none" stroke="var(--mut)" strokeWidth={1.2} strokeDasharray="3 3" />
         <path d={lineG(ints)!} fill="none" stroke="#20262B" strokeWidth={1.6} />
         {[2000, 2010, 2020].map(t => (
-          <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize={8.5}
+          <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize="0.53125rem"
             fontFamily="var(--mono)" fill="var(--mut)">{yr(t)}</text>
         ))}
-        <text x={w - mR} y={mT + 2} textAnchor="end" fontSize={8.5}
+        <text x={w - mR} y={mT + 2} textAnchor="end" fontSize="0.53125rem"
           fontFamily="var(--mono)" fill="var(--mut)">{'±' + fmtI.format(m)}</text>
         <line id="cardCur" y1={mT} y2={h - mB} stroke="var(--acc)" strokeWidth={1.4} x1={cx} x2={cx} />
       </svg>
