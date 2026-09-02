@@ -849,6 +849,7 @@ body.stage-collapsed .main{flex:none;height:420px}
 .labbtn{font-family:var(--mono);font-size:0.59375rem;
   letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:4px 8px}
+.labbtn-lane{visibility:hidden}
 .labbtn:hover{color:var(--ink)}
 .labbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 

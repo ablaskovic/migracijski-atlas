@@ -725,9 +725,19 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
         aria-expanded={S.help} aria-haspopup="dialog" aria-controls="helpCard"
         title={L('Otvori pojmovnik', 'Open the glossary')}
         aria-label={L('Kako čitati atlas', 'How to read the atlas')} onClick={toggleHelp}>?</button>
-      {hasLabels && (
+      {hasLabels ? (
         <button className={'labbtn' + (S.labels ? ' on' : '')} id="labBtn" aria-pressed={S.labels}
           onClick={() => setS({ labels: !S.labels })}>{L('Aa oznake', 'Aa labels')}</button>
+      ) : (
+        /* Matrica and Godine draw no labels, so the button is not mounted there —
+           and in a row that means the two controls to its left slide into its
+           place. Measured at 2560 px, saldo → yrs moved #helpBtn 2145,9 → 2230,
+           84,1 px under the reader's pointer on a view change, which the old
+           108 px literal never did. The lane is kept open instead, by the button's
+           own text rather than by a second number that can drift: a span, so
+           #labBtn stays absent where no labels exist, and visibility:hidden, so it
+           is neither a tab stop nor a hit target. */
+        <span className="labbtn labbtn-lane" aria-hidden="true">{L('Aa oznake', 'Aa labels')}</span>
       )}
       </div>
       {/* The 475 KB municipal geometry is its own chunk, so "not here yet" and
