@@ -167,11 +167,38 @@ export function useZoom(w: number, h: number, frozen = false) {
          and scrolling up zoomed the map instead of reaching the rail, the
          timeline and the footer. Same guard App's Space handler takes — hand the
          wheel back when the page has somewhere to go and the zoom has none. */
+      /* UI Events defines three units for deltaY and this read only ever assumed
+         one. Gecko reports an ordinary wheel mouse in LINES on Windows and Linux
+         (deltaMode 1, ~3 per notch) and in PAGES under "scroll one screen at a
+         time" (deltaMode 2, 1 per notch); Blink, and Gecko on macOS, report
+         pixels (~100 per notch). Fed raw into the exponent, one line notch
+         multiplied k by 2^(3/400) = 1,0052 against a pixel notch's 1,1892 —
+         measured identical in both engines on the shipped build: the twelve
+         notches that carry Chromium from 1× to KMAX reach 1,064 in line mode, a
+         6 % change nobody can see, and the full range takes about 400 notches
+         (1.200 in page mode). Meanwhile the wheel is preventDefault-ed, so the
+         page will not scroll under the cursor either — the glossary's "isto radi
+         kotačić miša" reads as simply dead in the second-largest desktop engine.
+         d3-zoom, which this file's header says it replaced, normalises exactly
+         here and nowhere else.
+         The constants make one DETENT worth the same everywhere, which is what
+         the reader is actually turning: Gecko's three lines × 33 is 99 against
+         Blink's 100, so a notch multiplies k by 1,187 either way. A page notch
+         is one detent too — reading it as a viewport height would cross most of
+         the range in a single click — so it is taken as one, sign and all.
+         Pixel deltas pass through untouched, because a trackpad's fine-grained
+         stream and a fast spin are both meant to be proportional. The yield
+         guard below reasons about the same magnitude, so it reads the
+         normalised value too. */
+      const LINE_PX = 33, NOTCH_PX = 100;
+      const d = e.deltaMode === 1 ? e.deltaY * LINE_PX
+        : e.deltaMode === 2 ? Math.sign(e.deltaY) * NOTCH_PX
+          : e.deltaY;
       const canScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
-      if (canScroll && (e.deltaY > 0 ? tRef.current.k <= kmin : tRef.current.k >= KMAX)) return;
+      if (canScroll && (d > 0 ? tRef.current.k <= kmin : tRef.current.k >= KMAX)) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      setT(cur => zoomTo(cur, cur.k * Math.pow(2, -e.deltaY / 400), e.clientX - r.left, e.clientY - r.top, w, h, ch, kmin));
+      setT(cur => zoomTo(cur, cur.k * Math.pow(2, -d / 400), e.clientX - r.left, e.clientY - r.top, w, h, ch, kmin));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     /* capture phase: stop the click before it reaches any county/cell handler */

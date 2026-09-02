@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 494;
+const EXPECTED_CHECKS = 495;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1783,6 +1783,44 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /^Split, Splitsko-dalm\.: doseljeno [\d.]+, odseljeno [\d.]+, neto [+−]?[\d.]+$/.test(jkey.split),
     jkey.split);
   ck('interactive maps are not role=img (children stay exposed)', jkey.role === 'group', String(jkey.role));
+
+  /* ── one detent is one detent, whatever unit the engine reports it in ──
+     UI Events defines three units for deltaY and the handler read only one.
+     Gecko reports an ordinary wheel mouse in LINES on Windows and Linux
+     (deltaMode 1, ~3 per notch) and in PAGES under "scroll one screen at a
+     time" (deltaMode 2, 1 per notch); Blink, and Gecko on macOS, report pixels
+     (~100). Fed raw into the exponent, one line notch multiplied k by
+     2^(3/400) = 1,0052 against a pixel notch's 1,1892 — measured on the shipped
+     build, the twelve notches that carry Blink from 1× to KMAX reached 1,064 in
+     line mode, a 6 % change nobody can see, and the full range took about 400
+     notches (1.200 in page mode). The wheel is preventDefault-ed either way, so
+     the page would not scroll under the cursor instead: the glossary's "isto
+     radi kotačić miša" simply read as dead in the second-largest desktop
+     engine.
+     No check could ever have seen it: both of the suite's wheel synthesisers
+     construct a WheelEvent without deltaMode, so every wheel it has ever
+     dispatched was in pixels. This one spins all three. */
+  const wheelUnits = {};
+  for (const [mode, dy, label] of [[0, -100, 'px'], [1, -3, 'line'], [2, -1, 'page']]) {
+    await fresh('#v=saldo&c=1&y=2024');
+    wheelUnits[label] = await page.evaluate(async (mode, dy) => {
+      const svg = document.querySelector('#map');
+      const r = svg.getBoundingClientRect();
+      for (let i = 0; i < 12; i++) {
+        svg.dispatchEvent(new WheelEvent('wheel', { deltaY: dy, deltaMode: mode,
+          clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true, cancelable: true }));
+        await new Promise(x => setTimeout(x, 25));
+      }
+      await new Promise(x => setTimeout(x, 150));
+      const g = svg.querySelector('g[transform]');
+      return +(/scale\(([\d.]+)\)/.exec(g.getAttribute('transform')) || [0, '1'])[1];
+    }, mode, dy);
+  }
+  /* twelve notches is exactly the range in pixels, so the other two units have
+     to arrive within a notch of it rather than at some fraction of it */
+  ck('the wheel zooms the same per detent in pixel, line and page units',
+    wheelUnits.px >= 7.9 && wheelUnits.line >= 7 && wheelUnits.page >= 7,
+    JSON.stringify(wheelUnits));
 
   /* ── zoom reset stays reachable with a corridor card open ── */
   await fresh('#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net');
