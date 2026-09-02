@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 600;
+const EXPECTED_CHECKS = 601;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8197,6 +8197,51 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('no dictionary key is a second, unrendered name for a control',
     dictScan.n >= 30 && dictScan.dead.length === 0,
     JSON.stringify(dictScan));
+
+  /* ── the IPF fit closes the margin the glossary says it closes ──
+     the glossary's central arithmetic claim about odm.json is that every row
+     sums exactly to the published `oi` and the columns only approximate `ii`.
+     Nothing checked it: the only odm numbers this file pins are 2018 measured
+     cells, which no DZS refresh can move, so a partial pipeline run — ipf.py not
+     re-run after parse_nat, or re-run against a half-updated atlas_data2 —
+     shipped a matrix whose rows no longer reconcile with the margins the app
+     draws its maps from, and every check stayed green.
+     Both directions, because the asymmetry IS the claim: the out-margin is
+     fitted exactly and the in-margin is not, and the two tolerances are the
+     numbers the caveat quantifies. Measured on the shipped payloads: the
+     out-margin gap is 0 for all 21 counties in all 28 years; the in-margin drifts
+     by at most 4 from 2007 and by up to 146 before it — HR-21 in 2002, 8.695
+     against 8.549 — which is the pre-2007 span the hatch marks. A file-level
+     check, like the other ground-truth ones: it duplicates ipf.py's own assert
+     deliberately, because the suite runs on every change and ipf.py once a year. */
+  const odmFit = (() => {
+    const A = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/atlas_data2.json'), 'utf8'));
+    const O = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/odm.json'), 'utf8'));
+    const M = O.m || O;
+    const isos = Object.keys(A.c);
+    let outMax = 0, inPre = 0, inPost = 0, cells = 0;
+    let worstOut = null, worstIn = null;
+    A.years.forEach((y, k) => {
+      for (const a of isos) {
+        let so = 0, si = 0;
+        for (const b of isos) {
+          if (a === b) continue;
+          so += (M[a] && M[a][b] ? M[a][b][k] : 0);
+          si += (M[b] && M[b][a] ? M[b][a][k] : 0);
+          cells++;
+        }
+        const dO = Math.abs(so - A.c[a].oi[k]), dI = Math.abs(si - A.c[a].ii[k]);
+        if (dO > outMax) { outMax = dO; worstOut = [y, a, so, A.c[a].oi[k]]; }
+        if (y < 2007) { if (dI > inPre) { inPre = dI; } }
+        else if (dI > inPost) { inPost = dI; worstIn = [y, a, si, A.c[a].ii[k]]; }
+      }
+    });
+    return { years: A.years.length, isos: isos.length, cells, outMax, inPre, inPost, worstOut, worstIn };
+  })();
+  ck('every odm row sums to the published out-margin, and the columns drift only where the caveat says',
+    odmFit.years === 28 && odmFit.isos === 21 && odmFit.cells === 28 * 21 * 20
+    && odmFit.outMax === 0 && odmFit.inPost <= 5 && odmFit.inPre <= 150,
+    JSON.stringify(odmFit));
   /* …and the number the glossary puts on it has to be the payload's. The IPF
      paragraph quantified the caveat as "464–550 osoba" for 1998.–2006. —
      measured from src/data/atlas_data2.json, four of those nine years are 218,
