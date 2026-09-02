@@ -276,7 +276,7 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <b>{L(' razmaknica', ' space')}</b>{L(' pokreće reprodukciju kroz godine.', ' starts playback through the years.')}
         {/* zoom was wheel/pinch/drag only — the feature, and the county labels that
             only appear once a county is zoomed large enough, had no keyboard route */}
-        <b> +</b>{L(' i ', ' and ')}<b>−</b>{L(' zumiraju kartu, matricu i Godine, ', ' zoom the map, the matrix and Godine, ')}
+        <b> +</b>{L(' i ', ' and ')}<b>−</b>{L(` zumiraju kartu, ${t('view.mx').toLowerCase().slice(0, -1)}u i ${t('view.yrs')}, `, ` zoom the map, the ${t('view.mx').toLowerCase()} and ${t('view.yrs')}, `)}
         <b>0</b>{L(' vraća na početno, a ', ' resets, and ')}<b>Shift</b>
         {L(' + strelice pomiču zumirani prikaz; isto radi kotačić miša, odnosno povlačenje mišem. Na karti i u matrici ',
           ' + the arrow keys pan a zoomed view; the mouse wheel and dragging do the same. On the map and in the matrix ')}

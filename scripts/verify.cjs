@@ -3266,9 +3266,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
   /* ── Tokovi: the county label states the direction of each of its numbers ──
      The same contract the matrix cells are held to at :1211, on the surface that
-     had it inverted: `iz {hub}` is the hub → county flow and `u {hub}` the
-     county → hub one. Pinned against the ground-truth pair (GZ → Zagrebačka
-     2.311, Zagrebačka → GZ 1.977) and run at all three Smjer settings, because
+     had it inverted. The arrow says which is which — `iz {hub}` and `u {hub}`
+     put an undeclined county name after a Croatian preposition, which is why
+     this sentence now reads the way the visible tooltip always has. Pinned
+     against the ground-truth pair (GZ → Zagrebačka 2.311, Zagrebačka → GZ
+     1.977) and run at all three Smjer settings, because
      the label is direction-independent by construction and a regression that
      made it direction-dependent would be the same class of defect. #tip is
      aria-hidden, so this string is the only copy of these numbers for AT. */
@@ -3278,7 +3280,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* the honesty badge is part of the accessible name now — the tooltip has
        always carried it and this string is the AT rendering of that tooltip */
     ck(`Tokovi county label reads 2.311 from the hub and 1.977 to it (dir=${dir})`,
-      NBSP(fLab) === 'Zagrebačka: iz Grad Zagreb 2.311, u Grad Zagreb 1.977, neto (Grad Zagreb) −334 · 2018. · izmjereno', fLab);
+      NBSP(fLab) === 'Zagrebačka: Grad Zagreb → Zagrebačka 2.311, Zagrebačka → Grad Zagreb 1.977, neto (Grad Zagreb) −334 · 2018. · izmjereno', fLab);
   }
 
   /* ══════════ Matrica: rail, cell and tooltip agree on one sign ══════════ */
