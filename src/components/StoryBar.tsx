@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { STORIES } from '../lib/stories.ts';
+import { jlsGeo } from '../lib/geoAsync.ts';
 import { focusSoon } from '../lib/state.ts';
 import { L, t } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -73,7 +74,10 @@ export default function StoryBar({ S, setS }: {
   }, [S.story]);
   return (
     <div className="storybar" id="storyBar" role="status" aria-live="polite">
-      {S.story != null && (
+      {/* …and not while the payload it is about is missing — see `needs` in
+          stories.ts. The legend and the export buttons already step back for
+          this condition; the banner was the one surface that did not. */}
+      {S.story != null && !(STORIES[S.story].needs === 'jls' && !jlsGeo()) && (
         <>
           <span className="storybar-k">{(S.story + 1) + '/' + STORIES.length}</span>
           <span className="storybar-t" id="storyCap">{STORIES[S.story].cap}</span>

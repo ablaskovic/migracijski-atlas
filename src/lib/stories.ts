@@ -24,7 +24,17 @@ const Y24 = YEARS.indexOf(2024), Y25 = YEARS.indexOf(2025);
    rail is byte-identical before and after while #storyCap is gone. Only the
    three presets whose caption is *about* a county set `sel` now; clearing a
    stale selection is `setView`'s job, which every route into a view runs. */
-export interface Story { label: string; cap: string; patch: Patch; asserts?: (keyof State)[] }
+/* …and `needs` is the same idea for a payload rather than a state key. A caption
+   can speak about data an async chunk carries, and that chunk can fail: with
+   geo_jls down the JLS view says so in #jerror, draws 0 of 556 municipalities,
+   empties the rail, drops the legend's colour bar and disables both exporters —
+   and Nalaz 7's banner went on asserting Split −691, Solin +229 and Grad Zagreb
+   +3.413, three figures that then appear nowhere else on the page. The atlas's
+   most prominent editorial claim was the only numeric content on a screen that
+   had just told the reader it has no data. Same shape as `asserts`, one level
+   down: only a caption that speaks about a payload dies when that payload is
+   missing. */
+export interface Story { label: string; cap: string; patch: Patch; asserts?: (keyof State)[]; needs?: 'jls' }
 
 export const STORIES: Story[] = [
   {
@@ -81,6 +91,8 @@ export const STORIES: Story[] = [
     get label() { return L('Gradovi gube, prstenovi rastu', 'Cities lose, their rings grow'); },
     get cap() { return L('Na izmjerenoj JLS razini (2018., samo unutarnje selidbe) najveći je gubitnik Split (−691), a odmah do njega raste Solin (+229). Grad Zagreb dobiva +3.413 — suburbanizacija je vidljiva tek ispod razine županija.', 'At the measured LAU level (2018, internal moves only) the biggest loser is Split (−691), while Solin next door grows (+229). The City of Zagreb gains +3,413 — suburbanisation only becomes visible below county level.'); },
     patch: { view: 'jmap', dir: 'net', cum: false, yi: IX2018, jls: false, citz: false, age: false },
+    /* every number in this caption is a municipality figure */
+    needs: 'jls',
   },
 
   /* ── v2.0.9 additions ───────────────────────────────────────────────────────

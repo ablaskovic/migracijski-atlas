@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 592;
+const EXPECTED_CHECKS = 593;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5638,6 +5638,45 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     railGone.jl === 0 && railGone.rows === 0 && /Geometrija JLS nije u/.test(railGone.txt)
     && !/Strelice/.test(railGone.aria) && /Geometrija JLS nije u/.test(railGone.aria),
     JSON.stringify(railGone));
+  /* …and a caption about a payload steps back when the payload does not arrive.
+     Nalaz 7's banner asserts Split −691, Solin +229 and Grad Zagreb +3.413 — all
+     municipality figures. With geo_jls down the view says so in #jerror, draws 0
+     of 556 municipalities, empties the rail, drops the legend's colour bar and
+     disables both exporters, and the banner went on asserting all three: the
+     atlas's most prominent editorial claim was the only numeric content on a
+     screen that had just told the reader it has no data, and none of the three
+     numbers appears anywhere else on it. A caption whose preset declares no
+     payload is the control — it must survive the same failure. */
+  const capGeo = {};
+  {
+    blockGeoChunk = true;
+    await page.goto('about:blank');
+    await page.goto(url + '#v=jmap&c=0&y=2018&st=7', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!document.querySelector('#jerror'), { timeout: 15000 }).catch(() => {});
+    await settle(400);
+    capGeo.down = await page.evaluate(() => ({
+      cap: ((document.querySelector('#storyCap') || {}).textContent || '').trim(),
+      jl: document.querySelectorAll('#map .jl').length,
+      err: !!document.querySelector('#jerror') }));
+    await page.goto('about:blank');
+    await page.goto(url + '#v=saldo&f=all&c=1&y=2024&st=2', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+    await settle(400);
+    capGeo.other = await page.evaluate(() =>
+      ((document.querySelector('#storyCap') || {}).textContent || '').trim());
+    blockGeoChunk = false;
+  }
+  await fresh('#v=jmap&c=0&y=2018&st=7');
+  await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556,
+    { timeout: 20000 }).catch(() => {});
+  capGeo.up = await page.evaluate(() => ({
+    cap: ((document.querySelector('#storyCap') || {}).textContent || '').trim(),
+    jl: document.querySelectorAll('#map .jl').length }));
+  ck('a caption about the JLS payload steps back when that payload is missing',
+    capGeo.down.err && capGeo.down.jl === 0 && capGeo.down.cap === ''
+    && capGeo.other.length > 20
+    && capGeo.up.jl === 556 && /Split/.test(capGeo.up.cap),
+    JSON.stringify(capGeo));
   /* A failure the reader never asked for must not latch the failure UI. The warm
      timer fires both chunks at t=1,5 s whether or not those views are ever
      opened, and its rejection used to run through the same catch as a real
