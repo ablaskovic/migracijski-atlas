@@ -141,6 +141,19 @@ function localEntry() {
     ck('content-hashed assets are served immutable',
       asset.status === 200 && /immutable/.test(asset.headers['cache-control'] || ''),
       asset.status + ' ' + (asset.headers['cache-control'] || 'absent'));
+    /* …and a MISSING one is not. The header used to come from a vercel.json
+       rule whose source matches the request PATH and not the response, so
+       GET /assets/nema.js returned 404 stamped `public, max-age=31536000,
+       immutable` — and Chrome cached it: one transient 404 of the entry chunk
+       survived a reload and a fresh navigation, leaving a dead atlas for up to
+       a year, with `public` letting a shared cache pass it to readers who never
+       saw the outage. The rule is gone and the platform default takes over,
+       which applies to files that exist. This is the only place that can be
+       observed, because it is a property of the deploy and not of the build. */
+    const ghost = await get(ORIGIN.replace(new RegExp('/$'), '') + '/assets/smoke-missing-cache.js');
+    ck('a missing hashed asset is not cached for a year',
+      ghost.status === 404 && !/immutable/.test(ghost.headers['cache-control'] || ''),
+      ghost.status + ' ' + (ghost.headers['cache-control'] || 'absent'));
   }
 
   /* Staleness, asked monotonically. This used to be marker analysis: three

@@ -72,9 +72,24 @@ const HEADERS = (() => {
     }));
   } catch { return []; }
 })();
+/* …plus the one header the deploy sends that vercel.json does NOT declare:
+   the platform stamps its own year-long immutable Cache-Control on the hashed
+   build outputs it produced. That rule used to be written out in vercel.json as
+   `/assets/(.*)`, which matches the request PATH and not the response — so a
+   404 for a missing hashed asset shipped `public, max-age=31536000, immutable`
+   and Chrome cached it. Probed live: GET /assets/nema.js → 404 with that
+   header, while a non-matching path gets max-age=0, must-revalidate; and in
+   headless Chrome with the cache on, one transient 404 of the entry chunk
+   survived a reload and a fresh navigation — the app never mounted again, and
+   `public` lets a shared cache hand the same 404 to readers who never saw the
+   outage. The platform default applies to files that exist, which is the
+   difference that matters, so this server mirrors THAT rather than the pattern.
+   Applied only where a file was found — every caller below is a 200 path. */
+const ASSET_IMMUTABLE = { 'cache-control': 'public, max-age=31536000, immutable' };
 function policyFor(p) {
   const out = {};
   for (const h of HEADERS) if (h.test(p)) Object.assign(out, h.set);
+  if (p.startsWith('/assets/')) Object.assign(out, ASSET_IMMUTABLE);
   return out;
 }
 
@@ -96,6 +111,9 @@ const REWRITE = (() => {
 /* paths this run asks for on purpose expecting a 404 — kept out of the
    end-of-run "the only paths dist cannot answer are the two platform routes" */
 const probe404 = new Set();
+/* the cache-header probe below asks for this one long before the rewrite block
+   registers its own, so it is registered where the set is declared */
+probe404.add('/assets/verify-missing-cache.js');
 
 function serve(dir) {
   return new Promise(resolve => {
@@ -144,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 531;
+const EXPECTED_CHECKS = 532;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9483,6 +9501,29 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && gate.build.indexOf('tsc --noEmit') < gate.build.indexOf('vite build')
     && gate.build.indexOf('oxlint') < gate.build.indexOf('vite build'),
     JSON.stringify(gate));
+
+  /* …and a MISSING asset must not be cached for a year. The rule was written out
+     in vercel.json as `/assets/(.*)`, and a Vercel headers source matches the
+     request path, not the response — probed live, GET /assets/nema.js returned
+     404 carrying `public, max-age=31536000, immutable`, while a non-matching
+     path got max-age=0, must-revalidate. Reproduced in headless Chrome with the
+     cache on: one transient 404 of the entry chunk survived a reload — the very
+     "Osvježite stranicu (Ctrl-R)" #bootFail tells a stuck reader to try — and a
+     fresh navigation too, one request ever made and the app never mounting
+     again. `public` additionally lets a shared cache hand that 404 to readers
+     who never saw the outage. Route in: a rollback that purges the current chunk
+     and a rollforward that re-mints the same URL, which this deploy's own
+     history has done.
+     The rule is gone; the platform's built-in stamps the same header on the
+     hashed outputs it produced, which are files that exist, and serve() mirrors
+     that. smoke.cjs asserts the live asset still carries it. */
+  const missAsset = await page.evaluate(async u => {
+    const r = await fetch(new URL('/assets/verify-missing-cache.js', u));
+    return { status: r.status, cc: r.headers.get('cache-control') || '' };
+  }, url);
+  ck('a missing hashed asset is not cached for a year',
+    missAsset.status === 404 && !/immutable/.test(missAsset.cc),
+    JSON.stringify(missAsset));
 
   /* ══════════ fixes that shipped with no check behind them ══════════
      Seven app-side repairs landed touching zero lines of this file, so reverting
