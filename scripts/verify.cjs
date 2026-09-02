@@ -7188,15 +7188,38 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      so it is the first that can mark where the inter-county margins start
      closing (measured: Σ(ii) − Σ(oi) is −550…−490 to 2006, exactly 0 from 2007) */
   await fresh('#v=yrs&c=0&y=2024');
-  const yann = await page.evaluate(() => ({
-    cells: document.querySelectorAll('#map .yrc').length,
-    pre: document.querySelectorAll('#map .yrpre').length,
-    note: document.querySelector('#legend .legend-note').textContent,
-    first: document.querySelector('#map .yrc').getAttribute('data-y'),
-  }));
+  const yann = await page.evaluate(() => {
+    /* …and WHERE it hatches, not just that it does. Every probe of this band
+       counted elements: `pre === 1` here and `(hatch > 0) === want` in the
+       preGate sweep below, with the caption grep testing the legend words. So
+       an off-by-one in IX2007 or in preW's arithmetic — the band and the dashed
+       “margins close here” rule take the same number — would hatch through 2010
+       or stop at 2002 and every one of them would still pass: halving the width
+       on the shipped build (231,4 → 115,7 px, ending near 2002) left this ck and
+       that clause both true. The band has to end inside the 2006 column and not
+       past the left edge of 2007, which is the claim the caption makes. */
+    const pre = document.querySelector('#map .yrpre');
+    const cell = y => document.querySelector(`.yrc[data-y="${y}"]`);
+    const c6 = cell('2006'), c7 = cell('2007');
+    const right = pre ? +pre.getAttribute('x') + +pre.getAttribute('width') : null;
+    return {
+      cells: document.querySelectorAll('#map .yrc').length,
+      pre: document.querySelectorAll('#map .yrpre').length,
+      note: document.querySelector('#legend .legend-note').textContent,
+      first: document.querySelector('#map .yrc').getAttribute('data-y'),
+      left: pre ? +pre.getAttribute('x') : null, right,
+      x1998: +document.querySelector('.yrc[data-y="1998"]').getAttribute('x'),
+      x2006: c6 ? +c6.getAttribute('x') : null,
+      x2007: c7 ? +c7.getAttribute('x') : null,
+    };
+  });
   ck('godišnje mode renders all 28 years and hatches the pre-2007 span',
     yann.cells === 588 && yann.pre === 1 && yann.first === '1998'
-    && /Šrafirano do 2007/.test(yann.note), JSON.stringify(yann).slice(0, 160));
+    && /Šrafirano do 2007/.test(yann.note)
+    /* flush with the first column on the left, inside 2006 and not past 2007 */
+    && Math.abs(yann.left - yann.x1998) <= 0.5
+    && yann.right > yann.x2006 && yann.right <= yann.x2007 + 0.5,
+    JSON.stringify(yann).slice(0, 200));
 
   /* …and only for a series that has an inter-county margin. The gap lives in the
      `ii`/`oi` arrays: Σ(doseljeni) − Σ(odseljeni) is −550…−490 for 2002–06 and
