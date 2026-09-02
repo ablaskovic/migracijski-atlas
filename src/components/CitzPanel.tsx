@@ -18,6 +18,18 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
   const y = inRange ? YEARS[S.yi] : yy[yy.length - 1];
   const ci = yy.indexOf(y);
 
+  /* The bar column is scaled to the largest quantity IN it, and the remainder is
+     part of it. The twelve country rows were scaled to countries[0] and the
+     remainder row drew an empty track — but the remainder is +13.300 arrivals
+     against Njemačka's +9.628, 38 % MORE than the widest bar on screen. So a
+     reader scanning the one visual magnitude encoding this layout has read the
+     biggest single quantity in the column as zero, which undercuts exactly the
+     "the column closes" honesty the row was added for. Half-opacity, the same
+     way this atlas marks a derived quantity elsewhere: it is a residual, not a
+     country. */
+  const zemRem = [DEMO.cTot[0] - DEMO.countries.reduce((a, c) => a + c[1], 0),
+    DEMO.cTot[1] - DEMO.countries.reduce((a, c) => a + c[2], 0)];
+  const zemMax = Math.max(DEMO.countries[0][1], zemRem[0]);
   const w = 276, h = 148, mL = 8, mR = 8, mT = 8, mB = 14;
   const x = scaleBand<number>().domain(yy).range([mL, w - mR]).paddingInner(0.28).paddingOuter(0.06);
   const mD = max(yy.map((_, i) => CIT.tot.d[i]))!;
@@ -91,7 +103,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                 {DEMO.countries.map(([nm, d, o]) => (
                   <div className="jrow" key={nm}>
                     <span className="jn">{countryName(nm)}</span>
-                    <span className="zbar"><span style={{ width: Math.max(1, d / DEMO.countries[0][1] * 100) + '%' }} /></span>
+                    <span className="zbar"><span style={{ width: Math.max(1, d / zemMax * 100) + '%' }} /></span>
                     <span className="jv">{'+' + fmtI.format(d)}</span>
                     <span className="jv">{'−' + fmtI.format(o)}</span>
                   </div>
@@ -108,9 +120,9 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                     cannot leave it asserting a stale difference. */}
                 <div className="jrow">
                   <span className="jn">{L('Ostale zemlje', 'Other countries')}</span>
-                  <span className="zbar" />
-                  <span className="jv">{'+' + fmtI.format(DEMO.cTot[0] - DEMO.countries.reduce((a, c) => a + c[1], 0))}</span>
-                  <span className="jv">{'−' + fmtI.format(DEMO.cTot[1] - DEMO.countries.reduce((a, c) => a + c[2], 0))}</span>
+                  <span className="zbar"><span style={{ width: Math.max(1, zemRem[0] / zemMax * 100) + '%', opacity: 0.5 }} /></span>
+                  <span className="jv">{'+' + fmtI.format(zemRem[0])}</span>
+                  <span className="jv">{'−' + fmtI.format(zemRem[1])}</span>
                 </div>
                 <div className="jrow zt">
                   <span className="jn">{L('Ukupno — sve zemlje ', 'Total — all countries ') + yrOf(DEMO.year)}</span>

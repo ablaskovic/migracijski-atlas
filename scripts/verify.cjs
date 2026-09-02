@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 585;
+const EXPECTED_CHECKS = 586;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7109,6 +7109,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     zbroj.reg.screen && zbroj.reg.exp && zbroj.saldo.screen && zbroj.yrs.screen
     && zbroj.enReg.screen && !zbroj.regInt.screen && !zbroj.regInt.exp,
     JSON.stringify(zbroj));
+
+  /* ── the widest bar belongs to the largest number ──
+     the Zemlje list scaled its twelve country bars to countries[0] and drew the
+     remainder row's track EMPTY. But the remainder is +13.300 arrivals against
+     Njemačka's +9.628 — 38 % more than the widest bar on screen — so the one
+     visual magnitude encoding this layout has read the biggest single quantity
+     in the column as zero, which undercuts exactly the "the column closes"
+     honesty the remainder row was added to provide. Asserted as an ORDER rather
+     than as a width: whichever row holds the largest arrivals must hold the
+     widest bar, so a future rescale cannot pass by accident. */
+  await fresh('#cz=2');
+  await page.waitForSelector('#zemList', { timeout: 20000 }).catch(() => {});
+  const zemBars = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#zemList .jrow')].filter(x => x.querySelector('.zbar'));
+    const num = t => parseFloat(String(t).replace(/[+−\s]/g, '').replace(/\./g, ''));
+    const r = rows.map(x => {
+      const inner = x.querySelector('.zbar span');
+      return { nm: (x.querySelector('.jn') || {}).textContent || '',
+        d: num((x.querySelectorAll('.jv')[0] || {}).textContent || '0'),
+        w: inner ? +inner.getBoundingClientRect().width.toFixed(1) : 0,
+        op: inner ? parseFloat(getComputedStyle(inner).opacity) : null };
+    }).filter(x => !/Ukupno|Total/.test(x.nm));
+    const byVal = [...r].sort((a, b) => b.d - a.d);
+    const byBar = [...r].sort((a, b) => b.w - a.w);
+    return { n: r.length, biggest: byVal[0], widest: byBar[0],
+      rem: r.find(x => /Ostale zemlje|Other countries/.test(x.nm)),
+      top: byVal.find(x => !/Ostale zemlje|Other countries/.test(x.nm)),
+      empties: r.filter(x => x.w === 0).map(x => x.nm) };
+  });
+  ck('the Zemlje bar column scales to its own largest value, remainder included',
+    zemBars.n === 13 && zemBars.empties.length === 0
+    && zemBars.widest.nm === zemBars.biggest.nm
+    && !!zemBars.rem && zemBars.rem.d > zemBars.top.d && zemBars.rem.w > zemBars.top.w
+    /* dimmed, because it is a residual and not a country */
+    && zemBars.rem.op < zemBars.top.op,
+    JSON.stringify(zemBars));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
