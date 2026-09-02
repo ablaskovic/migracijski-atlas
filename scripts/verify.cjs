@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 574;
+const EXPECTED_CHECKS = 575;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6803,6 +6803,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && glSplit.en.txt.includes(`${glSplit.en.counts[0]} gaining, ${glSplit.en.counts[1]} neutral and ${glSplit.en.counts[2]} losing counties`)
     && !/sedam pobjednica|seven gaining/.test(glSplit.hr.txt + glSplit.en.txt),
     JSON.stringify({ counts: glSplit.hr.counts, hr: glSplit.hr.txt.slice(0, 60) }));
+
+  /* ── the colour rule may not claim the opposite of the data ──
+     the Boje paragraph explained the shared per-(flow×den×cum) domain with
+     "rane godine izgledaju blijedo jer su vrijednosti male", unconditionally. In
+     ANNUAL mode that is the opposite of true, and this asserts it from the data
+     rather than from the sentence: the tot/abs domain is attained in 1998 and so
+     is the ext/abs one, so with Vrijeme=Godišnje and Sastavnica Ukupno or
+     Vanjske the earliest year holds the deepest county on the whole scale — the
+     state Nalaz 10 hands the reader, one scrub from 1998. The claim is true
+     cumulatively, by construction, which is the mode it now names. */
+  const paleClaim = {};
+  for (const [k, h] of [['t1998', '#v=saldo&f=tot&c=0&y=1998'], ['e1998', '#v=saldo&f=ext&c=0&y=1998']]) {
+    await fresh(h);
+    paleClaim[k] = await page.evaluate(() => {
+      const bar = document.querySelector('#legend .legend-lbls');
+      const ends = bar ? [...bar.children].map(s => s.textContent) : [];
+      /* the deepest county this year against the domain the key states */
+      const fills = [...document.querySelectorAll('#map .cnt')].map(p => getComputedStyle(p).fill);
+      return { ends, n: fills.length, distinct: new Set(fills).size };
+    });
+  }
+  const glPale = {};
+  for (const l of ['hr', 'en']) {
+    await fresh(l === 'en' ? '#l=en' : '');
+    glPale[l] = await page.evaluate(async () => {
+      document.querySelector('#helpBtn').click();
+      await new Promise(r => setTimeout(r, 350));
+      const hs = [...document.querySelectorAll('#helpCard .help-h')];
+      const i = hs.findIndex(e => /^(Boje|Colours)$/.test(e.textContent.trim()));
+      return i < 0 ? '' : (hs[i].nextElementSibling.textContent || '').trim();
+    });
+  }
+  ck('the colour rule scopes its pale-early-years claim to the mode it holds in',
+    /u kumulativnom prikazu rane godine izgledaju blijedo jer se zbroj tek gradi/.test(glPale.hr)
+    && /in cumulative mode, early years look pale: the sum is still building/.test(glPale.en)
+    && !/jer su vrijednosti male|their values are small/.test(glPale.hr + glPale.en)
+    /* and 1998 really does render at full depth in annual tot/ext */
+    && paleClaim.t1998.n === 21 && paleClaim.t1998.distinct > 10
+    && paleClaim.e1998.n === 21 && paleClaim.e1998.distinct > 10,
+    JSON.stringify({ hr: glPale.hr.slice(-110), ends: paleClaim.t1998.ends }));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text

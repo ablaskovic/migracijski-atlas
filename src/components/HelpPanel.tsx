@@ -175,8 +175,18 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
       <div className="help-p">
         <b className="help-blue">{L('Plavo', 'Blue')}</b>{L(' — županija dobiva stanovnike (pozitivna vrijednost). ', ' — the county gains people (a positive value). ')}
         <b className="help-red">{L('Crveno', 'Red')}</b>
-        {L(' — gubi ih (negativna). Sredina skale je 0, tj. ravnoteža. Krajevi skale su isti za sve godine da bi se godine mogle uspoređivati, pa rane godine izgledaju blijedo jer su vrijednosti male.',
-          ' — it loses them (a negative value). The middle of the scale is 0, i.e. balance. The ends of the scale are the same for every year so that years can be compared, which is why early years look pale: their values are small.')}
+        {/* The causal clause used to be unconditional — "rane godine izgledaju
+            blijedo jer su vrijednosti male" — and in ANNUAL mode it is the
+            opposite of true. Computed from the committed series: the tot/abs
+            domain (±7.490) is attained by HR-01 in 1998 and the ext/abs domain
+            (±8.264) by HR-21 in 1998, so with Vrijeme=Godišnje and Sastavnica
+            Ukupno or Vanjske the earliest year holds the single deepest county
+            on the whole scale; even Unutarnje reaches 63 % of its domain in
+            1998. That is also the state Nalaz 10 hands the reader, one scrub
+            from 1998. It IS true cumulatively, by construction — the sum is
+            still building — which is the mode the clause now names. */}
+        {L(' — gubi ih (negativna). Sredina skale je 0, tj. ravnoteža. Krajevi skale su isti za sve godine da bi se godine mogle uspoređivati, pa u kumulativnom prikazu rane godine izgledaju blijedo jer se zbroj tek gradi.',
+          ' — it loses them (a negative value). The middle of the scale is 0, i.e. balance. The ends of the scale are the same for every year so that years can be compared, which is why, in cumulative mode, early years look pale: the sum is still building.')}
         {/* …and where that rule does NOT hold. Tokovi and Matrica fill from a
             magnitude ramp over [0, m] in Odlasci and Dolasci, so there is no
             negative value on the scale and no zero in its middle: the deepest
