@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 557;
+const EXPECTED_CHECKS = 558;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3519,6 +3519,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('390: chip header, segment button and rail row all clear 44 px',
     tap390.chipHd >= 44 && tap390.segBtn >= 44 && tap390.railRow >= 44, JSON.stringify(tap390));
+  /* …and so does every other selector that block re-pads. index.css re-pads
+     twelve of them on any-pointer:coarse, each comment recording a measured
+     defect it fixed, and three were asserted. Deleting min-height from
+     .jtabs button drops all three chip panels' tab rows to 63×34; deleting the
+     min-* from .card-x drops all five panel close buttons to 29×33; deleting
+     it from .labbtn drops the labels toggle to 80×23, which is the 23 px that
+     rule's own comment names and one under the 24 px WCAG 2.5.8 it also names.
+     Every one of those left the suite green. Swept in a state that mounts the
+     lot, with the mounted count floored so an unmounted set cannot pass by
+     having nothing to measure — the shape cf1922b already named. */
+  await fresh('#v=saldo&c=1&y=2024&s=HR-21&cz=1&st=1');
+  await settle(300);
+  const repad = await page.evaluate(() => {
+    const want = ['.seg button', '.jtabs button', '.chip-hd', '.rrow', '.storysel select',
+      '.rstbtn', '.card-x', '.zoomrst', '.labbtn'];
+    const small = [], mounted = [];
+    for (const sel of want) {
+      const els = [...document.querySelectorAll(sel)].filter(e => e.getClientRects().length);
+      if (!els.length) continue;
+      mounted.push(sel);
+      for (const e of els) {
+        const b = e.getBoundingClientRect();
+        if (b.height < 44 || b.width < 44) {
+          small.push(sel + ' ' + Math.round(b.width) + 'x' + Math.round(b.height));
+          break;
+        }
+      }
+    }
+    return { small, mounted, coarse: matchMedia('(any-pointer:coarse)').matches };
+  });
+  ck('every coarse-pointer re-pad still reaches its 44 px target',
+    repad.coarse && repad.mounted.length >= 8 && repad.small.length === 0,
+    JSON.stringify(repad));
 
   await click('#citzHd');
   const x390 = await page.evaluate(() => {
