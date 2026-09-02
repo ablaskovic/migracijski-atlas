@@ -60,7 +60,11 @@ function zoomTo(base: ZoomT, k2: number, px: number, py: number, w: number, h: n
    glossary open at 1440x900, "+" zoomed the map to 1,6x behind the overlay,
    where the reader could neither see it nor undo it without closing the dialog
    first. App's handler takes the same guard for the year and playback keys. */
-export function useZoom(w: number, h: number, frozen = false) {
+export function useZoom(w: number, h: number, frozen = false, onGesture?: () => void) {
+  /* held in a ref so the caller can pass a fresh closure every render without
+     re-arming anything below */
+  const onGestureRef = useRef(onGesture);
+  onGestureRef.current = onGesture;
   const [t, setT] = useState<ZoomT>(IDENT);
   /* The drawn extent, reported by whatever is drawn — only Matrica and Godine
      can exceed their box, because they lay out on a fixed cell geometry with a
@@ -220,6 +224,10 @@ export function useZoom(w: number, h: number, frozen = false) {
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
+  /* true from the frame a pinch is recognised until the last finger lifts —
+     read by the hit overlays, which must not arm a readout during one */
+  const gesturing = useRef(false);
+
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     /* Only the primary button pans. Without the filter a right-button drag
        moved the map, so the context menu opened over a map that had shifted
@@ -270,6 +278,19 @@ export function useZoom(w: number, h: number, frozen = false) {
       const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
       const k = clamp(g.t.k * (d / g.d), kmin, KMAX), r = k / g.t.k;
       panned.current = true;
+      /* …and say so, so the readouts a tap arms can stand down. The two grids
+         and the JLS map resolve a cell on pointerdown, and the two touchdowns
+         that BEGIN a pinch each armed one — leaving a tooltip parked over the
+         grid the pinch existed to enlarge (measured at 390×844: 60 of 441
+         gridcells covered in Matrica, 180 of 588 in Godine) describing a cell
+         resolved in the pre-zoom coordinates. */
+      if (!gesturing.current) {
+        gesturing.current = true;
+        /* …and clear what the two touchdowns armed on their way in: the guard in
+           the hit overlays cannot help with the readout that was already up when
+           the pinch was recognised. */
+        onGestureRef.current?.();
+      }
       grab(e.currentTarget, e.pointerId);
       /* zoom about the pinch centre and follow it as the fingers travel — not
          zoomTo(), whose anchor is fixed: here cx/cy drift away from g.cx/g.cy */
@@ -296,7 +317,7 @@ export function useZoom(w: number, h: number, frozen = false) {
     /* the gesture ends when either of ITS OWN pointers goes, not when the count
        happens to drop below two */
     if (gesture.current && !gesture.current.ids.every(id => pts.current.has(id))) gesture.current = null;
-    if (!pts.current.size) drag.current = null;
+    if (!pts.current.size) { drag.current = null; gesturing.current = false; }
   };
 
   /* No onPointerLeave: with capture the pointer cannot leave mid-gesture, and
@@ -313,5 +334,6 @@ export function useZoom(w: number, h: number, frozen = false) {
      has to mean "not at 1×" rather than "magnified": zoomed OUT to see a whole
      grid is a state the reader needs the same way back from. The grab cursor
      stays on k > 1 alone, since below 1 there is nothing to pan. */
-  return { t, bind, style, reset, zoomBy, panBy, setContentH, zoomed: Math.abs(t.k - 1) > 0.001 };
+  return { t, bind, style, reset, zoomBy, panBy, setContentH, gesturing,
+    zoomed: Math.abs(t.k - 1) > 0.001 };
 }

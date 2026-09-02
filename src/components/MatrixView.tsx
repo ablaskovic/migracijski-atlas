@@ -234,6 +234,12 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      One overlay across the grid instead resolves the tap to the cell it fell
      in, so every tap inside the matrix returns a corridor. */
   const pick = (ev: ReactPointerEvent<SVGRectElement>) => {
+    /* a pinch is not a probe. The two touchdowns that begin one each
+       resolved a cell here, and the readout they armed was still up when both
+       fingers lifted — over the grid the pinch existed to enlarge, describing a
+       cell resolved before the zoom moved it. useZoom says when it owns the
+       gesture; `isPrimary` keeps the second finger out even before it does. */
+    if (zoom.gesturing.current || !ev.isPrimary) return;
     const svg = ev.currentTarget.ownerSVGElement;
     if (!svg) return;
     const r = svg.getBoundingClientRect();

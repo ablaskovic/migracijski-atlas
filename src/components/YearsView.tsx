@@ -175,6 +175,8 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
      cell that is ~9 px wide on a phone, so most taps would land in a gap and read
      nothing. One overlay resolves the tap to the cell it fell in. */
   const pick = (ev: ReactPointerEvent<SVGRectElement>) => {
+    /* see MatrixView.pick: a pinch is not a probe */
+    if (zoom.gesturing.current || !ev.isPrimary) return;
     const svg = ev.currentTarget.ownerSVGElement;
     if (!svg) return;
     const r = svg.getBoundingClientRect();

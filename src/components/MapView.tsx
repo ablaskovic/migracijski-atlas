@@ -100,7 +100,9 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
 
   /* wheel/pinch zoom + drag pan; identity by default so nothing else shifts */
   /* the glossary is a dialog and owns the keyboard while it is open — see useZoom */
-  const zoom = useZoom(size.w, size.h, S.help);
+  const zoom = useZoom(size.w, size.h, S.help,
+    /* a pinch is not a probe — see useZoom and the two grids' pick() */
+    () => setS({ hl: null, pairHl: null, yrHl: null, jlsHl: null }));
   const [covered, setCovered] = useState(false);
   /* The zoom reset unmounts itself, and only its CLICK path hands focus on. The
      documented keys do the same unmount from useZoom's window handler: with the
@@ -546,7 +548,10 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                     /* and not here either, for the reason the county paths give:
                        "… in, … out, net …" is a sentence carrying English words
                        and English-formatted numbers */
-                    onPointerEnter={() => setS({ jlsHl: p.j })}
+                    /* not while a pinch owns the pointers: the coarse branch
+                       suppresses the matching leave, so a two-finger gesture
+                       left a municipality readout parked over the zoomed map */
+                    onPointerEnter={() => { if (!zoom.gesturing.current) setS({ jlsHl: p.j }); }}
                     /* touch sends leave the moment the finger lifts, which would
                        flash the readout away; keep it until the next tap instead */
                     onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ jlsHl: null }); }}

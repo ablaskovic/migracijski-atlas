@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 544;
+const EXPECTED_CHECKS = 545;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5642,6 +5642,59 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a grid view paints its cells once, at the geometry it keeps',
     firstPaint.mx.length === 1 && firstPaint.yrs.length === 1,
     JSON.stringify(firstPaint));
+
+  /* …and a pinch leaves no readout behind it. On a coarse pointer the two grids
+     draw a transparent full-grid hit rect wired to pointerdown, and the JLS
+     paths take pointerenter with their leave COARSE-suppressed — so each of the
+     two touchdowns that BEGIN a pinch resolved a cell, and when both fingers
+     lifted the highlight, the trace band and #tip were still up. Measured at
+     390×844 after one pinch: Matrica left a 260×91 tip covering 60 of 441
+     gridcells, Godine a 260×332 one covering 180 of 588 — 27 % of the grid the
+     pinch existed to enlarge — and the JLS map a municipality readout. The cell
+     was resolved in the pre-zoom coordinates, so it no longer described what it
+     pointed at, and it could not be dismissed from inside the map: the global
+     clear-out exempts those very overlays, so every tap inside re-armed a
+     different corridor instead.
+     Two halves: the overlays stand down while useZoom owns the gesture, and the
+     readout the touchdowns already armed is cleared on the transition into one.
+     Each view in its own page — a pinch leaves the visual viewport zoomed. */
+  const pinchTip = {};
+  for (const [k, h, sel] of [['mx', '#v=mx&y=2018&c=0&dir=net', '.mxc'],
+    ['yrs', '#v=yrs&y=2018&c=0', '.yrc'], ['jmap', '#v=jmap&dir=net', '.jl']]) {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    const c = await pg.createCDPSession();
+    await pg.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+    await pg.goto(url + h, { waitUntil: 'domcontentloaded' });
+    await pg.waitForFunction(s => document.querySelectorAll(s).length > 20, { timeout: 30000 }, sel).catch(() => {});
+    await settle(900);
+    await pg.evaluate(() => document.querySelector('#map').scrollIntoView({ block: 'center' }));
+    await settle(400);
+    const b = await pg.evaluate(() => { const r = document.querySelector('#map').getBoundingClientRect();
+      const top = Math.max(r.top, 0), bot = Math.min(r.bottom, innerHeight);
+      return { x: Math.round(r.left + r.width / 2), y: Math.round((top + bot) / 2) }; });
+    await c.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [
+      { x: b.x - 40, y: b.y, id: 1 }, { x: b.x + 40, y: b.y, id: 2 }] });
+    for (let i = 1; i <= 12; i++) {
+      const d = 40 + i * 5;
+      await c.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [
+        { x: b.x - d, y: b.y, id: 1 }, { x: b.x + d, y: b.y, id: 2 }] });
+    }
+    await c.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await settle(600);
+    pinchTip[k] = await pg.evaluate(() => {
+      const t = document.querySelector('#tip');
+      const g = document.querySelector('#map g[transform]');
+      return { shown: !!t && getComputedStyle(t).opacity !== '0' && (t.textContent || '').trim().length > 0,
+        bands: document.querySelectorAll('.mxband rect, .yrband rect').length,
+        zoomed: g ? g.getAttribute('transform') : null };
+    });
+    await c.detach(); await pg.close();
+  }
+  ck('a two-finger pinch enlarges the grid without parking a readout over it',
+    ['mx', 'yrs', 'jmap'].every(k => pinchTip[k].zoomed && !/scale\(1\)$/.test(pinchTip[k].zoomed)
+      && !pinchTip[k].shown && pinchTip[k].bands === 0),
+    JSON.stringify(pinchTip));
   /* Privacy and determinism are the same property here: a page that reaches no
      third-party origin cannot leak a visitor's IP on first paint and cannot
      have a check quietly depend on someone else's uptime. */
