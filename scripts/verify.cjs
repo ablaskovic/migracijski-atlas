@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 519;
+const EXPECTED_CHECKS = 520;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1532,6 +1532,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     mode: document.querySelector('#segMode button[aria-pressed="true"]').dataset.v }));
   ck('returning to Saldo restores its own year + mode (kum 2024)',
     back.yr === '2024.' && back.mode === 'cum', JSON.stringify(back));
+
+  /* …and the same picker from the keyboard, which nothing in this file had ever
+     used: every reach for it is `page.select`, which sets a value directly and
+     never touches the control. ArrowDown on a CLOSED select is how Windows and
+     Linux step through one in Chrome and Firefox, and the control was pinned to
+     value -1 — so every press moved -1 → option 0 and fired Nalaz 1 again.
+     Measured on the shipped build: Nalaz 1, Nalaz 1, Nalaz 1, with the other
+     fourteen unreachable without knowing to open the popup first, and each press
+     firing a full view jump. */
+  await fresh('');
+  await page.evaluate(() => document.querySelector('#story').focus());
+  const storyKeys = [];
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press('ArrowDown');
+    await settle(400);
+    storyKeys.push(await page.evaluate(() => ({
+      k: (document.querySelector('.storybar-k') || {}).textContent || null,
+      val: document.querySelector('#story').value })));
+  }
+  await page.keyboard.press('ArrowUp');
+  await settle(400);
+  const storyUp = await page.evaluate(() => (document.querySelector('.storybar-k') || {}).textContent || null);
+  ck('the Nalazi picker steps through its fifteen presets from the keyboard, both ways',
+    storyKeys.map(s => s.k).join(' ') === '1/15 2/15 3/15' && storyUp === '2/15',
+    JSON.stringify({ storyKeys, storyUp }));
+  await fresh('');
 
   /* ── story clears on divergence, and stops poisoning the permalink ── */
   await fresh('');
