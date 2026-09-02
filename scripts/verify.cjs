@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 539;
+const EXPECTED_CHECKS = 540;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7936,6 +7936,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && cropOut.mx1440.cells === 420 && cropOut.mx1024.cells === 420
     && cropOut.yrs1440.cells === 588 && cropOut.saldo.cells === 21,
     JSON.stringify(cropOut));
+
+  /* …and a Regije figure says whose reading the grouping is. The study proposes
+     five regions and their centres in prose and prints no county list, so the
+     whole 21→5 partition is the atlas's — the screen's legend says exactly that.
+     The export said nothing of the kind: four credit rows naming two real
+     authors and a live DOI as the source, and "DZS naknadno revidira serije" as
+     the only reason anything might differ, over a map painting outlines the
+     atlas itself chose. Both languages, and the negatives matter: Klasifikacija
+     reproduces the paper's own threshold and must NOT carry it. */
+  const regRead = {};
+  for (const [k, h] of [['regHr', '#v=reg&c=1&y=2024'], ['regEn', '#l=en&v=reg&c=1&y=2024'],
+    ['klasHr', '#v=klas&c=1&y=2024'], ['saldoHr', '#v=saldo&c=1&y=2024']]) {
+    await fresh(h);
+    regRead[k] = await page.evaluate(() => {
+      const d = new DOMParser().parseFromString(String(window.__exportSVG(false)), 'image/svg+xml');
+      /* the credit row wraps, so the sentence lives across <text> nodes */
+      const joined = [...d.querySelectorAll('text')].map(t => t.textContent).join(' ').replace(/\s+/g, ' ');
+      return { reading: /tumačenje atlasa|atlas’s reading/.test(joined),
+        paper: /Klasifikacija i regije prema|Classification and regions after/.test(joined) };
+    });
+  }
+  ck('an exported Regije figure says the county grouping is the atlas’s reading',
+    regRead.regHr.reading && regRead.regEn.reading
+    && !regRead.klasHr.reading && !regRead.saldoHr.reading
+    && regRead.regHr.paper && regRead.klasHr.paper,
+    JSON.stringify(regRead));
   ck('and the English legend still names the source and the licence',
     /Measured/.test(enBadge.legend) && /Pitoski/.test(enBadge.legend) && /CC BY/.test(enBadge.legend),
     enBadge.legend.slice(0, 120));

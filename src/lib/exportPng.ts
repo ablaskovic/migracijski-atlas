@@ -4,7 +4,7 @@ import {
   preMargin, preMarginNote,
 } from './metrics.ts';
 import { ensureFonts, fontCss } from './exportFonts.ts';
-import { paperCaveatLine, paperExportLine, paperThrLine } from './credits.ts';
+import { paperCaveatLine, paperExportLine, paperThrLine, regionReadingLine } from './credits.ts';
 import { exportLicenceLine } from './licences.ts';
 import { L, t, yrSpan } from './i18n.ts';
 import type { Klas, State } from './types.ts';
@@ -484,9 +484,14 @@ const paperLine = (S: State): string =>
    explanation on the image named neither the paper's threshold nor its window.
    The screen's legend has always branched on paperKlasComparable; the export
    now reads the same two strings from credits.ts. */
+/* …and Regije owes a second sentence the screen has always carried and the
+   image never did: the paper publishes no county list, so the 21→5 grouping is
+   the atlas's. Without it the figure names two authors and a DOI as the source
+   of the partition it paints. */
 const caveatLine = (S: State): string =>
-  S.view === 'reg' || (S.view === 'klas' && paperKlasComparable(S)) ? paperCaveatLine()
-    : S.view === 'klas' ? paperThrLine(S.thrRel) : '';
+  S.view === 'reg' ? paperCaveatLine() + ' · ' + regionReadingLine()
+    : S.view === 'klas' && paperKlasComparable(S) ? paperCaveatLine()
+      : S.view === 'klas' ? paperThrLine(S.thrRel) : '';
 
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
   /* Snapshot first, wait second. `ensureFonts()` can take up to its 8 s timeout,

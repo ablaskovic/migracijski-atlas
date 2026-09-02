@@ -147,6 +147,18 @@ export const paperCaveatLine = (): string =>
    reads these two strings from here now, so the image and the screen cannot
    drift. `rel` is the "Prag u %" state, where the paper's own threshold is
    absolute. */
+/* …and the one Regije owes, which the exported figure carried nowhere. The
+   study proposes five regions and their centres in prose and prints no county
+   list at all, so the whole 21→5 partition is the atlas's reading — the screen's
+   legend says exactly that, and its own comment says it again. The export named
+   two real authors and a live DOI as the source of the grouping and offered the
+   reader "DZS naknadno revidira serije" as the only reason anything might differ,
+   over a map painting outlines the atlas itself chose. A figure pasted into a
+   slide has to carry that on its face. */
+export const regionReadingLine = (): string =>
+  L('Rad predlaže pet regija i njihova središta, ali ne objavljuje popis županija — raspored po županijama je tumačenje atlasa.',
+    'The paper proposes five regions and their centres but publishes no county list — assigning counties to them is the atlas’s reading.');
+
 export const paperThrLine = (rel: boolean): string => (rel
   ? L(`Prag u % popisa 2011. — rad koristi apsolutni prag (−${PAPER_THR.toLocaleString('hr-HR')}, ${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.), a argumentira relativno.`,
     `Threshold as % of the 2011 census — the paper uses an absolute threshold (−${PAPER_THR.toLocaleString('en-GB')}, ${PAPER_WINDOW.from}–${PAPER_WINDOW.to}) but argues in relative terms.`)
