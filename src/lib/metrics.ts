@@ -182,6 +182,15 @@ export const KLAB: Record<Klas, string> = {} as Record<Klas, string>;
 for (const k of Object.keys(KLAB_) as Klas[]) {
   Object.defineProperty(KLAB, k, { get: () => L(KLAB_[k][0], KLAB_[k][1]), enumerable: true });
 }
+/* …and the singular, for a group of one. The glossary groups the counties whose
+   class differs from the study's by transition, so a group holds one county the
+   moment a DZS revision leaves a single county differing — the case the note in
+   that same function already argues is live. Croatian would then have read
+   "Karlovačka (u radu neutralne, ovdje gubitnice)": plural adjectives over one
+   feminine name. The English half is number-neutral ("neutral … losing"), so it
+   needs no second table. */
+const KLAB1_: Record<Klas, string> = { gain: 'pobjednica', neu: 'neutralna', loss: 'gubitnica' };
+export const klasLab = (k: Klas, n: number): string => L(n === 1 ? KLAB1_[k] : KLAB_[k][0], KLAB_[k][1]);
 
 /* ── metric machinery ── */
 export function natAt(iso: string, yi: number): number {

@@ -6,7 +6,7 @@ import {
   PAPER_KLAS,
   paperTermCite, paperTermTail,
 } from '../lib/credits.ts';
-import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
+import { D, KLAB, PAPER_KLAS_DIFF, fmtI, klasLab } from '../lib/metrics.ts';
 import {
   ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE, REPO, sources,
 } from '../lib/licences.ts';
@@ -44,7 +44,7 @@ function klasDiffSentence(): string {
   const parts = [...by.entries()].map(([k, ds]) => {
     const [paper, here] = k.split('|') as [keyof typeof KLAB, keyof typeof KLAB];
     const names = ds.map(d => D[d.iso]?.n ?? d.iso).join(L(' i ', ' and '));
-    return L(`${names} (u radu ${KLAB[paper]}, ovdje ${KLAB[here]})`,
+    return L(`${names} (u radu ${klasLab(paper, ds.length)}, ovdje ${klasLab(here, ds.length)})`,
       `${names} (${KLAB[paper]} in the paper, ${KLAB[here]} here)`);
   });
   /* How far past the line, derived — the sentence this replaced said the gap was
@@ -64,13 +64,20 @@ function klasDiffSentence(): string {
   const over = PAPER_KLAS_DIFF.filter(d => d.here === 'loss')
     .map(d => Math.abs(Math.round(d.v)) - PAPER_THR);
   const each = over.map(v => `${fmtI.format(v)} ${plHr(v, 'osobu', 'osobe', 'osoba')}`);
+  /* …and so do the two verbs around them. One differing county left the
+     sentence reading "Razlikuju se: Karlovačka … prelaze prag": plural verbs
+     over one name, which is the same slip as the class nouns and would have
+     survived fixing those alone. English needs it too — "The differences" and
+     "they pass" for a single county. */
+  const one = PAPER_KLAS_DIFF.length === 1;
   const tail = over.length === PAPER_KLAS_DIFF.length
-    ? L(` Na ovoj seriji prelaze prag od −${fmtI.format(PAPER_THR)} za ${each.join(' odnosno ')}.`,
-      ` On this series they pass the −${fmtI.format(PAPER_THR)} line by `
+    ? L(` Na ovoj seriji ${over.length === 1 ? 'prelazi' : 'prelaze'} prag od −${fmtI.format(PAPER_THR)} za ${each.join(' odnosno ')}.`,
+      ` On this series ${over.length === 1 ? 'it passes' : 'they pass'} the −${fmtI.format(PAPER_THR)} line by `
       + `${over.map(v => `${fmtI.format(v)} ${Math.abs(v) === 1 ? 'person' : 'people'}`).join(' and ')}`
       + `${over.length > 1 ? ' respectively' : ''}.`)
     : '';
-  return L(`Razlikuju se: ${parts.join('; ')}.${tail}`, `The differences: ${parts.join('; ')}.${tail}`);
+  return L(`${one ? 'Razlikuje' : 'Razlikuju'} se: ${parts.join('; ')}.${tail}`,
+    `The ${one ? 'difference' : 'differences'}: ${parts.join('; ')}.${tail}`);
 }
 
 /* "Kako čitati" — the one stable place the vocabulary lives. Every other
