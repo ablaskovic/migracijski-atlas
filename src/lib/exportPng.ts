@@ -174,6 +174,37 @@ function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight, fac
      leaving it in would ship a painting node with no fill/stroke of its own,
      the exact self-containment failure the .mxband bar was. */
   clone.querySelectorAll('.focusring').forEach(g => g.remove());
+  /* …and so is the rest of the interaction layer, which the ring alone did not
+     cover. This module calls the SVG a publication-ready vector twin and
+     documents inlining two figures into one page: pasted into a host document,
+     a Saldo figure added 21 tab stops and 21 role="button" elements — measured,
+     87 focusable elements became 108 — each announcing "Osječko-baranjska:
+     migracijski saldo −26.517 · 2011.–2024., collapsed button", and Tab walked
+     21 invisible buttons that do nothing and whose focus ring was deliberately
+     deleted two lines up. The Matrica figure carried role="grid" with the
+     aria-label "strelice pomiču odabir, Enter otvara koridor" over 463 grid,
+     row and gridcell roles and 420 aria-expanded cells: a static file telling a
+     screen-reader user to press arrow keys. Opening the .svg on its own does
+     the same. The county names stay as <title>/aria-label text, which is what
+     makes the figure readable; what goes is the claim that it can be operated. */
+  clone.querySelectorAll('[tabindex],[aria-expanded],[role]').forEach(el => {
+    el.removeAttribute('tabindex');
+    el.removeAttribute('aria-expanded');
+    const r = el.getAttribute('role');
+    if (r === 'button' || r === 'grid' || r === 'row' || r === 'gridcell') el.removeAttribute('role');
+  });
+  /* …the clone itself included. querySelectorAll walks descendants only, and
+     the map svg is the element that carries role="grid"/role="group", the skip
+     link's tabindex, and — in the two grids — an aria-label ending "strelice
+     pomiču odabir, Enter otvara koridor". A static file must not tell a
+     screen-reader user to press arrow keys, so the instruction is cut at the
+     em-dash the views build it with and what remains is the figure's own name. */
+  clone.removeAttribute('tabindex');
+  clone.removeAttribute('aria-rowcount');
+  clone.removeAttribute('aria-colcount');
+  clone.setAttribute('role', 'img');
+  const lab = clone.getAttribute('aria-label');
+  if (lab) clone.setAttribute('aria-label', lab.split(' — ')[0].trim());
   /* the in-cell number's white halo is what makes it legible on the dark end of
      both ramps (see MatrixView); it comes from a class, so it has to be baked
      or the exported matrix reverts to ink-on-indigo at ~2,5:1 */
@@ -706,7 +737,11 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
       `font-family="${MONO}" font-size="${CREDIT_FS}" fill="#5F6A72"`)).join('');
   }
   const doc =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h + TOP + BOT}" viewBox="0 0 ${w} ${h + TOP + BOT}">`
+    /* role and a title on the OUTER element too, because that is what a host page
+       meets when the figure is inlined: without them a pasted figure is an
+       unnamed graphic whose only accessible name came from the map inside it. */
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h + TOP + BOT}" viewBox="0 0 ${w} ${h + TOP + BOT}" role="img">`
+    + `<title>${esc(B.titleLines.join(' ') + (per ? ' · ' + per : ''))}</title>`
     + `<defs>${defs}</defs>`
     + `<rect width="${w}" height="${h + TOP + BOT}" fill="#F4F5F2"/>`
     + txt(20, 26, B.eyebrow, `font-family="${MONO}" font-size="${B.eyebrowFs}" font-weight="500" fill="#5F6A72" letter-spacing="1"`)

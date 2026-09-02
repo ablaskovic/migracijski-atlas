@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 598;
+const EXPECTED_CHECKS = 599;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10437,6 +10437,48 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* …and the reference window still gets its exact 2× */
     && canvasPx['1440x900'].w === 2296,
     JSON.stringify(canvasPx));
+
+  /* ── the exported figure is a figure, not a widget ──
+     this module calls the SVG a publication-ready vector twin and documents
+     inlining two of them into one page. It stripped the focus ring as UI state
+     and baked the rest of the interaction layer: measured before, a Saldo figure
+     pasted into a host page added 22 tabindex stops and 21 role="button"
+     elements — 87 focusable elements became 108 — each announcing
+     "Osječko-baranjska: migracijski saldo −26.517 · 2011.–2024., collapsed
+     button", over a focus ring the exporter had deliberately deleted. Matrica
+     was worse: 463 grid/row/gridcell roles, 442 tabindex, 420 aria-expanded
+     cells and an aria-label reading "strelice pomiču odabir, Enter otvara
+     koridor" — a static file telling a screen-reader user to press arrow keys.
+     Opening the .svg on its own does the same.
+     The names stay, because they are what makes the figure readable; what goes
+     is every claim that it can be operated. Both roots carry role="img" and the
+     outer one a <title>, so an inlined figure is a named graphic. */
+  const figStatic = {};
+  for (const [k, h] of [['saldo', '#v=saldo&c=1&y=2024'], ['mx', '#v=mx&y=2018&c=0&dir=net'],
+    ['jmap', '#v=jmap&dir=net']]) {
+    await fresh(h);
+    figStatic[k] = await page.evaluate(() => {
+      const svg = window.__exportSVG(false) || '';
+      const d = new DOMParser().parseFromString(svg, 'image/svg+xml');
+      const svgs = [...d.querySelectorAll('svg')];
+      return { tab: d.querySelectorAll('[tabindex]').length,
+        expanded: d.querySelectorAll('[aria-expanded]').length,
+        btn: d.querySelectorAll('[role="button"]').length,
+        grid: d.querySelectorAll('[role="grid"],[role="row"],[role="gridcell"]').length,
+        rootRole: d.documentElement.getAttribute('role'),
+        mapRole: svgs[1] ? svgs[1].getAttribute('role') : null,
+        title: ((d.querySelector('title') || {}).textContent || '').length,
+        keys: /strelice pomi|Arrow keys move|Enter otvara|Enter opens/.test(svg),
+        labels: d.querySelectorAll('[aria-label]').length };
+    });
+  }
+  ck('an exported figure carries no tab stops, no widget roles and no key instructions',
+    Object.values(figStatic).every(v => v.tab === 0 && v.expanded === 0 && v.btn === 0
+      && v.grid === 0 && !v.keys
+      && v.rootRole === 'img' && v.mapRole === 'img' && v.title > 8
+      /* …and still names what it draws */
+      && v.labels > 5),
+    JSON.stringify(figStatic));
 
   /* ══ v2.3.0 — the controls hold still ══════════════════════════════════
      Reported by a user as "the buttons jump around when you click them, and as
