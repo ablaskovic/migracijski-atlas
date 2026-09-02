@@ -6101,14 +6101,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
 
   /* Saldo and Godine share DOM[flow+den+cum] exactly, so the same county-year is
      the same fill in both — that is what lets a reader carry a colour from the
-     map to the grid. Compared by measuring the same cell twice. */
-  const fillYrs = await page.evaluate(() =>
-    getComputedStyle(document.querySelector('#map .yrc[data-iso="HR-18"][data-y="2024"]')).fill);
-  await fresh('#v=saldo&c=1&y=2024');
-  const fillMap = await page.evaluate(() =>
-    getComputedStyle(document.querySelector('#map .cnt[data-iso="HR-18"]')).fill);
-  ck('a county-year is the same colour in Godine as on the Saldo map',
-    fillYrs === fillMap && /^rgb/.test(fillYrs), fillYrs + ' vs ' + fillMap);
+     map to the grid. Compared by measuring the same cell twice.
+     …in both halves of the ramp and in both modes, because one sample was
+     HR-18 at 2024 cumulative: +22.537, the blue half, at the default flow and
+     denominator. A divergence confined to the loss half — MA3-034 is the
+     precedent, where the Tokovi arcs wrapped the shared ramp in a lightened
+     second scale — or to annual mode never crossed it, and `/^rgb/` cannot
+     catch it either. Executed: repainting every negative Godine cell
+     rgb(200,40,40) leaves HR-14's cell visibly disagreeing with its Saldo fill
+     of rgb(214,131,107) and this check green. */
+  const fillPairs = [];
+  for (const [c, iso, y] of [['1', 'HR-18', '2024'], ['1', 'HR-14', '2024'],
+    ['0', 'HR-18', '2022'], ['0', 'HR-14', '2022']]) {
+    await fresh(`#v=yrs&c=${c}&y=${y}`);
+    const grid = await page.evaluate((i, yy) => {
+      const e = document.querySelector(`#map .yrc[data-iso="${i}"][data-y="${yy}"]`);
+      return e ? getComputedStyle(e).fill : null;
+    }, iso, y);
+    await fresh(`#v=saldo&c=${c}&y=${y}`);
+    const map = await page.evaluate(i => {
+      const e = document.querySelector(`#map .cnt[data-iso="${i}"]`);
+      return e ? getComputedStyle(e).fill : null;
+    }, iso);
+    fillPairs.push({ c, iso, y, grid, map });
+  }
+  ck('a county-year is the same colour in Godine as on the Saldo map, on both halves of the ramp and in both modes',
+    fillPairs.length === 4
+    && fillPairs.every(p => p.grid && p.grid === p.map && /^rgb/.test(p.grid))
+    /* and the four samples must not all be the same colour, or "identical"
+       would be satisfied by a grid that paints everything one shade */
+    && new Set(fillPairs.map(p => p.grid)).size >= 3,
+    JSON.stringify(fillPairs));
 
   /* annual mode renders 1998–2006 beside the rest — the first view that does —
      so it is the first that can mark where the inter-county margins start
