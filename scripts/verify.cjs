@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 591;
+const EXPECTED_CHECKS = 592;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7317,6 +7317,45 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /2011\.–2024\./.test(oneYear.wide.rail) && /2011\.–2024\./.test(oneYear.wide.sub),
     JSON.stringify({ klas: oneYear.klas.rail, saldo: oneYear.saldo.sub,
       en: oneYear.en.rail, wide: oneYear.wide.rail }));
+
+  /* ── the year axis and the map's top strip do not share a lane ──
+     Godine anchors its rotated labels at y0−6, and .helpbtn sits at top:14 over
+     a 90 %-opaque panel: with TOPL at 54 the label band ran from about y=25 to
+     y=48 and the two overlapped. Measured with the labels' own painted boxes:
+     '2021.' lost 156 px² to the button at 1440×900, '2020.' 120 px² at 1280×800,
+     '2022.' 101 px² at 1680×1050 — a data axis label hidden by chrome in the one
+     view whose whole subject is which year is which. Whether a label lands under
+     the button depends on where the column pitch falls, which is why 1024×768,
+     1366×768 and 1920×1080 are clean and this stayed invisible; the sweep keeps
+     them as controls. Coarse pointers too, where the strip is twice as tall. */
+  const yrLane = {};
+  for (const [w, h, touch] of [[1280, 800, false], [1440, 900, false], [1680, 1050, false],
+    [1024, 768, false], [1440, 900, true]]) {
+    await page.setViewport({ width: w, height: h, hasTouch: touch, isMobile: false });
+    await fresh('#v=yrs&c=0&y=2024');
+    yrLane[`${w}x${h}${touch ? 'c' : 'f'}`] = await page.evaluate(() => {
+      const strip = ['#helpBtn', '#labBtn', '#zoomRst'].map(s => document.querySelector(s))
+        .filter(Boolean).map(e => ({ id: e.id, r: e.getBoundingClientRect() }));
+      const labs = [...document.querySelectorAll('#map text')]
+        .filter(t => /^\d{4}\.?$/.test((t.textContent || '').trim()));
+      const hits = [];
+      for (const t of labs) {
+        const b = t.getBoundingClientRect();
+        for (const s of strip) {
+          const ov = Math.max(0, Math.min(b.right, s.r.right) - Math.max(b.left, s.r.left))
+            * Math.max(0, Math.min(b.bottom, s.r.bottom) - Math.max(b.top, s.r.top));
+          if (ov > 1) hits.push(t.textContent.trim() + '×' + s.id + '=' + Math.round(ov));
+        }
+      }
+      return { labs: labs.length, strip: strip.length, hits,
+        cells: document.querySelectorAll('#map .yrc').length };
+    });
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('no Godine year label is painted under the map’s top strip',
+    Object.values(yrLane).every(v => v.labs === 28 && v.strip >= 2 && v.cells === 588
+      && v.hits.length === 0),
+    JSON.stringify(yrLane));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text

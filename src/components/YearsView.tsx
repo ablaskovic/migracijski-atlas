@@ -36,7 +36,20 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
 
   /* Year labels are short and rotated, so this needs far less head room than the
      matrix's rotated county names (90) — the grid gets the difference. */
-  const LBL = 108, TOPL = 54, PADR = 14, PADB = 40;
+  /* TOPL is 90 and not 54 because the year labels and the map's top strip shared
+     a lane that neither reserved. The labels are rotated −60° from y0−6, so at
+     TOPL 54 the band ran from about y=25 to y=48 while .helpbtn sits at top:14
+     over a 90 %-opaque panel: measured with glyph-accurate quads, '2021.' lost 156
+     px² to the button at 1440×900, '2020.' 120 px² at 1280×800 and '2022.' 101 px²
+     at 1680×1050 — a data axis label hidden by chrome in the one view whose whole
+     subject is which year is which. Whether a label lands under the button
+     depends on where the column pitch falls, which is why 1024×768, 1366×768 and
+     1920×1080 are clean and this stayed invisible. 90 is Matrica's own value, and
+     Matrica is unaffected for exactly this reason; it also clears the 44 px strip
+     a coarse pointer gets. The cost is 36 px over 21 rows: measured, the cell
+     loses 1,7 px at 1440×900 and 1680×1050, and the viewports that already
+     scrolled still scroll. */
+  const LBL = 108, TOPL = 90, PADR = 14, PADB = 40;
   const box = fitGrid({ size, legend, panel, cols: nC, rows: nR, lbl: LBL, top: TOPL, padR: PADR, padB: PADB, min: 12 });
   /* Floors, like the matrix's: below these the grid overflows the box and the
      shared zoom/pan is what recovers it, which is better than cells too small to
