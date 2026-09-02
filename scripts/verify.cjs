@@ -5702,11 +5702,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      the failing view gets the reload they were told about. */
   const deferred = {};
   for (const leave of [false, true]) {
-    const pg = await watch(await browser.newPage());
+    /* the blocked chunk goes through watch()'s predicate: a second
+       page.on('request') makes both handlers call continue() on the same
+       request, which is the throw the comment at :302 names. */
+    const pg = await watch(await browser.newPage(), u => /geo_jls/.test(u));
     await pinHr(pg);
     await pg.setViewport({ width: 1440, height: 900 });
-    await pg.setRequestInterception(true);
-    pg.on('request', r => (/geo_jls/.test(r.url()) ? r.abort() : r.continue()));
     await pg.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
     await pg.waitForFunction(() => !!document.querySelector('#jretry'), { timeout: 20000 }).catch(() => {});
     await settle(500);
