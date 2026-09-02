@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
-import { YEARS, Y0, YEND, IX2018, SHORTN, getOD, fsum, badgeText, flowBadge, flowKind, fmtI, sgn } from '../lib/metrics.ts';
+import { YEARS, Y0, YEND, SHORTN, getOD, fsum, badgeText, flowBadge, flowKind, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -123,7 +123,16 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
       {/* only one branch of this ternary used to be localized — and the flow
           first-entry jump lands on 2018, so the untranslated one is the branch an
           English reader meets first */}
-      <div className="pair-note">{S.yi === IX2018
+      {/* …and it has to agree with the badge above it. This tested the YEAR
+          alone, so in Kumulativno at 2018 the card printed "kumulativna
+          procjena" on its badge and "Jedina godina s izmjerenom matricom
+          tokova." one line below — two lines of one card disagreeing about
+          whether the number between them is measured, and the readout there is
+          the 2011.–2018. sum, which no measurement covers. Same in Tokovi.
+          flowKind is the predicate every other honesty surface goes through
+          and it already takes S.cum; the MA3-085 fix made the readout row
+          cum-aware and left this note on the year. */}
+      <div className="pair-note">{!S.cum && flowKind(S.yi, S.cum) === 'meas'
         ? L('Jedina godina s izmjerenom matricom tokova.', 'The only year with a measured flow matrix.')
         : L('Točka 2018. je izmjerena; ostale su godine IPF procjena na DZS marginama.',
           'The 2018 point is measured; the other years are IPF estimates on CBS margins.')}</div>
