@@ -3,7 +3,7 @@
    human-readable links; unknown or invalid fields are ignored on decode. */
 import { YEARS, ISOS } from './metrics.ts';
 import { STORIES, storyHolds } from './stories.ts';
-import { BASE } from './state.ts';
+import { BASE, LOCK_FD } from './state.ts';
 import { storedLang } from './i18n.ts';
 import type { Patch, State } from './types.ts';
 
@@ -131,6 +131,23 @@ export function decodeHash(hash: string): Patch {
   /* klas is always cumulative from 2011; so is any cum view */
   const ix2011 = YEARS.indexOf(2011);
   if ((at('view') === 'klas' || at('cum')) && at('yi') < ix2011) o.yi = ix2011;
+  /* `f=` and `d=` were the two fields no repair constrained, and they are the
+     same shape of dead flag. Klasifikacija, Tokovi, Matrica and JLS karta each
+     read their own metric and ignore both — `klasOf` hardcodes
+     `val(iso, yi, 'tot', 'abs', true)`, and `flowOf`/`mxCell`/`jlsVal` take
+     neither — so `#v=klas&f=nat&d=rel11&c=1&y=2024` rendered byte-identically to
+     the same link without them while the *disabled* Sastavnica group reported
+     "Prirodno" pressed and Vrijednosti "% popisa 2011.". Pressing Saldo, the
+     likeliest next act, then repainted all 21 counties through a lens the reader
+     had never been able to choose: the legend went MIGRACIJSKI SALDO →
+     PRIRODNI PRIRAST — % POPISA 2011., the top rail row Grad Zagreb +41.986 →
+     Međimurska −1,6 %, and every county's accessible name with them.
+     Clamped to BASE, not to each view's effective lens: `encodeHash` omits only
+     BASE-valued fields, and emitting `f=int` for the corridor views would mint
+     the carried flag straight back into every shared link. What the two disabled
+     groups *display* is derived in Header from EFF_FD, the way segMode already
+     derives its own. */
+  if (LOCK_FD.has(at('view'))) { o.flow = BASE.flow; o.den = BASE.den; }
   /* the JLS corridor chip only exists in Tokovi. Carried anywhere else it is a
      flag with no panel behind it: it still set body.panel-open (which hides the
      legend outright below 900 px) and still swallowed an Escape press. */

@@ -5,7 +5,7 @@
    survive a link that no longer produced its numbers (see hash.ts). */
 import { YEARS } from './metrics.ts';
 import { detectLang, storedLang } from './i18n.ts';
-import type { State } from './types.ts';
+import type { Den, Flow, State, View } from './types.ts';
 
 /* The one field whose default is not a constant. It has to be resolved here
    rather than in App, because "omitted from the hash" means "equal to BASE" —
@@ -28,6 +28,27 @@ export const BASE: State = {
    own patch keys are added to this set at runtime (App.up), so Nalaz 4 — whose
    claim is about the Državljanstvo panel — also dies when that panel is closed,
    while a preset that never mentions a panel survives one being opened. */
+/* The four views that read their own metric and ignore Sastavnica/Vrijednosti:
+   `klasOf` hardcodes `val(iso, yi, 'tot', 'abs', true)`, and `flowOf`, `mxCell`
+   and `jlsVal` take neither argument. Both controls are disabled in all four,
+   which is exactly why a lens must not be able to sit behind them — see the
+   repair in hash.ts and the clamp in App.setView. */
+export const LOCK_FD = new Set<View>(['klas', 'flow', 'mx', 'jmap']);
+
+/* …and what those disabled groups should report while they are locked, which is
+   the metric the view actually draws rather than whatever the reader last chose
+   elsewhere. Corridors are moves within Croatia — the legends say so outright
+   ("Samo preseljenja unutar RH", "međužupanijska matrica") — so their lens is
+   `int`, while Klasifikacija classifies on total migration. Derived for display
+   only, never stored: storing `int` would put `f=int` back into every shared
+   corridor link, which is the carried flag this whole repair removes. */
+export const EFF_FD: Record<string, { flow: Flow; den: Den }> = {
+  klas: { flow: 'tot', den: 'abs' },
+  flow: { flow: 'int', den: 'abs' },
+  mx: { flow: 'int', den: 'abs' },
+  jmap: { flow: 'int', den: 'abs' },
+};
+
 export const STORY_KEYS = ['view', 'flow', 'den', 'cum', 'yi', 'dir', 'sel', 'pair', 'thr', 'thrRel', 'thrPct'] as const;
 
 /* Closing a card unmounts the button that had focus, which drops focus to <body>

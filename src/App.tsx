@@ -3,7 +3,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { YEARS, Y0, YEND, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { encodeHash, readHash } from './lib/hash.ts';
-import { BASE, focusSoon } from './lib/state.ts';
+import { BASE, LOCK_FD, focusSoon } from './lib/state.ts';
 import { L, NEWTAB, setLang, storedLang, storeLang, t, yr, yrSpan } from './lib/i18n.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
@@ -17,7 +17,7 @@ import Scrubber from './components/Scrubber.tsx';
 import Tooltip from './components/Tooltip.tsx';
 import { exportPNG, exportSVG, type ExportInfo } from './lib/exportPng.ts';
 import { ensureFonts } from './lib/exportFonts.ts';
-import type { Patch, State, View } from './lib/types.ts';
+import type { Den, Flow, Patch, State, View } from './lib/types.ts';
 
 declare global {
   interface Window {
@@ -83,6 +83,14 @@ export default function App() {
      first-entry jump still wins the first time. Ephemeral — never in the hash. */
   const vmem = useRef<Partial<Record<View, { yi: number; cum: boolean }>>>({});
 
+  /* Sastavnica+Vrijednosti are the same shape of shared pair, and the four views
+     that ignore them (LOCK_FD) also disable their controls — so a lens carried
+     into one sat behind a disabled group claiming it was pressed, and came back
+     out to repaint every county on the way to Saldo. Clamped on entry and put
+     back on the way out. One slot, not one per view: the lens is shared across
+     the three views that honour it, and per-view memory would break that. */
+  const fdmem = useRef<{ flow: Flow; den: Den } | null>(null);
+
   /* ── control transitions (v4 semantics + mx/jmap) ── */
   const setView = (v: View) => {
     const s = ref.current;
@@ -140,6 +148,16 @@ export default function App() {
        covers live cells (the argument PairCard settled for Matrica). */
     if (v === 'jmap' || v === 'yrs') { p.sel = null; p.pair = null; }
     if (v === 'mx' && !(s.sel && s.pair)) { p.sel = null; p.pair = null; }
+    /* the same clamp the codec applies, so the click path and a pasted link
+       agree: press Klasifikacija from a Saldo showing Prirodno / % popisa 2011.
+       and the two disabled groups no longer report a lens the view ignores, nor
+       hand it back on the way to the next view. */
+    if (LOCK_FD.has(v)) {
+      if (!LOCK_FD.has(s.view)) fdmem.current = { flow: s.flow, den: s.den };
+      p.flow = BASE.flow; p.den = BASE.den;
+    } else if (LOCK_FD.has(s.view) && fdmem.current) {
+      p.flow = fdmem.current.flow; p.den = fdmem.current.den;
+    }
     if (v === 'jmap') { p.yi = IX2018; p.cum = false; }
     if ((v === 'klas' || (p.cum ?? s.cum)) && (p.yi ?? s.yi) < IX2011) p.yi = IX2011;
     up(p);

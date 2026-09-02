@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 499;
+const EXPECTED_CHECKS = 500;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3384,6 +3384,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('leaving Tokovi closes the JLS chip instead of leaving the flag set',
     uiFlag.opened && !uiFlag.after && !/jl=/.test(uiFlag.hash), JSON.stringify(uiFlag));
+
+  /* `f=` and `d=` are the same shape of dead flag, and were the two the repairs
+     missed. Klasifikacija, Tokovi, Matrica and JLS karta read their own metric
+     and disable both controls, so `#v=klas&f=nat&d=rel11&c=1&y=2024` rendered
+     byte-identically to the link without them while the disabled Sastavnica
+     group reported "Prirodno" pressed. Pressing Saldo then repainted every
+     county through it: legend MIGRACIJSKI SALDO → PRIRODNI PRIRAST — % POPISA
+     2011., top rail row Grad Zagreb +41.986 → Međimurska −1,6 %. That press is
+     what the first leg measures, because the pressed label alone is cosmetic.
+     Second leg: the click path in the other direction, which must clamp on the
+     way in AND hand the lens back on the way out — the reader's choice is not
+     the URL's to discard. */
+  await fresh('#v=klas&f=nat&d=rel11&c=1&y=2024');
+  const lensFD = await page.evaluate(async () => {
+    const on = id => (document.querySelector('#' + id + ' button[aria-pressed="true"]') || {}).dataset?.v;
+    const rail = () => (document.querySelector('#railList .rrow') || {}).textContent;
+    const boot = { flow: on('segFlow'), den: on('segDen'), hash: location.hash };
+    document.querySelector('#segView button[data-v="saldo"]').click();
+    await new Promise(r => setTimeout(r, 350));
+    const out = { rail: rail(), hash: location.hash };
+    /* and now the click path: pick a lens where it is live, carry it into a
+       locked view, come back */
+    document.querySelector('#segFlow button[data-v="nat"]').click();
+    document.querySelector('#segDen button[data-v="rel11"]').click();
+    await new Promise(r => setTimeout(r, 350));
+    document.querySelector('#segView button[data-v="jmap"]').click();
+    await new Promise(r => setTimeout(r, 400));
+    const locked = { flow: on('segFlow'), den: on('segDen'), hash: location.hash };
+    document.querySelector('#segView button[data-v="saldo"]').click();
+    await new Promise(r => setTimeout(r, 400));
+    return { boot, out, locked, back: { flow: on('segFlow'), den: on('segDen') } };
+  });
+  ck('a locked view neither carries a lens the reader never chose nor eats the one they did',
+    lensFD.boot.flow === 'tot' && lensFD.boot.den === 'abs'
+    && !/[&#]f=|[&#]d=/.test(lensFD.boot.hash)
+    && /\+41\.986/.test(lensFD.out.rail) && !/[&#]f=|[&#]d=/.test(lensFD.out.hash)
+    && lensFD.locked.flow === 'int' && lensFD.locked.den === 'abs'
+    && !/[&#]f=|[&#]d=/.test(lensFD.locked.hash)
+    && lensFD.back.flow === 'nat' && lensFD.back.den === 'rel11',
+    JSON.stringify(lensFD));
   /* focusSoon must not aim at a hidden element and drop focus on the floor */
   await fresh('#v=saldo&c=1&y=2024&s=HR-18&cz=1');
   const escFocus = await page.evaluate(async () => {

@@ -4,7 +4,7 @@ import { exportPNG, exportSVG } from '../lib/exportPng.ts';
 import { ensureFonts } from '../lib/exportFonts.ts';
 import { jlsGeo, regGeo } from '../lib/geoAsync.ts';
 import { StorySelect } from './StoryBar.tsx';
-import { focusSoon } from '../lib/state.ts';
+import { EFF_FD, LOCK_FD, focusSoon } from '../lib/state.ts';
 import { PAPER, paperPending, paperSub } from '../lib/credits.ts';
 import { L, t, titleAlt, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State, View } from '../lib/types.ts';
@@ -109,7 +109,13 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
      buttons consult the payload now, so the figure cannot be minted at all in a
      state the app is already reporting as incomplete. */
   const geoMissing = (S.view === 'jmap' && !jlsGeo()) || (S.view === 'reg' && !regGeo());
-  const lockFD = S.view === 'klas' || S.view === 'flow' || S.view === 'mx' || S.view === 'jmap';
+  const lockFD = LOCK_FD.has(S.view);
+  /* …and while locked, report the metric the view actually draws rather than the
+     raw state, exactly as segMode below derives 'cum'. The raw form left the two
+     disabled groups asserting aria-pressed on a lens their view ignores —
+     "Prirodno" over a Klasifikacija that classifies on total migration, and over
+     three corridor views whose own legends say "Samo preseljenja unutar RH". */
+  const eff = EFF_FD[S.view];
   const lockT = S.view === 'klas' || S.view === 'jmap';
   return (
     <header className="hd">
@@ -159,11 +165,11 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
             opts={[['saldo', t('view.saldo')], ['klas', t('view.klas')], ['reg', t('view.reg')], ['yrs', t('view.yrs')], ['flow', t('view.flow')], ['mx', t('view.mx')], ['jmap', t('view.jmap')]]} />
         </div>
         <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">{t('ctrl.flow')}</span>
-          <Seg id="segFlow" labId="segFlowLab" value={S.flow} off={lockFD} title={OFF_TIP()} onPick={v => setS({ flow: v })}
+          <Seg id="segFlow" labId="segFlowLab" value={eff ? eff.flow : S.flow} off={lockFD} title={OFF_TIP()} onPick={v => setS({ flow: v })}
             opts={[['tot', L('Migracije', 'Migration')], ['int', t('flow.int')], ['ext', t('flow.ext')], ['nat', t('flow.nat')], ['all', t('flow.all')]]} />
         </div>
         <div className="ctrl" id="cDen"><span className="ctrl-lab" id="segDenLab">{L('Vrijednosti', 'Values')}</span>
-          <Seg id="segDen" labId="segDenLab" value={S.den} off={lockFD} title={OFF_TIP()} onPick={v => setS({ den: v })}
+          <Seg id="segDen" labId="segDenLab" value={eff ? eff.den : S.den} off={lockFD} title={OFF_TIP()} onPick={v => setS({ den: v })}
             opts={[['abs', t('den.abs')], ['rel11', t('den.rel11')], ['relest', t('den.relest')]]} />
         </div>
         <div className="ctrl" id="cMode"><span className="ctrl-lab" id="segModeLab">{t('ctrl.time')}</span>
