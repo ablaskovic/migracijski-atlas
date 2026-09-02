@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 518;
+const EXPECTED_CHECKS = 519;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8179,6 +8179,77 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     coarseOn && coarseMoves.length === 0,
     coarseOn ? coarseMoves.slice(0, 3).join('  ;  ').slice(0, 300) : 'pointer:coarse never matched');
   await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── a real finger, and the device class emulation cannot reach ──
+     Every "touch" check in this file drives the emulated phone with page.mouse:
+     `page.touchscreen`, `.tap(` and Input.dispatchTouchEvent appear nowhere, so
+     no tap or gesture had ever been executed. And the coarse flag was asserted
+     only where it is trivially true — Chrome's touch emulation flips `pointer`,
+     `any-pointer` and `hover` together, so `pointer:coarse` and
+     `any-pointer:coarse` never disagreed in any of the thirteen touch viewports.
+     The device class index.css names in prose — a touch laptop or a Surface,
+     where the primary pointer is the mouse and the 44 px tokens are already on —
+     was emulated nowhere, and it is exactly where tip.ts says every JS touch
+     affordance was off.
+     Reached with a matchMedia shim that answers `(pointer:coarse)` false and
+     leaves `(any-pointer:coarse)` alone, on its own page so nothing else in the
+     run sees it. Then the same real tap in both, and the property that matters:
+     the readout must land ABOVE the contact point in either, because on this
+     surface it is the only value readout there is. Measured before the fix, the
+     hybrid put it 14 px BELOW the finger that summoned it. */
+  const tapRes = [];
+  for (const hybrid of [false, true]) {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    if (hybrid) {
+      await pg.evaluateOnNewDocument(() => {
+        const real = matchMedia.bind(window);
+        window.matchMedia = q => (/\(\s*pointer\s*:\s*coarse\s*\)/.test(q) && !/any-pointer/.test(q))
+          ? { media: q, matches: false, addEventListener() {}, removeEventListener() {},
+            addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false }
+          : real(q);
+      });
+    }
+    await pg.setViewport({ width: 1440, height: 900, isMobile: false, hasTouch: true, deviceScaleFactor: 1 });
+    await pg.goto(url + '#v=mx&y=2018&c=0&dir=out', { waitUntil: 'domcontentloaded' });
+    await pg.waitForFunction(() => document.querySelectorAll('#map .mxc').length > 100, { timeout: 20000 }).catch(() => {});
+    await settle(600);
+    const media = await pg.evaluate(() => ({
+      pc: matchMedia('(pointer:coarse)').matches,
+      apc: matchMedia('(any-pointer:coarse)').matches,
+      hbw: getComputedStyle(document.documentElement).getPropertyValue('--hbw').trim(),
+      mxhit: document.querySelectorAll('.mxhit').length }));
+    const t = await pg.evaluate(() => {
+      for (const c of document.querySelectorAll('#map .mxc')) {
+        const r = c.getBoundingClientRect();
+        if (r.width < 5 || r.height < 5) continue;
+        const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+        const hit = document.elementFromPoint(x, y);
+        if (!hit) continue;
+        if (hit !== c && !/mxhit/.test(hit.className.baseVal || '')) continue;
+        return { x, y };
+      }
+      return null;
+    });
+    if (t) await pg.touchscreen.tap(t.x, t.y);
+    await settle(500);
+    const tip = await pg.evaluate(() => {
+      const el = document.querySelector('#tip');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left),
+        right: Math.round(r.right), text: (el.textContent || '').replace(/\s+/g, ' ').trim() };
+    });
+    tapRes.push({ hybrid, media, t, tip });
+    await pg.close();
+  }
+  ck('a real finger tap places the readout above the contact point, on a phone and on a touch laptop alike',
+    tapRes.length === 2
+    && tapRes[0].media.pc && tapRes[1].media.pc === false
+    && tapRes.every(r => r.media.apc && r.media.hbw === '44px' && !!r.t && !!r.tip)
+    && tapRes.every(r => r.tip.bottom <= r.t.y && r.tip.top >= 0 && r.tip.left >= 0
+      && r.tip.right <= 1440 && /Grad Zagreb/.test(r.tip.text)),
+    JSON.stringify(tapRes));
 
 
   /* ══════════════════ v2.3.2 — audit pass ══════════════════ */

@@ -70,11 +70,22 @@ export function moveTip(e: { clientX: number; clientY: number }) {
      Matrica and the JLS map. COARSE is exported from this very module and
      consulted by four components; the placement never asked. The larger pad
      clears the contact patch itself. */
-  const pad = COARSE ? 24 : 14, tw = tipNode.offsetWidth, th = tipNode.offsetHeight;
+  /* …and it asked the SESSION flag, so on a touch laptop or a Surface — where
+     the primary pointer is the mouse and index.css is already serving the full
+     44 px coarse layout — a finger tap got the mouse placement, i.e. the readout
+     back under the hand that summoned it. Measured at 1440×900 with a real
+     touch tap on a matrix cell at y=349: the tip landed at top 363 px, 14 px
+     below the finger, against 207 px above it on the same tap when the primary
+     pointer is coarse. `wasTouch()` is the per-event answer this module already
+     records for exactly this class of guard. It is last-press, not per-move, so
+     a mouse hover straight after a tap keeps the touch placement until the next
+     press — the same latch the drill guards already accept. */
+  const coarse = COARSE || wasTouch();
+  const pad = coarse ? 24 : 14, tw = tipNode.offsetWidth, th = tipNode.offsetHeight;
   let x = e.clientX + pad;
-  let y = COARSE ? e.clientY - th - pad : e.clientY + pad;
+  let y = coarse ? e.clientY - th - pad : e.clientY + pad;
   if (x + tw > innerWidth - 6) x = e.clientX - tw - pad;
-  if (COARSE) { if (y < 6) y = e.clientY + pad; }
+  if (coarse) { if (y < 6) y = e.clientY + pad; }
   else if (y + th > innerHeight - 6) y = e.clientY - th - pad;
   /* flipping can push it past the near edge on a narrow screen — clamp both ends
      so the tip is never partly outside the viewport (labels got cut off at 390) */
