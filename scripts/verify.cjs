@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 604;
+const EXPECTED_CHECKS = 605;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8436,6 +8436,33 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('an open chip panel covers no cell, and the grid keeps a usable cell',
     ydock.pos === 'absolute' && ydock.open === 1 && ydock.boxes >= 3
     && ydock.under === 0 && ydock.cw >= 12 && ydock.ch >= 12, JSON.stringify(ydock));
+
+  /* ── and below 900 px, where the dock is NOT absolute, the effect writes
+     nothing new ──
+     The measurement above is the branch that runs while the dock is positioned.
+     The other exit — the live one under 900 px, where the dock drops into normal
+     flow — reset `panel` with a fresh object literal. React's useState bail-out
+     is Object.is, which a new object never satisfies, so every view change, chip
+     toggle, chip-tab change and width change scheduled a MapView render for a
+     value that was already {0,0}; on the JLS map that is 556 .jl paths
+     reconciled for a byte-identical result. A re-render with identical output
+     mutates no DOM and the production bundle carries no profiler, so this is
+     read out of the source, the way the dictionary scan is: both exits of the
+     effect have to use the guarded updater its sibling already uses. The live
+     half is measured instead — that the branch is reached at all. */
+  const mvSrc = fs.readFileSync(path.resolve(__dirname, '../src/components/MapView.tsx'), 'utf8');
+  const panelSets = [...mvSrc.matchAll(new RegExp('setPanel[(]', 'g'))].length;
+  const panelGuarded = [...mvSrc.matchAll(new RegExp('setPanel[(]p =>', 'g'))].length;
+  await page.setViewport({ width: 860, height: 900 });
+  await fresh('#v=saldo&c=1&y=2024');
+  const dockFlow = await page.evaluate(() => {
+    const d = document.querySelector('.chipdock');
+    return d ? getComputedStyle(d).position : 'absent';
+  });
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('both exits of the chip-dock measurement bail out on an unchanged panel',
+    panelSets === 2 && panelGuarded === 2 && dockFlow === 'static',
+    JSON.stringify({ panelSets, panelGuarded, dockFlow }));
 
   /* The dock covers cells when it is CLOSED too — the case nothing was watching.
      `panel` used to be reported only while a chip was open, so the collapsed

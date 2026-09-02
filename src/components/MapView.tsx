@@ -230,7 +230,18 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
   const [panel, setPanel] = useState({ w: 0, h: 0 });
   useEffect(() => {
     const el = wrapRef.current?.parentElement?.querySelector<HTMLElement>('.chipdock');
-    if (!el || getComputedStyle(el).position !== 'absolute') { setPanel({ w: 0, h: 0 }); return; }
+    /* the guarded updater on this exit too, not only on the one six lines
+       down. Below 900 px the dock drops into normal flow, so this is the live
+       branch — measured: at 860 px the computed position is static, at 1440 it
+       is absolute — and the effect re-runs on every view change, chip toggle,
+       chip-tab change and width change. A fresh object literal never satisfies
+       React's Object.is bail-out, so each of those scheduled a MapView render
+       for a value that was already {0,0}: on the JLS map that is 556 .jl paths
+       reconciled for a byte-identical result. */
+    if (!el || getComputedStyle(el).position !== 'absolute') {
+      setPanel(p => (p.w === 0 && p.h === 0 ? p : { w: 0, h: 0 }));
+      return;
+    }
     const measure = () => {
       const bs = [...el.querySelectorAll<HTMLElement>('.chipcard, .chipcard.open .chip-body')]
         .filter(e => e.getClientRects().length).map(e => e.getBoundingClientRect());
