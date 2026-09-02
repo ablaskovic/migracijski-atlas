@@ -1926,22 +1926,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     diagTip.includes('unutar iste županije') && diagTip.includes('dijagonala'), diagTip.slice(0, 80));
 
   /* ── matrix clears an open chip panel instead of hiding cells under it ── */
-  await fresh('#v=mx&c=0&y=2018&dir=out&cz=1');
-  await settle(300);
-  const clear = await page.evaluate(() => {
-    const cells = [...document.querySelectorAll('.mxc')].map(c => c.getBoundingClientRect());
-    const g = { left: Math.min(...cells.map(r => r.left)), right: Math.max(...cells.map(r => r.right)),
-      top: Math.min(...cells.map(r => r.top)), bottom: Math.max(...cells.map(r => r.bottom)) };
-    const p = document.querySelector('#citz').getBoundingClientRect();
-    /* real rectangle intersection — the grid may clear the panel on either axis */
-    const ov = Math.max(0, Math.min(g.right, p.right) - Math.max(g.left, p.left))
-      * Math.max(0, Math.min(g.bottom, p.bottom) - Math.max(g.top, p.top));
-    return { ov: Math.round(ov), open: document.querySelector('#citz').classList.contains('open'),
-      cell: Math.round(cells[0].width) };
-  });
-  ck('open panel does not overlap the matrix grid, and cells stay usable',
-    clear.open && clear.ov === 0 && clear.cell >= 12,
-    'overlap ' + clear.ov + ' px², cell ' + clear.cell);
+  /* Both panels, and a range of heights. This ran once, at the suite's default
+     viewport, while Godine's identical property gets an eight-viewport sweep
+     including 700, 720 and 768 px tall — so a gridfit or chip-reserve change
+     that let the open panel cover the right-hand matrix columns at 1280×700 but
+     not at 1440×900 was invisible here and caught there. That sibling asymmetry
+     is the MA3-016 lesson, applied to one of the two grid views. The 11-viewport
+     height sweep further down does load this state but compares nine overlay ids
+     against each other and never a .mxc; the closed-dock sweep covers mx at four
+     widths, all at height 900. Measured across these ten configurations on HEAD:
+     overlap 0 px² everywhere, cells 12–18,4 px — a test gap, not a defect. */
+  const mxClear = [];
+  for (const panel of ['cz=1', 'ag=1']) {
+    for (const [vw, vh] of [[1600, 900], [1440, 900], [1280, 720], [1024, 700], [960, 900]]) {
+      await page.setViewport({ width: vw, height: vh });
+      await fresh(`#v=mx&c=0&y=2018&dir=out&${panel}`);
+      await settle(300);
+      const r = await page.evaluate(sel => {
+        const cells = [...document.querySelectorAll('.mxc')].map(c => c.getBoundingClientRect());
+        if (!cells.length) return { none: true };
+        const g = { left: Math.min(...cells.map(r2 => r2.left)), right: Math.max(...cells.map(r2 => r2.right)),
+          top: Math.min(...cells.map(r2 => r2.top)), bottom: Math.max(...cells.map(r2 => r2.bottom)) };
+        const el = document.querySelector(sel);
+        const p2 = el.getBoundingClientRect();
+        /* real rectangle intersection — the grid may clear the panel on either axis */
+        const ov = Math.max(0, Math.min(g.right, p2.right) - Math.max(g.left, p2.left))
+          * Math.max(0, Math.min(g.bottom, p2.bottom) - Math.max(g.top, p2.top));
+        return { ov: Math.round(ov), open: el.classList.contains('open'),
+          cell: Math.round(cells[0].width), n: cells.length };
+      }, panel === 'cz=1' ? '#citz' : '#agec');
+      if (r.none || !r.open || r.ov !== 0 || r.cell < 12 || r.n !== 441) {
+        mxClear.push(`${panel} ${vw}x${vh} ${JSON.stringify(r)}`);
+      }
+    }
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('an open panel does not overlap the matrix grid at any height, and cells stay usable',
+    mxClear.length === 0, mxClear.slice(0, 3).join(' | '));
 
   /* ── JLS map is reachable without a pointer ── */
   await fresh('#v=jmap&dir=net');
