@@ -23,6 +23,32 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 import json, openpyxl
+
+# ── atomic write ─────────────────────────────────────────────────────────────
+# open(path, 'w') truncates the target the moment it opens, and json.dump
+# streams incrementally — so a Ctrl+C, a full disk or an OOM part-way through
+# leaves the payload truncated and unparseable, and an interruption before the
+# first chunk leaves it empty. Fault-injected on the dump call this replaces:
+# 19.241 bytes -> 17.126 and a JSONDecodeError on reload.
+# parse_nat is the sharp case, because it is the only read-modify-write here:
+# its input IS src/data/atlas_data2.json, and the README says the leaf series
+# has no committed parser, so absorbing a DZS revision means editing that file
+# by hand and re-running this. An interruption there destroys uncommitted work
+# `git checkout` cannot bring back. The others write regenerable files, but they
+# write them the same way and there is no reason to keep two habits.
+# os.replace is atomic on the same volume on Windows and POSIX alike.
+# An interrupted run leaves the .tmp behind, which the next successful one
+# overwrites — a stray temp file is a better outcome than a destroyed payload.
+import os as _os, json as _json
+
+def write_json(path, obj, **kw):
+    tmp = str(path) + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        _json.dump(obj, f, **kw)
+        f.flush()
+        _os.fsync(f.fileno())
+    _os.replace(tmp, path)
+
 wb = openpyxl.load_workbook('raw/stan-2026-2-1_tablice-hr.xlsx', read_only=True, data_only=True)
 ws = wb['I T2']
 rows = list(ws.iter_rows(values_only=True))
@@ -66,7 +92,7 @@ for i in range(5):
             ('Hrvatska','Europa','Azija','Afrika','Sjeverna i Srednja Amerika',
              'Južna Amerika','Oceanija','Nepoznato')), ('Ukupno != sum of continents', years[i], f)
 out = {'years': years, 'tot': tot, 'g': G}
-json.dump(out, open('../../src/data/citizen.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
+write_json('../../src/data/citizen.json', out, ensure_ascii=False, separators=(',',':'))
 # headline checks
 i24, i25 = years.index(2024), years.index(2025)
 print('foreign share of doseljeni 2024: %.1f%%' % (100*(1-G['hr']['d'][i24]/tot['d'][i24])))

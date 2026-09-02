@@ -23,6 +23,32 @@ if hasattr(sys.stderr, 'reconfigure'):
 import json, re, unicodedata, openpyxl
 from collections import defaultdict
 
+# ── atomic write ─────────────────────────────────────────────────────────────
+# open(path, 'w') truncates the target the moment it opens, and json.dump
+# streams incrementally — so a Ctrl+C, a full disk or an OOM part-way through
+# leaves the payload truncated and unparseable, and an interruption before the
+# first chunk leaves it empty. Fault-injected on the dump call this replaces:
+# 19.241 bytes -> 17.126 and a JSONDecodeError on reload.
+# parse_nat is the sharp case, because it is the only read-modify-write here:
+# its input IS src/data/atlas_data2.json, and the README says the leaf series
+# has no committed parser, so absorbing a DZS revision means editing that file
+# by hand and re-running this. An interruption there destroys uncommitted work
+# `git checkout` cannot bring back. The others write regenerable files, but they
+# write them the same way and there is no reason to keep two habits.
+# os.replace is atomic on the same volume on Windows and POSIX alike.
+# An interrupted run leaves the .tmp behind, which the next successful one
+# overwrites — a stray temp file is a better outcome than a destroyed payload.
+import os as _os, json as _json
+
+def write_json(path, obj, **kw):
+    tmp = str(path) + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        _json.dump(obj, f, **kw)
+        f.flush()
+        _os.fsync(f.fileno())
+    _os.replace(tmp, path)
+
+
 def fold(s):
     s = s.lower().replace('đ','d').replace('Đ','d')
     s = s.replace('\u2012','-').replace('\u2013','-').replace('\u2014','-').replace('\u2015','-').replace('\u2212','-')
@@ -119,7 +145,7 @@ for regidx, j in used.items():
     iso, name = reg[regidx]
     names[j] = [name, ISOS.index(iso)]
 out = {'names': names, 'c': drill}
-json.dump(out, open('../../src/data/jls_drill.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
+write_json('../../src/data/jls_drill.json', out, ensure_ascii=False, separators=(',',':'))
 print('jls_drill.json bytes:', len(open('../../src/data/jls_drill.json','rb').read()), '| names used:', len(names))
 top = drill['HR-21']['out'][:3]
 print('HR-21 top out:', [(names[s][0],'->',names[t][0],w) for s,t,w in top])

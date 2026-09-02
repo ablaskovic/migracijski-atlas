@@ -22,6 +22,32 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 import json, openpyxl
 
+# ── atomic write ─────────────────────────────────────────────────────────────
+# open(path, 'w') truncates the target the moment it opens, and json.dump
+# streams incrementally — so a Ctrl+C, a full disk or an OOM part-way through
+# leaves the payload truncated and unparseable, and an interruption before the
+# first chunk leaves it empty. Fault-injected on the dump call this replaces:
+# 19.241 bytes -> 17.126 and a JSONDecodeError on reload.
+# parse_nat is the sharp case, because it is the only read-modify-write here:
+# its input IS src/data/atlas_data2.json, and the README says the leaf series
+# has no committed parser, so absorbing a DZS revision means editing that file
+# by hand and re-running this. An interruption there destroys uncommitted work
+# `git checkout` cannot bring back. The others write regenerable files, but they
+# write them the same way and there is no reason to keep two habits.
+# os.replace is atomic on the same volume on Windows and POSIX alike.
+# An interrupted run leaves the .tmp behind, which the next successful one
+# overwrites — a stray temp file is a better outcome than a destroyed payload.
+import os as _os, json as _json
+
+def write_json(path, obj, **kw):
+    tmp = str(path) + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        _json.dump(obj, f, **kw)
+        f.flush()
+        _os.fsync(f.fileno())
+    _os.replace(tmp, path)
+
+
 atlas = json.load(open('../../src/data/atlas_data2.json', encoding='utf-8'))
 YEARS = atlas['years']; C = atlas['c']
 NAMES = {C[iso]['n']: iso for iso in C}
@@ -69,7 +95,7 @@ for yi, y in enumerate(YEARS):
         assert sum(col) == natRH[yi], (y, sum(col), natRH[yi])
 
 atlas['natRH'] = (natRH + [None]*n)[:n]
-json.dump(atlas, open('../../src/data/atlas_data2.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',',':'))
+write_json('../../src/data/atlas_data2.json', atlas, ensure_ascii=False, separators=(',',':'))
 missing = {iso: [YEARS[i] for i,v in enumerate(C[iso]['nat']) if v is None] for iso in got if any(v is None for v in C[iso]['nat'])}
 print('nat patched. years in sheet:', years_in_sheet[0], '-', years_in_sheet[-1])
 print('missing cells:', missing or 'none')
