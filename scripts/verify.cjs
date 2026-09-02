@@ -5124,6 +5124,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      reload and every check stayed green.
      Both halves: the press must NOT navigate while offline, and the armed
      listener must recover the view by itself when the network returns. */
+  const errsOff = errors.length;
   blockGeoChunk = true;
   await page.goto('about:blank');
   await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
@@ -5146,8 +5147,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     offlineState.href === urlBefore && offlineState.mounted && !!offlineState.note
     && /Nema mreže/.test(offlineState.note) && backOnline === 556,
     JSON.stringify({ offlineState, backOnline }));
-  /* the offline window logs its own resource failures; they are ours */
-  for (let i = errors.length - 1; i >= 0; i--) {
+  /* the offline window logs its own resource failures; they are ours — but only
+     the ones that arrived INSIDE it. Sweeping the whole ledger took the
+     deliberate geo_jls abort the next check exists to sweep and assert, and that
+     check then failed on a clean ledger with nothing dropped. */
+  for (let i = errors.length - 1; i >= errsOff; i--) {
     if (/geo_jls/.test(errors[i]) || /ERR_INTERNET_DISCONNECTED|ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
   }
   /* The aborted request above is a deliberate console error. Drop exactly it —
