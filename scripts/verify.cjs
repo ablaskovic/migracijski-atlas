@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 558;
+const EXPECTED_CHECKS = 559;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9059,11 +9059,22 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* An explicit act beats an inference, always. A reader sitting in Zagreb who
      once pressed EN gets English on the next visit — the region must not
      silently undo the one signal that is not a guess. */
+  /* Both directions. Only the stored-'en'-in-Zagreb case was ever booted, and
+     the one other place this file writes atlas-lang decides both of its boots
+     with an explicit l= link, so the store is never the deciding signal there
+     either. The mirror — an emigrant who once pressed HR, browsing from London
+     on an English browser — was booted nowhere, so a regression honouring only
+     stored === 'en' (or reading storage after the region test on one branch)
+     served that reader English over their explicit choice with every language
+     check green, under a check named for the opposite. */
   const stored = await bootLang(['hr-HR', 'hr'], 'Europe/Zagreb', 'en');
+  const storedHr = await bootLang(['en-GB', 'en'], 'Europe/London', 'hr');
   ck('a stored choice still outranks both signals, and is that reader’s own default',
     /* no l= either: BASE.lang resolves from the stored choice, so English *is*
        this reader's default and a link they share must not force it on anyone */
     stored.l === 'en' && !/l=/.test(stored.hash), JSON.stringify(stored));
+  ck('…and the other way too: a stored hr survives an English browser abroad',
+    storedHr.l === 'hr' && !/l=/.test(storedHr.hash), JSON.stringify(storedHr));
 
   /* Every page in the four blocks above was opened at the bare `/`, and the bare
      `/` is the address the head has to describe — not whoever happens to be
