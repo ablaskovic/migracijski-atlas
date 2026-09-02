@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 479;
+const EXPECTED_CHECKS = 480;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -915,6 +915,40 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('permalink boots flow HR-17 dolasci 2018',
     perma.lab.includes('Splitsko-dalmatinska') && perma.yr === '2018.' && perma.dir === 'in',
     JSON.stringify(perma));
+
+  /* …and the other half of that sentence, which nothing asserted: that the app
+     WRITES the direction it is showing. The check above drives a hand-typed
+     literal hash and reads a segment button, so it exercises decodeHash alone,
+     and the Nalaz round-trip battery is blind by construction — all three
+     direction-bearing presets set dir:'net', which equals BASE.dir and is
+     therefore never emitted. Measured: deleting `if (S.dir !== BASE.dir)
+     p.set('dir', S.dir)` from encodeHash — one of the six fields that define a
+     view — left the whole suite green while every shared Odlasci or Dolasci link
+     silently became Neto. A reader who picks Odlasci and copies the address
+     hands every recipient, and their own next reload, a different map: Tokovi
+     renders "Neto tokovi: Grad Zagreb ↔ partneri" instead of "Grad Zagreb →
+     ostale županije", Matrica "neto za redak" instead of "dolasci (stupac →
+     redak)", the JLS map "neto po JLS" instead of "odlasci iz JLS" — different
+     arcs, different ramp, different numbers.
+     Pressed, copied, re-booted: the direction has to survive the round trip in
+     each of the three views where it is the whole subject. */
+  const dirTrip = [];
+  for (const [v, d, want] of [['flow&s=HR-21', 'out', 'ostale'],
+    ['mx&s=HR-21&pp=HR-01', 'in', 'dolasci'], ['jmap', 'out', 'odlasci']]) {
+    await fresh('#v=' + v + '&c=0&y=2018');
+    await click(`#segDir button[data-v="${d}"]`);
+    await settle(200);
+    const h = await page.evaluate(() => location.hash);
+    await fresh(h);
+    const seen = await page.evaluate(() => ({
+      title: (document.querySelector('.legend-title') || {}).textContent || '',
+      dir: (document.querySelector('#segDir button[aria-pressed="true"]') || {}).dataset?.v ?? '',
+    }));
+    dirTrip.push({ v, d, hash: h, ok: h.includes('dir=' + d) && seen.dir === d
+      && seen.title.toLowerCase().includes(want), title: seen.title.slice(0, 46) });
+  }
+  ck('a direction the reader picked survives into the link and back out of it',
+    dirTrip.length === 3 && dirTrip.every(r => r.ok), JSON.stringify(dirTrip));
 
   /* ── Matrica view: full OD structure ── */
   await fresh('#v=mx&c=0&y=2018&dir=out');
