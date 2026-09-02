@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 532;
+const EXPECTED_CHECKS = 533;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9524,6 +9524,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a missing hashed asset is not cached for a year',
     missAsset.status === 404 && !/immutable/.test(missAsset.cc),
     JSON.stringify(missAsset));
+
+  /* …and the release stamp, which nothing here asserted at all. The plugin that
+     writes it is an exact-string replace on `<html lang="hr">` and returned the
+     input unchanged when it missed: add a class, a dir or reorder the attributes
+     and the build succeeds, every check passes, CI goes green and the deploy
+     ships unstamped — after which the one monotonic staleness signal the README
+     sells is gone, and the next manual smoke run reports a CURRENT deploy as
+     "older than v2.6.0". The plugin throws now; this is the other half, because
+     a build that cannot stamp and a suite that never looks are two failures. */
+  const stamp = (() => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+    const html = URLMODE ? null : fs.readFileSync(path.resolve(arg, 'index.html'), 'utf8');
+    const got = (html || '').match(/<html[^>]*\sdata-v="([^"]+)"/);
+    return { want: pkg.version, got: got ? got[1] : null };
+  })();
+  ck('the built markup carries the release stamp smoke.cjs reads',
+    URLMODE || (!!stamp.got && stamp.got === stamp.want),
+    JSON.stringify(stamp));
 
   /* ══════════ fixes that shipped with no check behind them ══════════
      Seven app-side repairs landed touching zero lines of this file, so reverting

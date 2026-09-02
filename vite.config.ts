@@ -20,7 +20,17 @@ import pkg from './package.json' with { type: 'json' };
 const stampVersion = {
   name: 'stamp-version',
   transformIndexHtml(html: string) {
-    return html.replace('<html lang="hr">', `<html lang="hr" data-v="${pkg.version}">`);
+    /* An exact-string replace that silently returns the input when it misses.
+       Add any attribute to the root tag — a class, a dir, a reordering — and the
+       anchor is gone: `vite build` succeeds, the whole suite passes (it asserted
+       canonical, hreflang and the cards, never the stamp), CI goes green and the
+       deploy ships unstamped. The one monotonic staleness signal the README
+       sells is then absent, and the next manual smoke run misdiagnoses a current
+       deploy as "older than v2.6.0" — the confusion this stamp was built to
+       end. A build that cannot stamp is a build that must not finish. */
+    const out = html.replace('<html lang="hr">', `<html lang="hr" data-v="${pkg.version}">`);
+    if (out === html) throw new Error('stamp-version: <html lang="hr"> not found in index.html');
+    return out;
   },
 };
 
