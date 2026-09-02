@@ -30,6 +30,8 @@ import mono5LatinExt from '../fonts/ibm-plex-mono-500-latin-ext.woff2';
 import oswaldLatin from '../fonts/oswald-latin.woff2';
 import oswaldLatinExt from '../fonts/oswald-latin-ext.woff2';
 
+import { FONT_NOTICE } from './licences.ts';
+
 type Face = { family: string; weight: number | string; url: string };
 const FACES: Face[] = [
   { family: 'IBM Plex Mono', weight: 400, url: monoLatin },
@@ -103,7 +105,7 @@ export function ensureFonts(): Promise<string> {
     const uri = await dataUri(f.url, ac.signal);
     return `@font-face{font-family:'${f.family}';font-style:normal;font-weight:${f.weight};`
       + `src:url(${uri}) format('woff2')}`;
-  })).then(parts => { css = parts.join(''); return css; })
+  })).then(parts => { css = `/* ${FONT_NOTICE} */` + parts.join(''); return css; })
     .catch(() => { pending = null; return ''; })
     .finally(() => clearTimeout(timer));
   return pending;

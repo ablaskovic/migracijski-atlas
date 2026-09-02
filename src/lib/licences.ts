@@ -99,6 +99,27 @@ export const FONT_LICENCES: { label: string; href: string }[] = [
   { label: 'Oswald', href: './fonts/OFL-Oswald.txt' },
 ];
 
+/* The notice that has to travel with the faces. The exported SVG carries six
+   complete woff2 files — measured, 129.322 base64 characters, ~97 KB of Font
+   Software in a 214 KB document — and is meant to be dropped into a paper or a
+   slide deck under the atlas's own CC BY grant, which makes it a redistributed
+   copy. It named the families in font-family attributes and named the figure,
+   the code and the data in its credit row, and never named the font licence at
+   all: no copyright line, no Reserved Font Name, no OFL. That is the one rule
+   this file writes down for itself four lines up, and LICENSE §4 and README
+   repeat — stated everywhere except on the artifact that actually leaves.
+   Verbatim from the first line of each shipped OFL text, so the two files and
+   this string are one fact. OFL §2 takes it as a human-readable header, which
+   is why it rides in the <style> that holds the faces rather than in the credit
+   row: the row is already four lines deep and width-fitted, and a notice
+   attached to the payload cannot be separated from it by a later edit. */
+export const FONT_NOTICE = [
+  'Embedded font software is licensed under the SIL Open Font License, Version 1.1.',
+  'Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"',
+  'Copyright 2016 The Oswald Project Authors (https://github.com/googlefonts/OswaldFont)',
+  'Licence text: https://scripts.sil.org/OFL',
+].join(' ');
+
 /* The export is the artifact that leaves the app and it has no link to click,
    so the terms go on it as text. Unconditional — every view's image carries the
    same licence, unlike the study line, which only the two views that reproduce

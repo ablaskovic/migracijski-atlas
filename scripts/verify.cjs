@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 546;
+const EXPECTED_CHECKS = 547;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4346,6 +4346,31 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       const s = window.__exportSVG(false) || '';
       return s.includes('geoBoundaries') && s.includes('ODbL');
     }));
+
+  /* ── P2: and the OFL notice travels with the faces it covers ──
+     the export embeds six complete woff2 files — measured, 129.418 base64
+     characters, ~97 KB of Font Software in a 214 KB document — and is meant to
+     be dropped into a paper under the atlas's own CC BY grant, which makes it a
+     redistributed copy. It named both families in font-family attributes and
+     credited the figure, the code and the data, and never named the font licence
+     at all. OFL §2 takes the notice as a human-readable header; it rides in the
+     same <style> as the payload, so the two cannot be separated by a later edit.
+     Asserted with the base64 stripped, because "OFL" appears by chance in
+     130 KB of it. */
+  const oflN = await page.evaluate(() => {
+    const svg = window.__exportSVG(false) || '';
+    const bare = svg.replace(/data:font\/woff2;base64,[A-Za-z0-9+/=]+/g, '');
+    return { faces: (svg.match(/data:font\/woff2;base64,/g) || []).length,
+      ofl: /SIL Open Font License, Version 1\.1/.test(bare),
+      ibm: /Reserved Font Name "Plex"/.test(bare),
+      osw: /The Oswald Project Authors/.test(bare),
+      href: /scripts\.sil\.org\/OFL/.test(bare),
+      leads: bare.indexOf('SIL Open Font License') > -1
+        && bare.indexOf('SIL Open Font License') < bare.indexOf('@font-face') };
+  });
+  ck('the embedded font software carries its OFL notice, ahead of the faces',
+    oflN.faces === 6 && oflN.ofl && oflN.ibm && oflN.osw && oflN.href && oflN.leads,
+    JSON.stringify(oflN));
 
   /* ── P2: the glossary no longer covers live tab stops ── */
   await fresh('#v=saldo&c=1&y=2024&s=HR-18');
