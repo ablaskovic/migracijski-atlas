@@ -915,7 +915,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a legend the cap turned into a scroller can actually be scrolled and reached',
     !!legScroll && legScroll.over && legScroll.pe === 'auto' && legScroll.tab === '0'
     && legScroll.lab.length > 5 && !!legScroll.after && legScroll.after.top > 0
-    && /scale(1)$/.test(legScroll.mapTf || '') && legScroll.focusable === true,
+    && /scale\(1\)$/.test(legScroll.mapTf || '') && legScroll.focusable === true,
     JSON.stringify(legScroll));
   /* …and a legend that fits is transparent to the pointer, so every county under
      it stays clickable — the reason pointer-events:none is the default. */
