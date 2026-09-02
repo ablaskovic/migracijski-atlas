@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 571;
+const EXPECTED_CHECKS = 572;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9569,6 +9569,35 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && kfRing.esc.focused && kfRing.esc.kf && !kfRing.click2.kf
     && kfRing.rule >= 5,
     JSON.stringify(kfRing));
+
+  /* ── Tokovi says what it does not draw ──
+     the arc list is filtered at |v| >= 5, inherited from the first commit and
+     written down nowhere: not in the legend, the glossary, the README or the
+     export caption. For a small county that is half the network — measured,
+     Ličko-senjska in the measured year draws 10 arcs against 20 rail rows in
+     Neto and 14 in Odlasci — so a reader counting arcs undercounts it, and "no
+     arc" reads as "no flow" where the honest answer is a flow of one to four
+     people. Asserted together: the gap has to exist (or the sentence would be
+     describing nothing) and both flow legends have to state it, in both
+     languages, with the number coming from the same constant the filter uses. */
+  const arcGap = {};
+  for (const [k, h] of [['net', '#v=flow&s=HR-09&dir=net&y=2018&c=0'],
+    ['out', '#v=flow&s=HR-09&dir=out&y=2018&c=0'],
+    ['enNet', '#l=en&v=flow&s=HR-09&dir=net&y=2018&c=0']]) {
+    await fresh(h);
+    arcGap[k] = await page.evaluate(() => ({
+      arcs: document.querySelectorAll('#map .arc').length,
+      rows: document.querySelectorAll('#railList .rrow').length,
+      note: (document.querySelector('#legend .legend-note') || {}).textContent || '' }));
+  }
+  ck('the flow legend states the corridors the map does not draw',
+    arcGap.net.rows === 20 && arcGap.net.arcs < arcGap.net.rows
+    && arcGap.out.arcs < arcGap.out.rows
+    && /Koridori ispod 5 osoba nisu ucrtani/.test(arcGap.net.note)
+    && /Koridori ispod 5 osoba nisu ucrtani/.test(arcGap.out.note)
+    && /Corridors under 5 people are not drawn/.test(arcGap.enNet.note),
+    JSON.stringify({ net: arcGap.net.arcs, out: arcGap.out.arcs, rows: arcGap.net.rows,
+      hr: arcGap.net.note.slice(0, 90), en: arcGap.enNet.note.slice(0, 90) }));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));

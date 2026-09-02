@@ -58,6 +58,14 @@ export const ISOS = Object.keys(D);
 const minus = (s: string): string => s.replace(/-/g, '−');
 export const fmtI: Pick<Intl.NumberFormat, 'format'> = { format: n => minus(numI().format(n)) };
 export const fmtR: Pick<Intl.NumberFormat, 'format'> = { format: n => minus(numR().format(n)) };
+/* The arc-existence threshold. Tokovi draws no arc for a corridor under this,
+   which is a fact about the picture and therefore a fact the legend has to
+   state — so the number lives here rather than as a literal in the filter and
+   a different literal in the sentence. */
+export const ARC_MIN = 5;
+export const arcMinNote = (): string =>
+  L(`Koridori ispod ${ARC_MIN} osoba nisu ucrtani. `, `Corridors under ${ARC_MIN} people are not drawn. `);
+
 export const sgn = (v: number, f: Pick<Intl.NumberFormat, 'format'>) =>
   (v > 0 ? '+' : v < 0 ? '−' : '') + f.format(Math.abs(v));
 

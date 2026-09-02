@@ -1,6 +1,7 @@
 import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, preMargin, preMarginNote, pragText, fmtI, fmtR,
+  arcMinNote,
 } from '../lib/metrics.ts';
 import { PAPER_WINDOW, paperSplit, paperThrLine } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
@@ -315,8 +316,13 @@ export default function Legend({ S }: { S: State }) {
         <div className="legend" id="legend">
           <div className="legend-title">{L('Neto tokovi: ', 'Net flows: ')}<span lang="hr">{D[S.sel!]?.n || ''}</span>{L(' ↔ partneri · ', ' ↔ partners · ')}{per}</div>
           <GradBar scale={divScale(m)} m={m} rel={false} mark={mark} />
+          {/* …and what the picture leaves out. Corridors under ARC_MIN people are
+              not drawn at all (MapView), which for a small county is half its
+              partner list — measured, Ličko-senjska in the measured year draws
+              10 arcs against 20 rail rows. Nothing said so, so a reader
+              counting arcs undercounted the network. */}
           <div className="legend-note">{L('Plavo: odabrana županija dobiva od partnera. Strelica pokazuje smjer selidbe. ',
-            'Blue: the selected county gains from the partner. The arrowhead shows the direction of the move. ')}{src}{preNote(S, true)}</div>
+            'Blue: the selected county gains from the partner. The arrowhead shows the direction of the move. ')}{arcMinNote()}{src}{preNote(S, true)}</div>
         </div>
       );
     }
@@ -348,7 +354,7 @@ export default function Legend({ S }: { S: State }) {
           : L('Boja: koliko je ljudi došlo iz te županije u odabranu — veličina jednosmjernog toka, a ne saldo obojene županije. ',
             'Colour: how many people came from that county to the selected one — the size of the one-way flow, not the coloured county’s own balance. ')}
         {L('Debljina luka po korijenskoj (√) skali, relativno na odabranu županiju (nije usporediva između županija). Strelica pokazuje smjer selidbe. ',
-          'Arc width on a square-root (√) scale, relative to the selected county (not comparable between counties). The arrowhead shows the direction of the move. ')}{src}{preNote(S, true)}</div>
+          'Arc width on a square-root (√) scale, relative to the selected county (not comparable between counties). The arrowhead shows the direction of the move. ')}{arcMinNote()}{src}{preNote(S, true)}</div>
       </div>
     );
   }

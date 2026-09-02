@@ -5,6 +5,7 @@ import { scaleSqrt } from 'd3-scale';
 import {
   GEO, ISOS, DOM, RDOM, REGOF, SHORTN,
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowKind, jlsVal, jmapScale, countyAria, fmtI, fmtR, sgn,
+  ARC_MIN,
 } from '../lib/metrics.ts';
 import { jlsGeo, regGeo, jlsFailed, regFailed, retryGeo, geoStatus } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
@@ -408,7 +409,15 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
     const [sx, sy] = cent[sel];
     const items = ISOS.filter(p => p !== sel)
       .map(p => ({ p, v: flowOf(sel, S.dir, p, S.yi, S.cum) }))
-      .filter(d => Math.abs(d.v) >= 5)
+      /* Corridors under five people are not drawn — inherited from the first
+         commit and, until now, written down nowhere. It costs more than it
+         looks: for Ličko-senjska in the measured year the map draws 10 arcs
+         while the rail lists all 20 partners, and in Odlasci the same hub
+         drops 6–7 in most years. A reader counting arcs undercounts the
+         network, and "no arc" reads as "no flow" where the honest answer is
+         a flow of one to four people. The county FILLS still carry those
+         values, which is what caps the harm; the legend now says the rest. */
+      .filter(d => Math.abs(d.v) >= ARC_MIN)
       .sort((a, b) => Math.abs(a.v) - Math.abs(b.v));
     const paths = items.map(({ p, v }) => {
       const [tx, ty] = cent[p];
