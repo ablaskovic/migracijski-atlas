@@ -126,6 +126,17 @@ export default function App() {
   /* ── control transitions (v4 semantics + mx/jmap) ── */
   const setView = (v: View) => {
     const s = ref.current;
+    /* A pressed toggle in a group is inert, and Seg calls onPick for every
+       click including the one already aria-pressed. Without this guard the
+       whole transition ran on a press that changes nothing: measured from
+       #v=saldo&c=0&y=2000 with the film running, clicking the pressed Saldo
+       segment took #play from aria-pressed=true to false and stopped it, and
+       nulled every highlight, so a hovered readout vanished too. The reader
+       who clicks it to check which view they are in loses the animation they
+       started. applyStory composes this for same-view presets, and its own
+       patch carries playing:false, the story and every field it claims, so
+       nothing it depends on passes through here. */
+    if (v === s.view) return;
     vmem.current[s.view] = { yi: s.yi, cum: s.cum };
     /* Every highlight is scoped to the view that produced it. Carried across, a
        county `hl` set in Saldo left its tooltip — county saldo, doseljeni iz
