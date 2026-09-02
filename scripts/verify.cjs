@@ -691,9 +691,20 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     }) });
     await page.emulateMediaType(null);
   }
+  /* …and it has to FILL the band, not merely fit in it. A box that stayed at its
+     180 px floor would satisfy `over === 0` while printing the figure the atlas
+     exists for as a stamp: measured before the print height, the Saldo
+     choropleth drew 161,7 × 160 px inside a 1440 px band — a 3,4× linear, 11,6×
+     area reduction against the 555,7 × 550 it draws on screen, with counties
+     25–41 px wide and the legend beside it 55 % as tall as the whole map it
+     explains, covering 49 % of the box. The ranking bar chart got 508 px of the
+     sheet and the map 150. Measured after: 525,4 × 520 in a 540 px band at
+     1440×900 and 415,1 × 410,8 in a 431 px band on A4 landscape, with the legend
+     down to 16–20 %. 0,6 is well under the 0,85–0,96 every view now draws. */
   ck('every view prints its whole figure instead of cropping it to the box',
-    printFit.length === 7 && printFit.every(p => p.over === 0 && p.drawn > 100),
-    JSON.stringify(printFit.filter(p => p.over > 0 || p.drawn <= 100).slice(0, 3)));
+    printFit.length === 7
+    && printFit.every(p => p.over === 0 && p.drawn > 100 && p.drawn >= p.svgH * 0.6),
+    JSON.stringify(printFit.filter(p => p.over > 0 || p.drawn < p.svgH * 0.6).slice(0, 3)));
   await page.setViewport({ width: 1440, height: 900 });
   await fresh('');
   await page.hover('path[data-iso="HR-18"]');
