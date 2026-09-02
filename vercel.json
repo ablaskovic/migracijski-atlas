@@ -32,6 +32,10 @@
           "value": "same-origin"
         },
         {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000"
+        },
+        {
           "key": "Vary",
           "value": "Accept-Encoding"
         }

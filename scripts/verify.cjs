@@ -10475,11 +10475,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       d.slice(d.indexOf(' ') + 1).trim()]));
   const cspBad = [...new Set([...Object.keys(CSP_WANT), ...Object.keys(cspMap)])]
     .filter(k => cspMap[k] !== CSP_WANT[k]).map(k => k + ': ' + (cspMap[k] ?? '(absent)'));
+  /* HSTS with them. The live origin sent it before the audit pass and vercel.json
+     did not declare it — a platform default the repo neither owned nor checked,
+     so a move off Vercel dropped it with no signal anywhere. It is declared now,
+     which is what makes it assertable here as well as against the deploy. */
   ck('every response carries the deployed security policy, every directive of it',
     cspBad.length === 0 && Object.keys(cspMap).length === 10
     && docHdr['x-content-type-options'] === 'nosniff'
-    && /strict-origin/.test(docHdr['referrer-policy'] || ''),
-    JSON.stringify({ bad: cspBad, n: Object.keys(cspMap).length, nosniff: docHdr['x-content-type-options'] }));
+    && /strict-origin/.test(docHdr['referrer-policy'] || '')
+    && /max-age=\d{7,}/.test(docHdr['strict-transport-security'] || ''),
+    JSON.stringify({ bad: cspBad, n: Object.keys(cspMap).length,
+      nosniff: docHdr['x-content-type-options'], hsts: docHdr['strict-transport-security'] }));
   /* …and Vary with them. The origin content-negotiates every compressible
      response — the same URL returns 573.949 bytes as identity, 191.684 as gzip
      and 193.505 as brotli — and sent no `vary` header at all, while stamping

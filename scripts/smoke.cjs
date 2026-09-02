@@ -116,6 +116,27 @@ function localEntry() {
   /* The live origin sent exactly one security header (HSTS) before the audit
      pass: no CSP, no frame-ancestors, no nosniff, no Referrer-Policy. These are
      configured in vercel.json, which only the deploy can prove it applied. */
+  /* Two substrings of ten directives was not "the CSP the repo configures": a
+     vercel.json edit adding 'unsafe-inline' to script-src, or dropping
+     object-src and base-uri, deployed and this still printed ok. And three of
+     the headers in that block — COOP, Permissions-Policy and Vary — were never
+     compared at all, while HSTS, the one header the live origin sent before
+     the audit pass, came from the platform rather than the repo and was
+     asserted nowhere: move off Vercel and it vanishes with no signal. So the
+     configuration is the expectation now, read from the same file the deploy
+     reads, and HSTS is declared there rather than inherited. Vary is compared
+     by token because a platform may add its own. */
+  const vjHeaders = require(path.resolve(__dirname, '../vercel.json'))
+    .headers.find(h => h.source === '/(.*)').headers;
+  for (const { key, value } of vjHeaders) {
+    const got = home.headers[key.toLowerCase()] || '';
+    const ok = key.toLowerCase() === 'vary'
+      ? value.split(',').map(t => t.trim().toLowerCase())
+        .every(t => got.toLowerCase().split(',').map(x => x.trim()).includes(t))
+      : got === value;
+    ck(`the origin sends ${key} exactly as vercel.json configures it`, ok,
+      (got || 'absent').slice(0, 120));
+  }
   const csp = home.headers['content-security-policy'] || '';
   ck('the origin sends the Content-Security-Policy the repo configures',
     /default-src 'self'/.test(csp) && /frame-ancestors 'none'/.test(csp), csp.slice(0, 80) || 'absent');
