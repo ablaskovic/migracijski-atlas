@@ -60,13 +60,19 @@
    pre-v2.1.1 stacks, i.e. the placeholder shifted at the swap that the rest of
    the app was fixed not to shift at. The fallback faces are declared in
    index.css, which has not arrived yet at first paint; naming them here costs
-   nothing when they are absent and matches once they are there. */
+   nothing when they are absent and matches once they are there.
+   Sized in rem like every rule in index.css, and for the same reason: a reader
+   who has raised Appearance → Font size is asking every surface to follow, and
+   these three were the only px sizes the page served. They are not a detail —
+   .boot-fail is what index.html says when the entry chunk never arrives, and
+   ErrorBoundary re-uses the same three classes for a render failure, so this is
+   the copy a reader meets exactly when nothing else is on the page. */
 .boot-eyebrow{display:block;text-align:center;margin-bottom:7px;
   font-family:var(--mono,'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace);
-  font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut,#5F6A72)}
+  font-size:0.625rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mut,#5F6A72)}
 .boot-title{display:block;text-align:center;
   font-family:var(--disp,'Oswald','Oswald Fallback','Arial Narrow',sans-serif);
-  font-weight:600;font-size:23px;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
+  font-weight:600;font-size:1.4375rem;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
 .boot-bar{width:180px;max-width:60vw;height:2px;background:var(--line,#D9DDD6);overflow:hidden}
 .boot-bar i{display:block;width:40%;height:100%;background:var(--acc,#0F7D8C);
   animation:bootslide 1.1s ease-in-out infinite}
@@ -84,7 +90,7 @@
    both is "this is taking too long, try reloading". */
 .boot-fail{opacity:0;animation:bootgiveup 0s linear 10s forwards;
   font-family:var(--mono,'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace);
-  font-size:11px;line-height:1.5;text-align:center;color:var(--mut,#5F6A72);margin:0;max-width:34ch}
+  font-size:0.6875rem;line-height:1.5;text-align:center;color:var(--mut,#5F6A72);margin:0;max-width:34ch}
 .boot-fail a{color:var(--acc,#0F7D8C)}
 @keyframes bootgiveup{to{opacity:1}}
 </style>

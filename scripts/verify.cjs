@@ -692,11 +692,48 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     root.style.fontSize = '32px';
     const after = ['body', '.rname', '.legend-note'].map(s => parseFloat(getComputedStyle(document.querySelector(s)).fontSize));
     root.style.fontSize = '';
-    return { before, after };
+    /* …and the other 71 declarations, which three named selectors cannot speak
+       for. The check's title claims EVERY size and it sampled three: measured,
+       injecting `#resetBtn{font-size:11px !important}` left the trio scaling
+       14/11/9 → 28/22/18 and the check green, while the reset button stayed at
+       11 px through a doubled root — the browser's own Appearance → Font size
+       preference dead on that surface, which is the whole defect this check
+       exists to prevent. The stylesheet is self-hosted, so its rules are
+       readable here: every declaration is swept and its UNIT asserted. The
+       ratio test above stays as the behavioural half — a rem size can still be
+       defeated by an ancestor px, which the units alone would not catch. */
+    const px = [];
+    let seen = 0;
+    const walk = rules => {
+      for (const r of rules) {
+        /* The declaration FIRST, then the descent. CSS Nesting made every
+           CSSStyleRule a grouping rule as well, so a plain rule now carries an
+           empty `cssRules` list — a walk that tested for it and skipped read 0
+           of the 61 declarations in the built sheet and reported them all
+           clean. */
+        const v = r.style && r.style.fontSize;
+        /* rem/em/% track the reader's preference, and so does a keyword that
+           defers to an ancestor that does — `button{font-size:inherit}` is the
+           reset that stops a form control opting out of the whole scheme. */
+        if (v) {
+          seen++;
+          const ok = /(rem|em|%)$/.test(v.trim()) || /^(inherit|unset|revert|initial)$/.test(v.trim());
+          if (!ok) px.push((r.selectorText || '?') + ' → ' + v);
+        }
+        if (r.cssRules) walk(r.cssRules);
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      try { walk(sheet.cssRules); }
+      catch { /* a cross-origin sheet has no readable cssRules — none is served here */ }
+    }
+    return { before, after, px, seen };
   });
   ck('every size in the stylesheet tracks the reader’s font-size preference',
-    fsScale.before.every((v, i) => Math.abs(fsScale.after[i] / v - 2) < 0.02),
-    JSON.stringify(fsScale));
+    fsScale.before.every((v, i) => Math.abs(fsScale.after[i] / v - 2) < 0.02)
+    /* a floor, so a stylesheet that failed to load cannot pass by sweeping nothing */
+    && fsScale.seen >= 60 && fsScale.px.length === 0,
+    JSON.stringify({ before: fsScale.before, after: fsScale.after, seen: fsScale.seen, px: fsScale.px.slice(0, 4) }));
   await click('path[data-iso="HR-18"]');
   const cardRow = await page.evaluate(() => ({
     row: document.querySelector('#cardRow')?.textContent || '',
