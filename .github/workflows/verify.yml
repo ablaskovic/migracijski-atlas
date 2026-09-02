@@ -35,15 +35,40 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # This job reads a repository and runs a test suite; it has no reason to be
+    # able to write one. With no `permissions:` block the job took the
+    # repository's default GITHUB_TOKEN scope, and actions/checkout leaves that
+    # token in $GITHUB_WORKSPACE/.git/config as an http.extraheader unless told
+    # not to — so the one line below that executes third-party install code was
+    # doing so a directory away from a push credential for this repository, in a
+    # workflow that runs on every push to every branch.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           # matches engines.node in package.json
           node-version: '22.12'
           cache: npm
       - run: npm ci
-      # Chrome for the 463 puppeteer checks; --no-save keeps it out of the manifest
-      - run: npm i --no-save puppeteer
+      # Chrome for the puppeteer checks; --no-save keeps it out of the manifest.
+      #
+      # PINNED, because this is the only line in the job that executes
+      # third-party code. `npm ci` above runs none: of the 117 package-lock
+      # entries exactly one declares an install script (fsevents, os:darwin, so
+      # never on ubuntu-latest) and all 117 carry `resolved` + `integrity`.
+      # puppeteer declares `postinstall: node install.mjs`, so an unpinned
+      # `latest` would run whatever the registry served at that moment as the
+      # runner user — the shape of the 2025-09-08 chalk/debug incident, where
+      # `latest` moved for about two hours. An exact version cannot follow a
+      # compromised tag, and it also stops the OTHER failure mode: puppeteer
+      # raises its Node floor regularly (25.x already wants >=22.12.0) while
+      # setup-node is pinned to exactly 22.12, so an unpinned install turns every
+      # push red with no commit to this repository.
+      # Bump deliberately, alongside the Node line above.
+      - run: npm i --no-save --no-audit --no-fund puppeteer@25.8.0
       # tsc --noEmit && oxlint --deny-warnings && vite build && verify.cjs dist
       - run: npm run verify
