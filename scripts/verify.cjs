@@ -5312,7 +5312,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* ── P3: the corridor card encodes its two series with shape, not hue ── */
   await fresh('#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0');
   const pairShape = await page.evaluate(() => {
-    const paths = [...document.querySelectorAll('#pairSvg path')].filter(p => p.getAttribute('stroke'));
+    /* not .areaedge: the net area's upper edge is stroked in the same two
+       colours at full opacity (1.4.11 — the fill alone reads 1,6:1), and it
+       carries no dash, so an unfiltered find() picked it up and reported the
+       series as undashed. The class is what separates the value's outline from
+       the two series lines this check is about. */
+    const paths = [...document.querySelectorAll('#pairSvg path')]
+      .filter(p => p.getAttribute('stroke') && !p.classList.contains('areaedge'));
     const ins = paths.find(p => p.getAttribute('stroke') === '#1D4E89');
     const outs = paths.find(p => p.getAttribute('stroke') === '#B5341F');
     /* Presence recorded separately from the dash. `outs && getAttribute(...)`
@@ -5776,7 +5782,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* The retry reloads, because a failed module fetch is cached in the browser's
      module map and a second import() of the same specifier never hits the
      network (measured: 0 of 556 with the promise slot cleared). */
-  await click('#jretry');
+  /* the press reloads, so the wait has to be for the navigation first: the
+     waitForFunction swallows the context-destroyed error and the evaluate after
+     it then raced the new document, aborting the run mid-file */
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null),
+    click('#jretry'),
+  ]);
   await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 })
     .catch(() => {});
   const retried = await page.evaluate(() => document.querySelectorAll('#map .jl').length);

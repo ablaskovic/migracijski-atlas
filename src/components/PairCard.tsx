@@ -89,8 +89,8 @@ export default function PairCard({ S, setS }: { S: State; setS: (p: Patch) => vo
             stays pale underneath, which keeps the two-sided reading the clip
             paths are for. Raising the fill instead would have cost the same
             legibility the pale wash buys the lines drawn over it. */}
-        <path d={lineG(nets)!} fill="none" stroke="#1D4E89" strokeWidth={1.2} clipPath={`url(#${uid}p)`} />
-        <path d={lineG(nets)!} fill="none" stroke="#B5341F" strokeWidth={1.2} clipPath={`url(#${uid}n)`} />
+        <path className="areaedge" d={lineG(nets)!} fill="none" stroke="#1D4E89" strokeWidth={1.2} clipPath={`url(#${uid}p)`} />
+        <path className="areaedge" d={lineG(nets)!} fill="none" stroke="#B5341F" strokeWidth={1.2} clipPath={`url(#${uid}n)`} />
         <line x1={mL} x2={w - mR} y1={y(0)} y2={y(0)} stroke="var(--line)" />
         <path d={lineG(outs)!} fill="none" stroke="#B5341F" strokeWidth={1.3} />
         <path d={lineG(ins)!} fill="none" stroke="#1D4E89" strokeWidth={1.3} strokeDasharray="4 2.5" />
