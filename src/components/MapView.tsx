@@ -268,10 +268,24 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
      press does it too, since StoryBar is an in-flow sibling of .map-stage and
      mounting it fires the same ResizeObserver. Split, entering Tokovi or the JLS
      map pays a one-off projection at a moment that is already a layout change. */
+  /* …and only in a view that draws counties, which is the term this memo did
+     not carry while jds and rds beside it both do. Two of the seven views draw
+     none: Matrica and Godine put no .cnt in the DOM and receive no projection
+     output — they take size, legend, panel and zoom and nothing else. Every
+     resize frame there still ran fitExtent over the whole 21-county collection
+     plus 21 path, 21 centroid and 21 bounds computations and the offCentre
+     re-projection, and discarded all of it: measured at 2,93 ms of d3-geo per
+     frame in Matrica, 18 % of a 16,7 ms budget and about three quarters of a
+     frame at 4× CPU, for output nothing reads. A window drag fires it, and so
+     does pressing a Nalaz, since StoryBar is an in-flow sibling of the stage.
+     `drawn` still answers "has the layout measured itself", which is what the
+     two grid branches below use it for — it just stops paying for a projection
+     to say so. */
+  const drawsMap = S.view !== 'mx' && S.view !== 'yrs';
   const { drawn, cent, cds, box, p } = useMemo(() => {
-    if (!size.w || !size.h) {
+    if (!size.w || !size.h || !drawsMap) {
       return {
-        drawn: false, cent: {} as Record<string, [number, number]>,
+        drawn: !!(size.w && size.h), cent: {} as Record<string, [number, number]>,
         cds: {} as Record<string, string>,
         box: {} as Record<string, [number, number]>, p: null as ReturnType<typeof geoPath> | null,
       };
@@ -295,7 +309,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
       const q = proj(ll); if (q) cent[iso] = q;
     }
     return { drawn: true, cent, cds, box, p };
-  }, [size]);
+  }, [size, drawsMap]);
   /* the same projection as the counties, built only for the view that draws it */
   const jds = useMemo(
     () => (p && JGEO && S.view === 'jmap' ? JGEO.features.map(f => p(f) || '') : [] as string[]),

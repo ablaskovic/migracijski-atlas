@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 596;
+const EXPECTED_CHECKS = 597;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6981,6 +6981,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     paintWork.jmap.jl === 556 && paintWork.jmap.fmt > 1000
     && paintWork.mx.jl === 0 && paintWork.mx.fmt < paintWork.jmap.fmt / 2,
     JSON.stringify(paintWork));
+
+  /* ── a view that draws no map does not re-project one on every resize frame ──
+     jds and rds beside it carry a view term; the county memo did not. Matrica
+     and Godine put no .cnt in the DOM and receive no projection output — they
+     take size, legend, panel and zoom and nothing else — yet every resize frame
+     there ran fitExtent over the whole 21-county collection plus 21 path, 21
+     centroid and 21 bounds computations and the offCentre re-projection, and
+     discarded all of it. A window drag fires it, and so does pressing a Nalaz,
+     since StoryBar is an in-flow sibling of the stage.
+     Compared against Saldo rather than pinned to a millisecond count, because a
+     time is a fact about the machine and a ratio is a fact about the app:
+     Matrica draws no map and must cost LESS per resize frame than the view that
+     re-projects 21 counties. Measured before: 25,37 ms against Saldo's 21,22, a
+     ratio of 1,20. After: 6,91 against 20,66, a ratio of 0,33. */
+  const projCost = {};
+  {
+    const perf = await page.createCDPSession();
+    await perf.send('Performance.enable');
+    const script = async () => {
+      const m = await perf.send('Performance.getMetrics');
+      return (m.metrics.find(x => x.name === 'ScriptDuration') || {}).value || 0;
+    };
+    for (const [k, h] of [['mx', '#v=mx&y=2018&c=0&dir=out'], ['saldo', '#v=saldo&c=1&y=2024']]) {
+      await page.setViewport({ width: 1440, height: 900 });
+      await fresh(h);
+      await settle(700);
+      const s0 = await script();
+      const N = 16;
+      for (let i = 0; i < N; i++) {
+        await page.setViewport({ width: 1440 - (i % 2 ? 4 : 0), height: 900 });
+        await settle(70);
+      }
+      projCost[k] = +(((await script() - s0) * 1000) / N).toFixed(2);
+    }
+    await perf.detach();
+    await page.setViewport({ width: 1440, height: 900 });
+  }
+  ck('resizing Matrica costs less script than resizing the view that draws the map',
+    projCost.saldo > 1 && projCost.mx < projCost.saldo * 0.8,
+    JSON.stringify({ ...projCost, ratio: +(projCost.mx / projCost.saldo).toFixed(2) }));
 
   /* ── no two tick labels overlap, at any phone width, in either language ──
      the four-tick tier was gated at 200 px of chart and its comment reasons
