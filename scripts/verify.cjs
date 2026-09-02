@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 552;
+const EXPECTED_CHECKS = 553;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3141,6 +3141,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       && !netAgree.tip.includes('−' + netNum), JSON.stringify(netAgree).slice(0, 150));
   ck('matrix neto row lights the gaining half of the scale',
     parseFloat(netAgree.mark) >= 50, netAgree.mark);
+
+  /* ── and it is not a Saldo-only feature ──
+     markPct opened on `S.hl`, and two of the six views that draw a ramp never
+     write it from the rail: a Regije row writes S.regHl (the key MapView paints
+     .rhl from), so the reg branch at the foot of the function was unreachable
+     from the rail and fired only for a pointer over the map itself; and the yrs
+     branch returned early on a null S.yrHl, though Godine's own grid already
+     honours S.hl for the row band. Measured before: focusing "Zagrebačka regija
+     +55.281" lit the row and both its counties and left the −97.365 / 0 /
+     +97.365 ramp with no tick where 78,4 % belonged, and "Grad Zagreb +3.980" in
+     Godine the same at 76,6 %. The suite read .legend-mark in one view.
+     Keyboard focus, not hover: it is the input path the rail's own contract
+     names ("focus does the same, which is the only way to reach that highlight
+     from a keyboard") and the one that was dead. */
+  const tickViews = {};
+  for (const [k, h] of [['saldo', '#v=saldo&c=1&y=2024'], ['reg', '#v=reg&c=1&y=2024'],
+    ['yrs', '#v=yrs&c=0&y=2022'], ['flow', '#v=flow&s=HR-21&c=0&y=2018'],
+    ['mx', '#v=mx&c=0&y=2018'], ['jmap', '#v=jmap&dir=net']]) {
+    await fresh(h);
+    await page.waitForSelector('#railList .rrow', { timeout: 30000 }).catch(() => {});
+    tickViews[k] = await page.evaluate(() => {
+      const row = document.querySelector('#railList .rrow');
+      if (!row) return { none: true };
+      row.focus();
+      return new Promise(r => setTimeout(() => {
+        const mk = document.querySelector('#legend .legend-mark');
+        r({ mark: mk ? mk.style.left : null,
+          row: (row.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30),
+          lit: !!document.querySelector('.rrow.hl, .cnt.hl, .cnt.rhl, .jl.hl') });
+      }, 300));
+    });
+  }
+  ck('focusing the top rail row marks the legend, in every view that draws a ramp',
+    Object.keys(tickViews).length === 6
+    && Object.values(tickViews).every(v => v.lit && v.mark && /^[\d.]+%$/.test(v.mark)
+      && parseFloat(v.mark) >= 0 && parseFloat(v.mark) <= 100),
+    JSON.stringify(tickViews));
   /* out/in produce the same 20 corridors by construction, so the title must not
      promise a direction the list cannot show */
   await fresh('#v=mx&y=2018&c=0&dir=out');

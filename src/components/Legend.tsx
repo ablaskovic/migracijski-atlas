@@ -86,10 +86,26 @@ function markPct(S: State, m: number): number | null {
     return clamp(S.dir === 'net' ? (v + m) / (2 * m) * 100 : Math.abs(v) / m * 100);
   }
   /* the hovered cell names its own year, which is generally not S.yi — reading
-     the county highlight here would mark the scale at a different column's value */
+     the county highlight here would mark the scale at a different column's value.
+     A rail ROW is not that case: its number is by construction val(iso, S.yi),
+     which is the quantity this ramp measures, and Godine's own grid already
+     honours S.hl for the row band. So the cell keeps precedence and the row is
+     the fallback — without it, focusing “Grad Zagreb +3.980” in the rail lit the
+     row and the grid and left the −7.490 / 0 / +7.490 ramp with no tick at all,
+     where 76,6 % belonged. */
   if (S.view === 'yrs') {
-    if (!S.yrHl) return null;
-    return clamp((val(S.yrHl[0], S.yrHl[1], S.flow, S.den, S.cum) + m) / (2 * m) * 100);
+    if (S.yrHl) return clamp((val(S.yrHl[0], S.yrHl[1], S.flow, S.den, S.cum) + m) / (2 * m) * 100);
+    return iso ? clamp((val(iso, S.yi, S.flow, S.den, S.cum) + m) / (2 * m) * 100) : null;
+  }
+  /* Regije has its own highlight key. The rail's region rows write S.regHl — the
+     key MapView paints .rhl from — and never S.hl, so the branch at the foot of
+     this function was unreachable from the rail and the tick only ever appeared
+     for a pointer over the map itself. Measured on “Zagrebačka regija +55.281”:
+     the row lit, both its counties lit, and the −97.365 / 0 / +97.365 ramp got
+     nothing, where 78,4 % belonged. S.regHl is already a region key, so it needs
+     no REGOF lookup; the county-hover branch below stays as the fallback. */
+  if (S.view === 'reg' && S.regHl) {
+    return clamp((regVal(S.regHl, S.yi, S.flow, S.den, S.cum) + m) / (2 * m) * 100);
   }
   if (!iso) return null;
   if (S.view === 'flow') {
