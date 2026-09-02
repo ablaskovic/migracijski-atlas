@@ -2241,8 +2241,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   /* elementFromPoint, not bounding boxes: the banner covered the Dob i spol chip
      at every width from 1200 to 1600 and a click on it did nothing. */
   const reach = [], probedAll = new Set();
-  for (const w of [1600, 1440, 1280, 1100, 1000, 960]) {
-    await page.setViewport({ width: w, height: 900 });
+  /* …and a fixed 900 px height, while every collision this section documents is
+     height-driven. One short row joins the width sweep, at the plane the file's
+     own measurements say the card and the dock actually meet in. */
+  for (const [w, h9] of [[1600, 900], [1440, 900], [1280, 900], [1100, 900],
+    [1000, 900], [960, 900], [1280, 700]]) {
+    await page.setViewport({ width: w, height: h9 });
     for (const h of ['#v=saldo&f=ext&c=0&y=2025&cz=1&st=4', '#v=reg&c=1&y=2024&st=6',
       '#v=saldo&c=1&y=2024&s=HR-18&ag=1', '#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0&jl=1']) {
       await fresh(h);
@@ -2257,17 +2261,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
           const e = document.querySelector(sel);
           if (!e || !e.offsetParent) continue;
           const r = e.getBoundingClientRect();
-          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-          if (hit && !e.contains(hit) && hit !== e) out.push(sel + '<' + (hit.id || hit.className));
+          /* …the whole face, not the centre alone — the rule the short-stage
+             sweep below already applies, and the reason it gives: a header
+             half-covered is a header whose visible half is a lie about where the
+             control is. Measured with an overlay over the left 45 % of #storyX,
+             the centre probe alone returned true while the five returned
+             [false, false, true, true, true]. */
+          for (const fx of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+            const hit = document.elementFromPoint(r.left + r.width * fx, r.top + r.height / 2);
+            if (hit && !e.contains(hit) && hit !== e) out.push(sel + '@' + fx + '<' + (hit.id || hit.className));
+          }
           probed.add(sel);
         }
         return out;
       });
-      if (bad.length) reach.push(w + ' ' + h.slice(0, 22) + ' ' + bad.join(','));
+      if (bad.length) reach.push(w + 'x' + h9 + ' ' + h.slice(0, 22) + ' ' + bad.slice(0, 2).join(','));
       (await page.evaluate(() => [...(window.probed || [])])).forEach(x => probedAll.add(x));
     }
   }
-  ck('every chip header and close button is actually clickable, 960–1600 px',
+  ck('every chip header and close button is clickable across its whole face, 960–1600 px and on a short stage',
     reach.length === 0, reach.slice(0, 4).join(' | '));
   /* A sweep that probes nothing passes. Name the floor so it cannot: every
      selector above has to have been reachable in at least one of the states. */
