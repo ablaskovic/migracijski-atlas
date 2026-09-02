@@ -5790,7 +5790,12 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     const armed = await pg.evaluate(() => !!document.querySelector('#joffline'));
     if (leave) { await pg.click('#segView button[data-v="klas"]'); await settle(550); }
     await pg.setOfflineMode(false);
-    await pg.evaluate(() => window.dispatchEvent(new Event('online')));
+    /* on a macrotask: the listener retryGeo armed calls location.reload()
+       synchronously, and an evaluate whose context is torn down before it can
+       serialise its result rejects with "Execution context was destroyed" —
+       a harness abort, not a failed check. Returning first makes the order
+       deterministic; the wait below is what observes the reload. */
+    await pg.evaluate(() => { setTimeout(() => window.dispatchEvent(new Event('online')), 0); });
     await settle(1200);
     deferred[leave ? 'left' : 'stayed'] = { armed,
       ...(await pg.evaluate(() => ({ mark: window.__mark || 'GONE', hash: location.hash }))) };
@@ -6030,7 +6035,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     note: (document.querySelector('#joffline') || {}).textContent || null,
     retry: !!document.querySelector('#jretry') }));
   await page.setOfflineMode(false);
-  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  /* on a macrotask, for the reason given at the deferred-reload block above:
+     the armed listener reloads synchronously, and this evaluate raced its own
+     teardown — it aborted this file at 321/610 once. */
+  await page.evaluate(() => { setTimeout(() => window.dispatchEvent(new Event('online')), 0); });
   await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 20000 })
     .catch(() => {});
   const backOnline = await page.evaluate(() => document.querySelectorAll('#map .jl').length);
