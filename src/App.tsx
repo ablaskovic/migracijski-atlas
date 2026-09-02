@@ -564,6 +564,17 @@ export default function App() {
        link handed the recipient a preview card written in Croatian, and a crawler
        that renders the page indexed the same. Same effect, same key on S.lang. */
     document.querySelector('meta[name="description"]')?.setAttribute('content', t('meta.desc'));
+    /* …and the two og: strings with it, which are the ones a preview card
+       actually renders. The effect above was written because an English reader
+       sharing a link handed the recipient a card in Croatian — and
+       meta[name=description] is not what draws that card. Measured on ?l=en:
+       og:title 'Migracijski atlas županija · 1998.–2025.' and the Croatian
+       og:description, under an og:locale this same effect had already moved to
+       en_GB, so the card announced English and was written in Croatian.
+       Keyed on S.lang like the title and the description, not on the address:
+       these are the copy on screen, and they are what a reader shares. */
+    document.querySelector('meta[property="og:title"]')?.setAttribute('content', document.title);
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', t('meta.desc'));
     /* …and the canonical, which is now per-locale. index.html ships the Croatian
        one, and `?l=en` is a second indexable URL rather than a duplicate of it:
        a canonical pinned to the bare origin on both would tell a crawler the

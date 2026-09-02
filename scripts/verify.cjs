@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 512;
+const EXPECTED_CHECKS = 513;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -6444,15 +6444,62 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       if (!hd.alts.some(a => a.endsWith('=' + loc))) headBad.push(lang + ' sitemap loc unlinked: ' + loc);
     }
     if (hd.og.some(v => !v)) headBad.push(lang + ' og=' + JSON.stringify(hd.og));
+    /* …and 'complete' meant non-empty. og:title and og:description were
+       collected and never compared to anything, so ?l=en served a card reading
+       'Migracijski atlas županija · 1998.–2025.' and the Croatian sentence
+       under an og:locale of en_GB — a card that announced English and was
+       written in Croatian. The strings themselves are never asserted (a copy
+       edit is not a suite failure); what is asserted is that the card says what
+       the page says, in the language the page is in. */
+    if (hd.og[1] !== hd.title) headBad.push(lang + ' og:title ≠ document.title: ' + hd.og[1]);
+    if (hd.og[2] !== hd.desc) headBad.push(lang + ' og:description ≠ meta description: ' + hd.og[2].slice(0, 40));
     if (hd.og[3] !== (lang === 'en' ? 'en_GB' : 'hr_HR')) headBad.push(lang + ' og:locale=' + hd.og[3]);
     if (hd.og[4] === hd.og[3]) headBad.push(lang + ' og:locale:alternate = og:locale');
     if (!hd.tw || !hd.desc || !hd.author || !hd.title) headBad.push(lang + ' empty head field');
   }
   /* and the two locales must not be serving each other's copy */
   if (headMeta.hr.desc === headMeta.en.desc || headMeta.hr.title === headMeta.en.title) headBad.push('hr and en share head copy');
+  if (headMeta.hr.og[1] === headMeta.en.og[1] || headMeta.hr.og[2] === headMeta.en.og[2]) headBad.push('hr and en share card copy');
   ck('the head carries a per-locale canonical, an hreflang set and complete cards, on one origin',
     headBad.length === 0, headBad.slice(0, 3).join(' | '));
+  /* …and the journey through that address, which nothing walked. The only load
+     of `?l=en` in this file reads the head and leaves — no check has ever
+     pressed a language button on a query arrival, let alone reloaded after one.
+     That is the whole of the address's hard case: `?l=en` is a fact about how
+     the document was OPENED, the toggle is the reader saying it in the first
+     person, and the stored choice has to outrank the query on the next load or
+     the press can never be made to stick. Press HR, reload, and the page must
+     come back Croatian with a canonical that agrees — a stale `?l=en` in the
+     address must not re-impose English, and must not leave an English canonical
+     over a Croatian page. */
+  await page.goto('about:blank');
+  await page.goto(url + '?l=en', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+  await settle(400);
+  const qBefore = await page.evaluate(() => ({ lang: document.documentElement.lang,
+    canon: document.querySelector('link[rel="canonical"]').getAttribute('href') }));
+  await click('#segLang button[data-l="hr"]');
+  await settle(350);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+  await settle(400);
+  const qAfter = await page.evaluate(() => ({ lang: document.documentElement.lang,
+    canon: document.querySelector('link[rel="canonical"]').getAttribute('href'),
+    ogLoc: (document.querySelector('meta[property="og:locale"]') || {}).content,
+    pressed: document.querySelector('#segLang button[aria-pressed="true"]').dataset.l,
+    val: document.querySelector('#railList .rrow .rval').textContent,
+    search: location.search }));
+  /* left set, the next `fresh()` would boot Croatian-by-storage rather than
+     Croatian-by-default and every later language check would be measuring the
+     wrong reason */
+  await page.evaluate(() => { try { localStorage.removeItem('atlas-lang'); } catch { /* private mode */ } });
+  ck('a reader who presses HR on ?l=en keeps Croatian across a reload, canonical and all',
+    qBefore.lang === 'en' && /\?l=en$/.test(qBefore.canon)
+    && qAfter.lang === 'hr' && qAfter.pressed === 'hr' && !/\?l=en$/.test(qAfter.canon)
+    && qAfter.ogLoc === 'hr_HR' && !/l=en/.test(qAfter.search) && /\./.test(NBSP(qAfter.val)),
+    JSON.stringify({ qBefore, qAfter }));
   await fresh('');
+
 
   /* The first-paint placeholder. #root was empty until React mounted, which on
      the mobile profile meant 2.054 ms of "render delay" — 76 % of LCP — spent
@@ -6965,11 +7012,17 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      year and a dot (a standalone year label never ends a sentence). Content
      marked lang="hr" and the paper's own citation are exempt by construction —
      "Maras i Vinovrški (2026.)" is printed, not translated. */
+  /* …and one of those states opens the glossary, which none of them could: help
+     is not a permalink field, so the ~40 % of the app's English prose that lives
+     in #helpCard sat outside every English check in this file — every read of
+     that card here is in Croatian. */
   const enOrd = [];
-  for (const h of ['#l=en&v=saldo&c=1&y=2024&s=HR-18', '#l=en&v=klas&c=1&y=2024',
-    '#l=en&v=yrs&f=int&c=0&y=2022', '#l=en&v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0',
-    '#l=en&v=mx&y=2018&c=0&dir=net', '#l=en&v=reg&c=1&y=2024', '#l=en&cz=1', '#l=en&ag=1']) {
+  for (const [h, openHelp] of [['#l=en&v=saldo&c=1&y=2024&s=HR-18'], ['#l=en&v=klas&c=1&y=2024'],
+    ['#l=en&v=yrs&f=int&c=0&y=2022'], ['#l=en&v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0'],
+    ['#l=en&v=mx&y=2018&c=0&dir=net'], ['#l=en&v=reg&c=1&y=2024'], ['#l=en&cz=1'], ['#l=en&ag=1'],
+    ['#l=en&v=saldo&c=1&y=2024', true]]) {
     await fresh(h);
+    if (openHelp) { await click('#helpBtn'); await settle(250); }
     const bad = await page.evaluate(() => {
       const ORD = /\b(?:19|20)\d{2}\.(?=\s*[·–—,;:]|\s+[a-z]|\d)/;
       const BARE = /^(?:19|20)\d{2}\.$/;
@@ -6998,7 +7051,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       }
       return out;
     });
-    if (bad.length) enOrd.push(h + ' → ' + bad.slice(0, 2).join(' ; '));
+    if (bad.length) enOrd.push(h + (openHelp ? ' +glossary' : '') + ' → ' + bad.slice(0, 2).join(' ; '));
+    if (openHelp) {
+      const helpEn = await page.evaluate(() => {
+        const c = document.querySelector('#helpCard');
+        return { n: c ? c.textContent.length : 0, txt: c ? c.textContent : '' };
+      });
+      if (helpEn.n < 1500) enOrd.push('glossary did not open in English (' + helpEn.n + ' chars)');
+      /* the Croatian view names went undetected here once: the card is prose,
+         so a handful of unambiguous Croatian words is the practical test */
+      for (const w of ['Klasifikacija', 'Zemlje', 'Godine', 'Tokovi', 'Matrica', 'županij', 'preseljen']) {
+        if (new RegExp('\b' + w).test(helpEn.txt)) enOrd.push('glossary Croatian «' + w + '»');
+      }
+      await page.evaluate(() => document.querySelector('#helpX')?.click());
+      await settle(200);
+    }
   }
   ck('no Croatian year ordinal survives into English, anywhere on the page',
     enOrd.length === 0, enOrd.slice(0, 3).join(' | '));
