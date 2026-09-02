@@ -8,19 +8,45 @@ import { jlsGeo } from '../lib/geoAsync.ts';
 import type { CSSProperties } from 'react';
 import type { Klas, State } from '../lib/types.ts';
 
-function gradStyle(scale: (v: number) => string, m: number, neg: boolean): CSSProperties {
-  const stops = [];
-  for (let i = 0; i <= 10; i++) stops.push(scale(neg ? -m + 2 * m * i / 10 : m * i / 10) + ' ' + i * 10 + '%');
+/* Eleven stops sampled at evenly spaced VALUES, with the renderer interpolating
+   between them. That is exact enough for every ramp that is linear in value —
+   measured, max ΔE 0,90 across the 21 counties in Saldo and 0,34 in Regije,
+   none above 3. The JLS map is the app's only non-linear ramp: jmapScale applies
+   a signed √ before the colour scale, and it is steepest exactly where almost
+   every one of the 556 municipalities lives (|net| < 250 against m = 3.413), so
+   eleven stops under-state the whole middle of the key's own ramp. Measured by
+   rebuilding the ramp from the page's own stops: 442 of 556 municipalities
+   differ from the key at their own value by ΔE > 3 in dir=net (230 above 5,
+   worst 9,7 at Kutina), 514/556 in out and 355/556 in in. Read the way a reader
+   reads it — matching a polygon against the bar — Imotski's −79 looks like −256,
+   Slavonski Brod's −126 like −304, Dubrovnik's +162 like +345.
+   The count is a parameter now and the √ branch asks for 48, which brings the
+   worst case under ΔE 1 — the same order as the linear ramps — for about 1,5 KB
+   of gradient string. Placing eleven stops at inverse-transformed positions
+   would be exact for √ specifically and free, but it hardcodes the transform in
+   three emitters that should not know it. */
+/* the √ ramp's stop count, shared with the two export emitters through
+   legendSpec — a key drawn at one density and an image at another would be two
+   different keys for one map */
+export const JMAP_STOPS = 48;
+function evenStops(m: number, neg: boolean, n: number) {
+  return Array.from({ length: n + 1 }, (_, i) => ({ off: i / n, v: neg ? -m + 2 * m * i / n : m * i / n }));
+}
+function gradStyle(scale: (v: number) => string, m: number, neg: boolean, n = 10,
+  sample?: (k: number) => { off: number; v: number }[]): CSSProperties {
+  const pts = sample ? sample(n) : evenStops(m, neg, n);
+  const stops = pts.map(p => scale(p.v) + ' ' + (p.off * 100).toFixed(3) + '%');
   return { background: 'linear-gradient(90deg,' + stops.join(',') + ')' };
 }
 /* mark: "you are here" tick for the hovered county's value, in [0,100] % */
-function GradBar({ scale, m, rel, mark }: {
-  scale: (v: number) => string; m: number; rel: boolean; mark?: number | null;
+function GradBar({ scale, m, rel, mark, stops = 10, sample }: {
+  scale: (v: number) => string; m: number; rel: boolean; mark?: number | null; stops?: number;
+  sample?: (k: number) => { off: number; v: number }[];
 }) {
   const lab = rel ? (v: number) => fmtR.format(v) + ' %' : (v: number) => fmtI.format(Math.round(v));
   return (
     <>
-      <div className="legend-bar" style={gradStyle(scale, m, true)}>
+      <div className="legend-bar" style={gradStyle(scale, m, true, stops, sample)}>
         {mark != null && <div className="legend-mark" style={{ left: mark + '%' }} />}
       </div>
       <div className="legend-lbls"><span>{'−' + lab(m)}</span><span>0</span><span>{'+' + lab(m)}</span></div>
@@ -31,10 +57,11 @@ function GradBar({ scale, m, rel, mark }: {
 /* Sequential twin of GradBar. jmap, mx and flow each inlined this, and each
    evaluated markPct twice — once for the null test, once for the value. In jmap
    that is a linear scan over 556 features per call, per render, per hover. */
-function SeqBar({ scale, m, mark }: { scale: (v: number) => string; m: number; mark: number | null }) {
+function SeqBar({ scale, m, mark, stops = 10, sample }: { scale: (v: number) => string; m: number; mark: number | null;
+  stops?: number; sample?: (k: number) => { off: number; v: number }[] }) {
   return (
     <>
-      <div className="legend-bar" style={gradStyle(scale, m, false)}>
+      <div className="legend-bar" style={gradStyle(scale, m, false, stops, sample)}>
         {mark != null && <div className="legend-mark" style={{ left: mark + '%' }} />}
       </div>
       <div className="legend-lbls"><span>0</span><span>{fmtI.format(m)}</span></div>
@@ -201,7 +228,7 @@ export default function Legend({ S }: { S: State }) {
     );
   }
   if (S.view === 'jmap') {
-    const { m, scale } = jmapScale(S.dir);
+    const { m, scale, sample } = jmapScale(S.dir);
     const mark = markPct(S, m);
     const ttl = {
       out: L('odlasci iz JLS', 'moves out of the LAU'),
@@ -223,9 +250,11 @@ export default function Legend({ S }: { S: State }) {
     return (
       <div className="legend" id="legend">
         <div className="legend-title">{L('Gradovi i općine · ', 'Towns and municipalities · ')}{ttl} · {yr(2018)}</div>
+        {/* the √ ramp draws itself: 48 stops, placed where the ramp says — see
+            gradStyle and metrics.jmapScale */}
         {!ready ? null : S.dir === 'net'
-          ? <GradBar scale={scale} m={m} rel={false} mark={mark} />
-          : <SeqBar scale={scale} m={m} mark={mark} />}
+          ? <GradBar scale={scale} m={m} rel={false} mark={mark} stops={JMAP_STOPS} sample={sample} />
+          : <SeqBar scale={scale} m={m} mark={mark} stops={JMAP_STOPS} sample={sample} />}
         <div className="legend-note">{L('Boja po korijenskoj (√) skali. Samo preseljenja unutar RH (selidbe između JLS, bez inozemstva). Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY). Granice: OSM/ODbL.',
           'Colour on a square-root (√) scale. Internal moves only (between LAUs within Croatia, no international migration). Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY). Boundaries: OSM/ODbL.')}</div>
       </div>

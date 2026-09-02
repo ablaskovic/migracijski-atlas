@@ -5,6 +5,7 @@ import {
 } from './metrics.ts';
 import { ensureFonts, fontCss } from './exportFonts.ts';
 import { paperCaveatLine, paperExportLine, paperThrLine, regionReadingLine } from './credits.ts';
+import { JMAP_STOPS } from '../components/Legend.tsx';
 import { exportLicenceLine } from './licences.ts';
 import { L, t, yrSpan } from './i18n.ts';
 import type { Klas, State } from './types.ts';
@@ -442,10 +443,12 @@ export function bandLayout(S: State, w: number): Band {
   };
 }
 
+/* see Legend.gradStyle: eleven stops cannot represent the √ ramp the JLS map
+   uses, and the exported figure carried the same eleven */
 function gradBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number,
-  scale: (v: number) => string, m: number, neg: boolean) {
+  scale: (v: number) => string, m: number, neg: boolean, n = 10) {
   const gr = ctx.createLinearGradient(x, 0, x + w, 0);
-  for (let i = 0; i <= 10; i++) gr.addColorStop(i / 10, scale(neg ? -m + 2 * m * i / 10 : m * i / 10));
+  for (let i = 0; i <= n; i++) gr.addColorStop(i / n, scale(neg ? -m + 2 * m * i / n : m * i / n));
   ctx.fillStyle = gr; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = '#D9DDD6'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
@@ -572,12 +575,14 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
       lx += 16 + ctx.measureText(t).width + 18;
     }
   } else if (leg.kind === 'seq') {
-    gradBar(ctx, 20, ly, 190, 10, leg.scale ?? seqScale(leg.m, S.dir), leg.m, false);
+    /* leg.scale is set only by the JLS branch, which is the √ ramp — see
+       Legend.gradStyle for why eleven stops cannot draw it */
+    gradBar(ctx, 20, ly, 190, 10, leg.scale ?? seqScale(leg.m, S.dir), leg.m, false, leg.scale ? JMAP_STOPS : 10);
     ctx.fillStyle = '#5F6A72'; ctx.font = '400 9.5px "IBM Plex Mono",monospace';
     ctx.fillText('0', 20, ly + 22); ctx.textAlign = 'right'; ctx.fillText(fmtI.format(leg.m), 210, ly + 22); ctx.textAlign = 'left';
     ctx.fillText(leg.badge, 222, ly + 9);
   } else {
-    gradBar(ctx, 20, ly, 190, 10, leg.scale ?? divScale(leg.m), leg.m, true);
+    gradBar(ctx, 20, ly, 190, 10, leg.scale ?? divScale(leg.m), leg.m, true, leg.scale ? JMAP_STOPS : 10);
     const lab = (v: number) => leg.rel ? fmtR.format(v) + ' %' : fmtI.format(Math.round(v));
     ctx.fillStyle = '#5F6A72'; ctx.font = '400 9.5px "IBM Plex Mono",monospace';
     ctx.fillText('−' + lab(leg.m), 20, ly + 22);
@@ -612,10 +617,10 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const MONO = 'IBM Plex Mono,ui-monospace,monospace';
 const DISP = 'Oswald,Arial Narrow,sans-serif';
 
-function svgGrad(id: string, scale: (v: number) => string, m: number, neg: boolean): string {
+function svgGrad(id: string, scale: (v: number) => string, m: number, neg: boolean, n = 10): string {
   let stops = '';
-  for (let i = 0; i <= 10; i++)
-    stops += `<stop offset="${i * 10}%" stop-color="${scale(neg ? -m + 2 * m * i / 10 : m * i / 10)}"/>`;
+  for (let i = 0; i <= n; i++)
+    stops += `<stop offset="${i * 100 / n}%" stop-color="${scale(neg ? -m + 2 * m * i / n : m * i / n)}"/>`;
   return `<linearGradient id="${id}">${stops}</linearGradient>`;
 }
 const txt = (x: number, y: number, s: string, attrs: string) => `<text x="${x}" y="${y}" ${attrs}>${esc(s)}</text>`;
@@ -661,7 +666,8 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
     }
   } else {
     const neg = leg.kind === 'div';
-    defs = svgGrad(u + 'lg', leg.scale ?? (neg ? divScale(leg.m) : seqScale(leg.m, S.dir)), leg.m, neg);
+    defs = svgGrad(u + 'lg', leg.scale ?? (neg ? divScale(leg.m) : seqScale(leg.m, S.dir)), leg.m, neg,
+      leg.scale ? JMAP_STOPS : 10);
     const lab = (v: number) => (leg.kind === 'div' && leg.rel) ? fmtR.format(v) + ' %' : fmtI.format(Math.round(v));
     legSvg = `<rect x="20" y="${ly}" width="190" height="10" fill="url(#${u}lg)" stroke="#D9DDD6"/>`;
     const la = `font-family="${MONO}" font-size="9.5" fill="#5F6A72"`;

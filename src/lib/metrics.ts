@@ -417,10 +417,28 @@ export function jmapMax(dir: Dir): number {
 }
 /* signed-√ color ramp: 556 JLS with Grad Zagreb 10× above the rest renders
    blank on a linear domain; the √ transform is stated in the legend */
-export function jmapScale(dir: Dir): { m: number; scale: (v: number) => string } {
+/* …and where a key has to sample it. Every other ramp in the atlas is linear
+   in value, so evenly spaced stops draw it exactly (measured: max ΔE 0,90 over
+   the 21 counties in Saldo, 0,34 in Regije). This one is not: the √ is steepest
+   exactly where almost all 556 municipalities live, so stops evenly spaced in
+   VALUE under-state the middle of the key however many of them there are —
+   measured at 48 stops the worst municipality was still ΔE 4,8 out, with 359 of
+   556 over 3.
+   Sampled uniformly in the TRANSFORMED axis instead and placed where the value
+   it belongs to actually sits: the ramp knows its own shape, and the three
+   emitters that draw it do not have to. */
+export type Ramp = { m: number; scale: (v: number) => string;
+  sample?: (n: number) => { off: number; v: number }[] };
+export function jmapScale(dir: Dir): Ramp {
   const m = jmapMax(dir);
   const base = dir === 'net' ? divScale(m) : seqScale(m, dir);
-  return { m, scale: v => base(Math.sign(v) * Math.sqrt(Math.abs(v) / m) * m) };
+  const neg = dir === 'net';
+  return { m, scale: v => base(Math.sign(v) * Math.sqrt(Math.abs(v) / m) * m),
+    sample: n => Array.from({ length: n + 1 }, (_, i) => {
+      const u = neg ? -1 + 2 * i / n : i / n;
+      const v = Math.sign(u) * u * u * m;
+      return { off: neg ? (v + m) / (2 * m) : v / m, v };
+    }) };
 }
 
 /* national series for the scrubber */

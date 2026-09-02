@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 541;
+const EXPECTED_CHECKS = 542;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5498,6 +5498,73 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       before - errors.length >= 1 && errors.length === 0,
       JSON.stringify({ dropped: before - errors.length, left: errors.slice(0, 2) }));
   }
+  blockGeoChunk = false;
+
+  /* ── the JLS key has to be the ramp it keys ──
+     gradStyle sampled eleven stops at evenly spaced VALUES and let the renderer
+     interpolate. That is exact enough for every ramp that is linear in value —
+     max ΔE 0,90 across the 21 counties in Saldo, 0,34 in Regije. The JLS map is
+     the app's only non-linear ramp: jmapScale applies a signed √ before the
+     colour scale, steepest exactly where almost every one of the 556
+     municipalities lives (|net| < 250 against m = 3.413), so eleven stops
+     under-stated the whole middle of the key. Measured against each
+     municipality's own tick: worst ΔE 9,58 in net with 437 of 556 over 3 and 235
+     over 5, 518/556 over 3 in out, 395/556 in in. Read the way a reader reads it
+     — matching a polygon against the bar — Imotski's −79 looked like −256.
+     The ramp samples itself now, uniformly in the transformed axis and placed
+     where the value belongs, so the emitters do not have to know about the √.
+     Sampled at 16.000 px because a 1.000 px raster is itself worth ΔE 1–2 where
+     this ramp is steepest — measuring the measurement, not the key. */
+  const keyFit = {};
+  for (const dir of ['net', 'out', 'in']) {
+    await fresh('#v=jmap&dir=' + dir);
+    await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 30000 }).catch(() => {});
+    keyFit[dir] = await page.evaluate(d => {
+      const bar = document.querySelector('#legend .legend-bar');
+      const parts = [...getComputedStyle(bar).backgroundImage
+        .matchAll(/(rgba?\([^)]*\))\s+([\d.]+)%/g)].map(m => [m[1], parseFloat(m[2])]);
+      const W = 16000;
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = 1;
+      const ctx = cv.getContext('2d');
+      const gr = ctx.createLinearGradient(0, 0, W, 0);
+      for (const [c, p] of parts) gr.addColorStop(Math.min(1, Math.max(0, p / 100)), c);
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, W, 1);
+      const px = ctx.getImageData(0, 0, W, 1).data;
+      const keyAt = t => { const i = Math.min(W - 1, Math.max(0, Math.round(t * (W - 1)))) * 4;
+        return [px[i], px[i + 1], px[i + 2]]; };
+      const rgb = c => { const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c); return m ? [+m[1], +m[2], +m[3]] : null; };
+      const lab = ([r, g, b]) => { const f = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        const [R, G, B] = [f(r), f(g), f(b)];
+        let X = (0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047, Y = 0.2126 * R + 0.7152 * G + 0.0722 * B,
+          Z = (0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883;
+        const k = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+        [X, Y, Z] = [k(X), k(Y), k(Z)];
+        return [116 * Y - 16, 500 * (X - Y), 200 * (Y - Z)]; };
+      const dE = (a, b) => { const A = lab(a), B = lab(b); return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]); };
+      const num = s => parseFloat(String(s).replace(/\./g, '').replace('−', '-'));
+      const RX = /doseljeno (\d[\d.]*), odseljeno (\d[\d.]*), neto ([^\s,]+)/;
+      const vals = [];
+      for (const p of document.querySelectorAll('#map .jl')) {
+        const m = RX.exec(p.getAttribute('aria-label') || '');
+        if (!m) continue;
+        const inn = num(m[1]), o = num(m[2]), net = num(m[3]);
+        vals.push({ v: d === 'net' ? net : d === 'in' ? inn : o, fill: rgb(getComputedStyle(p).fill) });
+      }
+      const mm = Math.max(...vals.map(x => Math.abs(x.v)));
+      let worst = 0, over3 = 0;
+      for (const x of vals) {
+        const t = d === 'net' ? (x.v + mm) / (2 * mm) : x.v / mm;
+        const e = dE(x.fill, keyAt(t));
+        if (e > worst) worst = e;
+        if (e > 3) over3++;
+      }
+      return { stops: parts.length, n: vals.length, worst: +worst.toFixed(2), over3 };
+    }, dir);
+  }
+  ck('the JLS key draws the √ ramp it keys, not an eleven-point straight line through it',
+    ['net', 'out', 'in'].every(d => keyFit[d].n === 556 && keyFit[d].stops >= 40
+      && keyFit[d].worst < 2 && keyFit[d].over3 === 0),
+    JSON.stringify(keyFit));
   /* Privacy and determinism are the same property here: a page that reaches no
      third-party origin cannot leak a visitor's IP on first paint and cannot
      have a check quietly depend on someone else's uptime. */
