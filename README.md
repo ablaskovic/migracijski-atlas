@@ -31,7 +31,7 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
                      #   module, so file:// is CORS-blocked and renders blank)
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
-npm i -D puppeteer   # once, for verification (see below)
+npm i --no-save puppeteer@25.8.0   # once, for verification (see below)
 npm run verify       # typecheck + lint + build + 463-check suite (must pass)
 npm run smoke        # probe the DEPLOYED origin (network; not part of verify)
 ```
@@ -42,7 +42,10 @@ tool only `npm run verify` uses. `scripts/verify.cjs` says so when it cannot fin
 it, and honours `PUPPETEER_PATH` (a puppeteer package directory) and
 `PUPPETEER_EXECUTABLE_PATH` (an existing Chrome) if you would rather not install
 a second copy. It shipped in devDependencies from 2026-07-31 until the audit
-pass; this restores the documented state.
+pass; this restores the documented state — so the install above is `--no-save`
+and pinned, the same command [CI runs](.github/workflows/verify.yml). `-D` would
+write the devDependency back into `package.json` and `package-lock.json`, which
+is how it shipped the first time. A later `npm ci` removes it; repeat the line.
 
 The suite pins its own size — `EXPECTED_CHECKS` in `scripts/verify.cjs` — so a
 deleted check is a failure rather than a quieter green run. The number above is

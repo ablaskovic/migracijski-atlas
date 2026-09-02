@@ -37,7 +37,7 @@ catch {
     if (!process.env.PUPPETEER_PATH) throw new Error('no PUPPETEER_PATH');
     puppeteer = require(process.env.PUPPETEER_PATH);
   } catch {
-    console.error('puppeteer not found: npm i -D puppeteer');
+    console.error('puppeteer not found: npm i --no-save puppeteer@25.8.0');
     process.exit(2);
   }
 }

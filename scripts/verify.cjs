@@ -5,7 +5,8 @@
    Usage:
      node scripts/verify.cjs dist          # serve ./dist and check the production build
      node scripts/verify.cjs http://...    # check an already-running server (e.g. vite dev)
-   Needs puppeteer: `npm i -D puppeteer` (not a default devDep to spare the Chrome download),
+   Needs puppeteer: `npm i --no-save puppeteer@25.8.0` (not a default devDep, to spare the
+   Chrome download — and --no-save so following this line does not write it back),
    or point PUPPETEER_PATH at an existing install. */
 const path = require('path');
 const fs = require('fs');
@@ -33,7 +34,7 @@ catch {
     if (!process.env.PUPPETEER_PATH) throw new Error('no PUPPETEER_PATH');
     puppeteer = require(process.env.PUPPETEER_PATH);
   } catch {
-    console.error('puppeteer not found: npm i -D puppeteer'
+    console.error('puppeteer not found: npm i --no-save puppeteer@25.8.0'
       + '\n  (or set PUPPETEER_PATH to a puppeteer package dir,'
       + '\n   and/or PUPPETEER_EXECUTABLE_PATH to an existing Chrome)');
     process.exit(2);
