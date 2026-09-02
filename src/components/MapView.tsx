@@ -81,7 +81,6 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
      own fix was written for.
      2.4.11 allows the obscuring thing to move out of the way, so the card fades
      while a covered county holds focus and comes straight back on blur. */
-  const [covered, setCovered] = useState(false);
   const [jFoc, setJFoc] = useState(false);
   /* roving tabindex over the 556 municipalities — see the .jl paths below */
   const [jf, setJf] = useState(0);
@@ -102,6 +101,20 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
   /* wheel/pinch zoom + drag pan; identity by default so nothing else shifts */
   /* the glossary is a dialog and owns the keyboard while it is open — see useZoom */
   const zoom = useZoom(size.w, size.h, S.help);
+  const [covered, setCovered] = useState(false);
+  /* The zoom reset unmounts itself, and only its CLICK path hands focus on. The
+     documented keys do the same unmount from useZoom's window handler: with the
+     button focused, '0' or '−' back to 1× dropped focus to <body>, so the next
+     Tab restarted from the top of the page — the failure focusSoon exists to
+     prevent, asserted in this app only for click and Enter activations.
+     Guarded on focus having actually fallen: a reset from the mouse, or with
+     focus anywhere else, is left alone. */
+  const wasZoomed = useRef(zoom.zoomed);
+  useEffect(() => {
+    const was = wasZoomed.current;
+    wasZoomed.current = zoom.zoomed;
+    if (was && !zoom.zoomed && document.activeElement === document.body) focusSoon('#labBtn, #helpBtn');
+  }, [zoom.zoomed]);
   const zt = `translate(${zoom.t.x},${zoom.t.y}) scale(${zoom.t.k})`;
   /* a view change re-fits the content, so a leftover transform would be wrong;
      resetSeq is the ⟲ button, which owns the same "back to how it started" */

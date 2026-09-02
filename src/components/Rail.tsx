@@ -4,6 +4,7 @@ import {
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
+import { useEffect, useRef } from 'react';
 import { isKeyFocus } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import PairCard from './PairCard.tsx';
@@ -72,6 +73,17 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
   setJlsHl: (j: number | null) => void;
 }) {
   const JG = jlsGeo();
+  /* A rail row can unmount under the reader's own arrow key: in Matrica the
+     top-20 corridors recompute on every year step, and at 22 of the 27 steps
+     (dir=out) at least one corridor leaves the list. Its keyed row goes with it
+     and focus drops to <body> — measured on "Grad Zagreb → Karlovačka" at
+     1998→1999 — so the next Tab restarts from the top of the page. Every
+     activation path in this app hands focus on; the paths where the list
+     rebuilds under a focused row did not.
+     Handed to the row that now holds that position, which is where the reader
+     was looking, and only when focus actually fell. */
+  const listRef = useRef<HTMLDivElement>(null);
+  const focusedRow = useRef<number | null>(null);
   let rows: Row[], m: number, fill: (d: Row) => string, big = false;
   if (S.view === 'jmap') {
     /* net: 10 biggest gainers + 10 biggest losers; gross: top 20 */
@@ -198,6 +210,21 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     : S.view === 'flow' ? L('Partneri · ', 'Partners · ') + (D[S.sel!]?.n || '')
       : L('Poredak županija', 'County ranking');
 
+  const rowKeys = rows.map(d => (d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso)).join('|');
+  useEffect(() => {
+    const at = focusedRow.current;
+    if (at == null || document.activeElement !== document.body) return;
+    const list = listRef.current;
+    if (!list) return;
+    const all = list.querySelectorAll<HTMLElement>('.rrow');
+    if (!all.length) return;
+    /* on the frame after React commits, the way focusSoon does it — the node
+       is the target here, not a selector, because a corridor row has no stable
+       one of its own */
+    const want = all[Math.min(at, all.length - 1)];
+    requestAnimationFrame(() => { if (want.isConnected && document.activeElement === document.body) want.focus(); });
+  }, [rowKeys]);
+
   return (
     /* the complementary landmark was unnamed while its whole content changes per
        view — landmark navigation announced "complementary" and nothing else */
@@ -214,7 +241,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
       {/* the two lines above name what this list is and what period it covers;
           without the association they were decoration a screen reader met minutes
           before reaching the rows they describe */}
-      <div className="rail-list" id="railList" role="group" aria-labelledby="railLab railYear">
+      <div className="rail-list" id="railList" role="group" aria-labelledby="railLab railYear" ref={listRef}>
         {rows.map((d, i) => (
           <div key={d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso}
             className={'rrow' + (big ? ' big' : '') + (d.pair ? ' pairrow' : '') + (!d.reg && !d.pair && d.jls == null && d.iso === S.hl ? ' hl' : '') + (d.jls != null && d.jls === S.jlsHl ? ' hl' : '') + (d.reg && d.iso === S.regHl ? ' hl' : '') + (d.pair && S.pairHl && S.pairHl[0] === d.pair[0] && S.pairHl[1] === d.pair[1] ? ' hl' : '') + (isOpen(d) ? ' selrow' : '')}
@@ -258,13 +285,14 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
                rail, which is the side it wants anyway. */
             onFocus={e => {
               lightOn(d);
+              focusedRow.current = i;
               /* a click focuses the row too, and the pointer has already placed
                  the tip — the same guard the SVG handlers take */
               if (!isKeyFocus(e.currentTarget)) return;
               const r = e.currentTarget.getBoundingClientRect();
               moveTip({ clientX: r.right, clientY: r.bottom });
             }}
-            onBlur={() => lightOff(d)}
+            onBlur={() => { focusedRow.current = null; lightOff(d); }}
             onPointerMove={moveTip}
             onClick={() => activate(d)}
             onKeyDown={e => {

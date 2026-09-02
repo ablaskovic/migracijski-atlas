@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { STORIES } from '../lib/stories.ts';
 import { focusSoon } from '../lib/state.ts';
 import { L, t } from '../lib/i18n.ts';
@@ -48,6 +49,17 @@ export default function StoryBar({ S, setS }: {
      already populated is not guaranteed to announce (VoiceOver notoriously), so
      the original fix may never have reached the readers it was written for. Empty
      it paints nothing — see .storybar:empty. */
+  /* …and when a key clears it rather than its own ×. Tab to the banner's × and
+     press ArrowRight: App steps the year, `yi` is in STORY_KEYS so the caption
+     dies, this block unmounts the focused button and focus drops to <body> —
+     while CLICKING the same × hands focus to #story. Same hand-off, same
+     target, guarded on focus having actually fallen so nothing else is moved. */
+  const hadStory = useRef(S.story);
+  useEffect(() => {
+    const was = hadStory.current;
+    hadStory.current = S.story;
+    if (was != null && S.story == null && document.activeElement === document.body) focusSoon('#story');
+  }, [S.story]);
   return (
     <div className="storybar" id="storyBar" role="status" aria-live="polite">
       {S.story != null && (

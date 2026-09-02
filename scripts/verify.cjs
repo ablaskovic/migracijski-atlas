@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 523;
+const EXPECTED_CHECKS = 524;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4492,6 +4492,62 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      on the control that opened the card" rather than "focus is handed onward" */
   ck('activating a matrix cell does not drop focus to <body>',
     /v=mx/.test(drillFocus.view) && !drillFocus.body, JSON.stringify(drillFocus));
+
+  /* …and the three that unmount under a KEY rather than an activation. Every
+     activation path in this app hands focus on and this file asserts them; the
+     paths where the thing holding focus is unmounted by a global shortcut or by
+     a list rebuilding did not, and each dropped focus to <body> — after which
+     the next Tab restarts from the top of the page, the exact failure focusSoon
+     exists to prevent.
+       · the zoom reset unmounts ITSELF: its click path hands focus to
+         '#labBtn, #helpBtn', its documented '0' key handed it to nothing;
+       · the Nalaz banner's × dies when an arrow steps the year (yi is in
+         STORY_KEYS, so the caption is invalidated), while clicking the same ×
+         hands focus to #story;
+       · a Matrica corridor row unmounts when the top-20 recomputes — at 22 of
+         the 27 year steps in dir=out at least one corridor leaves the list, and
+         "Grad Zagreb → Karlovačka" does at 1998→1999. */
+  const keyHandoff = {};
+  await fresh('');
+  await page.evaluate(() => document.querySelector('#map').dispatchEvent(
+    new WheelEvent('wheel', { deltaY: -600, clientX: 500, clientY: 400, bubbles: true, cancelable: true })));
+  await settle(400);
+  await page.evaluate(() => document.querySelector('#zoomRst').focus());
+  await page.keyboard.press('0');
+  await settle(500);
+  keyHandoff.zoom = await page.evaluate(() => ({ active: document.activeElement.id || 'BODY',
+    mounted: !!document.querySelector('#zoomRst') }));
+  await fresh('');
+  await page.select('#story', '5');
+  await settle(500);
+  keyHandoff.hadX = await page.evaluate(() => !!document.querySelector('#storyX'));
+  await page.evaluate(() => document.querySelector('#storyX').focus());
+  await page.keyboard.press('ArrowRight');
+  await settle(600);
+  keyHandoff.story = await page.evaluate(() => ({ active: document.activeElement.id || 'BODY',
+    banner: !!document.querySelector('#storyCap') }));
+  await fresh('#v=mx&c=0&y=1998&dir=out');
+  await page.waitForFunction(() => document.querySelectorAll('#railList .rrow').length >= 20, { timeout: 15000 }).catch(() => {});
+  const railWas = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#railList .rrow')];
+    const at = rows.findIndex(r => /Karlovačka/.test(r.getAttribute('aria-label') || ''));
+    const i = at >= 0 ? at : 5;
+    rows[i].focus();
+    return { i, name: rows[i].getAttribute('aria-label') };
+  });
+  await page.keyboard.press('ArrowRight');
+  await settle(700);
+  keyHandoff.rail = { ...railWas, ...await page.evaluate(n => ({
+    active: document.activeElement === document.body ? 'BODY'
+      : (document.activeElement.getAttribute('data-iso') || document.activeElement.tagName),
+    gone: ![...document.querySelectorAll('#railList .rrow')].some(r => r.getAttribute('aria-label') === n),
+    yr: document.querySelector('#bigYear').textContent,
+  }), railWas.name) };
+  ck('a shortcut that unmounts the focused control hands focus on rather than dropping it',
+    keyHandoff.zoom.active === 'helpBtn' && !keyHandoff.zoom.mounted
+    && keyHandoff.hadX && keyHandoff.story.active === 'story' && !keyHandoff.story.banner
+    && keyHandoff.rail.gone && keyHandoff.rail.active !== 'BODY' && keyHandoff.rail.yr === '1999.',
+    JSON.stringify(keyHandoff));
 
   /* ── P2: keyboard pan, and the year keeps the bare arrows ── */
   await fresh('');
