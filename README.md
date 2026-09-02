@@ -69,8 +69,11 @@ Run it after a deploy.
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
 are their own chunks: the view that needs one fetches it on entry, and the other is
 warmed on a 1,5 s timer (skipped under Save-Data or 2g), so neither is ever on the
-first-paint path. Splitting them out is worth a little over half the transfer a
-first paint would otherwise carry.
+first-paint path. Splitting them out keeps roughly two fifths of the transfer a
+first paint would otherwise carry off that path — measured on the HEAD build,
+47 % of raw bytes and 42 % of the gzip a browser actually pulls. A proportion
+rather than a byte count, because the counts drift every time a line of source
+changes; “a little over half” was already under half when it replaced them.
 
 No byte counts here. They were stated as "measured on the current build" and were
 neither — four numbers restated from a build several releases old, drifting every
