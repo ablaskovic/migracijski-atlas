@@ -246,6 +246,21 @@ export function useZoom(w: number, h: number, frozen = false) {
 
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!pts.current.has(e.pointerId)) return;
+    /* A mouse that was released where we could not hear it. Below DEAD no
+       capture has been taken yet, so a press 2 px inside the map, a 1 px move
+       and a release outside the box delivers the pointerup to whatever was under
+       the cursor — never to this svg — and `drag` stays armed. Measured at
+       k=2,56: moving back over the map with NO button held panned it from
+       translate(−895,−445) to (−597,−405) with the cursor still reading "grab",
+       the map glued to the pointer until the next press. A mid-drag Alt+Tab
+       gives the same state, since no pointerup arrives on return. `buttons` is
+       the authority on whether a button is down, which is the rule Scrubber
+       already takes for this exact failure. */
+    if (e.pointerType === 'mouse' && !(e.buttons & 1)) {
+      pts.current.delete(e.pointerId);
+      drag.current = null;
+      return;
+    }
     pts.current.set(e.pointerId, local(e));
     const g = gesture.current;
     if (g && g.ids.every(id => pts.current.has(id))) {

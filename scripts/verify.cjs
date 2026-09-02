@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 533;
+const EXPECTED_CHECKS = 534;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3239,6 +3239,57 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     tf: document.querySelector('#map g').getAttribute('transform') }));
   ck('reset also returns the map to 1× (zoom lives outside S)',
     zBefore && !zAfter.btn && /scale\(1\)/.test(zAfter.tf), JSON.stringify(zAfter));
+
+  /* …and a mouse released where the map could not hear it does not leave the
+     drag armed. Below DEAD no capture has been taken, so a press 2 px inside the
+     left edge, a 1 px move and a release outside the box delivers the pointerup
+     to whatever was under the cursor and never to the svg. Measured at k≈4,76:
+     moving back over the map with NO button held panned it from
+     translate(−1878,−977) to (−1540,−897) and on to (−1480,−797), cursor still
+     "grab", the map glued to the pointer until the next press. A mid-drag
+     Alt+Tab gives the same state. `buttons` is the authority on whether one is
+     down — the rule Scrubber already takes for this exact failure.
+     Four steps, because the fix must not cost the real gesture: the phantom, a
+     press that never passes DEAD, and a genuine drag that still pans. */
+  await fresh('#v=saldo&c=1&y=2024');
+  const dragBox = await page.evaluate(() => { const r = document.querySelector('#map').getBoundingClientRect();
+    return { l: Math.round(r.left), t: Math.round(r.top) }; });
+  await page.evaluate(() => document.querySelector('#map').dispatchEvent(
+    new WheelEvent('wheel', { deltaY: -900, clientX: 500, clientY: 400, bubbles: true, cancelable: true })));
+  await settle(400);
+  const tfOf = () => page.evaluate(() => {
+    const g = document.querySelector('#map g[transform]');
+    return g ? g.getAttribute('transform') : null;
+  });
+  const phantom = { zoomed: await tfOf() };
+  await page.mouse.move(dragBox.l + 2, dragBox.t + 120);
+  await page.mouse.down();
+  await page.mouse.move(dragBox.l + 3, dragBox.t + 120);
+  await page.mouse.move(dragBox.l - 60, dragBox.t + 120);
+  await page.mouse.up();
+  await settle(150);
+  await page.mouse.move(dragBox.l + 300, dragBox.t + 160);
+  await page.mouse.move(dragBox.l + 340, dragBox.t + 200);
+  await settle(250);
+  phantom.afterRelease = await tfOf();
+  await page.mouse.move(dragBox.l + 400, dragBox.t + 300);
+  await page.mouse.down();
+  await page.mouse.move(dragBox.l + 401, dragBox.t + 300);
+  await page.mouse.up();
+  await settle(150);
+  phantom.underDead = await tfOf();
+  await page.mouse.move(dragBox.l + 400, dragBox.t + 300);
+  await page.mouse.down();
+  await page.mouse.move(dragBox.l + 460, dragBox.t + 340);
+  await page.mouse.move(dragBox.l + 520, dragBox.t + 380);
+  await page.mouse.up();
+  await settle(250);
+  phantom.afterDrag = await tfOf();
+  ck('a zoomed map does not follow an unpressed cursor, and a real drag still pans it',
+    !!phantom.zoomed && !/scale\(1\)$/.test(phantom.zoomed)
+    && phantom.afterRelease === phantom.zoomed && phantom.underDead === phantom.zoomed
+    && phantom.afterDrag !== phantom.zoomed,
+    JSON.stringify(phantom));
 
   /* Back is an undo for the view, not for the glossary sitting over it */
   await fresh('');
