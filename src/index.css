@@ -453,7 +453,12 @@ body.stage-collapsed .main{flex:none;height:420px}
 .legend-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);
   box-shadow:0 0 0 1px #fff;
   transform:translateX(-1px);pointer-events:none}
-.legend-lbls{display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.59375rem;color:var(--mut);margin-top:3px}
+/* the SAME width as the bar it labels. The row was as wide as the legend card,
+   so `space-between` spread the ticks across the card and not across the ramp:
+   measured on the JLS key, the "0" sat 21,7 % of the ramp's width to the right
+   of the ramp's own midpoint, and at 900 px it left the bar altogether. The
+   exported twin has always drawn them at the bar's own 20/210 px edges. */
+.legend-lbls{display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.59375rem;color:var(--mut);margin-top:3px;width:180px}
 .legend-cats{display:flex;flex-direction:column;gap:4px}
 .legend-cat{display:flex;align-items:center;gap:6px}
 /* the swatch is the graphical stand-in for a data category, so its own edge has
@@ -1299,7 +1304,7 @@ body.stage-collapsed .main{flex:none;height:420px}
   .legend-note,.citz-note,.jls-note,.help-note{font-size:0.625rem}
   .play{width:32px}
   .legend{left:8px;bottom:8px;max-width:56vw;padding:6px 8px}
-  .legend-bar{width:min(160px,44vw)}
+  .legend-bar,.legend-lbls{width:min(160px,44vw)}
   .card,.citz,.agec,.paircard{margin:8px 8px 0}
   /* the JLS card still floats over the map — drop it below the Nalazi row */
   .jcard{left:8px;top:50px}

@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 542;
+const EXPECTED_CHECKS = 543;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5565,6 +5565,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     ['net', 'out', 'in'].every(d => keyFit[d].n === 556 && keyFit[d].stops >= 40
       && keyFit[d].worst < 2 && keyFit[d].over3 === 0),
     JSON.stringify(keyFit));
+
+  /* …and the ticks that read it sit over the ramp they read. The label row was
+     as wide as the legend card while the bar is 180 px, so `space-between`
+     spread the ticks across the CARD: measured on the JLS key at 1440, the last
+     label's right edge was 78 px past the bar's right edge and the "0" sat 39 px
+     — 21,7 % of the ramp — right of the ramp's own midpoint, and at 900 px it
+     left the bar altogether. The exported twin has always drawn them at the
+     bar's own edges, so the image and the screen disagreed about where zero is.
+     Swept, because the bar has a narrow-band width of its own. */
+  const lblFit = {};
+  for (const [k, h, vw, vh] of [
+    ['jmap1440', '#v=jmap&dir=net', 1440, 900], ['jmap900', '#v=jmap&dir=net', 900, 800],
+    ['saldo1440', '#v=saldo&c=1&y=2024', 1440, 900], ['saldo768', '#v=saldo&c=1&y=2024', 768, 900],
+    ['saldo390', '#v=saldo&c=1&y=2024', 390, 844],
+    ['flow1024', '#v=flow&s=HR-21&c=0&y=2018&dir=out', 1024, 800],
+  ]) {
+    await page.setViewport({ width: vw, height: vh });
+    await fresh(h);
+    await page.waitForFunction(() => !!document.querySelector('#legend .legend-bar'), { timeout: 25000 }).catch(() => {});
+    lblFit[k] = await page.evaluate(() => {
+      const bar = document.querySelector('#legend .legend-bar');
+      const row = document.querySelector('#legend .legend-lbls');
+      if (!bar || !row) return null;
+      const b = bar.getBoundingClientRect();
+      const s = [...row.children].map(e => e.getBoundingClientRect());
+      return { dL: +(s[0].left - b.left).toFixed(1),
+        dR: +(s[s.length - 1].right - b.right).toFixed(1),
+        dC: s.length === 3 ? +(((s[1].left + s[1].right) / 2) - ((b.left + b.right) / 2)).toFixed(1) : null,
+        n: s.length, barW: +b.width.toFixed(1) };
+    });
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the legend’s scale labels are spread across the ramp, not across the card',
+    Object.values(lblFit).every(v => v && v.n >= 2 && v.barW > 60
+      && Math.abs(v.dL) <= 1.5 && Math.abs(v.dR) <= 1.5
+      && (v.dC == null || Math.abs(v.dC) <= 1.5)),
+    JSON.stringify(lblFit));
   /* Privacy and determinism are the same property here: a page that reaches no
      third-party origin cannot leak a visitor's IP on first paint and cannot
      have a check quietly depend on someone else's uptime. */
