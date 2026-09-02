@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 516;
+const EXPECTED_CHECKS = 517;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4936,6 +4936,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     .catch(() => {});
   const retried = await page.evaluate(() => document.querySelectorAll('#map .jl').length);
   ck('the retry genuinely re-fetches the chunk it failed on', retried === 556, String(retried));
+  /* …and its OTHER branch, which shipped with no guard at all. The retry checks
+     the network first: offline it must render #joffline and arm a one-shot
+     `online` listener instead of calling location.reload(), which offline
+     replaces a working app with chrome-error://chromewebdata — a session
+     destroyed by pressing the only button on screen. This file emulated no
+     offline state, queried #joffline nowhere, and its single #jretry press came
+     immediately after `blockGeoChunk = false`, so the reload path always had a
+     healthy local server under it. Regress the branch to an unconditional
+     reload and every check stayed green.
+     Both halves: the press must NOT navigate while offline, and the armed
+     listener must recover the view by itself when the network returns. */
+  blockGeoChunk = true;
+  await page.goto('about:blank');
+  await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!document.querySelector('#jretry'), { timeout: 15000 }).catch(() => {});
+  blockGeoChunk = false;
+  await page.setOfflineMode(true);
+  const urlBefore = page.url();
+  await click('#jretry');
+  await settle(600);
+  const offlineState = await page.evaluate(() => ({
+    href: location.href, mounted: !!document.querySelector('#map'),
+    note: (document.querySelector('#joffline') || {}).textContent || null,
+    retry: !!document.querySelector('#jretry') }));
+  await page.setOfflineMode(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 20000 })
+    .catch(() => {});
+  const backOnline = await page.evaluate(() => document.querySelectorAll('#map .jl').length);
+  ck('the retry does not destroy the session when there is no network, and recovers itself when it returns',
+    offlineState.href === urlBefore && offlineState.mounted && !!offlineState.note
+    && /Nema mreže/.test(offlineState.note) && backOnline === 556,
+    JSON.stringify({ offlineState, backOnline }));
+  /* the offline window logs its own resource failures; they are ours */
+  for (let i = errors.length - 1; i >= 0; i--) {
+    if (/geo_jls/.test(errors[i]) || /ERR_INTERNET_DISCONNECTED|ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+  }
   /* The aborted request above is a deliberate console error. Drop exactly it —
      the comment always said so, but the pattern matched any net:: failure with
      no URL test and no count limit, so an unrelated same-origin failure anywhere
