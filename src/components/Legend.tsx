@@ -2,7 +2,7 @@ import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, pragText, fmtI, fmtR,
 } from '../lib/metrics.ts';
-import { PAPER_THR, PAPER_WINDOW, paperSplit } from '../lib/credits.ts';
+import { PAPER_WINDOW, paperSplit, paperThrLine } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import type { CSSProperties } from 'react';
@@ -121,17 +121,14 @@ function klasNote(S: State): string {
     `The paper publishes ${paperSplit()} for ${PW()}. On the newer CBS series `
       + `${PAPER_KLAS_DIFF.length > 1 ? 'these fall' : 'this falls'} differently: ${who} — see “How to read”.`);
   }
-  /* signed, like the branch below it and like the title above: the threshold
-     is a LOSS of 4.500 and the sign is the whole of its meaning. It was signed
-     on the absolute branch and left bare here, so the same fact read "−4.500"
-     with Prag in osobe and "(4.500, …)" the moment it was switched to %, under a
-     title that says "prag −1,5 % popisa 2011." either way. */
-  if (S.thrRel) {
-    return L(`Prag u % popisa 2011. — rad koristi apsolutni prag (−${fmtI.format(PAPER_THR)}, ${PW()}), a argumentira relativno.`,
-      `Threshold as % of the 2011 census — the paper uses an absolute threshold (−${fmtI.format(PAPER_THR)}, ${PW()}) but argues in relative terms.`);
-  }
-  return L(`Prag i tri razreda iz rada; rad ih računa za ${PW()} pragom −${fmtI.format(PAPER_THR)}.`,
-    `Threshold and the three classes are the paper's; it computes them for ${PW()} at a threshold of −${fmtI.format(PAPER_THR)}.`);
+  /* signed, like the title above: the threshold is a LOSS of 4.500 and the sign
+     is the whole of its meaning. It was signed on one branch and left bare on
+     the other, so the same fact read "−4.500" with Prag in osobe and "(4.500,
+     …)" the moment it was switched to %.
+     Both strings live in credits.ts beside the revision caveat, because the
+     EXPORT owes the reader the same sentence and used to print the revision one
+     unconditionally — blaming DZS for a difference the reader had made. */
+  return paperThrLine(S.thrRel);
 }
 
 export default function Legend({ S }: { S: State }) {

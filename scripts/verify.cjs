@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 527;
+const EXPECTED_CHECKS = 528;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7598,6 +7598,33 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /\(−4,500,/.test(klasNote.relEn.note)
     && /prag −1,5 % popisa 2011\./.test(klasNote.rel.title),
     JSON.stringify(klasNote));
+
+  /* …and the caveat says the right thing for the figure in hand. It keyed on the
+     view alone, so a Klasifikacija image at a threshold or window the paper
+     never used still printed "DZS naknadno revidira serije…" — blaming
+     revisions for a difference the READER had made with the Prag slider.
+     Measured at #v=klas&y=2024&t=10000 the figure shows 7 / 3 / 11 against the
+     paper's 7 / 7 / 7, and the only explanation on the image named neither the
+     paper's threshold nor its window. The screen's legend has always branched on
+     paperKlasComparable; the export reads the same two strings now. */
+  const caveat = {};
+  for (const [k, h] of [['comparable', '#v=klas&c=1&y=2024'],
+    ['movedThr', '#v=klas&c=1&y=2024&t=10000'], ['relThr', '#v=klas&c=1&y=2024&tr=1&tp=1.5'],
+    ['movedYear', '#v=klas&c=1&y=2020'], ['reg', '#v=reg&c=1&y=2024']]) {
+    await fresh(h);
+    const rows = await page.evaluate(() => {
+      const d = new DOMParser().parseFromString(String(window.__exportSVG(false)), 'image/svg+xml');
+      return [...d.querySelectorAll('text')].map(t => t.textContent.trim()).filter(Boolean);
+    });
+    caveat[k] = { revision: rows.some(t => /naknadno revidira/.test(t)),
+      thr: rows.find(t => /pragom −4\.500|apsolutni prag \(−4\.500/.test(t)) || null };
+  }
+  ck('the exported figure blames revisions only when the paper is comparable, and names its threshold otherwise',
+    caveat.comparable.revision && !caveat.comparable.thr && caveat.reg.revision
+    && !caveat.movedThr.revision && !!caveat.movedThr.thr
+    && !caveat.relThr.revision && /apsolutni prag/.test(caveat.relThr.thr || '')
+    && !caveat.movedYear.revision && !!caveat.movedYear.thr,
+    JSON.stringify(caveat));
   ck('and the English legend still names the source and the licence',
     /Measured/.test(enBadge.legend) && /Pitoski/.test(enBadge.legend) && /CC BY/.test(enBadge.legend),
     enBadge.legend.slice(0, 120));

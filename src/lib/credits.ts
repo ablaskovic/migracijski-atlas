@@ -138,6 +138,21 @@ export const paperCaveatLine = (): string =>
   L('DZS naknadno revidira serije, pa se pojedine vrijednosti i razredi razlikuju od objavljenih u radu',
     'CBS revises its series afterwards, so some values and classes differ from those published in the paper');
 
+/* …and the caveat for a figure the paper CANNOT be compared to, which is a
+   different sentence and was missing from the export entirely. Move the Prag
+   slider to 10.000 or scrub the endpoint off 2024 and the image showed 7 / 3 /
+   11 against the paper's 7 / 7 / 7 — because the READER changed the threshold —
+   under a row blaming CBS revisions for the gap, and named neither the paper's
+   threshold nor its window. The on-screen legend has always got this right; it
+   reads these two strings from here now, so the image and the screen cannot
+   drift. `rel` is the "Prag u %" state, where the paper's own threshold is
+   absolute. */
+export const paperThrLine = (rel: boolean): string => (rel
+  ? L(`Prag u % popisa 2011. — rad koristi apsolutni prag (−${PAPER_THR.toLocaleString('hr-HR')}, ${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}.), a argumentira relativno.`,
+    `Threshold as % of the 2011 census — the paper uses an absolute threshold (−${PAPER_THR.toLocaleString('en-GB')}, ${PAPER_WINDOW.from}–${PAPER_WINDOW.to}) but argues in relative terms.`)
+  : L(`Prag i tri razreda iz rada; rad ih računa za ${PAPER_WINDOW.from}.–${PAPER_WINDOW.to}. pragom −${PAPER_THR.toLocaleString('hr-HR')}.`,
+    `Threshold and the three classes are the paper’s; it computes them for ${PAPER_WINDOW.from}–${PAPER_WINDOW.to} at a threshold of −${PAPER_THR.toLocaleString('en-GB')}.`));
+
 /** Glossary, first paragraph: the sentence the full citation follows. */
 export const paperHelpIntro = (): string => paperPending()
   ? L('Rukopis je autor atlasa dobio izravno od autora rada, a rad još nije javno objavljen — zato se ovdje ne navodi: ni autori, ni naslov, ni godina. Potpuna referenca i atribucija dodat će se čim rad postane javno dostupan.',

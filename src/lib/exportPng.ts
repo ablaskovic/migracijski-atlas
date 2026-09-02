@@ -1,9 +1,9 @@
 import {
   ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
-  klasOf, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc, marginFlow,
+  klasOf, paperKlasComparable, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc, marginFlow,
 } from './metrics.ts';
 import { ensureFonts, fontCss } from './exportFonts.ts';
-import { paperCaveatLine, paperExportLine } from './credits.ts';
+import { paperCaveatLine, paperExportLine, paperThrLine } from './credits.ts';
 import { exportLicenceLine } from './licences.ts';
 import { L, t, yrSpan } from './i18n.ts';
 import type { Klas, State } from './types.ts';
@@ -428,8 +428,17 @@ const paperLine = (S: State): string =>
    showing a class count the study did not publish owes the reason on the image
    itself. Not appended to paperLine — that row already runs ~700 px at 8,5 px
    mono and the caveat is the half that would be clipped. */
+/* …and the RIGHT caveat for the figure in hand. This keyed on the view alone,
+   so a Klasifikacija image at a threshold or window the paper never used still
+   printed "DZS naknadno revidira serije…" — blaming revisions for a difference
+   the reader had made with the Prag slider. Measured at #v=klas&y=2024&t=10000
+   the figure shows 7 / 3 / 11 against the paper's 7 / 7 / 7, and the only
+   explanation on the image named neither the paper's threshold nor its window.
+   The screen's legend has always branched on paperKlasComparable; the export
+   now reads the same two strings from credits.ts. */
 const caveatLine = (S: State): string =>
-  S.view === 'klas' || S.view === 'reg' ? paperCaveatLine() : '';
+  S.view === 'reg' || (S.view === 'klas' && paperKlasComparable(S)) ? paperCaveatLine()
+    : S.view === 'klas' ? paperThrLine(S.thrRel) : '';
 
 export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promise<ExportInfo | undefined> {
   await ensureFonts();
