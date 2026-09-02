@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 597;
+const EXPECTED_CHECKS = 598;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10401,6 +10401,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));
+
+  /* ── the PNG canvas stays inside the backing-store cap at every window ──
+     the area clamp had a hard floor at 1×, which made it a no-op exactly where
+     it is needed: once the UNSCALED figure already exceeds MAX_PX the canvas is
+     allocated at full CSS size. Measured before, intercepting the canvas the
+     exporter allocates: 5120×3200 scaled correctly to 15.993.990 px, then
+     5760×3240 was forced back to 1× at 17.142.180 and 6016×3384 — an Apple Pro
+     Display XDR, or a 4K/5K window zoomed out a step — at 18.768.996, which is
+     1,12× the 16.777.216 px WebKit caps by area. Past it toBlob yields null, the
+     button reads "greška" and no file arrives; on the engines that do allocate
+     it, 72 MB of RGBA on top of the decoded blob-URL image.
+     The reference window is in the sweep because it must keep its exact 2×. */
+  const canvasPx = {};
+  for (const [w, h] of [[1440, 900], [2560, 1440], [3840, 2160], [5760, 3240], [6016, 3384]]) {
+    await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 });
+    await fresh('#v=saldo&c=1&y=2024');
+    canvasPx[`${w}x${h}`] = await page.evaluate(async () => {
+      const orig = document.createElement.bind(document);
+      let cap = null;
+      document.createElement = function (t, ...a) {
+        const el = orig(t, ...a);
+        if (t === 'canvas') setTimeout(() => { if (el.width > 100) cap = { w: el.width, h: el.height }; }, 0);
+        return el;
+      };
+      await window.__exportPNG(false).catch(() => {});
+      document.createElement = orig;
+      await new Promise(r => setTimeout(r, 30));
+      return cap ? { w: cap.w, h: cap.h, px: cap.w * cap.h } : { none: true };
+    });
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the PNG canvas never exceeds the backing-store cap, however large the window',
+    Object.values(canvasPx).every(v => !v.none && v.px <= 16_777_216)
+    /* …and the reference window still gets its exact 2× */
+    && canvasPx['1440x900'].w === 2296,
+    JSON.stringify(canvasPx));
 
   /* ══ v2.3.0 — the controls hold still ══════════════════════════════════
      Reported by a user as "the buttons jump around when you click them, and as

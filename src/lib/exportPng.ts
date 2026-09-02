@@ -556,7 +556,20 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
      keeps 2× on every ordinary window — 1440×900 and 2560×1440 are both well
      under the cap — and degrades toward 1× instead of failing on a 4K or 5K one. */
   const MAX_PX = 16_000_000;
-  const SC = Math.max(1, Math.min(2, Math.sqrt(MAX_PX / Math.max(1, w * (h + TOP + BOT)))));
+  /* …and no floor at 1, which made the clamp a no-op exactly where it is needed.
+     Math.max(1, …) means that once the UNSCALED figure already exceeds MAX_PX
+     the canvas is allocated at full CSS size: measured, a 6016×3384 window
+     (Apple Pro Display XDR, or a 4K/5K zoomed out a step) gives a 5724×3279
+     canvas = 18.768.996 px — 1,12× the 16.777.216 px WebKit cap this comment
+     already cites, where toBlob yields null and the reader gets "greška" and no
+     file, and 72 MB of RGBA on the engines that do allocate it. The clamp was
+     exact right up to the boundary and then fell off a cliff: 5120×3200 scaled
+     to 15.993.990 px correctly, 5760×3240 was forced back to 1× at 17.142.180.
+     Below 1× the figure is smaller than the window, which is the honest trade
+     against a blank download — and it is bounded at 0,5 so a figure can never
+     become illegible: past that the cap is the window's problem, not the
+     export's. */
+  const SC = Math.max(0.5, Math.min(2, Math.sqrt(MAX_PX / Math.max(1, w * (h + TOP + BOT)))));
   const cv = document.createElement('canvas');
   /* floored, not rounded: a canvas takes integers, and rounding UP can carry the
      product back over MAX_PX (measured: 16.001.488 at 3840×2160). Flooring both
