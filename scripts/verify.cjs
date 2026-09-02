@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 491;
+const EXPECTED_CHECKS = 493;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7411,7 +7411,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      the background and the tab title stayed put, so the tab looked alive. The
      hash is untouched, so a hash-deterministic defect reproduces for every
      recipient of the link with no in-page way out. */
-  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  /* Booted on `?l=en`, the English UI's only crawlable address, because the
+     query is half of what these links have to carry: a reader who arrived
+     there has nothing stored (storeLang persists only an explicit toggle), so
+     an affordance that drops it returns them to the Croatian page. */
+  await fresh('/?l=en#v=saldo&c=1&y=2024&s=HR-18');
   const boundary = await page.evaluate(async () => {
     const before = document.querySelector('#root').innerHTML.length;
     /* A fault React must actually observe. The old injection — a throwing
@@ -7437,13 +7441,68 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       controls: document.querySelectorAll('a,button,select,input').length,
       fail: !!f, map: !!document.querySelector('#map'),
       role: f && f.closest('[role]') ? f.closest('[role]').getAttribute('role') : null,
-      links: f ? f.querySelectorAll('a').length : 0 };
+      links: f ? f.querySelectorAll('a').length : 0,
+      /* …and where each of them goes. Every href was built from
+         `location.pathname` alone, or for one of them pathname + hash, so three
+         things were wrong at once: the Croatian "Osvježite stranicu" was
+         byte-identical to the "otvorite bez poveznice" beside it, so the link
+         that says RELOAD discarded the permalink that carried the reader here;
+         all four dropped `location.search`, and `?l=en` is the English UI's only
+         crawlable address, so a reader who arrived on that shared link — with
+         nothing stored, since storeLang persists only an explicit toggle — was
+         returned to the Croatian page by every affordance on the screen; and the
+         English "Reload the page" pointed at the URL already in the bar, which
+         the navigate algorithm treats as a same-document fragment navigation, so
+         measured it did not reload at all. Resolved against the document, so a
+         relative href is compared as the browser would follow it. */
+      hrefs: f ? [...f.querySelectorAll('a')].map(a => a.href.replace(location.origin, '')) : [],
+      reloads: f ? [...f.querySelectorAll('a')].filter(a => a.href === location.href).length : 0 };
   });
   /* The boundary itself, not "either it or a surviving app": #renderFail present,
      #map gone, and the fallback's own affordances actually in the document. */
   ck('a render failure renders the boundary, with something to press, not an empty root',
     boundary.after > 0 && boundary.controls > 0 && boundary.fail && !boundary.map
     && boundary.role === 'alert' && boundary.links === 4, JSON.stringify(boundary));
+  /* Two distinct addresses among the four: each locale offers "reload" — which
+     keeps the query AND the fragment — and "without the permalink", which keeps
+     the query and drops the fragment. A pair that is byte-identical is one
+     affordance printed twice. */
+  ck('and its four recovery links are two real addresses, both carrying the query',
+    boundary.hrefs.length === 4
+    && new Set(boundary.hrefs).size === 2
+    && boundary.hrefs.filter(h => h.includes('#')).length === 2
+    && boundary.hrefs.every(h => h.startsWith('/?l=en'))
+    /* both reload links point at the address the reader is already on, because
+       that is what reloading IS — which is exactly why neither may depend on the
+       navigation happening: see the click check below */
+    && boundary.reloads === 2,
+    JSON.stringify({ hrefs: boundary.hrefs, reloads: boundary.reloads }));
+  /* …and the word "reload" has to mean it. Both reload links necessarily point
+     at the URL already in the bar — that is what reloading IS — and the HTML
+     navigate algorithm answers a same-document fragment navigation by doing
+     nothing at all: measured, pressing "Reload the page" left the marker set,
+     #renderFail still on screen and the href unchanged. It only reloaded when
+     the URL happened to carry a query string, which is why one earlier probe
+     saw it work. A marker on window is the only thing that can tell a real load
+     from a no-op. */
+  const reloadWorks = await (async () => {
+    await page.evaluate(() => { window.__eb = 'before'; });
+    const links = await page.$$('#renderFail a');
+    const idx = boundary.hrefs.findIndex(h => h.includes('#'));
+    if (idx < 0 || !links[idx]) return { absent: true };
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null),
+      links[idx].click(),
+    ]);
+    await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+    await settle(300);
+    return page.evaluate(() => ({ marker: window.__eb ?? 'gone',
+      fail: !!document.querySelector('#renderFail'), map: !!document.querySelector('#map'),
+      href: location.pathname + location.search }));
+  })();
+  ck('…and pressing the reload link actually reloads the document',
+    reloadWorks.marker === 'gone' && !reloadWorks.fail && reloadWorks.map
+    && reloadWorks.href === '/?l=en', JSON.stringify(reloadWorks));
   /* The fault was ours and it logs twice — React's own uncaught-error line and
      ErrorBoundary's componentDidCatch — so it is spliced out here rather than
      left to fail the ledger assertion below. Named by the message this block

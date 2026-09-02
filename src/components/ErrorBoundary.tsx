@@ -1,5 +1,5 @@
 import { Component } from 'react';
-import type { ErrorInfo, ReactNode } from 'react';
+import type { ErrorInfo, MouseEvent, ReactNode } from 'react';
 
 /* The last thing between a render throw and a blank cream rectangle.
 
@@ -39,6 +39,32 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
 
   render() {
     if (!this.state.failed) return this.props.children;
+    /* Two addresses, and both of them whole. Each of the four links was built
+       from `location.pathname` alone or, for one of them, pathname + hash — so
+       three things were wrong at once.
+       The Croatian "Osvježite stranicu" was byte-identical to the "otvorite bez
+       poveznice" beside it: the link that says RELOAD threw away the very
+       permalink that carried the reader here, and the reader was offered two
+       different things to try when there was one. Measured on a forced render
+       throw at `#v=saldo&c=1&y=2024&s=HR-18`, pressing it landed on
+       `…#v=saldo&c=1&y=2024` with `s=HR-18` gone.
+       All four dropped `location.search`, and `?l=en` is the English UI's only
+       crawlable address — sitemap.xml lists it and index.html hreflangs it.
+       storeLang() persists a language only on an explicit toggle, so a reader who
+       arrived on that shared link has nothing stored and every affordance here
+       returned them to the Croatian page.
+       And the English "Reload the page" pointed at the URL already in the bar,
+       which the navigate algorithm treats as a same-document fragment
+       navigation: measured, no request, no reload, #renderFail still on screen
+       and the href unchanged — App is unmounted, so nothing answers the popstate
+       either. It only reloaded when the URL happened to carry a query string.
+       `location.reload()` is a literal call on `location`, inside this file's own
+       "built from literals and location alone" rule, and it re-requests the same
+       URL, which is what the word promises. The plain pair keeps the query and
+       drops only the fragment, which is exactly what it says. */
+    const here = location.pathname + location.search + location.hash;
+    const plain = location.pathname + location.search;
+    const reload = (e: MouseEvent) => { e.preventDefault(); location.reload(); };
     return (
       <div className="boot" role="alert">
         <div>
@@ -46,11 +72,11 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
           <span className="boot-title">Migracijski atlas županija</span>
         </div>
         <p className="boot-fail" id="renderFail" style={{ opacity: 1 }}>
-          Prikaz se nije mogao iscrtati. <a href={location.pathname}>Osvježite stranicu</a>
-          {' — ili '}<a href={location.pathname} id="renderFailPlain">otvorite bez poveznice na prikaz</a>.
+          Prikaz se nije mogao iscrtati. <a href={here} onClick={reload}>Osvježite stranicu</a>
+          {' — ili '}<a href={plain} id="renderFailPlain">otvorite bez poveznice na prikaz</a>.
           {' / The view could not be drawn. '}
-          <a href={location.pathname + location.hash}>Reload the page</a>
-          {' — or '}<a href={location.pathname}>open it without the permalink</a>.
+          <a href={here} onClick={reload}>Reload the page</a>
+          {' — or '}<a href={plain}>open it without the permalink</a>.
         </p>
       </div>
     );
