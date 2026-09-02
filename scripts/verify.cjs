@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 485;
+const EXPECTED_CHECKS = 486;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3714,6 +3714,47 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('Shift + arrow pans the zoomed map and does not step the year',
     pan.panned !== pan.zoomed && pan.yrAfter === pan.yr, JSON.stringify(pan));
+
+  /* …dispatched FROM THE FOCUSED FEATURE, in every view that has one. The probe
+     above fires at `window`, where no focused control can intercept it — and
+     three views intercepted it. Matrica, Godine and the JLS map each contribute
+     exactly one tab stop (a roving cell or municipality), so a keyboard reader
+     who zooms is standing on one by construction; their key handlers matched on
+     `e.key` alone, so Shift+ArrowRight moved the roving cell and ran
+     preventDefault + stopPropagation before useZoom's window listener could see
+     it. Measured in Matrica at k=2,56: three presses left
+     `translate(-895.44,-402.48) scale(2.56)` byte-identical while focus walked
+     Zagrebačka → Međimurska — and the focused cell was by then 172 px above the
+     top of the map box, which is what the pan exists to reach. The glossary
+     promises this chord in the same sentence that says + and − zoom "the map and
+     the matrix"; it was true in one of the views it names. */
+  const panFrom = [];
+  for (const [h, sel, label] of [
+    ['#v=mx&y=2018&c=0&dir=out', '.mxc[tabindex="0"]', 'mx'],
+    ['#v=yrs&c=1&y=2024', '.yrc[tabindex="0"]', 'yrs'],
+    ['#v=jmap&dir=net', '.jl[tabindex="0"]', 'jmap'],
+    ['#v=saldo&c=1&y=2024', '.cnt[data-iso="HR-18"]', 'saldo']]) {
+    await fresh(h);
+    panFrom.push({ label, ...await page.evaluate(async sel => {
+      const tr = () => { const g = document.querySelector('#map g[transform]'); return g ? g.getAttribute('transform') : null; };
+      const el = document.querySelector(sel);
+      if (!el) return { absent: true };
+      el.focus();
+      for (let i = 0; i < 2; i++) {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
+        await new Promise(r => setTimeout(r, 120));
+      }
+      const before = tr();
+      for (let i = 0; i < 3; i++) {
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));
+        await new Promise(r => setTimeout(r, 120));
+      }
+      return { zoomed: before !== 'translate(0,0) scale(1)', panned: tr() !== before };
+    }, sel) });
+  }
+  ck('Shift + arrow pans from a focused feature too, in every view that has one',
+    panFrom.length === 4 && panFrom.every(p => !p.absent && p.zoomed && p.panned),
+    JSON.stringify(panFrom));
 
   /* ── P2: the grid and the JLS list have jump keys ── */
   await fresh('#v=mx&y=2018&c=0&dir=net');

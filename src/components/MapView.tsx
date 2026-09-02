@@ -537,6 +537,11 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                     }}
                     onBlur={() => { setJFoc(false); if (!COARSE) setS({ jlsHl: null }); }}
                     onKeyDown={e => {
+                      /* Shift+arrow is the documented keyboard pan and useZoom
+                         listens for it on the window; matching on `e.key` alone
+                         swallowed the chord here the same way the two grids did.
+                         See the note in MatrixView.onCellKey. */
+                      if (e.shiftKey) return;
                       const last = JGEO.features.length - 1;
                       const d: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
                       /* 556 features on a flat list is 555 presses end to end;

@@ -132,6 +132,19 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
     });
   };
   const onCellKey = (e: ReactKeyboardEvent<SVGRectElement>, a: string, b: string) => {
+    /* Shift+arrow is the documented keyboard pan — the glossary says "Shift +
+       the arrow keys pan a zoomed view" in the same sentence that says + and −
+       zoom "the map and the matrix" — and useZoom listens for it on the window.
+       Matching on `e.key` alone swallowed it: the chord moved the roving cell,
+       preventDefault + stopPropagation ran, and the transform never changed.
+       Measured in Matrica at k=2,56, three Shift+ArrowRight presses left
+       `translate(-895.44,-402.48) scale(2.56)` byte-identical while focus walked
+       Zagrebačka → Međimurska — and by then the focused cell was already 172 px
+       above the top of the map box, which is what the pan exists to fix. The
+       same chord from a rail row DID pan. App reserves shifted arrows for
+       exactly this ("Shift+arrows pan the map (useZoom) — bare arrows step the
+       year"); the three roving handlers now do too. */
+    if (e.shiftKey) return;
     const d: Record<string, [number, number]> = {
       ArrowRight: [0, 1], ArrowLeft: [0, -1], ArrowDown: [1, 0], ArrowUp: [-1, 0],
     };
