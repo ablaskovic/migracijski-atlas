@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 501;
+const EXPECTED_CHECKS = 502;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -3872,13 +3872,14 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      still in the tab order. Walking the cycle is the only version of this that
      cannot be fooled: 80 of 80 stops outside the dialog were covered county
      paths before the fix. */
-  const tabWalk = async (steps) => {
+  const tabWalk = async (steps, cardSel = '#helpCard') => {
     const stops = [];
     for (let i = 0; i < steps; i++) {
       await page.keyboard.press('Tab');
-      stops.push(await page.evaluate(() => {
-        const a = document.activeElement, card = document.querySelector('#helpCard');
+      stops.push(await page.evaluate(cardSel => {
+        const a = document.activeElement, card = document.querySelector(cardSel);
         if (!a || a === document.body) return { body: true, who: 'BODY' };
+        if (!card) return { body: true, who: 'NO-CARD' };
         const r = a.getBoundingClientRect(), c = card.getBoundingClientRect();
         return {
           inDialog: card.contains(a),
@@ -3886,7 +3887,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
             && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5,
           who: a.id || a.getAttribute('data-iso') || String(a.getAttribute('class') || a.tagName),
         };
-      }));
+      }, cardSel));
     }
     /* `moved` is the floor: focus that never goes anywhere reports "nothing
        outside the dialog" just as loudly as a correct trap does */
@@ -3963,6 +3964,26 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('a permalink that boots with a panel open suspends the map’s tab stops too',
     bootSuspend.length === 4 && bootSuspend.every(b => b.feats > 0 && b.live === 0),
     JSON.stringify(bootSuspend));
+
+  /* …and proved by pressing Tab, on the two overlays that can actually boot
+     open. The bbox walk above — the one whose own comment records that an
+     attribute test is foolable, `inert` on `svg#map` matching `[inert]` while
+     doing nothing to the map — runs only on the glossary, and `help` is not a
+     hash field at all, so the guarded overlay is the one that is structurally
+     incapable of booting open. `cz` and `jl` do round-trip, so the JLS card and
+     the chip pair, which are what the suspension was written for, had only the
+     tabindex read above: it cannot see a stop that is focusable without the
+     attribute, and it never asks where the stop is drawn. Same walk, same
+     coverage test, entered by URL and aimed at the open chip card. */
+  const bootWalk = [];
+  for (const h of ['#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net&jl=1', '#v=jmap&dir=net&cz=1']) {
+    await fresh(h);
+    await settle(400);
+    bootWalk.push({ h: h.slice(0, 22), ...await tabWalk(60, '.chipcard.open') });
+  }
+  ck('and Tab proves it: a boot-opened panel has no stop drawn underneath it',
+    bootWalk.length === 2 && bootWalk.every(w => w.covered === 0 && w.moved >= 5 && w.outside > 10),
+    JSON.stringify(bootWalk));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── P2: the dialog owns the keyboard while it holds focus ──
