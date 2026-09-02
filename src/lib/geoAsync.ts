@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react';
 import type { FeatureCollection, Geometry } from 'geojson';
 import type { JlsProps, RegionProps } from './types.ts';
+import { L } from './i18n.ts';
 
 export type JlsGeo = FeatureCollection<Geometry, JlsProps>;
 export type RegGeo = FeatureCollection<Geometry, RegionProps>;
@@ -33,6 +34,21 @@ export const regGeo = (): RegGeo | null => reg;
    permanent post-failure UI. */
 export const jlsFailed = (): boolean => jlsErr;
 export const regFailed = (): boolean => regErr;
+
+/* One wording for the two states, because two surfaces render it. MapView's
+   placeholder had it inline and the rail beside it had nothing at all: with
+   geo_jls aborted the aside drew its heading "JLS — 10 najvećih dobitaka i
+   gubitaka" and its period "neto · 2018." over a group with zero children and
+   no text of any kind — a named, 462 px-tall empty column promising a ranked
+   top-10, in both languages, on the failure path and for the whole duration of
+   an ordinary fetch. Copying the strings into Rail would have made them two
+   facts that drift; they are one, and it lives beside the flags it reads. */
+export const geoStatus = (jm: boolean): string =>
+  (jm ? jlsErr : regErr)
+    ? (jm ? L('Geometrija JLS nije učitana.', 'LAU geometry failed to load.')
+      : L('Geometrija regija nije učitana.', 'Region geometry failed to load.'))
+    : (jm ? L('Učitavanje geometrije JLS…', 'Loading LAU geometry…')
+      : L('Učitavanje geometrije regija…', 'Loading region geometry…'));
 
 /* `??=` memoises the *promise*, so a rejected one used to be cached for the
    whole session: leaving the view and coming back returned the same rejection

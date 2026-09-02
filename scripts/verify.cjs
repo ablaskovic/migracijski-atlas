@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 547;
+const EXPECTED_CHECKS = 548;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5314,6 +5314,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     JSON.stringify(expLocked));
   ck('and it says so through a live region, not silent SVG text',
     geoFail.live === 'status', String(geoFail.live));
+  /* Nor may a landmark promise ten gains a missing payload cannot rank. The rail
+     builds its rows from the geometry, so with the chunk blocked it drew its
+     heading "JLS — 10 najvećih dobitaka i gubitaka" and its period "neto · 2018."
+     over a group with zero children and no text of any kind — a named, 462 px
+     column that never said why it was empty or that a retry existed two hundred
+     pixels away — while #map kept "Strelice pomiču odabir." over 0 features, the
+     view's only navigation instruction, and false. The legend already dropped
+     its key for exactly this condition. */
+  const railGone = await page.evaluate(() => {
+    const l = document.querySelector('#railList'), m = document.querySelector('#map');
+    return { jl: document.querySelectorAll('#map .jl').length,
+      rows: l ? l.querySelectorAll('.rrow').length : -1,
+      txt: l ? (l.textContent || '').trim() : '',
+      aria: m ? m.getAttribute('aria-label') || '' : '' };
+  });
+  ck('an empty rail and the map both name the missing geometry instead of promising rows',
+    railGone.jl === 0 && railGone.rows === 0 && /Geometrija JLS nije u/.test(railGone.txt)
+    && !/Strelice/.test(railGone.aria) && /Geometrija JLS nije u/.test(railGone.aria),
+    JSON.stringify(railGone));
   /* A failure the reader never asked for must not latch the failure UI. The warm
      timer fires both chunks at t=1,5 s whether or not those views are ever
      opened, and its rejection used to run through the same catch as a real

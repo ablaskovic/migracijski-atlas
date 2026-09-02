@@ -6,7 +6,7 @@ import {
   GEO, ISOS, DOM, RDOM, REGOF, SHORTN,
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowKind, jlsVal, jmapScale, countyAria, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
-import { jlsGeo, regGeo, jlsFailed, regFailed, retryGeo } from '../lib/geoAsync.ts';
+import { jlsGeo, regGeo, jlsFailed, regFailed, retryGeo, geoStatus } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
 import PairCard from './PairCard.tsx';
@@ -522,8 +522,15 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
         /* role=img would declare this a single leaf graphic and hide the
            focusable features inside it from assistive tech */
         /* tabIndex -1 for the skip link, as in the county map below */
-        <svg id="map" role="group" tabIndex={-1} aria-label={L('Karta gradova i općina — unutarnja migracija 2018. Strelice pomiču odabir.',
-        'Map of towns and municipalities — internal migration 2018. Arrow keys move the selection.')}
+        /* The instruction is only true while there is something to move
+           between. With geo_jls aborted the map drew 0 .jl paths and still
+           announced "Strelice pomiču odabir." — the view's one navigation
+           promise, made over an empty group. The placeholder two elements down
+           already says why, in the same words. */
+        <svg id="map" role="group" tabIndex={-1} aria-label={JGEO
+          ? L('Karta gradova i općina — unutarnja migracija 2018. Strelice pomiču odabir.',
+            'Map of towns and municipalities — internal migration 2018. Arrow keys move the selection.')
+          : L('Karta gradova i općina. ', 'Map of towns and municipalities. ') + geoStatus(true)}
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
           <g ref={jgRef}>
@@ -828,8 +835,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           <div className="geostat" id="jstatus" role="status" aria-live="polite">
             {!waiting ? null : (jm ? jlsFailed() : regFailed()) ? (
               <>
-                <span id="jerror">{jm ? L('Geometrija JLS nije učitana.', 'LAU geometry failed to load.')
-                  : L('Geometrija regija nije učitana.', 'Region geometry failed to load.')}</span>
+                <span id="jerror">{geoStatus(jm)}</span>
                 {/* The retry reloads, which is the only thing that re-fetches a
                     module the browser has cached a rejection for — but offline
                     that replaces a working app (every view but this one still
@@ -842,8 +848,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                 {offline && <span id="joffline">{L('Nema mreže — nastavit će se automatski kad se veza vrati.',
                   'No connection — this will resume by itself when the network is back.')}</span>}
               </>
-            ) : <span id="jloading">{jm ? L('Učitavanje geometrije JLS…', 'Loading LAU geometry…')
-              : L('Učitavanje geometrije regija…', 'Loading region geometry…')}</span>}
+            ) : <span id="jloading">{geoStatus(jm)}</span>}
           </div>
         );
       })()}

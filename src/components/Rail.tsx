@@ -2,7 +2,7 @@ import {
   ISOS, D, REG, YEARS, DOM, RDOM, SHORTN,
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
-import { jlsGeo } from '../lib/geoAsync.ts';
+import { jlsGeo, geoStatus } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
 import { useEffect, useRef } from 'react';
 import { isKeyFocus } from '../lib/state.ts';
@@ -242,6 +242,16 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
           without the association they were decoration a screen reader met minutes
           before reaching the rows they describe */}
       <div className="rail-list" id="railList" role="group" aria-labelledby="railLab railYear" ref={listRef}>
+        {/* Rows come from the geometry, so the JLS rail is empty whenever the
+            475 KB chunk has not arrived — during an ordinary fetch, and for
+            good after a failed one. Measured with geo_jls aborted: railList
+            0 children and no text, under a heading promising ten gains and
+            ten losses; a screen reader landed on a named group that contained
+            nothing and never said why. The map box already names both states
+            and offers the retry, and now says it here in the same words. The
+            heading stays: hiding it collapses the aside on the frame the
+            geometry lands, and leaves the reader nothing to have been told. */}
+        {S.view === 'jmap' && !JG && <p className="rail-empty">{geoStatus(true)}</p>}
         {rows.map((d, i) => (
           <div key={d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso}
             className={'rrow' + (big ? ' big' : '') + (d.pair ? ' pairrow' : '') + (!d.reg && !d.pair && d.jls == null && d.iso === S.hl ? ' hl' : '') + (d.jls != null && d.jls === S.jlsHl ? ' hl' : '') + (d.reg && d.iso === S.regHl ? ' hl' : '') + (d.pair && S.pairHl && S.pairHl[0] === d.pair[0] && S.pairHl[1] === d.pair[1] ? ' hl' : '') + (isOpen(d) ? ' selrow' : '')}
