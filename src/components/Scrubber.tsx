@@ -145,6 +145,17 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     ? L('RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)',
       'Croatia · net external migration (area) · moves between counties (dashed)')
     : L('RH · vanjski saldo · preseljeni', 'Croatia · net external · moves');
+  /* The hint and the caption share one line, so the room one needs is the room
+     the other does not have. A flat 560 was set against the SHORT caption: the
+     long Croatian one is 68 characters, and at a 710 px viewport (chart 566) it
+     ends at x=368 while the hint starts at 370 — a 2,1 px gap, so the two mono
+     strings read as one sentence; 7,8 px at 716. English is 48 px clear at the
+     same width, which is why this survived, and a flat raise would have cost
+     English readers a hint they had room for. Both strings are mono at 8,5 px,
+     which is the 0,6 em advance this file already measures label widths with
+     elsewhere, plus a 16 px gap that keeps them two strings. */
+  const kbd = L('← → godina · razmaknica reprodukcija', '← → year · space plays');
+  const showKbd = sw >= Math.max(560, (cap.length + kbd.length) * 5.4 + 16);
 
   /* The JLS view has one measured year, so the chart is inert there. It used to be
      dimmed with opacity + pointer-events:none — the pattern the house rules ban,
@@ -237,9 +248,9 @@ export default function Scrubber({ S, setYi, togglePlay }: {
                 {cap}
               </text>
               {/* the arrow/space shortcuts existed but nothing said so */}
-              {sw >= 560 && (
+              {showKbd && (
                 <text id="kbdHint" x={x(YEND)} y={mT - 3} textAnchor="end" fontSize={8.5}
-                  fontFamily="var(--mono)" fill="var(--mut)">{L('← → godina · razmaknica reprodukcija', '← → year · space plays')}</text>
+                  fontFamily="var(--mono)" fill="var(--mut)">{kbd}</text>
               )}
               {ticks.map(t => (
                 <text key={t} x={x(t)} y={sh - 4} textAnchor={t === YEND ? 'end' : 'middle'}

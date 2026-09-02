@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 586;
+const EXPECTED_CHECKS = 587;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7145,6 +7145,38 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* dimmed, because it is a residual and not a country */
     && zemBars.rem.op < zemBars.top.op,
     JSON.stringify(zemBars));
+
+  /* ── the keyboard hint and the caption stay two strings ──
+     they share one line, and the hint was gated at a flat 560 px of chart — a
+     number set against the SHORT caption. The long Croatian one is 68 characters
+     and at a 710 px viewport (chart 566) it ends at x=368 while the hint starts
+     at 370: a 2,1 px gap, so the two mono strings read as one sentence; 7,8 px at
+     716. English is 48 px clear at the same width, which is why this survived —
+     and why the gate is derived from the two strings actually in use rather than
+     raised flat, which would have cost English readers a hint they had room for.
+     Both languages, across the band where the two tiers meet. */
+  const kbdGap = {};
+  for (const l of ['hr', 'en']) {
+    for (const w of [700, 710, 716, 760, 800, 900, 1440]) {
+      await page.setViewport({ width: w, height: 844 });
+      await fresh(l === 'en' ? '#l=en' : '');
+      kbdGap[l + w] = await page.evaluate(() => {
+        const hint = document.querySelector('#kbdHint');
+        if (!hint) return { hint: false };
+        const cap = [...document.querySelectorAll('#spark text')]
+          .find(t => /saldo|Croatia/.test(t.textContent || ''));
+        const h = hint.getBoundingClientRect();
+        return { hint: true,
+          gap: cap ? +(h.left - cap.getBoundingClientRect().right).toFixed(1) : null };
+      });
+    }
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the keyboard hint never closes on the caption beside it, in either language',
+    Object.values(kbdGap).every(v => !v.hint || v.gap === null || v.gap >= 12)
+    /* and it is still shown where there IS room — a gate that hides it always would pass the line above */
+    && kbdGap.hr1440.hint && kbdGap.en1440.hint && kbdGap.en710.hint && !kbdGap.hr710.hint,
+    JSON.stringify(kbdGap));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
