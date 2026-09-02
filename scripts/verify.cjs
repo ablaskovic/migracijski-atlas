@@ -3591,8 +3591,15 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      Every one of those left the suite green. Swept in a state that mounts the
      lot, with the mounted count floored so an unmounted set cannot pass by
      having nothing to measure — the shape cf1922b already named. */
+  /* 1000×900 with touch, not 390: the labels toggle is not mounted in the
+     mobile layout, and this sweep is about the coarse-pointer block rather than
+     about one width. Measured there, all nine mount and all nine are 44 px.
+     A wheel first, because .zoomrst exists only above 1×. */
+  await page.setViewport({ width: 1000, height: 900, hasTouch: true, isMobile: false });
   await fresh('#v=saldo&c=1&y=2024&s=HR-21&cz=1&st=1');
-  await settle(300);
+  await page.evaluate(() => document.querySelector('#map').dispatchEvent(
+    new WheelEvent('wheel', { deltaY: -400, clientX: 200, clientY: 300, bubbles: true, cancelable: true })));
+  await settle(400);
   const repad = await page.evaluate(() => {
     const want = ['.seg button', '.jtabs button', '.chip-hd', '.rrow', '.storysel select',
       '.rstbtn', '.card-x', '.zoomrst', '.labbtn'];
@@ -3612,8 +3619,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     return { small, mounted, coarse: matchMedia('(any-pointer:coarse)').matches };
   });
   ck('every coarse-pointer re-pad still reaches its 44 px target',
-    repad.coarse && repad.mounted.length >= 8 && repad.small.length === 0,
+    repad.coarse && repad.mounted.length === 9 && repad.small.length === 0,
     JSON.stringify(repad));
+  await page.setViewport({ width: 390, height: 844, hasTouch: true, isMobile: true });
 
   await click('#citzHd');
   const x390 = await page.evaluate(() => {
