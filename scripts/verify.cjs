@@ -2017,14 +2017,30 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      non-modal, so it stayed reachable with tabindex="0", role="slider",
      aria-valuenow and no aria-disabled. Measured: focus it with the glossary
      open, press ArrowRight then End, and #bigYear does not move. */
-  const sparkFrozen = await page.evaluate(async () => {
+  /* …and the capture used to press nothing: `after` was a bare 50 ms-later
+     re-read of #bigYear, and neither it nor `before` appeared in the assertion,
+     which claimed the attributes alone. The keys are pressed now, as trusted
+     input, because that is the only way App's window handler sees them — and
+     End in particular is dispatched nowhere else in this file with the glossary
+     open, so moving the `if (s.help) return` guard below the #spark jump keys
+     would let it rewrite the year and the permalink under an opaque dialog with
+     every check still green. The hash too: a year that moves and comes back
+     would otherwise pass. */
+  await page.evaluate(() => document.querySelector('#spark').focus());
+  const sparkBefore = await page.evaluate(() => ({ yr: document.querySelector('#bigYear').textContent,
+    hash: location.hash, focus: document.activeElement.id }));
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('End');
+  await settle(350);
+  const sparkFrozen = await page.evaluate(() => {
     const sp = document.querySelector('#spark');
-    const before = document.querySelector('#bigYear').textContent;
     return { dis: sp.getAttribute('aria-disabled'), ti: sp.getAttribute('tabindex'),
-      before, after: (await new Promise(r => setTimeout(() => r(document.querySelector('#bigYear').textContent), 50))) };
+      yr: document.querySelector('#bigYear').textContent, hash: location.hash };
   });
-  ck('the year slider reports itself disabled while the glossary owns the keyboard',
-    sparkFrozen.dis === 'true' && sparkFrozen.ti === '-1', JSON.stringify(sparkFrozen));
+  ck('the year slider reports itself disabled while the glossary owns the keyboard, and its jump keys do nothing',
+    sparkFrozen.dis === 'true' && sparkFrozen.ti === '-1'
+    && sparkFrozen.yr === sparkBefore.yr && sparkFrozen.hash === sparkBefore.hash,
+    JSON.stringify({ sparkBefore, sparkFrozen }));
   /* The page mounts Vercel Web Analytics and Speed Insights and said so nowhere
      a reader could see it: grepping every source file for privatnost|privacy|
      GDPR|cookie|consent|analytics returned the package name and the two mounts
