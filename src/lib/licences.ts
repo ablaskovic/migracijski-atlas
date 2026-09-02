@@ -94,9 +94,19 @@ export const REPO = 'https://github.com/ablaskovic/migracijski-atlas';
    holders was both wrong and the reason public/fonts/OFL-Oswald.txt shipped with
    nothing on the site reaching it — OFL §2 requires the licence to travel with
    the font software, and a file nobody can find has not travelled. */
+/* Root-absolute, not document-relative. Since 92feb10 every path boots the app —
+   vite.config names /atlas/, /a/b and /en/saldo as measured-working — and
+   './fonts/…' resolves against the document DIRECTORY, so from
+   https://…/atlas/ these two became /atlas/fonts/OFL-IBMPlex.txt, which the
+   rewrite's second lookahead excludes on purpose: the deploy answers 404 while
+   every other link on the page works. Measured live: /atlas/ 200 text/html,
+   /atlas/fonts/OFL-Oswald.txt 404, /fonts/OFL-Oswald.txt 200 text/plain. The
+   build is base:'/', so nothing needs the relative form — and the reason these
+   links exist at all is OFL §2, four lines up: a file nobody can find has not
+   travelled. */
 export const FONT_LICENCES: { label: string; href: string }[] = [
-  { label: 'IBM Plex', href: './fonts/OFL-IBMPlex.txt' },
-  { label: 'Oswald', href: './fonts/OFL-Oswald.txt' },
+  { label: 'IBM Plex', href: '/fonts/OFL-IBMPlex.txt' },
+  { label: 'Oswald', href: '/fonts/OFL-Oswald.txt' },
 ];
 
 /* The notice that has to travel with the faces. The exported SVG carries six

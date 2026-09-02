@@ -10758,15 +10758,24 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      surely as a missing one, and nothing in this file or smoke.cjs had ever
      fetched either. Down here rather than beside its own check, because httpGet
      is declared at the top of this block and the glossary runs long before it. */
-  const oflFetch = {};
+  /* …from a sub-path too. These were document-relative, and since every path
+     boots the app './fonts/…' resolved against the document DIRECTORY: from
+     /atlas/ they became /atlas/fonts/OFL-Oswald.txt, which the rewrite's second
+     lookahead excludes on purpose, so the deploy answered 404 while every other
+     link on the page worked. Measured live: /atlas/ 200, /atlas/fonts/… 404,
+     /fonts/… 200. The href is asserted absolute as well as fetched, because a
+     fetch from the ROOT document passes either way. */
+  const oflFetch = { rel: (glLic.fontHrefs || []).filter(x => !/^https?:\/\/[^/]+\/fonts\//.test(x)) };
   for (const f of ['OFL-IBMPlex.txt', 'OFL-Oswald.txt']) {
     const u = (glLic.fontHrefs || []).find(x => x.endsWith(f));
     const r = u ? await httpGet(u) : null;
     oflFetch[f] = r ? { status: r.status, len: (r.body || '').length,
       ofl: /SIL OPEN FONT LICENSE/i.test(r.body || '') } : { missing: true };
   }
-  ck('and both OFL texts the glossary points at actually answer',
-    Object.values(oflFetch).every(r => r.status === 200 && r.len > 3000 && r.ofl),
+  ck('and both OFL texts the glossary points at actually answer, from any path',
+    oflFetch.rel.length === 0
+    && ['OFL-IBMPlex.txt', 'OFL-Oswald.txt'].every(f =>
+      oflFetch[f] && oflFetch[f].status === 200 && oflFetch[f].len > 3000 && oflFetch[f].ofl),
     JSON.stringify(oflFetch));
   /* …and the icon paths every agent probes, which the same rewrite answered with
      the same shell. index.html declared one icon and it is an SVG: Safari does
