@@ -3601,8 +3601,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     new WheelEvent('wheel', { deltaY: -400, clientX: 200, clientY: 300, bubbles: true, cancelable: true })));
   await settle(400);
   const repad = await page.evaluate(() => {
+    /* height for the nine, width only where the block sets min-width: a segment
+       button is 33 px wide by design and it is the row that carries it. */
     const want = ['.seg button', '.jtabs button', '.chip-hd', '.rrow', '.storysel select',
       '.rstbtn', '.card-x', '.zoomrst', '.labbtn'];
+    const wide = ['.rstbtn', '.card-x'];
     const small = [], mounted = [];
     for (const sel of want) {
       const els = [...document.querySelectorAll(sel)].filter(e => e.getClientRects().length);
@@ -3610,7 +3613,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       mounted.push(sel);
       for (const e of els) {
         const b = e.getBoundingClientRect();
-        if (b.height < 44 || b.width < 44) {
+        if (b.height < 44 || (wide.includes(sel) && b.width < 44)) {
           small.push(sel + ' ' + Math.round(b.width) + 'x' + Math.round(b.height));
           break;
         }
