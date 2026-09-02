@@ -2459,12 +2459,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      aria-pressed="true"; the citizenship body computed 0px of max-height against
      362 px of content. Assert the *resolved* height of each panel instead of the
      expression that produced it. */
-  const sliver = [];
+  const sliver = [], sliverSeen = new Map();
+  /* …and .card, the fifth panel index.css names as bounded "exactly like
+     .helpcard, .jcard and .paircard" by the same 176 px reserve, which this list
+     sampled at no viewport: remove its max(140px, …) floor and nothing sees the
+     county card collapse. */
   for (const [vw, vh] of [[1024, 600], [1440, 600], [1366, 600], [1024, 700], [901, 700], [1280, 620]]) {
     await page.setViewport({ width: vw, height: vh });
     for (const [h, sel] of [['#s=HR-18', '#helpCard'], ['#cz=1', '#citz .chip-body'],
       ['#v=flow&s=HR-17&pp=HR-21&y=2018&c=0', '.paircard'],
-      ['#v=flow&s=HR-21&jl=1', '.jcard']]) {
+      ['#v=flow&s=HR-21&jl=1', '.jcard'], ['#s=HR-18', '#card']]) {
       await fresh(h);
       if (sel === '#helpCard') await click('#helpBtn');
       const box = await page.evaluate(s => {
@@ -2475,10 +2479,22 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       }, sel);
       /* one row of content, not merely non-zero: a 22 px box is the empty case */
       if (box && box.vis && box.h < 60) sliver.push(vw + 'x' + vh + ' ' + sel + ' ' + JSON.stringify(box));
+      /* …and the only way to fail was to BE there. A renamed selector or an
+         over-broad display:none returned null, the push was skipped at all six
+         viewports, and the check printed ok having measured that panel zero
+         times — total disappearance passing the check written for near-
+         disappearance, whose own comment is "the panel did not shrink, it
+         vanished". Executed: removing .jcard at 1024×600 left it green. The
+         neighbouring sweeps carry a floor of exactly this shape; this one had
+         none. */
+      if (box && box.vis) sliverSeen.set(sel, (sliverSeen.get(sel) || 0) + 1);
     }
   }
-  ck('no floating panel collapses to an empty sliver on a short stage',
-    sliver.length === 0, sliver.slice(0, 3).join(' | '));
+  const sliverMissed = ['#helpCard', '#citz .chip-body', '.paircard', '.jcard', '#card']
+    .filter(s => !sliverSeen.get(s));
+  ck('no floating panel collapses to an empty sliver on a short stage, and each was there to measure',
+    sliver.length === 0 && sliverMissed.length === 0,
+    [...sliver.slice(0, 3), ...sliverMissed.map(s => 'never measured: ' + s)].join(' | '));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── the same two boxes, swept by HEIGHT ──
