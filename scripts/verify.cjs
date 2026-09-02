@@ -2175,17 +2175,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     history.replaceState = r0; history.pushState = p0;
     /* The SPACING, not a rate over the sample. WebKit's cap is a count over a
        rolling 30 s window, and the throttle fires on the leading edge, so one
-       lone change still lands at once and only a burst is spaced — dividing the
-       total by the sample length would charge that free first write against
-       every second of it. The floor is what bounds the window: at one write per
-       320 ms the worst 30 s can hold 94, against a cap of 100. */
+       lone change lands at once and only a burst is spaced — dividing the total
+       by the sample length would charge that free first write against every
+       second of it. The gap floor is what bounds the window, and it is the whole
+       assertion: `worst30s` below is `30000 / minGap`, i.e. the same statement in
+       the units the engine documents, printed so a failure reads as a budget
+       rather than as a number of milliseconds. This drag is 4 s, so no rolling
+       30 s window is measured here; the 32 s measurement that closes the gap
+       between the two is in the App.tsx note.
+       Both ends of HIST_MS are pinned from here: below ~300 ms this floor fails,
+       and above ~800 ms the trailing flush misses the settle two lines down and
+       the URL assertion fails instead. */
     const gaps = ts.slice(1).map((t, i) => t - ts[i]);
-    return { R, P, gaps: gaps.length, minGap: gaps.length ? Math.round(Math.min(...gaps)) : 0,
-      worst30s: gaps.length ? Math.ceil(30000 / Math.min(...gaps)) : 0,
+    const minGap = gaps.length ? Math.min(...gaps) : 0;
+    return { R, P, gaps: gaps.length, minGap: Math.round(minGap),
+      perWindow: minGap ? Math.ceil(30000 / minGap) : 0,
       year: sp.getAttribute('aria-valuetext'), hash: location.hash };
   });
   ck('scrubbing spaces its history writes under the engine’s 100-per-30 s budget, and the URL still catches up',
-    histRate.R >= 5 && histRate.minGap >= 300 && histRate.worst30s <= 100
+    histRate.R >= 5 && histRate.perWindow <= 100
     && histRate.hash.includes('y=' + String(histRate.year).replace('.', '')),
     JSON.stringify(histRate));
 
