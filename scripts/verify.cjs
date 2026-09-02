@@ -8450,12 +8450,41 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const assetHdr = entryUrl ? (await page.goto(entryUrl, { waitUntil: 'domcontentloaded' })).headers() : {};
   await fresh('');
   const csp = docHdr['content-security-policy'] || '';
-  ck('every response carries the deployed security policy',
-    /default-src 'self'/.test(csp) && /frame-ancestors 'none'/.test(csp)
-    && /img-src 'self' data: blob:/.test(csp)
+  /* Every directive, at its exact source list — not three of the ten, and not by
+     substring. The old predicate tested `default-src 'self'`, `frame-ancestors
+     'none'` and `img-src 'self' data: blob:`, all three of which survive the
+     realistic regression: someone adds a widget, hits the policy, and writes
+     `script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src *`.
+     Lifted verbatim and run against that gutted policy, the predicate returned
+     true — and so does the rest of this suite, because it runs UNDER the policy
+     and a looser one breaks nothing. The five directives that do the mitigating
+     — script-src, connect-src, object-src, base-uri, form-action — were asserted
+     nowhere in the repo. That matters more here than in a typical SPA: Tooltip
+     ships dangerouslySetInnerHTML fed from generated data, under a comment
+     saying in as many words that "the current values happen to be safe is not a
+     property, it is an observation". `script-src 'self'` is the second line
+     behind that, and it was unpinned.
+     Parsed and compared as a map, so a loosened source list, a dropped directive
+     and an added one all fail alike. This is a deliberate duplicate of
+     vercel.json rather than a read of it: a policy change should have to be
+     written twice, and reading the file would only assert the file equals
+     itself. */
+  const CSP_WANT = {
+    'default-src': "'self'", 'script-src': "'self'",
+    'style-src': "'self' 'unsafe-inline'", 'img-src': "'self' data: blob:",
+    'font-src': "'self' data:", 'connect-src': "'self'", 'object-src': "'none'",
+    'base-uri': "'none'", 'form-action': "'none'", 'frame-ancestors': "'none'",
+  };
+  const cspMap = Object.fromEntries(csp.split(';').map(d => d.trim()).filter(Boolean)
+    .map(d => [d.slice(0, d.indexOf(' ') === -1 ? d.length : d.indexOf(' ')),
+      d.slice(d.indexOf(' ') + 1).trim()]));
+  const cspBad = [...new Set([...Object.keys(CSP_WANT), ...Object.keys(cspMap)])]
+    .filter(k => cspMap[k] !== CSP_WANT[k]).map(k => k + ': ' + (cspMap[k] ?? '(absent)'));
+  ck('every response carries the deployed security policy, every directive of it',
+    cspBad.length === 0 && Object.keys(cspMap).length === 10
     && docHdr['x-content-type-options'] === 'nosniff'
     && /strict-origin/.test(docHdr['referrer-policy'] || ''),
-    JSON.stringify({ csp: csp.slice(0, 80), nosniff: docHdr['x-content-type-options'] }));
+    JSON.stringify({ bad: cspBad, n: Object.keys(cspMap).length, nosniff: docHdr['x-content-type-options'] }));
   ck('content-hashed assets are immutable and the document revalidates',
     /immutable/.test(assetHdr['cache-control'] || '')
     && /must-revalidate/.test(docHdr['cache-control'] || ''),
