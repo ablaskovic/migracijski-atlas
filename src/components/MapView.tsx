@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { scaleSqrt } from 'd3-scale';
@@ -127,14 +127,22 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
      note wraps to a different height at every breakpoint). Legend size depends
      only on view/dir, never on the grid, so there is no measurement loop. */
   const [legend, setLegend] = useState({ w: 0, h: 0 });
-  useEffect(() => {
+  /* …and BEFORE paint, with the first measurement taken synchronously the way
+     the panel effect below already takes its own. A passive effect landed the
+     box one frame late, which is the other half of the jump: the grid drew once
+     from a stale box and then moved. The note above records the precondition a
+     layout effect needs — the legend's size depends only on view/dir, never on
+     the grid, so there is no measurement loop to fall into. */
+  useLayoutEffect(() => {
     const el = wrapRef.current?.querySelector('.legend');
     if (!el) { setLegend({ w: 0, h: 0 }); return; }
-    const ro = new ResizeObserver(() => {
+    const measure = () => {
       const r = el.getBoundingClientRect();
       setLegend(l => (l.w === r.width && l.h === r.height ? l : { w: r.width, h: r.height }));
-    });
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
+    measure();
     return () => ro.disconnect();
     /* flow/den belong here too: the legend note gains a sentence for
        "mig. + prirodno" and Godine states its own window, so both change the
@@ -498,11 +506,17 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           normal flow, where nothing overlays anything. */}
       <div className="map-stage">
       <div className="map-box" ref={wrapRef}>
-      {S.view === 'mx' ? (
+      {/* `drawn` guards the county paths and the JLS map already; the two grids
+          were the exception, and they are the two that lay themselves out around
+          a MEASURED legend box. On a cold link the first paint used {w:0,h:0}
+          and the fitGrid floor, so Matrica drew 7 px cells at x=2 for 100–240 ms
+          before landing at x=414 with 25,7 px ones. Holding the space empty for
+          that frame is what the map branch has always done. */}
+      {S.view === 'mx' ? (drawn && (
         <MatrixView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} openCorridor={openCorridor} />
-      ) : S.view === 'yrs' ? (
+      )) : S.view === 'yrs' ? (drawn && (
         <YearsView S={S} setS={setS} size={size} legend={legend} panel={panel} zoom={zoom} />
-      ) : S.view === 'jmap' ? (
+      )) : S.view === 'jmap' ? (
         /* role=img would declare this a single leaf graphic and hide the
            focusable features inside it from assistive tech */
         /* tabIndex -1 for the skip link, as in the county map below */

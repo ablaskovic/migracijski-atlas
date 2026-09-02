@@ -162,7 +162,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 543;
+const EXPECTED_CHECKS = 544;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5602,6 +5602,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       && Math.abs(v.dL) <= 1.5 && Math.abs(v.dR) <= 1.5
       && (v.dC == null || Math.abs(v.dC) <= 1.5)),
     JSON.stringify(lblFit));
+
+  /* …and the grid lands where it lands the first time. The two grid views lay
+     themselves out around a MEASURED legend box, and unlike the county paths and
+     the JLS map they were emitted before that measurement existed: the first
+     paint used {w:0,h:0} and fitGrid's floor. Measured on a cold link by
+     recording every distinct first-cell geometry across frames, Godine painted
+     7 px cells at x=2 and then jumped to 25,7 px at x=414; Matrica 12 px at
+     x=14 then 18,4 px at x=463.
+     Two halves: `drawn` now guards the grids as it already guarded the map, so a
+     floor-sized grid is never emitted, and the legend is measured in a layout
+     effect with a synchronous first pass — the panel effect beside it already
+     works that way, and the note above records the precondition, that the
+     legend's size depends only on view/dir and never on the grid. */
+  const firstPaint = {};
+  for (const [k, h, sel] of [['mx', '#v=mx&y=2018&c=0&dir=out', '.mxc'], ['yrs', '#v=yrs&c=0&y=2022', '.yrc']]) {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    await pg.setViewport({ width: 1440, height: 900 });
+    await pg.evaluateOnNewDocument(s => {
+      window.__frames = [];
+      const tick = () => {
+        const c = document.querySelector(s);
+        if (c) {
+          const r = c.getBoundingClientRect();
+          const key = Math.round(r.left) + 'x' + Math.round(r.width * 10) / 10;
+          if (key !== window.__frames[window.__frames.length - 1]) window.__frames.push(key);
+        }
+        if (window.__frames.length < 40) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }, sel);
+    await pg.goto(url + h, { waitUntil: 'domcontentloaded' });
+    await pg.waitForFunction(x => document.querySelectorAll(x).length > 100, { timeout: 25000 }, sel).catch(() => {});
+    await settle(1500);
+    firstPaint[k] = await pg.evaluate(() => window.__frames);
+    await pg.close();
+  }
+  ck('a grid view paints its cells once, at the geometry it keeps',
+    firstPaint.mx.length === 1 && firstPaint.yrs.length === 1,
+    JSON.stringify(firstPaint));
   /* Privacy and determinism are the same property here: a page that reaches no
      third-party origin cannot leak a visitor's IP on first paint and cannot
      have a check quietly depend on someone else's uptime. */
