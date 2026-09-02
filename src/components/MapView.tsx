@@ -759,6 +759,17 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
           </g>
         </svg>
       )}
+      {/* The strip has a fourth member, and it is the leftmost one. .jcard sits
+          at top:14 left:16, the same row as the three buttons, and it used to be
+          rendered last of all four — so a sighted keyboard reader watched focus
+          walk right to #helpBtn (x=1018) and #labBtn (x=1056), then jump 1.001 px
+          back left to #jcardHd (x=17) on the same row, measured at 1440×900 in
+          Tokovi. That is the 2.4.3 inversion the note below was written for; the
+          commit that closed it reordered the three inside .mapstrip and left the
+          one outside it alone. All four are absolutely positioned, so nothing
+          moves on screen; when the card is open its body now reads before the
+          buttons, which is what the layout has always claimed. */}
+      <JlsCard S={S} setS={setS} toggleJls={toggleJls} />
       {/* Source order = paint order, left to right: zoom reset, help, labels.
           They used to be three absolutely-positioned controls, each reserving
           space for its neighbour with a literal — which held at Chrome's default
@@ -853,7 +864,6 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
         );
       })()}
       <Legend S={S} />
-      <JlsCard S={S} setS={setS} toggleJls={toggleJls} />
       <HelpPanel S={S} setS={setS} />
       </div>
       {/* One dock, not two bottom-right anchors. Side by side the pair spanned

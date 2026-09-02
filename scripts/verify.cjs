@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 551;
+const EXPECTED_CHECKS = 552;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2088,6 +2088,37 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       && r.hits[0] === 'helpBtn' && (r.hits[1] === 'absent' || r.hits[1] === 'labBtn')
       && r.hits[2] === 'zoomRst'),
     JSON.stringify(strip));
+
+  /* …and Tab has to walk it left to right. The strip has a FOURTH member: .jcard
+     sits at top:14 left:16, the same row as the three buttons, and it was
+     rendered after all of them — so focus went right to #helpBtn (x=1026) and
+     #labBtn (x=1056), then jumped 1.039 px back left to #jcardHd (x=17) on the
+     same row. That is exactly the 2.4.3 inversion the commit before this one
+     described and fixed for the three inside .mapstrip, leaving the one outside
+     it where it was. Measured by pressing Tab, because the geometry check above
+     reads boxes and a reading order is not a box. */
+  await fresh('#v=flow&y=2018&c=0&s=HR-21');
+  await page.evaluate(() => document.body.focus());
+  const stripTab = await (async () => {
+    const seen = [];
+    for (let i = 0; i < 90; i++) {
+      await page.keyboard.press('Tab');
+      const s = await page.evaluate(() => {
+        const a = document.activeElement;
+        if (!a || a === document.body) return null;
+        const r = a.getBoundingClientRect();
+        return { id: a.id, x: Math.round(r.left), y: Math.round(r.top) };
+      });
+      if (s && ['jcardHd', 'helpBtn', 'labBtn', 'zoomRst'].includes(s.id)
+        && !seen.some(t => t.id === s.id)) seen.push(s);
+    }
+    return seen;
+  })();
+  ck('Tab crosses the map top strip left to right, the fourth member included',
+    stripTab.length === 3 && stripTab[0].id === 'jcardHd'
+    && stripTab.every((s, i) => i === 0 || s.x >= stripTab[i - 1].x)
+    && stripTab.every(s => Math.abs(s.y - stripTab[0].y) <= 4),
+    JSON.stringify(stripTab));
 
   /* ── help panel: the one stable glossary ── */
   await fresh('');
