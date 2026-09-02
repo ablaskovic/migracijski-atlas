@@ -160,8 +160,14 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
             can see would have missed the link. */}
         <div className="hd-sub">{L('Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz',
           'Internal and external migration + inter-county flows — an interactive companion to')}{' '}
+          {/* Croatian inside an English document: the short citation and the journal
+              name are what is printed on the paper, and county names are place names —
+              both are annotated rather than translated, which is the rule this project
+              states where the footer link and the glossary citation already carry it. A
+              screen reader on the English UI otherwise voices them with English
+              phonemes. */}
           {paperPending() ? paperSub() : (
-            <a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
+            <a className="paper-link" lang="hr" href={PAPER.url} target="_blank" rel="noopener noreferrer"
               aria-label={`${PAPER.short} — ${PAPER.citation} ${L('Otvara se u novoj kartici.', 'Opens in a new tab.')}`}>{paperSub()}</a>
           )}</div>
       </div>

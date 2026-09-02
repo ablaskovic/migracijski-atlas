@@ -900,7 +900,7 @@ export default function App() {
               printed on the paper — so it is annotated rather than translated */}
           {!paperPending() && (
             <><a className="paper-link" lang="hr" href={PAPER.url} target="_blank" rel="noopener noreferrer"
-              aria-label={`${PAPER.short} — ${PAPER.citation} ${NEWTAB()}`}>{PAPER.short}</a>{paperRefTail()} </>
+              aria-label={`${PAPER.short} — ${PAPER.citation} ${NEWTAB()}`}>{PAPER.short}</a><span lang="hr">{paperRefTail()}</span> </>
           )}
           {NO_AFFIL()}{L(" DZS naknadno revidira serije, pa se pojedine vrijednosti razlikuju od onih u radu.", " CBS revises its series afterwards, so some values differ from those in the paper.")}
           {/* The page measures its own use, and said so nowhere a reader could

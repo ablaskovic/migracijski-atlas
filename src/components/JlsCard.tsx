@@ -58,7 +58,7 @@ export default function JlsCard({ S, setS, toggleJls }: {
             the pointer that had just clicked it, at every width and in both
             languages. Both sibling chips render their scope unconditionally —
             and their caption repeats it, exactly as this one's does. */}
-        <span id="jcardTitle">{L('JLS koridori', 'LAU corridors') + (on ? ' · ' + (D[S.sel!]?.n || '') : '')}
+        <span id="jcardTitle">{L('JLS koridori', 'LAU corridors')}{on && <>{' · '}<span lang="hr">{D[S.sel!]?.n || ''}</span></>}
           <span className="chip-more">{SCOPE()}</span></span>
       </div>
       {open && (

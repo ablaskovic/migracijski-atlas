@@ -199,6 +199,9 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     else if (d.pair) setS({ pairHl: null });
     else setHL(null);
   };
+  /* A ReactNode, not a string: the Tokovi heading ends in a county name, and a
+     Croatian place name inside a lang="en" document is annotated rather than
+     translated — the rule this file already states for its own rows. */
   const railLab = S.view === 'jmap' ? (S.dir === 'net'
     ? L('JLS — 10 najvećih dobitaka i gubitaka', 'LAU — 10 largest gains and losses')
     : L('JLS — 20 najvećih', 'LAU — 20 largest'))
@@ -207,7 +210,8 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     /* naming the column keeps the rail from reading as a ranking of the whole
        grid, which is sorted by the window total and generally differs */
     : S.view === 'yrs' ? L('Poredak — označena godina', 'Ranking — the marked year')
-    : S.view === 'flow' ? L('Partneri · ', 'Partners · ') + (D[S.sel!]?.n || '')
+    : S.view === 'flow'
+      ? <>{L('Partneri · ', 'Partners · ')}<span lang="hr">{D[S.sel!]?.n || ''}</span></>
       : L('Poredak županija', 'County ranking');
 
   const rowKeys = rows.map(d => (d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso)).join('|');

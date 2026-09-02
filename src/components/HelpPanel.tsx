@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { focusSoon } from '../lib/state.ts';
 import {
   NO_AFFIL, PAPER, PAPER_THR, PAPER_WINDOW,
-  paperCheckNote, paperHelpIntro, paperPending, paperTerm,
+  paperCheckNote, paperHelpIntro, paperPending,
   PAPER_KLAS,
+  paperTermCite, paperTermTail,
 } from '../lib/credits.ts';
 import { D, KLAB, PAPER_KLAS_DIFF, fmtI } from '../lib/metrics.ts';
 import {
@@ -237,7 +238,7 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <dt>{L('% tek. procjene', '% of current estimate')}</dt><dd>{L('podijeljeno procjenom stanovništva za tu godinu; procjene postoje za 2001.–2024., pa se za ranije godine i za 2025. uzima najbliža dostupna', 'divided by the population estimate for that year; estimates exist for 2001–2024, so earlier years and 2025 use the nearest available one')}</dd>
         {/* the legend and the rail say "iz rada" in three places; without this
             entry the shorthand pointed at nothing a reader could resolve */}
-        <dt>{L('rad', 'the paper')}</dt><dd>{paperTerm()}</dd>
+        <dt>{L('rad', 'the paper')}</dt><dd><span lang="hr">{paperTermCite()}</span>{paperTermTail()}</dd>
       </dl>
 
       <h3 className="help-h">{L('Kratice', 'Abbreviations')}</h3>

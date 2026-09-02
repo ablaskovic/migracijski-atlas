@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 593;
+const EXPECTED_CHECKS = 594;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10087,6 +10087,40 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     storyOpt.hr === '2. nalaz…' && storyOpt.en === 'finding 2…'
     && storyOpt.hrNone === 'odaberi…' && storyOpt.enNone === 'choose…',
     JSON.stringify(storyOpt));
+
+  /* ── Croatian inside the English document is annotated ──
+     the project's rule, stated in MapView, Rail and MatrixView: a Croatian place
+     name or citation inside a lang="en" document carries lang="hr" so a screen
+     reader does not voice it with English phonemes. The footer's PAPER.short
+     anchor and the glossary citation already did; five siblings of the same
+     strings did not. Measured in the English UI before: the header subtitle link
+     "Maras i Vinovrški (2026.)" resolved to en, the footer's journal tail sat
+     OUTSIDE the annotated anchor, the glossary's `rad` entry ran the citation
+     and the journal name in an English span, and #jcardTitle and #railLab both
+     ended in a bare county name. The nearest lang ancestor is what a reader's
+     software consults, so that is what is measured. */
+  await fresh('#l=en&v=flow&s=HR-14&pp=HR-21&dir=net&y=2018&c=0&jl=1');
+  const langRuns = await page.evaluate(async () => {
+    const up = el => { let n = el; while (n) { const l = n.getAttribute && n.getAttribute('lang'); if (l) return l; n = n.parentElement; } return null; };
+    const a = document.querySelector('.hd-sub a');
+    const jc = document.querySelector('#jcardTitle span[lang]');
+    const rl = document.querySelector('#railLab span[lang]');
+    const foot = [...document.querySelectorAll('.ft span[lang="hr"]')].map(x => x.textContent.trim());
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 350));
+    const dd = [...document.querySelectorAll('#helpCard dd')].find(d => /Maras|Vinovr/.test(d.textContent || ''));
+    return { doc: document.documentElement.lang,
+      hd: a ? up(a) : null, hdTxt: a ? a.textContent.trim() : null,
+      jc: jc ? jc.getAttribute('lang') : null, jcTxt: jc ? jc.textContent.trim() : null,
+      rl: rl ? rl.getAttribute('lang') : null, rlTxt: rl ? rl.textContent.trim() : null,
+      foot, gloss: !!(dd && dd.querySelector('span[lang="hr"]')) };
+  });
+  ck('every Croatian run in the English UI is annotated, not left to English phonemes',
+    langRuns.doc === 'en' && langRuns.hd === 'hr' && /Maras/.test(langRuns.hdTxt || '')
+    && langRuns.jc === 'hr' && /[čćšžđ]/i.test(langRuns.jcTxt || '')
+    && langRuns.rl === 'hr' && /[čćšžđ]/i.test(langRuns.rlTxt || '')
+    && langRuns.foot.some(t => /zbornik/i.test(t)) && langRuns.gloss,
+    JSON.stringify(langRuns));
 
   /* ── PageUp and PageDown keep the reader's column ──
      the APG grid pattern this file cites as its contract has them preserve it,

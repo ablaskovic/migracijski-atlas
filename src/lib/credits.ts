@@ -180,8 +180,14 @@ export const paperCheckNote = (): string => paperPending()
     'Everything attributed here to the paper can be checked against the source — the link is above.');
 
 /** The `rad` shorthand the legend and the rail use, defined in one place. */
-export const paperTerm = (): string => paperPending()
+/* Split, because half of it is Croatian by construction and half is the
+   glossary's own sentence. On the English UI the whole run resolved to lang=en,
+   so a screen reader voiced the short citation and the journal name with English
+   phonemes — the thing this project annotates everywhere else. The pending
+   branch has no citation in it, so it is prose in whichever language is on. */
+export const paperTermCite = (): string => (paperPending() ? '' : `${PAPER.short}, ${PAPER.journal}`);
+export const paperTermTail = (): string => (paperPending()
   ? L('znanstveni rad kojemu je atlas nadopuna; još nije javno objavljen — v. „Rad i atribucija” niže',
     'the paper this atlas is a companion to; not yet published — see “The paper and attribution” below')
-  : L(`${PAPER.short}, ${PAPER.journal} — v. „Rad i atribucija” niže`,
-    `${PAPER.short}, ${PAPER.journal} — see “The paper and attribution” below`);
+  : L(' — v. „Rad i atribucija” niže', ' — see “The paper and attribution” below'));
+export const paperTerm = (): string => paperTermCite() + paperTermTail();
