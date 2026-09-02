@@ -73,17 +73,12 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
        font fetch was the reachable one — left #pngBtn disabled reading '…' and the
        live region stuck on "Priprema PNG-a…" for the rest of the session. */
     finally {
+      /* read BEFORE the re-enable: after it, a frame can land in which React
+         has not yet flushed and the button is still disabled, so .focus() is a
+         silent no-op — measured, one run in three left focus on <body>. */
+      const dropped = document.activeElement === document.body || !document.activeElement;
       setBusy(false);
-      /* the button disables itself mid-export, and browsers blur a newly-disabled
-         element — so a keyboard export dropped focus to <body> every time.
-         Only that blur, though: focusSoon takes focus from wherever it is, and
-         an export takes seconds (the font fetch waits up to 8 s, a 4K encode
-         0,3–0,8 s), so a keyboard reader who pressed PNG and moved on to the
-         scrubber was yanked back to the button when the file landed. Measured:
-         focus #spark during the '…' state, and afterwards activeElement is
-         #pngBtn. Focus is restored only where the disable actually dropped it,
-         which is <body>. */
-      if (document.activeElement === document.body || !document.activeElement) focusSoon('#pngBtn');
+      if (dropped) focusSoon('#pngBtn');
     }
   };
   /* The SVG twin embeds the same faces the PNG twin does, and it can only embed
@@ -104,8 +99,12 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
     } catch (e) { console.error('SVG export failed', e); fail('svg'); }
     /* the same rule as the PNG twin above, and for the same reason */
     finally {
+      /* read BEFORE the re-enable: after it, a frame can land in which React
+         has not yet flushed and the button is still disabled, so .focus() is a
+         silent no-op — measured, one run in three left focus on <body>. */
+      const dropped = document.activeElement === document.body || !document.activeElement;
       setBusySvg(false);
-      if (document.activeElement === document.body || !document.activeElement) focusSoon('#svgBtn');
+      if (dropped) focusSoon('#svgBtn');
     }
   };
 

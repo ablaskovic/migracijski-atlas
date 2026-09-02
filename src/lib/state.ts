@@ -72,7 +72,12 @@ export const STORY_KEYS = ['view', 'flow', 'den', 'cum', 'yi', 'dir', 'sel', 'pa
    which also lands here — still hands focus back without drawing a ring. It
    clears on the next blur or pointerdown, so it never outlives its own gesture. */
 export function focusSoon(sel: string, kb = false) {
-  requestAnimationFrame(() => {
+  /* Two frames, not one. The target can exist and still refuse focus on the
+     frame after the state change — a button React has not yet re-enabled is the
+     reachable case, and `.focus()` on a disabled element is a silent no-op that
+     leaves focus on <body>, which is the exact failure this helper exists to
+     prevent. Try again on the next frame, once. */
+  const attempt = (again: boolean) => {
     for (const el of document.querySelectorAll<HTMLElement | SVGElement>(sel)) {
       if (!el.getClientRects().length) continue;   /* not rendered — cannot take focus */
       el.focus();
@@ -85,7 +90,9 @@ export function focusSoon(sel: string, kb = false) {
       }
       return;
     }
-  });
+    if (again) requestAnimationFrame(() => attempt(false));
+  };
+  requestAnimationFrame(() => attempt(true));
 }
 
 /* Is this focus a *keyboard* focus? The two-tone rings are a keyboard affordance,
