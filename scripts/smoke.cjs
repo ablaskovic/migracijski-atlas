@@ -163,7 +163,11 @@ function localEntry() {
     /no-cache|max-age=0/.test(home.headers['cache-control'] || ''),
     home.headers['cache-control'] || 'absent');
 
-  /* the build emits relative asset URLs (`./assets/…`), so both forms are read */
+  /* Root-absolute since the MA3-022 fix set base:'/' in vite.config — dist/index.html
+     carries src="/assets/index-*.js". This comment claimed the opposite for long
+     enough that a maintainer reading it would have gone looking for a relative form
+     the build has not emitted since. The optional .? in the pattern stays, so an
+     older deploy still matches. */
   const served = (home.body.match(/src="\.?(\/assets\/index-[\w-]+\.js)"/) || [])[1] || null;
   const local = localEntry();
   ck('the deployed entry chunk is the one in ./dist',
@@ -230,9 +234,13 @@ function localEntry() {
      ("the deployed entry chunk is the one in ./dist") failed for the harness's
      own reason on a clone with no dist/. The bundle carried no version token at
      all to substitute — probed: neither '2.5.1' nor 'v2.5' appeared in it.
-     vite.config now defines __APP_VERSION__ from package.json and main.tsx
-     writes it onto <html data-v>, so both the markup and the chunk can be asked
-     directly. The stylesheet marker stays: the fallback metrics live there and
+     vite.config stamps package.json's version onto <html data-v> at build time,
+     through the stampVersion transformIndexHtml plugin, so the served MARKUP can
+     be asked directly. There is no __APP_VERSION__ define — the name appeared
+     nowhere else in the repo — and the entry chunk carries no version string at
+     all, so a maintainer who trusted this and grepped the chunk found nothing and
+     would have concluded the stamp was broken. README describes the real
+     mechanism correctly. The stylesheet marker stays: the fallback metrics live there and
      nowhere else, so it answers a different question. */
   const want = require(path.resolve(__dirname, '../package.json')).version;
   const servedV = (home.body.match(/<html[^>]*\sdata-v="([^"]+)"/) || [])[1] || null;
