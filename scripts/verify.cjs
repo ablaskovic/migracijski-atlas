@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 603;
+const EXPECTED_CHECKS = 604;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4320,6 +4320,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     gloss.zoom && gloss.zero, JSON.stringify(gloss));
   ck('the glossary documents the pan and grid-jump keys too',
     gloss.pan && gloss.grid, JSON.stringify(gloss));
+  /* ── …and every key the timeline itself implements ──
+     The two checks above ask whether four particular clauses are still in the
+     Controls paragraph. Neither could see the paragraph fall behind App: the
+     grid sentence carries the words "PageUp"/"PageDown" too, so a whole-card
+     `includes` is satisfied by it while the timeline sentence says nothing —
+     which is what the copy did. #spark declares role=slider and App gives it
+     six keys (Home, End, PageUp/PageDown at ±5 years, ArrowUp/ArrowDown at ±1);
+     the paragraph named the first two and then scoped PageUp/PageDown to "the
+     matrix, Years and the LAU map", an explicit scoping that reads as
+     exclusive, and never mentioned the vertical arrows at all — added with the
+     slider pattern, documented nowhere. So the key list is read out of App's
+     own #spark branch rather than restated here, and each one has to appear in
+     the timeline sentence — the text before the playback clause — in BOTH
+     languages, since the two halves of L() drift independently. */
+  const sparkSrc = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8');
+  const sparkBlk = sparkSrc.slice(sparkSrc.indexOf("if (el.id === 'spark') {"));
+  const sparkKeys = [...new Set([...sparkBlk.slice(0, sparkBlk.indexOf('Shift+arrows pan the map'))
+    .matchAll(new RegExp("ev[.]key === '([^']+)'", 'g'))].map(m => m[1]))];
+  const GLYPH = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
+  const keyDoc = { keys: sparkKeys };
+  for (const l of ['hr', 'en']) {
+    await fresh('#l=' + l + '&v=saldo&c=1&y=2024');
+    await click('#helpBtn');
+    const sent = await page.evaluate(() => {
+      const h = [...document.querySelectorAll('#helpCard .help-h')]
+        .find(x => /Upravljanje|Controls/.test(x.textContent));
+      const t = h && h.nextElementSibling ? h.nextElementSibling.textContent : '';
+      const cut = Math.max(t.indexOf('reprodukciju'), t.indexOf('playback'));
+      return cut > 0 ? t.slice(0, cut) : t;
+    });
+    await click('#helpX');
+    keyDoc[l] = sparkKeys.filter(k => !sent.includes(GLYPH[k] || k));
+  }
+  ck('the timeline sentence names every key the timeline answers to, in both languages',
+    sparkKeys.length === 6 && keyDoc.hr.length === 0 && keyDoc.en.length === 0,
+    JSON.stringify(keyDoc));
 
   /* ── the two big geometry payloads are no longer on the critical path ── */
   /* …measured on the ARTIFACT and on the waterfall, not on a stopwatch. This

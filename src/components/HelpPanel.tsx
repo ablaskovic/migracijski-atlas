@@ -270,9 +270,17 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
             timeline itself (App handles them only when #spark has focus), and
             saying so is the scoping this same paragraph already applies to the
             grid views two sentences down. Without it a reader pressing Home
-            anywhere else got nothing and the glossary looked wrong. */}
+            anywhere else got nothing and the glossary looked wrong.
+            …and the rest of the slider's key set, which the scrubber owes because
+            it declares role=slider and which this paragraph named nowhere: the
+            ±5-year jump and the up/down arrows. PageUp/PageDown appeared only two
+            sentences down, scoped to "the matrix, Years and the LAU map" — an
+            explicit scoping that reads as exclusive — so a reader who wanted to
+            cross 28 years five at a time was told the key belongs elsewhere. */}
         <b>← →</b>{L(' mijenjaju godinu, ', ' change the year, ')}<b>Home</b> / <b>End</b>
         {L(' na vremenskoj vrpci skaču na prvu i zadnju godinu, ', ' on the timeline jump to the first and last year, ')}
+        <b>PageUp</b> / <b>PageDown</b>{L(' ondje pomiču po pet godina, a ', ' move five years there, and ')}
+        <b>↑ ↓</b>{L(' po jednu,', ' one,')}
         <b>{L(' razmaknica', ' space')}</b>{L(' pokreće reprodukciju kroz godine.', ' starts playback through the years.')}
         {/* zoom was wheel/pinch/drag only — the feature, and the county labels that
             only appear once a county is zoomed large enough, had no keyboard route */}
