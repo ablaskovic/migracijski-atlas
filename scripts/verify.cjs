@@ -7503,11 +7503,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   await fresh('#l=en&cz=2');
   const enZem = await page.evaluate(() => [...document.querySelectorAll('#zemList .jrow .jn')]
     .map(e => e.textContent.trim()));
-  ck('the Zemlje tab reads in English too',
-    enZem.length >= 13 && enZem.includes('Germany') && enZem.includes('Philippines')
-    && enZem.includes('North Macedonia') && enZem.includes('Switzerland')
-    && !enZem.some(x => /Njemačka|Filipini|Švicarska|Sjeverna Makedonija/.test(x)),
-    JSON.stringify(enZem.slice(0, 6)));
+  /* …every row of it, against its own Croatian twin. Four pinned exonyms and a
+     four-name blacklist left the other eight countries and both derived rows
+     unasserted: executed on the real list, reverting six exonyms and both of
+     "Ostale zemlje" / "Ukupno — sve zemlje 2025." to Croatian passed the old
+     predicate unchanged. `>= 13` also tolerated the remainder row vanishing
+     outright — twelve countries plus the total is thirteen. countryName
+     degrades an unknown key to itself, so the annual top-12 refresh is a live
+     route to exactly that.
+     Read in both languages in the same state and compared row for row: every
+     row must differ, except the names that genuinely are the same word in both.
+     That needs no list of exonyms and no blacklist, and it does not go stale
+     when the twelve change. */
+  await fresh('#cz=2');
+  const hrZem = await page.evaluate(() => [...document.querySelectorAll('#zemList .jrow .jn')]
+    .map(e => e.textContent.trim()));
+  const SAME_IN_BOTH = ['Nepal', 'Kosovo'];
+  const zemSame = enZem.filter((s, i) => s === hrZem[i] && !SAME_IN_BOTH.includes(s));
+  ck('the Zemlje tab reads in English too, every row of it',
+    enZem.length === 14 && hrZem.length === enZem.length && zemSame.length === 0
+    && enZem.includes('Other countries') && enZem.some(x => /^Total — all countries/.test(x))
+    && hrZem.includes('Ostale zemlje') && hrZem.some(x => /^Ukupno — sve zemlje/.test(x)),
+    JSON.stringify({ n: enZem.length, same: zemSame, en: enZem.slice(-3), hr: hrZem.slice(-3) }));
   await fresh('#l=en&v=mx&c=0&y=2018&dir=net');
   const enMx = await page.evaluate(() => ({
     c: [...document.querySelectorAll('.mxc')].map(p => p.getAttribute('aria-label') || ''),
