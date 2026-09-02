@@ -4229,9 +4229,18 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      still inside the scrollport and scroll-into-view therefore does nothing.
      Both bar states, because they reserve different heights (136 / 78 px), and
      the walk's own floor is that focus moved at all. */
-  const barWalk = async (steps) => {
+  /* Walked to the end of the cycle, not to a round number. Both calls passed 60
+     against a cycle measured at 80 stops here, so presses 61–80 were never made:
+     ten .cnt counties (HR-20, HR-06, HR-04, HR-10, HR-07, HR-11, HR-12, HR-03,
+     HR-14, HR-16) and all six footer .paper-link anchors went unexamined — and
+     the footer sits at the document bottom directly against the bar's reserve,
+     which is where a scroll-padding regression would show first. The check that
+     names the whole tab order would have stayed green over exactly the stops it
+     never visits. Stop when focus returns to the first stop or reaches <body>,
+     cap at 120, and report the length so a truncated cycle is itself a failure. */
+  const barWalk = async (cap = 120) => {
     const stops = [];
-    for (let i = 0; i < steps; i++) {
+    for (let i = 0; i < cap; i++) {
       await page.keyboard.press('Tab');
       stops.push(await page.evaluate(() => {
         const a = document.activeElement;
@@ -4245,21 +4254,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         return { hidden: !bar.contains(a) && area > 0 && ov / area >= 0.999,
           who: a.id || a.getAttribute('data-iso') || String(a.getAttribute('class') || a.tagName) };
       }));
+      /* the cycle has closed once focus is back where it started, or has left
+         the document altogether */
+      const last = stops[stops.length - 1];
+      /* 20 before a wrap counts, so a `who` that is a shared class string near
+         the start cannot end the walk on its second occurrence */
+      if (last.body || (stops.length > 20 && last.who === stops[0].who)) break;
     }
-    return { moved: stops.filter((s, i) => i && s.who !== stops[i - 1].who).length,
+    return { n: stops.length,
+      moved: stops.filter((s, i) => i && s.who !== stops[i - 1].who).length,
       hidden: stops.filter(s => s.hidden).length,
       who: [...new Set(stops.filter(s => s.hidden).map(s => s.who))].slice(0, 4) };
   };
   await fresh('#v=saldo&c=1&y=2024');
-  const barOpen = await barWalk(60);
+  const barOpen = await barWalk();
   ck('390: Tab never lands on a row the fixed scrubber covers',
-    barOpen.hidden === 0 && barOpen.moved >= 10, JSON.stringify(barOpen));
+    barOpen.hidden === 0 && barOpen.moved >= 10 && barOpen.n >= 75, JSON.stringify(barOpen));
   await page.evaluate(() => document.querySelector('.scrub-tog').click());
   await settle(300);
-  const barShut = await barWalk(60);
+  const barShut = await barWalk();
   barShut.pad = await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingBottom);
   ck('390: and the collapsed bar reserves its own 78 px, not the open bar’s 136',
-    barShut.hidden === 0 && barShut.moved >= 10 && barShut.pad === '78px',
+    barShut.hidden === 0 && barShut.moved >= 10 && barShut.n >= 75 && barShut.pad === '78px',
     JSON.stringify(barShut));
   await page.setViewport({ width: 1440, height: 900 });
 
