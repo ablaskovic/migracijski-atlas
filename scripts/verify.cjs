@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 493;
+const EXPECTED_CHECKS = 494;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2373,6 +2373,82 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && tightOpened.age && !tightOpened.help,
     JSON.stringify({ ...tightTap, ...tightOpened }));
   await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── a finger on a device whose PRIMARY pointer is a mouse ──
+     A touch laptop, a Surface, an iPad with a trackpad: `(pointer:coarse)` is
+     false because the primary pointer is fine, while `(any-pointer:coarse)` is
+     true — which is the device class index.css says it moved its 44 px tokens to.
+     Every JS touch affordance keyed on the primary flag, decided once at module
+     init, so all of them were off on exactly that device while the coarse layout
+     was on. Measured at 1440×900 with the primary-pointer query pinned false:
+     a tap on a matrix cell painted the readout Tooltip's own note calls "the only
+     value readout" as a 238×118 panel at (0,0) over the header, describing a cell
+     651 px away; the same tap in Godine gave 260×272 at (0,0) and on a county
+     260×302 — the tip that on a finger is meant to be dropped outright. And each
+     tap ACTED: the matrix drill fired, taking the hash to `…&s=HR-18&pp=HR-09`,
+     and the Godine tap changed the year — the navigation both views document as
+     pointer-only because "a tap that navigates is a tap that misfires" on a
+     15,7 px cell.
+     matchMedia is patched rather than emulated because puppeteer cannot serve
+     the two pointer queries different answers, and that disagreement IS the
+     device. */
+  const hybrid = await (async () => {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    await pg.emulateTimezone('Europe/Zagreb');
+    await pg.setViewport({ width: 1440, height: 900, hasTouch: true, isMobile: false });
+    await pg.evaluateOnNewDocument(() => {
+      const real = window.matchMedia.bind(window);
+      window.matchMedia = q => (/\(\s*pointer\s*:\s*coarse\s*\)/.test(q) && !/any-pointer/.test(q)
+        ? { matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }
+        : real(q));
+    });
+    const cdp = await pg.createCDPSession();
+    const out = [];
+    for (const [h, sel, label] of [
+      ['#v=mx&c=1&y=2018', '.mxc[data-a="HR-18"][data-b="HR-09"]', 'mx'],
+      ['#v=yrs&c=1&y=2024', '.yrc[data-iso="HR-21"][data-y="2011"]', 'yrs'],
+      ['#v=saldo&c=1&y=2024', '.cnt[data-iso="HR-18"]', 'cnt']]) {
+      await pg.goto(url + h, { waitUntil: 'networkidle0' });
+      await pg.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+      await settle(500);
+      const env = await pg.evaluate(() => ({ ptr: matchMedia('(pointer:coarse)').matches,
+        any: matchMedia('(any-pointer:coarse)').matches }));
+      const at = await pg.evaluate(q => {
+        const e = document.querySelector(q);
+        if (!e) return null;
+        const r = e.getBoundingClientRect();
+        return [Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2)];
+      }, sel);
+      if (!at) { out.push({ label, absent: true }); continue; }
+      const before = await pg.evaluate(() => location.hash);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: at[0], y: at[1] }] });
+      await settle(150);
+      const tip = await pg.evaluate(() => {
+        const t = document.querySelector('#tip'), r = t.getBoundingClientRect();
+        return { show: t.classList.contains('show'), left: t.style.left,
+          x: Math.round(r.x), y: Math.round(r.y) };
+      });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await settle(200);
+      const after = await pg.evaluate(() => location.hash);
+      out.push({ label, ...env, at, tip, acted: before !== after,
+        placed: tip.show && tip.left !== '' && Math.abs(tip.x - at[0]) < 400 && Math.abs(tip.y - at[1]) < 400 });
+    }
+    await pg.close();
+    return out;
+  })();
+  const hy = Object.fromEntries(hybrid.map(r => [r.label, r]));
+  ck('a finger on a hybrid device places the readout it summons, and does not navigate with it',
+    hybrid.length === 3 && hybrid.every(r => !r.absent && r.ptr === false && r.any === true)
+    /* the two grids: the tip is their only readout, so it must be placed — and
+       the tap must not fire the drill they call pointer-only */
+    && hy.mx.placed && !hy.mx.acted
+    && hy.yrs.placed && !hy.yrs.acted
+    /* the county map: the tip is deliberately dropped for a finger, because the
+       detail card carries the same numbers and opens above the map */
+    && !hy.cnt.tip.show,
+    JSON.stringify(hybrid));
 
   ck('the corridor card clears the chip dock at every stage height, not only at 900 px',
     shortStage.length === 0, shortStage.slice(0, 3).join(' | '));

@@ -506,7 +506,7 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
                     onPointerEnter={() => setS({ jlsHl: p.j })}
                     /* touch sends leave the moment the finger lifts, which would
                        flash the readout away; keep it until the next tap instead */
-                    onPointerLeave={() => { if (!COARSE) setS({ jlsHl: null }); }}
+                    onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ jlsHl: null }); }}
                     /* A tap fires pointerover, pointerenter, pointerdown, pointerup
                        and pointerleave — and no pointermove. So on the one device
                        class this tip exists for (Tooltip says it outright: on a

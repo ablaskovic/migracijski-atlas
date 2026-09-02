@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, badgeText, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
-import { moveTip, COARSE } from '../lib/tip.ts';
+import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
 import { L } from '../lib/i18n.ts';
 import type { useZoom } from '../lib/useZoom.ts';
@@ -275,7 +275,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
           aria-label={L(`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`,
             `${D[a].n} — diagonal: moves within the same county are not part of the inter-county matrix`)}
           onPointerEnter={() => setS({ pairHl: [a, b] })}
-          onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
+          onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ pairHl: null }); }}
           onPointerMove={moveTip} />);
         continue;
       }
@@ -295,7 +295,16 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
                same contract `.cnt` has with the county card */
             aria-expanded={r === selR && c === selC}
             onPointerEnter={() => setS({ pairHl: [a, b] })}
-            onPointerLeave={() => { if (!COARSE) setS({ pairHl: null }); }}
+            /* per POINTER, not per session: a finger sends leave the moment it
+               lifts, which would flash the readout away — and that is as true of
+               a finger on a hybrid device, where the session flag says "mouse" */
+            onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ pairHl: null }); }}
+            /* a tap fires pointerenter and pointerdown and no pointermove, so
+               without this the only thing positioning the tip for a finger was
+               the coarse-only overlay below — absent on a hybrid device, where
+               the readout then painted at (0,0). The JLS paths take the same
+               signal for the same reason. */
+            onPointerDown={moveTip}
             onPointerMove={moveTip}
             onFocus={e => onCellFocus(e, a, b)}
             onBlur={() => { setCellFoc(false); if (!COARSE) setS({ pairHl: null }); }}
@@ -303,7 +312,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
             /* Drill-through is pointer-only. At 21×21 a cell is ~10 px on a
                phone, so a tap that navigates is a tap that misfires — touch
                reads the corridor instead (see the .mxhit overlay below). */
-            onClick={() => { if (!COARSE) drill(a, b); }} />
+            onClick={() => { if (!wasTouch()) drill(a, b); }} />
           {showNum && Math.abs(v) >= 1 && fitsNum(fmtI.format(Math.round(v))) && (
             /* No ink/white flip any more: measured against the shipping Lab
                ramps there is no threshold that works, because there are bands

@@ -5,7 +5,7 @@ import {
 } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 
-import { setTipNode, placeTip, COARSE } from '../lib/tip.ts';
+import { setTipNode, placeTip, wasTouch } from '../lib/tip.ts';
 import { L, yr as yrOf, yrSpan } from '../lib/i18n.ts';
 import type { BadgeKind } from '../lib/metrics.ts';
 import type { State } from '../lib/types.ts';
@@ -174,7 +174,14 @@ export default function Tooltip({ S }: { S: State }) {
   /* Godine is excluded from the county branch on purpose: `hl` is set there by a
      rail row, which names a county for a whole *column* — the grid's own readout
      is the cell, and that is what `yrHl` carries. */
-  const county = !!S.hl && !COARSE && S.view !== 'mx' && S.view !== 'jmap' && S.view !== 'yrs';
+  /* `wasTouch()`, not the session flag: the county tip is dropped because a
+     FINGER gets a sticky enter with no leave and the detail card carries the
+     same numbers — a statement about the pointer that acted, not about the
+     device it acted on. On a hybrid device the session flag says "mouse", and a
+     finger tap painted a 260×332 panel at (0,0) which then stayed. Read at
+     render time, and the render that shows this tip is caused by the very
+     interaction that set the flag. */
+  const county = !!S.hl && !wasTouch() && S.view !== 'mx' && S.view !== 'jmap' && S.view !== 'yrs';
   const show = county || (S.view === 'mx' && !!S.pairHl) || (S.view === 'yrs' && !!S.yrHl)
     || (S.view === 'jmap' && S.jlsHl != null);
   /* the .show class lands this render — position now, before the browser paints.

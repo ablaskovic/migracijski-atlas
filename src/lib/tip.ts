@@ -17,6 +17,30 @@ export const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer:c
    pointer: a mouse user on a touch laptop should keep the hover tooltip. */
 export const TOKENS_COARSE = typeof matchMedia === 'function' && matchMedia('(any-pointer:coarse)').matches;
 
+/* …and the PER-EVENT answer, which is what most of the guards above actually
+   want. Both flags are session-level, decided once at module init, and on a
+   touch laptop, a Surface, or an iPad with a trackpad the primary pointer is the
+   mouse: `COARSE` is false while a finger is still generating pointerType
+   'touch'. Every JS touch affordance was therefore off on exactly the device
+   class index.css serves the full 44 px coarse layout to.
+   Measured on such a device at 1440×900: a tap on a matrix cell painted the
+   readout Tooltip's own note calls "the only value readout" as a 238×118 panel
+   at (0,0) over the app header, describing a cell 651 px away; the same tap in
+   Godine gave a 260×272 panel at (0,0) and on a county in Saldo a 260×332 one —
+   the tip that on a coarse pointer is deliberately dropped altogether. And the
+   finger tap NAVIGATED, taking the hash from `#v=mx&c=1&y=2018` to
+   `…&s=HR-18&pp=HR-09`, which is the drill-through the matrix documents as
+   pointer-only because "a tap that navigates is a tap that misfires" on a
+   15,7 px cell.
+   Recorded from every pointerdown the document sees, in the capture phase, so a
+   click handler — which carries no pointerType of its own — can ask what pressed
+   it. One listener, one boolean. */
+let touching = false;
+export const wasTouch = (): boolean => touching;
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', e => { touching = e.pointerType === 'touch'; }, true);
+}
+
 let tipNode: HTMLDivElement | null = null;
 /* last pointer position, kept even while the tip is hidden: it becomes visible
    one render *after* the pointer event that triggered it, so without this the

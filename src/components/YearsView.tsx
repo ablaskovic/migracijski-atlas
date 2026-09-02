@@ -3,7 +3,7 @@ import {
   D, SHORTN, YEARS, DOM, IX2007, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
-import { moveTip, COARSE } from '../lib/tip.ts';
+import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
@@ -211,14 +211,17 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
                aria-hidden, so this string is the only copy of the number */
             aria-label={`${D[iso].n}, ${yr(YEARS[yi])}: ${txt}`}
             onPointerEnter={() => setS({ yrHl: [iso, yi] })}
-            onPointerLeave={() => { if (!COARSE) setS({ yrHl: null }); }}
+            /* see the matrix cell: a tap has no pointermove to position from,
+               and the leave question is per pointer, not per session */
+            onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ yrHl: null }); }}
+            onPointerDown={moveTip}
             onPointerMove={moveTip}
             onFocus={e => onCellFocus(e, iso, yi)}
             onBlur={() => { setCellFoc(false); if (!COARSE) setS({ yrHl: null }); }}
             onKeyDown={e => onCellKey(e, yi)}
             /* pointer activation is fine-pointer only, for the reason the matrix
                documents: at ~9 px a tap that navigates is a tap that misfires */
-            onClick={() => { if (!COARSE) pickYear(yi); }} />
+            onClick={() => { if (!wasTouch()) pickYear(yi); }} />
           {showNum && fitsNum(txt) && (
             /* aria-hidden: the cell's own aria-label already carries this
                number, and the <g role="presentation"> around the pair is
