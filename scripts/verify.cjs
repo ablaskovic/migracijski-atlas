@@ -8975,6 +8975,11 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     label: document.querySelector('#pngBtn').textContent })) };
   blockFonts = false;
   for (const r of heldFonts.splice(0)) { try { await r.abort(); } catch { /* the page cancelled it first */ } }
+  /* …and the abort's own console error arrives a tick later, so the sweep below
+     has to run after it lands rather than in the same turn — measured, two
+     net::ERR_FAILED lines for the two Oswald subsets survived the scrub and
+     failed both this check and the pass-3 error bracket. */
+  await settle(400);
   /* the deliberate 404 and the abort each log a resource failure of their own,
      and inside this window they are the only ones that can arrive */
   for (let i = errors.length - 1; i >= errs0; i--) {
