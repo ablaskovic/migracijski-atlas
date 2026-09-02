@@ -164,6 +164,17 @@ export default function App() {
       if (!s.flowSeen) { p.flowSeen = true; p.cum = false; p.yi = IX2018; }
       else if (restore) { p.yi = restore.yi; p.cum = restore.cum; }
     } else if (v !== 'jmap' && restore) { p.yi = restore.yi; p.cum = restore.cum; }
+    /* Klasifikacija is unconditionally cumulative and the Vrijeme control says
+       so, but S.cum itself was left wherever it was, and encodeHash emits it
+       regardless — so a reader arriving from annual Saldo minted
+       #v=klas&c=0&y=2024. That link renders a screen identical to the c=1 one,
+       down to the control reading Kumulativno, and then diverges on the next
+       press: Saldo from it gives annual 2024 and Grad Zagreb +7.010, from the
+       other cumulative and +41.986. The recipient never chose annual — it is
+       the sender's hidden state, invisible in the view the link opens. Same
+       shape as jmap's imposition above, and made honest the same way; vmem
+       still restores the reader's own pair when they go back to Saldo. */
+    if (v === 'klas') p.cum = true;
     /* the JLS corridor chip only exists in Tokovi; leaving it set outside is a
        flag with no panel behind it that still sets body.panel-open (hiding the
        legend outright below 900 px) and still eats an Escape press */
