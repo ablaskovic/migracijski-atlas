@@ -6474,9 +6474,29 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const uaRing = { hits: [], n: 0 };
   const CLICKABLE = ['#spark', '.rrow', '.cnt', '.jl', '.mxc', '.mxd', '#play', '#labBtn',
     '#helpBtn', '#zoomRst', '#pngBtn', '#segView button', '#thr', '.chip-hd', '#cardX', '#pairX'];
+  /* Two of the sixteen selectors never matched anything. #zoomRst is rendered
+     only while `zoom.zoomed` and nothing here zoomed; #cardX needs a bare county
+     selection, and the one hash carrying s= carries pp= too, which opens the
+     corridor card instead. So an `outline` regression on the zoom reset — an
+     absolutely-positioned transient overlay, precisely the class of control the
+     #spark lesson above is about — or on #cardX would have passed, and the n>=28
+     floor cannot notice two selectors that never contributed. A fifth state with
+     a bare selection, a zoom in the first, and per-selector coverage asserted
+     rather than only the total. A sixth state for Klasifikacija, because #thr is
+     rendered only there — it lands on the formControl escape below, which is the
+     right answer for an <input>, but an escape nothing exercises is not one
+     either. */
+  const seen = new Set();
   for (const hash of ['', '#v=mx&y=2018&c=0&dir=out', '#v=jmap&dir=net',
-    '#v=flow&s=HR-21&pp=HR-01&y=2018&c=0&dir=net']) {
+    '#v=flow&s=HR-21&pp=HR-01&y=2018&c=0&dir=net', '#v=saldo&c=1&y=2024&s=HR-18',
+    '#v=klas&c=1&y=2024']) {
     await fresh(hash);
+    if (hash === '') {
+      /* the zoom reset only exists above 1× — the strokes block does the same */
+      await page.evaluate(() => document.querySelector('#map').dispatchEvent(
+        new WheelEvent('wheel', { deltaY: -400, clientX: 400, clientY: 300, bubbles: true, cancelable: true })));
+      await settle(350);
+    }
     const targets = await page.evaluate(sels => {
       const out = [];
       for (const s of sels) {
@@ -6491,6 +6511,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       return out;
     }, CLICKABLE);
     for (const t of targets) {
+      seen.add(t.s);
       await page.mouse.click(t.x, t.y);
       await settle(150);
       const st = await page.evaluate(() => {
@@ -6510,9 +6531,10 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       }
     }
   }
+  const uncovered = CLICKABLE.filter(sel => !seen.has(sel));
   ck('no pointer click anywhere leaves a UA focus ring (a bbox rounded rect)',
-    uaRing.n >= 28 && uaRing.hits.length === 0,   /* measured: 31 across the four views */
-    JSON.stringify({ compared: uaRing.n, hits: uaRing.hits.slice(0, 4) }));
+    uaRing.n >= 28 && uaRing.hits.length === 0 && uncovered.length === 0,
+    JSON.stringify({ compared: uaRing.n, uncovered, hits: uaRing.hits.slice(0, 4) }));
 
   /* ══════════ v2.0.9 — answering to a source a reader can now open ══════════
      While the study was unpublished, "differs slightly from the paper" was a
