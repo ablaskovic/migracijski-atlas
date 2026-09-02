@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 575;
+const EXPECTED_CHECKS = 576;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -11030,6 +11030,27 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && /max-age=\d{7,}/.test(docHdr['strict-transport-security'] || ''),
     JSON.stringify({ bad: cspBad, n: Object.keys(cspMap).length,
       nosniff: docHdr['x-content-type-options'], hsts: docHdr['strict-transport-security'] }));
+  /* …and the policy header opts out of the LIVE ad-cohort feature. It named
+     `interest-cohort`, the FLoC opt-out — FLoC was removed from Chrome in 2022
+     and replaced by the Topics API, whose policy-controlled feature is
+     `browsing-topics`. Measured on the shipped header before the change:
+     document.featurePolicy.allowsFeature('browsing-topics') === true, so the
+     header stated an intent no current browser acted on. The exposure is small —
+     Chrome records a topic only when a script on the page calls the API, and the
+     CSP admits no third-party script — but the directive that would do the job
+     was missing. The dead token stays: it costs nothing and old builds read it.
+     Asked of the browser rather than of the string, because a policy is what the
+     engine grants and this server sends the real header. */
+  const featPol = await page.evaluate(() => {
+    const fp = document.featurePolicy;
+    if (!fp || typeof fp.allowsFeature !== 'function') return { none: true };
+    return { topics: fp.allowsFeature('browsing-topics'), geo: fp.allowsFeature('geolocation'),
+      cam: fp.allowsFeature('camera'), mic: fp.allowsFeature('microphone') };
+  });
+  ck('the permissions policy denies the ad-cohort feature browsers actually have',
+    !featPol.none && featPol.topics === false && featPol.geo === false
+    && featPol.cam === false && featPol.mic === false,
+    JSON.stringify(featPol));
   /* …and Vary with them. The origin content-negotiates every compressible
      response — the same URL returns 573.949 bytes as identity, 191.684 as gzip
      and 193.505 as brotli — and sent no `vary` header at all, while stamping
