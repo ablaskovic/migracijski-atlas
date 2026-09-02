@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 607;
+const EXPECTED_CHECKS = 608;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10909,17 +10909,43 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      rules that fix them, so a different fix would still pass and a regression
      could not. Same rec() contract as CTRL_SNAP: document coordinates, and
      anything not rendered is left out rather than reported at the origin. */
+  /* Out of the template string, so the check below can read the same list the
+     snapshot walks. It used to name '#jlsHd', an id that has never existed —
+     the JLS corridor card's header is #jcardHd — and rec() skips a null element
+     without a word, so the misspelling could not fail anything: the corridor
+     card header, a chip-dock member in all three flow views, was outside every
+     sweep below. */
+  const MAP_IDS = ['#helpBtn', '#labBtn', '#zoomRst', '#play', '#scrubTog',
+    '#cardX', '#storyX', '#resetBtn', '#citzHd', '#ageHd', '#jcardHd', '#pngBtn', '#svgBtn'];
   const MAP_SNAP = `(() => {
     const out = {};
     const rec = (k, el) => { if (!el || !el.getClientRects().length) return; const r = el.getBoundingClientRect();
       out[k] = [Math.round((r.x + scrollX) * 10) / 10, Math.round((r.y + scrollY) * 10) / 10,
         Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10].join(','); };
-    for (const s of ['#helpBtn', '#labBtn', '#zoomRst', '#play', '#scrubTog',
-      '#cardX', '#storyX', '#resetBtn', '#citzHd', '#ageHd', '#jlsHd', '#pngBtn', '#svgBtn'])
+    for (const s of ${JSON.stringify(MAP_IDS)})
       rec(s, document.querySelector(s));
     document.querySelectorAll('.jtabs button').forEach((b, i) => rec('tab' + i + '/' + (b.dataset.v || ''), b));
     return out;
   })()`;
+  /* …and every one of them is an id src actually assigns. This is the check a
+     dead selector needs, and it has to be static: rec() skips a null element
+     without a word, and three of the thirteen render only under conditions no
+     single sweep holds — #zoomRst needs a zoomed map, #scrubTog a narrow
+     viewport, #storyX an open Nalaz — so "it resolved somewhere below" is not
+     assertable from the page. The source is: grep finds no 'jlsHd' in src/ at
+     all, which is exactly how the typo would have been caught. */
+  const srcText = (function walk(d) {
+    let t = '';
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) t += walk(f);
+      else if (/[.]tsx?$/.test(e.name)) t += fs.readFileSync(f, 'utf8');
+    }
+    return t;
+  })(path.resolve(__dirname, '../src'));
+  const deadIds = MAP_IDS.filter(q => !srcText.includes('id="' + q.slice(1) + '"'));
+  ck('every control the no-move snapshot watches is an id the source assigns',
+    MAP_IDS.length === 13 && deadIds.length === 0, JSON.stringify(deadIds));
   const chipMoves = [];
   for (const W of [1440, 1024]) {
     await page.setViewport({ width: W, height: 900 });
@@ -10933,6 +10959,19 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       await click(hd); await settle(200);
       m = movedBetween(before, await page.evaluate(MAP_SNAP));
       if (m.length) chipMoves.push(`${W}px reclose ${hd}: ` + m.join(' | '));
+    }
+    /* (1b) …and the flow views, where the corridor card joins the dock. This is
+       the leg the '#jlsHd' typo hid: with the key repaired but no sweep that
+       opens anything in a flow view, #jcardHd would still sit in no before/after
+       pair, and the coverage the list claims would still be missing. The second
+       pass opens Državljanstvo with the corridor card already open, which is the
+       stacking case — measured clean at both widths. */
+    await fresh('#v=flow&s=HR-21&c=0&y=2018&dir=net');
+    for (const hd of ['#jcardHd', '#citzHd']) {
+      const before = await page.evaluate(MAP_SNAP);
+      await click(hd); await settle(220);
+      const m = movedBetween(before, await page.evaluate(MAP_SNAP));
+      if (m.length) chipMoves.push(`${W}px flow open ${hd}: ` + m.join(' | '));
     }
     /* (2) pressing a tab inside an open panel */
     for (const [hd, tab] of [['#citzHd', '.citz .jtabs button[data-v="zem"]'],
