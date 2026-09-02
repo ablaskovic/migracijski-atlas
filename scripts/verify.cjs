@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 513;
+const EXPECTED_CHECKS = 514;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2834,6 +2834,41 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     focus: document.activeElement.getAttribute('data-iso') }));
   ck('Escape closes the detail card and returns focus to its county',
     !escCard.open && escCard.focus === 'HR-18', JSON.stringify(escCard));
+  /* …and the four layers the block header's own "not just two of six" never
+     reached. Every Escape this file sends resolves through the citz, card, pair
+     or tooltip arm; the age panel, the Tokovi JLS panel, the Nalazi banner and
+     the glossary's own handler were pressed nowhere. App's cascade gives the
+     panel layer three different focus-return targets and the suite exercised
+     one, so a selector typo in either of the others — Escape closing nothing,
+     or dropping focus to <body>, which is the exact failure the neighbouring
+     check exists to prevent — shipped green. The glossary is a fifth: it handles
+     its own Escape, and the suite only ever closed it by clicking #helpX. */
+  const escMore = [];
+  for (const [label, h, open, gone, want] of [
+    ['age', '#v=saldo&c=1&y=2024&ag=1', '#agec.open', '#agec.open', 'ageHd'],
+    ['jls', '#v=flow&s=HR-21&c=0&y=2018&jl=1', '#jcard.open', '#jcard.open', 'jcardHd'],
+    /* picked the way a reader picks it: st=2 over a state the preset does not
+       describe is dropped by the codec's own story guard, so the banner would
+       never have been there to dismiss */
+    ['story', '', '#storyCap', '#storyCap', 'story'],
+    ['help', '', null, '#helpCard', 'helpBtn'],
+  ]) {
+    await fresh(h);
+    if (label === 'help') await click('#helpBtn');
+    if (label === 'story') { await page.select('#story', '1'); await settle(400); }
+    const before = open === null || await page.evaluate(s => !!document.querySelector(s), open);
+    await page.keyboard.press('Escape');
+    await settle(200);
+    const after = await page.evaluate(s => ({ still: !!document.querySelector(s),
+      focus: document.activeElement.id || document.activeElement.tagName }), gone);
+    /* `before` is the floor: a layer that never opened is dismissed by any
+       Escape, including one that does nothing at all */
+    if (!before || after.still || after.focus !== want) {
+      escMore.push(`${label} before=${before} still=${after.still} focus=${after.focus} want=${want}`);
+    }
+  }
+  ck('Escape dismisses the other four layers too, each handing focus to its own control',
+    escMore.length === 0, escMore.join(' | '));
 
   /* closing a card used to drop focus to <body>, restarting Tab from the top */
   await fresh('');
