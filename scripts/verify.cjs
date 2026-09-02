@@ -144,7 +144,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 524;
+const EXPECTED_CHECKS = 525;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7524,6 +7524,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the measured badge is in English and still solid, not dashed',
     enBadge.txt === 'measured' && /meas/.test(enBadge.cls) && enBadge.border === 'solid',
     JSON.stringify(enBadge));
+
+  /* …and the percentage in it is computed on the base the classification is
+     DEFINED on. klasOf divides by D[iso].p, the 2011 population, and the legend
+     prints the threshold as "% popisa 2011." — while the tooltip read S.den, so
+     a carried '% tek. procjene' put a different base under the same tag.
+     Measured at #v=klas&d=relest&tr=1&y=2019, Krapinsko-zagorska printed
+     "−1,6 % tek. procjene" beyond a −1,5 % threshold while the same tooltip
+     called it NEUTRALNE — the census base gives −1,487 %. Over every county and
+     year endpoint that is one such contradiction at 1,5 %, two at 0,5 and 1,0,
+     three at 2,0 and 3,0, and none with the census base.
+     The link itself is repaired by the view's own den clamp, which is why the
+     hash comes back without d= — this asserts the other half, that the readout
+     does not read a field its view does not use. */
+  await fresh('#v=klas&d=relest&tr=1&y=2019&tp=1.5');
+  await page.hover('path[data-iso="HR-02"]');
+  await settle(300);
+  const klasBase = await page.evaluate(() => {
+    const t = (document.querySelector('#tip') || {}).textContent || '';
+    return { flat: t.replace(/\s+/g, ' '), hash: location.hash,
+      legend: (document.querySelector('.legend-title') || {}).textContent || '' };
+  });
+  ck('the Klasifikacija tooltip states its percentage on the base the threshold is set in',
+    /pop\. 2011\./.test(klasBase.flat) && !/tek\. procjene/.test(klasBase.flat)
+    && /neutralne/i.test(klasBase.flat) && !/d=relest/.test(klasBase.hash)
+    && /popisa 2011\./.test(klasBase.legend),
+    JSON.stringify({ hash: klasBase.hash, legend: klasBase.legend, tip: klasBase.flat.slice(-70) }));
   ck('and the English legend still names the source and the licence',
     /Measured/.test(enBadge.legend) && /Pitoski/.test(enBadge.legend) && /CC BY/.test(enBadge.legend),
     enBadge.legend.slice(0, 120));

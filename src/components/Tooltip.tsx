@@ -106,7 +106,19 @@ function countyBlock(S: State, iso: string, yi: number): string {
      is widest exactly where the map is darkest, because the counties that lost
      most have the smallest current estimate. `abs` keeps the census form it
      already had: there is no percentage on screen to agree with there. */
-  const dn = S.den === 'abs' ? 'rel11' : S.den;
+  /* …and Klasifikacija, whose classification is DEFINED on the census base:
+     klasOf divides by D[iso].p, the 2011 population, and the legend prints the
+     threshold as "% popisa 2011.". Reading S.den there let the one percentage on
+     the surface be computed against a different base from the tag beside it —
+     measured at #v=klas&d=relest&tr=1&y=2019, Krapinsko-zagorska printed
+     "−1,6 % tek. procjene" under a −1,5 % threshold while the same tooltip called
+     it NEUTRALNE, because the census base gives −1,487 %. Over every county and
+     year endpoint that is one contradiction at 1,5 %, two at 0,5 and 1,0, three
+     at 2,0 and 3,0 — and none with rel11.
+     The permalink and click routes into that state are both closed now (the view
+     clamps den on entry), but the tooltip has no business reading a field its
+     view does not use. */
+  const dn = S.view === 'klas' || S.den === 'abs' ? 'rel11' : S.den;
   const rt = vt / denom(iso, yi, dn) * 100;
   const rtLab = dn === 'relest' ? L(' % tek. procjene)', ' % of current est.)') : L(' % pop. 2011.)', ' % of 2011 pop.)');
   let nt = 0; if (cum) { if (yi >= IX2011) for (let i = IX2011; i <= yi; i++) nt += natAt(iso, i); } else nt = natAt(iso, yi);
