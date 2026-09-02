@@ -10059,10 +10059,21 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
       const rail = document.querySelector('.rail');
       if (!row || !tag || !rail) return null;
       const t = tag.getBoundingClientRect(), r = rail.getBoundingClientRect();
-      return { over: +(t.right - r.right).toFixed(2), badge: tag.textContent };
+      /* A hidden badge is not a badge inside the rail. This measured a rect and
+         a textContent, and display:none gives {0,0,0,0} with the text still
+         readable — so the overhang went to minus rail.right and all three
+         checks passed with the tag entirely invisible at exactly the widths
+         they patrol. Not hypothetical: a width-scoped .cls-tag{display:none}
+         to buy space in this band is the same pressure that caused the clip in
+         the first place, and nothing else covers 901–960. Left edge too, so an
+         escape the other way is caught symmetrically. */
+      return { over: +(t.right - r.right).toFixed(2), badge: tag.textContent,
+        vis: tag.getClientRects().length > 0 && t.width > 0 && t.height > 0,
+        under: +(r.left - t.left).toFixed(2) };
     });
     ck(`the corridor badge stays inside the rail at ${w} px`,
-      !!clip && clip.over <= 0 && clip.badge === 'izmjereno', JSON.stringify(clip));
+      !!clip && clip.vis && clip.over <= 0 && clip.under <= 0
+      && clip.badge === 'izmjereno', JSON.stringify(clip));
   }
   await page.setViewport({ width: 1440, height: 900 });
 
