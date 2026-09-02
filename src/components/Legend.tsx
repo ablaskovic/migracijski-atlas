@@ -282,7 +282,7 @@ export default function Legend({ S }: { S: State }) {
         {!ready ? null : S.dir === 'net'
           ? <GradBar scale={scale} m={m} rel={false} mark={mark} stops={JMAP_STOPS} sample={sample} />
           : <SeqBar scale={scale} m={m} mark={mark} stops={JMAP_STOPS} sample={sample} />}
-        <div className="legend-note">{L('Boja po korijenskoj (√) skali. Samo preseljenja unutar RH (selidbe između JLS, bez inozemstva). Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY). Granice: OSM/ODbL.',
+        <div className="legend-note">{L('Boja po korijenskoj (√) skali. Samo preseljenja unutar RH (selidbe između JLS, bez inozemstva). Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021., CC BY). Granice: OSM/ODbL.',
           'Colour on a square-root (√) scale. Internal moves only (between LAUs within Croatia, no international migration). Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY). Boundaries: OSM/ODbL.')}</div>
       </div>
     );
@@ -291,7 +291,7 @@ export default function Legend({ S }: { S: State }) {
     const m = mxMax(S.dir, S.cum);
     const mark = markPct(S, m);
     const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
-      ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).',
+      ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021., CC BY).',
         'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
       : L('Procjena (IPF): ', 'Estimate (IPF): ') + ipfMargins() + '.'
         + (S.dir === 'net' ? ' ' + t('note.pairEst') : '');
@@ -315,7 +315,7 @@ export default function Legend({ S }: { S: State }) {
     const m = flowMax(S.sel!, S.dir, S.cum);
     const mark = markPct(S, m);
     const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
-      ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021, CC BY).',
+      ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021., CC BY).',
         'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
       : L('Procjena (IPF): struktura 2018. skalirana na DZS odseljene razdoblja; doseljeni približno.',
         'Estimate (IPF): the 2018 structure scaled to the period’s CBS out-margins; in-margins approximate.')

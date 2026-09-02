@@ -47,6 +47,14 @@ const SRC = (): SourceLink[] => [
       'tables 7.4.1.–7.4.3. and STAN-2026-2-1 — CBS terms of use'),
   },
   {
+    /* The Croatian year takes the ordinal dot, here and at the seven inline
+       citations across the footer, the three legend notes, the JLS chip note and
+       both export lines. It used to take three forms — "2021", "2021." and
+       "(2021.)" — and the export band printed two of them on one image, its
+       source line against the legend it reproduces. Everything else Croatian in
+       this app writes a year that way ("DZS 2018.", "2011.–2024."), so that is
+       the form; the parentheses here are bibliographic style, not prose, and the
+       English half carries no dot in either place. */
     label: L('Pitoski i sur. (2021.)', 'Pitoski et al. (2021)'),
     href: 'https://doi.org/10.1186/s40649-021-00093-0',
     note: L('izmjereni tokovi 2018. (županije i JLS), CC BY 4.0',

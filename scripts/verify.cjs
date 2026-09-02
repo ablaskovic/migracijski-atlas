@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 608;
+const EXPECTED_CHECKS = 609;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10946,6 +10946,42 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   const deadIds = MAP_IDS.filter(q => !srcText.includes('id="' + q.slice(1) + '"'));
   ck('every control the no-move snapshot watches is an id the source assigns',
     MAP_IDS.length === 13 && deadIds.length === 0, JSON.stringify(deadIds));
+
+  /* ── one Croatian citation, one year form ──
+     The same source was cited as "Pitoski i sur. 2021", "Pitoski i sur. 2021."
+     and "Pitoski i sur. (2021.)" across the footer, three legend notes, the JLS
+     chip note, both export lines and the source list — and the export band
+     printed two of them on one image, its own source line against the legend it
+     reproduces. Croatian takes the ordinal dot on a year everywhere else in this
+     app ("DZS 2018.", "2011.–2024."), so that is the form; the source list's
+     parentheses are bibliographic style and keep theirs. The English half takes
+     no dot in either place, which is the other half of the assertion — a sweep
+     that only forbade the bare year would be satisfied by putting a dot on the
+     English one too. Static, because six of the eight surfaces need a different
+     view, language or an export to be produced; the legend note is read from the
+     page as well, since that is the one an ordinary reader meets. */
+  const citeSrc = (function walk(d) {
+    let t = '';
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) t += walk(f);
+      else if (/[.]tsx?$/.test(e.name)) t += fs.readFileSync(f, 'utf8');
+    }
+    return t;
+  })(path.resolve(__dirname, '../src'));
+  const citeHr = [...citeSrc.matchAll(new RegExp('Pitoski i sur[.] [(]?2021[.]?', 'g'))].map(m => m[0]);
+  const citeEn = [...citeSrc.matchAll(new RegExp('Pitoski et al[.] [(]?2021[.]?', 'g'))].map(m => m[0]);
+  await fresh('#v=jmap&dir=net');
+  const citeLegend = await page.evaluate(() =>
+    (document.querySelector('#legend .legend-note') || {}).textContent || '');
+  ck('the Croatian citation year is written one way, and the English one another',
+    citeHr.length >= 8 && citeHr.every(x => x.includes('2021.'))
+    && citeEn.length >= 8 && citeEn.every(x => !x.includes('2021.'))
+    && /Pitoski i sur[.] 2021[.],/.test(citeLegend),
+    JSON.stringify({ hr: citeHr.length, en: citeEn.length,
+      badHr: citeHr.filter(x => !x.includes('2021.')).slice(0, 2),
+      badEn: citeEn.filter(x => x.includes('2021.')).slice(0, 2),
+      legend: citeLegend.slice(-60) }));
   const chipMoves = [];
   for (const W of [1440, 1024]) {
     await page.setViewport({ width: W, height: 900 });

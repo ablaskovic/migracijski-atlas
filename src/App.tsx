@@ -872,7 +872,7 @@ export default function App() {
           {L('tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (',
             'tab. 7.4.1.–7.4.3. (July 2026) · citizenship, age, countries: CBS STAN-2026-2-1 · 2018 flows: CBS special processing, counties and LAUs (')}
           <a className="paper-link" href={sources()[1].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`${L('Pitoski i sur. 2021', 'Pitoski et al. 2021')} — ${sources()[1].note}. ${NEWTAB()}`}>{L('Pitoski i sur. 2021', 'Pitoski et al. 2021')}</a>, CC BY) ·
+            aria-label={`${L('Pitoski i sur. 2021.', 'Pitoski et al. 2021')} — ${sources()[1].note}. ${NEWTAB()}`}>{L('Pitoski i sur. 2021.', 'Pitoski et al. 2021')}</a>, CC BY) ·
           {/* "na DZS marginama" claimed both margins are reproduced, and only the
               out-margin is exact — the columns drift ±4 from 2007 and by up to
               +146 per county in 1998–2006 after the rescale. MA3-021 replaced
