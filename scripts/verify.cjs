@@ -6308,24 +6308,50 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      phone layout measured 3,68 %, with `.ft` alone 50,97 % of all text on the
      page. Its own heuristic, reimplemented: weight every visible text node by
      its length against the computed font-size of its parent. */
-  const legible = await page.evaluate(() => {
-    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    let total = 0, big = 0;
-    for (let nd = w.nextNode(); nd; nd = w.nextNode()) {
-      const t = nd.nodeValue.trim(); if (!t) continue;
-      const p = nd.parentElement; if (!p || !p.getClientRects().length) continue;
-      const cs = getComputedStyle(p);
-      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
-      total += t.length;
-      if (parseFloat(cs.fontSize) >= 12) big += t.length;
-    }
-    const clipped = [...document.querySelectorAll('#railList .rname, #railList .rval')]
-      .filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent);
-    return { pct: +(big / total * 100).toFixed(2), total, clipped };
-  });
-  ck('a phone reads mostly ≥12 px text, and no rail cell is clipped to fit',
-    legible.pct > 60 && legible.total > 500 && legible.clipped.length === 0,
-    JSON.stringify(legible).slice(0, 200));
+  /* …in EVERY view, and as a ratchet rather than as a bar the app clears.
+     This ran after `fresh('')`, i.e. in Saldo alone — and Saldo is one of the
+     views that passes. Re-run verbatim in each of the seven at the same 390×844:
+     saldo 69,04 %, klas 65,12 %, jmap 63,38 %, flow 60,02 %, reg 56,92 %,
+     yrs 56,06 %, mx 31,86 %. Four of the six it skipped are under the 60 % it
+     asserts, and on a phone two thirds of Matrica's characters are below 12 px.
+     Those four are not a bug to be fixed here. The characters are the atlas's
+     own chart and chrome type, every size of it deliberate and documented —
+     Matrica's 6,5 px axis labels and its rail's 9,5 px corridor names, the 9 px
+     legend title, the 10 px legend note, the 11,5 px segment buttons — and
+     index.css says as much where it notes that 33 of its 74 sizes are under
+     10 px "on an atlas whose purpose is reading small numbers". Raising them is
+     a type-scale decision, not a check fix, and the grids' own floors are
+     asserted separately at 6,5 px.
+     So what is pinned is that no view gets WORSE: a per-view baseline two points
+     under what each measures today. A regression in any of the seven is caught,
+     and the check no longer claims a Lighthouse pass the app does not have. The
+     name says ratchet for the same reason. */
+  const legibleFloor = { saldo: 67, klas: 63, reg: 55, flow: 58, mx: 30, jmap: 61, yrs: 54 };
+  const legible = [];
+  for (const [v, h] of [['saldo', ''], ['klas', '#v=klas'], ['reg', '#v=reg'],
+    ['flow', '#v=flow&s=HR-21&c=0&y=2018'], ['mx', '#v=mx&c=0&y=2018&dir=out'],
+    ['jmap', '#v=jmap&dir=net'], ['yrs', '#v=yrs']]) {
+    await fresh(h);
+    legible.push({ v, floor: legibleFloor[v], ...await page.evaluate(() => {
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let total = 0, big = 0;
+      for (let nd = w.nextNode(); nd; nd = w.nextNode()) {
+        const t = nd.nodeValue.trim(); if (!t) continue;
+        const p = nd.parentElement; if (!p || !p.getClientRects().length) continue;
+        const cs = getComputedStyle(p);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        total += t.length;
+        if (parseFloat(cs.fontSize) >= 12) big += t.length;
+      }
+      const clipped = [...document.querySelectorAll('#railList .rname, #railList .rval')]
+        .filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent);
+      return { pct: +(big / total * 100).toFixed(2), total, clipped: clipped.length };
+    }) });
+  }
+  ck('no view loses ground on phone type, and no rail cell is clipped to fit',
+    legible.length === 7
+    && legible.every(r => r.pct >= r.floor && r.total > 500 && r.clipped === 0),
+    JSON.stringify(legible.filter(r => r.pct < r.floor || r.clipped > 0)) + ' ' + JSON.stringify(legible.map(r => r.v + ':' + r.pct)));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* The other half of 2.5.8, and the one that failed at *every* desktop width:
