@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 560;
+const EXPECTED_CHECKS = 561;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9233,6 +9233,48 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     Object.values(tipFollow).every(v => v.placed && v.placed.onScreen && v.placed.gap <= 60
       && tipNear(v.zoomed) && v.zoomed.onScreen && tipNear(v.panned)),
     JSON.stringify(tipFollow));
+
+  /* ── every chart stroke clears 1.4.11's 3:1 ──
+     the two cards' 28-year series are the only record of a trend in this app —
+     the readout rows underneath give the selected year and nothing else — so
+     each is a graphical object required to understand the content. Three were
+     under the floor: PairCard's net AREA at opacity .28 (1,60:1 gain, 1,57:1
+     loss against --panel), DetailCard's external area at .5 (2,46 / 2,32) and
+     its natural-change dashed line at #8d968f (2,97). The areas' upper edges
+     carry the value, so they are stroked at full opacity in the series colour
+     and the fill stays pale under the lines drawn over it; the dashed line took
+     the --mut token this file already uses for secondary ink. Measured, not
+     asserted from the source: the computed stroke of every line in both charts
+     against the card's own painted background. */
+  const chartInk = {};
+  for (const [k, h, sel] of [
+    ['pair', '#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0', '#pairSvg'],
+    ['card', '#v=saldo&c=1&y=2024&s=HR-18', '#cardSvg']]) {
+    await fresh(h);
+    await page.waitForSelector(sel, { timeout: 20000 }).catch(() => {});
+    chartInk[k] = await page.evaluate(s => {
+      const svg = document.querySelector(s);
+      if (!svg) return { missing: true };
+      const bg = getComputedStyle(svg.closest('.chipcard, .card, #card, #pair') || document.body).backgroundColor;
+      const lum = c => { const m = /(\d+),\s*(\d+),\s*(\d+)/.exec(c);
+        const f = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * f(+m[1]) + 0.7152 * f(+m[2]) + 0.0722 * f(+m[3]); };
+      const con = (a, b) => { const x = Math.max(lum(a), lum(b)), y = Math.min(lum(a), lum(b));
+        return +((x + 0.05) / (y + 0.05)).toFixed(2); };
+      const out = [];
+      for (const p of svg.querySelectorAll('path[stroke]')) {
+        const cs = getComputedStyle(p);
+        if (cs.stroke === 'none') continue;
+        out.push({ stroke: cs.stroke, ratio: con(cs.stroke, bg) });
+      }
+      return { bg, n: out.length, worst: out.length ? Math.min(...out.map(o => o.ratio)) : 0,
+        under: out.filter(o => o.ratio < 3) };
+    }, sel);
+  }
+  ck('every series line in both cards clears the 3:1 a graphical object owes',
+    ['pair', 'card'].every(k => !chartInk[k].missing && chartInk[k].n >= 3
+      && chartInk[k].under.length === 0),
+    JSON.stringify(chartInk));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));

@@ -58,8 +58,24 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
         </defs>
         <path d={areaG(exts)!} fill="#1D4E89" opacity={0.5} clipPath={`url(#${uid}p)`} />
         <path d={areaG(exts)!} fill="#B5341F" opacity={0.5} clipPath={`url(#${uid}n)`} />
+        {/* The area alone was the whole 28-year record of this series and it sat
+            under 1.4.11: measured against --panel, the gain fill reaches 1,60:1
+            at opacity .28 and the loss fill 1,57:1 — the readout rows give the
+            selected year only, so the trend exists in this shape and nowhere
+            else. Its upper EDGE is what encodes the value, so the edge is drawn
+            at full opacity in the series colour (8,17:1 and 5,88:1) and the fill
+            stays pale underneath, which keeps the two-sided reading the clip
+            paths are for. Raising the fill instead would have cost the same
+            legibility the pale wash buys the lines drawn over it. */}
+        <path d={lineG(exts)!} fill="none" stroke="#1D4E89" strokeWidth={1.2} clipPath={`url(#${uid}p)`} />
+        <path d={lineG(exts)!} fill="none" stroke="#B5341F" strokeWidth={1.2} clipPath={`url(#${uid}n)`} />
         <line x1={mL} x2={w - mR} y1={y(0)} y2={y(0)} stroke="var(--line)" />
-        <path d={lineG(nats)!} fill="none" stroke="#8d968f" strokeWidth={1.2} strokeDasharray="3 3" />
+        {/* #8d968f was 2,97:1 on --panel — the natural-change series is one of
+            three lines a reader has to tell apart, and it was the one just
+            under the 3:1 that 1.4.11 asks of a graphical object. --mut is the
+            token this file already uses for secondary ink and reads at 5,39:1;
+            the dash still separates it from the two solid series. */}
+        <path d={lineG(nats)!} fill="none" stroke="var(--mut)" strokeWidth={1.2} strokeDasharray="3 3" />
         <path d={lineG(ints)!} fill="none" stroke="#20262B" strokeWidth={1.6} />
         {[2000, 2010, 2020].map(t => (
           <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize={8.5}
