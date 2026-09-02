@@ -107,7 +107,13 @@ export default function App() {
      the way decided which window their first visit to Regije showed, and their
      own 2005/annual was discarded without a signal. Same via Godine. That is
      exactly what vmem was built to prevent one view over. */
-  const preJmap = useRef({ yi: INITIAL.yi, cum: INITIAL.cum });
+  /* …and BASE when the app BOOTS into the JLS map, because then there is no
+     "own" pair to carry: INITIAL is jmap's own imposed 2018/godišnje, and seeding
+     from it would hand the imposition straight back on the way out — the leak
+     this fallback exists to stop. */
+  const preJmap = useRef(INITIAL.view === 'jmap'
+    ? { yi: BASE.yi, cum: BASE.cum }
+    : { yi: INITIAL.yi, cum: INITIAL.cum });
 
   /* Sastavnica+Vrijednosti are the same shape of shared pair, and the four views
      that ignore them (LOCK_FD) also disable their controls — so a lens carried

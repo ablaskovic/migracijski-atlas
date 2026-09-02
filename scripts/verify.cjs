@@ -9531,10 +9531,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      The rule is gone; the platform's built-in stamps the same header on the
      hashed outputs it produced, which are files that exist, and serve() mirrors
      that. smoke.cjs asserts the live asset still carries it. */
+  const errsMiss = errors.length;
   const missAsset = await page.evaluate(async u => {
     const r = await fetch(new URL('/assets/verify-missing-cache.js', u));
     return { status: r.status, cc: r.headers.get('cache-control') || '' };
   }, url);
+  /* the deliberate 404 logs a resource failure of its own; it is ours */
+  await settle(200);
+  for (let i = errors.length - 1; i >= errsMiss; i--) {
+    if (/verify-missing-cache/.test(errors[i]) || /Failed to load resource/.test(errors[i])) errors.splice(i, 1);
+  }
   ck('a missing hashed asset is not cached for a year',
     missAsset.status === 404 && !/immutable/.test(missAsset.cc),
     JSON.stringify(missAsset));
