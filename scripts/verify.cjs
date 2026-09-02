@@ -9451,13 +9451,22 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      uses — and the check asserts it took, since silently running fine is
      precisely the hole being closed. */
   const coarseMoves = [];
-  let coarseOn = false;
+  const coarseFine = [];
   for (const W of [2415, 2272, 2148]) {
     await page.setViewport({ width: W, height: 1080, hasTouch: true, isMobile: true });
     for (const [from, to] of [['klas', 'saldo'], ['saldo', 'klas'], ['klas', 'jmap']]) {
       await fresh('#v=' + from);
-      coarseOn = await page.evaluate(() => matchMedia('(pointer:coarse)').matches
+      /* Every iteration, not the last one. This was reassigned inside the two
+         loops and the ck read whatever the ninth left behind, so if the touch
+         emulation failed to take at 2415 and 2272 — a setViewport refactor
+         dropping the flags, or an emulation regression — those six sweeps ran
+         with a FINE pointer, where this band mostly is not a shared line,
+         recorded no moves, and the check still printed ok on the strength of
+         the ninth. Silent fine-pointer running is precisely the hole this
+         guard is for; it closed it for one measurement in nine. */
+      const on = await page.evaluate(() => matchMedia('(pointer:coarse)').matches
         && getComputedStyle(document.documentElement).getPropertyValue('--hbw').trim() === '44px');
+      if (!on) coarseFine.push(`${W}px ${from}→${to}: pointer:coarse never matched`);
       const before = await page.evaluate(CTRL_SNAP);
       await click(`#segView button[data-v="${to}"]`);
       await settle(200);
@@ -9466,8 +9475,9 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     }
   }
   ck('and none of it moves with a coarse pointer either, across its own 2148–2415 band',
-    coarseOn && coarseMoves.length === 0,
-    coarseOn ? coarseMoves.slice(0, 3).join('  ;  ').slice(0, 300) : 'pointer:coarse never matched');
+    coarseFine.length === 0 && coarseMoves.length === 0,
+    coarseFine.length ? coarseFine.join('  ;  ').slice(0, 300)
+      : coarseMoves.slice(0, 3).join('  ;  ').slice(0, 300));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── a real finger, and the device class emulation cannot reach ──
