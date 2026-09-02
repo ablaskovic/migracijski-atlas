@@ -4,7 +4,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { YEARS, Y0, YEND, IX2011, IX2018, VLAB } from './lib/metrics.ts';
 import { encodeHash, readHash } from './lib/hash.ts';
 import { BASE, LOCK_FD, focusSoon } from './lib/state.ts';
-import { L, NEWTAB, setLang, storedLang, storeLang, t, yr, yrSpan } from './lib/i18n.ts';
+import { L, NEWTAB, chosenLang, setLang, storeLang, t, yr, yrSpan } from './lib/i18n.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
 import { useGeo } from './lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperPending, paperRefNote, paperRefTail } from './lib/credits.ts';
@@ -456,12 +456,14 @@ export default function App() {
       vmem.current[ref.current.view] = { yi: ref.current.yi, cum: ref.current.cum };
       const patch = readHash(location.hash);
       const back: State = { ...ref.current, ...BASE, help: ref.current.help, flowSeen: ref.current.flowSeen, ...patch };
-      /* BASE.lang was resolved once, at module init. A choice stored *since* then
+      /* BASE.lang was resolved once, at module init. A choice made *since* then
          outranks it — the same precedence BASE itself applies at boot — or Back
          to an entry written before the toggle reverted the language while
          localStorage still said otherwise, and reloading that very URL booted the
-         other one. One URL, two languages, depending on how you arrived. */
-      if (!patch.lang) back.lang = storedLang() ?? BASE.lang;
+         other one. One URL, two languages, depending on how you arrived.
+         `chosenLang()`, not `storedLang()`: the choice this clause means is the
+         one made in THIS tab, and localStorage is per-origin. See i18n.ts. */
+      if (!patch.lang) back.lang = chosenLang() ?? BASE.lang;
       /* Back can cross a language change like any other control, and the module
          mirror has to move with it — otherwise the tree re-renders in the old
          language against the new state. Not stored: stepping through history is

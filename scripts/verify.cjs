@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 502;
+const EXPECTED_CHECKS = 503;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1568,6 +1568,58 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     langReset.back.html === 'hr' && langReset.back.pressed === 'hr'
     && !/l=/.test(langReset.back.hash) && /\./.test(NBSP(langReset.back.val)),
     JSON.stringify(langReset.back));
+
+  /* …and a language chosen in ANOTHER TAB is not this tab's choice. localStorage
+     is per-origin, not per-tab, and the popstate handler re-read it — so a
+     returning English reader with two tabs open, which is the ordinary "compare
+     two views" journey, who pressed HR in tab B watched tab A flip to Croatian
+     on its next Back press: .hd-title "County Migration Atlas (CROATIA)" →
+     "Migracijski atlas županija", #segLang moving from EN to HR, every figure
+     re-formatted en-GB → hr-HR (41,986 → 41.986, the same glyphs with the
+     opposite meaning), and tab A's URL rewritten to #l=hr&…, so every link
+     copied from it thereafter forced Croatian on its recipient. From a Back
+     press that touches nothing about language.
+     Two real pages in one browser, because that is the whole of the defect: one
+     page cannot have the bug. `pinHr` is deliberately NOT used on them — its
+     first act is to clear the stored choice, which is the thing under test. */
+  const twoTab = await (async () => {
+    const navPin = pg => pg.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });
+      Object.defineProperty(navigator, 'language', { get: () => 'hr-HR', configurable: true });
+    });
+    const pA = await watch(await browser.newPage()), pB = await watch(await browser.newPage());
+    await navPin(pA); await navPin(pB);
+    await pA.goto(url, { waitUntil: 'domcontentloaded' });
+    await pA.evaluate(() => localStorage.setItem('atlas-lang', 'en'));
+    const land = async pg => { await pg.goto(url, { waitUntil: 'domcontentloaded' });
+      await pg.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
+      await settle(400); };
+    await land(pA);
+    for (const v of ['klas', 'reg']) {
+      await pA.evaluate(v => document.querySelector(`#segView button[data-v="${v}"]`).click(), v);
+      await settle(300);
+    }
+    const snapA = () => pA.evaluate(() => ({ html: document.documentElement.lang,
+      h1: document.querySelector('.hd-title').textContent.trim(), hash: location.hash,
+      pressed: document.querySelector('#segLang button[aria-pressed="true"]').dataset.l }));
+    const before = await snapA();
+    await land(pB);
+    await pB.evaluate(() => document.querySelector('#segLang button[data-l="hr"]').click());
+    await settle(350);
+    const stored = await pB.evaluate(() => localStorage.getItem('atlas-lang'));
+    await pA.bringToFront();
+    await pA.goBack();
+    await settle(500);
+    const after = await snapA();
+    await pA.evaluate(() => { try { localStorage.removeItem('atlas-lang'); } catch { /* private mode */ } });
+    await pA.close(); await pB.close();
+    return { before, stored, after };
+  })();
+  ck('a language pressed in another tab does not ride this tab’s Back button',
+    twoTab.before.html === 'en' && twoTab.stored === 'hr'
+    && twoTab.after.html === 'en' && twoTab.after.pressed === 'en'
+    && !/l=/.test(twoTab.after.hash) && /Atlas/.test(twoTab.after.h1),
+    JSON.stringify(twoTab));
   await fresh('');
 
   /* ── measured vs estimated are visually distinct, not just differently worded ── */

@@ -130,7 +130,23 @@ export function storedLang(): Lang | null {
     return v === 'hr' || v === 'en' ? v : null;
   } catch { return null; }
 }
+/* This tab's own answer to "has the reader chosen a language since boot?",
+   mirrored at module init and moved only by this tab's toggle. localStorage is
+   per-origin, not per-tab, so re-reading it at popstate time answered a
+   different question: a reader with two tabs open — the ordinary "compare two
+   views" journey — who pressed HR in tab B saw tab A flip to Croatian on its
+   next Back press. Measured: h1 "County Migration Atlas (CROATIA)" →
+   "Migracijski atlas županija", every figure re-formatted from en-GB to hr-HR
+   (41,986 → 41.986, the same glyphs with the opposite meaning), and tab A's URL
+   rewritten to #l=hr&…, so every link copied from it thereafter forced Croatian
+   on its recipient — from a Back press that touches nothing about language.
+   Cross-tab sync is a different feature and would belong on a `storage` event,
+   where it would happen when the other tab writes rather than on an unrelated
+   traversal. */
+let chosen: Lang | null = storedLang();
+export function chosenLang(): Lang | null { return chosen; }
 export function storeLang(l: Lang): void {
+  chosen = l;
   try { localStorage.setItem(LS_KEY, l); } catch { /* private mode, fine */ }
 }
 
