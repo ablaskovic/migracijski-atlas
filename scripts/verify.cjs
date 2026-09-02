@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 497;
+const EXPECTED_CHECKS = 498;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4335,6 +4335,50 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('and it comes back off without a reload',
     await page.evaluate(() => !document.body.classList.contains('reduced')
       && getComputedStyle(document.querySelector('.cnt')).transitionDuration !== '0s'));
+
+  /* …and the largest motion in the app has to follow it too. The pair above
+     asserts the class and the transition duration, and its own comment frames
+     the property as "a reader who flips the OS switch mid-session with the
+     animations they asked to stop" — which autoplay did not honour.
+     `setInterval(fn, period)` reads the period ONCE, so routing the pace through
+     a ref made the value current without making it read: with deps
+     [S.playing, visible], a live preference change re-rendered and updated
+     paceRef without re-creating the interval. Measured on the shipped build,
+     sampling the scrubber every 10 ms: six steps ran at 648–651 ms with
+     body.reduced ALREADY true, and only pausing and pressing play again picked
+     up 1.400 ms. The cadence is measured across the flip here, not the class. */
+  await fresh('#v=saldo&c=0&y=1998');
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
+  await settle(200);
+  const paceSteps = await (async () => {
+    await page.evaluate(() => document.querySelector('#play').click());
+    const steps = [];
+    const t0 = Date.now();
+    let prev = null, flipped = false;
+    while (Date.now() - t0 < 9000) {
+      const s = await page.evaluate(() => ({ y: document.querySelector('#bigYear').textContent,
+        red: document.body.classList.contains('reduced') }));
+      if (prev !== null && s.y !== prev) steps.push([Date.now() - t0, s.red]);
+      prev = s.y;
+      if (!flipped && Date.now() - t0 > 2600) {
+        flipped = true;
+        await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+      }
+      await settle(10);
+    }
+    await page.evaluate(() => document.querySelector('#play').click());
+    return steps;
+  })();
+  const paceGaps = paceSteps.slice(1).map((s, i) => ({ ms: s[0] - paceSteps[i][0], red: s[1] }));
+  const fast = paceGaps.filter(g => !g.red).map(g => g.ms);
+  /* the step already in flight when the switch flips keeps its own period —
+     re-creating the timer would cut it short — so the LAST few are the test */
+  const slow = paceGaps.filter(g => g.red).slice(-3).map(g => g.ms);
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
+  ck('and so does the playback cadence, without a pause and a replay',
+    fast.length >= 2 && slow.length >= 2
+    && fast.every(m => m < 900) && slow.every(m => m > 1100),
+    JSON.stringify({ fast, slow }));
 
   /* ── P3: the JLS chunk can fail, and the view says so and offers a retry ── */
   blockGeoChunk = true;

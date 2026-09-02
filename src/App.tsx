@@ -274,15 +274,32 @@ export default function App() {
     if (!S.playing || !visible) return;
     /* autoplay is the largest motion in the app — halve the pace rather than
        remove the feature, since the user asked for it explicitly */
-    const t = setInterval(() => {
+    /* A self-rescheduling timeout, not an interval. `setInterval(fn, period)`
+       reads the period ONCE, when the effect runs, and fixes it for that
+       interval's whole life — so routing the pace through a ref made the value
+       current without making it read. Deps are [S.playing, visible], and a live
+       prefers-reduced-motion change re-renders and updates paceRef.current
+       without re-creating the interval, so the note below claimed a property the
+       code did not have. Measured on the shipped build, sampling the scrubber
+       every 10 ms: six steps ran at 648–651 ms with body.reduced ALREADY true,
+       and only pausing and pressing play again picked up 1.400 ms — a reader who
+       starts the film and then turns reduced motion on, the obvious response to
+       "this is moving too fast", kept the fast cadence for the rest of the run
+       while the CSS transitions did stop. This reads the ref on every tick, so
+       the preference takes effect from the next step; the step the reader is
+       already inside is not cut short, which re-creating the interval would do. */
+    let t = 0;
+    const tick = () => {
       setS(s => {
         if (!s.playing) return s;
         const next = s.yi + 1;
         if (next >= YEARS.length) return { ...s, yi: YEARS.length - 1, playing: false, story: null };
         return { ...s, yi: next, story: null };
       });
-    }, paceRef.current);
-    return () => clearInterval(t);
+      t = window.setTimeout(tick, paceRef.current);
+    };
+    t = window.setTimeout(tick, paceRef.current);
+    return () => clearTimeout(t);
     /* `reduced` is NOT a dependency: it is read through a ref instead. As a
        dependency it tore down and re-created the interval whenever the OS
        preference changed, which restarts the countdown — so a reader who flipped
