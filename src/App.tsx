@@ -220,7 +220,20 @@ export default function App() {
      away; closing already returned focus, so only the open half was missing. */
   const toggleHelp = () => {
     const s = ref.current;
-    up({ help: !s.help });
+    /* `playing: false`, like setView, openPair and applyStory — every other
+       route that changes the screen. Scrubber marks #play and #spark inert while
+       the glossary is open, which is right for the slider AT would otherwise
+       meet as operable; but the film kept running behind a dialog that is
+       aria-modal="false" above 900 px and so does not cover the map. Measured at
+       1440×900 from #v=saldo&c=0&y=2000: press Play, press ?, and the year walks
+       2000 → 2003 → 2004 → 2006 → 2007 with the 21 fills repainting beside the
+       dialog, #play disabled, #spark tabindex=-1, and Space swallowed before it
+       reaches togglePlay (:482 returns while `s.help`). Content updating
+       automatically for more than five seconds with every mechanism to pause it
+       dead is a 2.2.2 failure, and the only way out was to close the glossary
+       first. The jmap half of Scrubber's `inert` was only ever safe because
+       setView writes the same field; the help half had no such guarantee. */
+    up({ help: !s.help, playing: false });
     focusSoon(s.help ? '#helpBtn' : '#helpCard');
   };
   /* Back to the boot view, including the per-view year memory and the map

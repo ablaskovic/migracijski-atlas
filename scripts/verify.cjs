@@ -133,7 +133,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 503;
+const EXPECTED_CHECKS = 504;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4070,6 +4070,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     dlgKeys.focus === 'helpCard' && dlgKeys.scrolled > 0 && dlgKeys.playing === 'false'
     && dlgKeys.yr === '2024.' && dlgKeys.hash === '#v=saldo&c=1&y=2024'
     && /scale\(1\)/.test(dlgKeys.zoom), JSON.stringify(dlgKeys));
+  await page.evaluate(() => document.querySelector('#helpX').click());
+  await settle(200);
+
+  /* …and that clause is only defensible because the film is stopped by then.
+     The check above starts from a paused atlas, so "playing === false" costs
+     nothing; every #play exercise in this file is the same. With the film
+     RUNNING, opening the glossary left it running: above 900 px the dialog is
+     aria-modal="false" and does not cover the map, so the year walked
+     2000 → 2003 → 2004 → 2006 → 2007 and the 21 fills repainted beside it while
+     #play was disabled, #spark was tabindex=-1, and Space returned early on
+     `s.help` before reaching togglePlay. Every mechanism to pause it dead while
+     it ran — 2.2.2, and the only way out was to close the glossary first.
+     Two periods of the play loop, and both halves asserted: the flag AND the
+     year, because a stopped flag over a still-stepping year would be the same
+     bug wearing a different mask. */
+  await fresh('#v=saldo&c=0&y=2000');
+  const playHelp = await page.evaluate(async () => {
+    const yr2 = () => document.querySelector('#bigYear').textContent;
+    document.querySelector('#play').click();
+    await new Promise(r => setTimeout(r, 400));
+    const running = { yr: yr2(), pressed: document.querySelector('#play').getAttribute('aria-pressed') };
+    document.querySelector('#helpBtn').click();
+    await new Promise(r => setTimeout(r, 300));
+    const opened = { yr: yr2(), pressed: document.querySelector('#play').getAttribute('aria-pressed') };
+    await new Promise(r => setTimeout(r, 1600));
+    return { running, opened, later: { yr: yr2(), pressed: document.querySelector('#play').getAttribute('aria-pressed') },
+      open: !!document.querySelector('#helpCard') };
+  });
+  ck('opening the glossary stops the film rather than leaving it running with every pause control dead',
+    playHelp.running.pressed === 'true' && playHelp.open
+    && playHelp.opened.pressed === 'false' && playHelp.later.pressed === 'false'
+    && playHelp.later.yr === playHelp.opened.yr,
+    JSON.stringify(playHelp));
   await page.evaluate(() => document.querySelector('#helpX').click());
   await settle(200);
 
