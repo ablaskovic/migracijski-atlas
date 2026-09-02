@@ -340,7 +340,7 @@ function measureCtx(): CanvasRenderingContext2D | null {
    the title's first line can reserve room for the right-aligned period while
    its continuations get the full width. A single word longer than the line is
    hard-broken rather than allowed to overflow. */
-function wrapText(text: string, font: string, widths: (i: number) => number): string[] {
+export function wrapText(text: string, font: string, widths: (i: number) => number): string[] {
   const ctx = measureCtx();
   if (!ctx) return [text];
   ctx.font = font;
@@ -348,21 +348,34 @@ function wrapText(text: string, font: string, widths: (i: number) => number): st
   const out: string[] = [];
   let line = '';
   const push = () => { out.push(line); line = ''; };
+  /* one unbreakable token wider than the whole line. A named step, because it
+     has to be reachable from BOTH ways a word can arrive at an empty line: the
+     branch used to be guarded by `!line`, so it ran for a long token at the
+     start of the text and not for one that followed a short word — that second
+     case did `push(); line = word` without asking whether the word fit, and the
+     next iteration emitted it whole. Ported verbatim at 1 unit per character
+     against a 12-unit budget: "abcdefghijklmnopqrstuvwxyz" hard-broke into
+     three lines, and "ab abcdefghijklmnopqrstuvwxyz" produced ["ab",
+     "abcdefghijklmnopqrstuvwxyz"] — 26 units on a 12-unit line, exactly the
+     overflow the comment above promises cannot happen. No shipped string
+     reaches it today (the widest unbreakable token is the 39-character DOI,
+     ~199 px against a 350 px credit budget at 390 px), so this is the guard
+     rather than a live defect — but it is the guard a narrower canvas or a
+     longer URL would rely on. */
+  const hardBreak = (word: string) => {
+    let chunk = '';
+    for (const ch of word) {
+      if (chunk && !fits(chunk + ch, out.length)) { line = chunk; push(); chunk = ''; }
+      chunk += ch;
+    }
+    line = chunk;
+  };
   for (const word of text.split(' ')) {
     const next = line ? line + ' ' + word : word;
-    if (fits(next, out.length) || !line) {
-      if (!fits(next, out.length) && !line) {
-        /* one unbreakable token wider than the whole line */
-        let chunk = '';
-        for (const ch of word) {
-          if (chunk && !fits(chunk + ch, out.length)) { line = chunk; push(); chunk = ''; }
-          chunk += ch;
-        }
-        line = chunk;
-        continue;
-      }
-      line = next;
-    } else { push(); line = word; }
+    if (fits(next, out.length)) { line = next; continue; }
+    if (line) push();
+    if (fits(word, out.length)) line = word;
+    else hardBreak(word);
   }
   if (line) out.push(line);
   return out.length ? out : [text];

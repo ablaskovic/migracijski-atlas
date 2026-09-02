@@ -15,7 +15,7 @@ import MapView from './components/MapView.tsx';
 import Rail from './components/Rail.tsx';
 import Scrubber from './components/Scrubber.tsx';
 import Tooltip from './components/Tooltip.tsx';
-import { exportPNG, exportSVG, type ExportInfo } from './lib/exportPng.ts';
+import { exportPNG, exportSVG, wrapText, type ExportInfo } from './lib/exportPng.ts';
 import { ensureFonts } from './lib/exportFonts.ts';
 import type { Den, Flow, Patch, State, View } from './lib/types.ts';
 
@@ -23,6 +23,7 @@ declare global {
   interface Window {
     __exportPNG?: (dl?: boolean) => Promise<ExportInfo | undefined>;
     __exportSVG?: (dl?: boolean) => string | undefined;
+    __wrapText?: (text: string, font: string, width: number) => string[];
   }
 }
 
@@ -586,7 +587,13 @@ export default function App() {
        before anyone presses Izvoz. One same-origin request against an immutable
        cache, off the first-paint path. */
     ensureFonts().catch(() => { /* the figure names the families instead */ });
-    return () => { delete window.__exportPNG; delete window.__exportSVG; };
+    /* …and the wrapper, which no shipped string can reach the hard-break branch
+       of: the widest unbreakable token in the app is the 39-character DOI, and
+       it fits every canvas the exporter draws. So the only way to check that
+       guard is to call it — the same reason __PAPER_KLAS is exposed for the
+       split sentence. */
+    window.__wrapText = (txt, font, w) => wrapText(txt, font, () => w);
+    return () => { delete window.__exportPNG; delete window.__exportSVG; delete window.__wrapText; };
   }, []);
   useEffect(() => { document.body.classList.toggle('panel-open', S.citz || S.jls || S.age || S.help); }, [S.citz, S.jls, S.age, S.help]);
   /* …and whether the stage still has room to exist. A reader who raises Chrome's

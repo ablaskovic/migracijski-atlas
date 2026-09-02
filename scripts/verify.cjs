@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 587;
+const EXPECTED_CHECKS = 588;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7177,6 +7177,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     /* and it is still shown where there IS room — a gate that hides it always would pass the line above */
     && kbdGap.hr1440.hint && kbdGap.en1440.hint && kbdGap.en710.hint && !kbdGap.hr710.hint,
     JSON.stringify(kbdGap));
+
+  /* ── the wrapper's hard break is reachable from both sides ──
+     wrapText promises in its own comment that "a single word longer than the
+     line is hard-broken rather than allowed to overflow", and the branch was
+     guarded by `!line` — so it ran for a long token at the START of the text and
+     not for one that followed a short word. That path did `push(); line = word`
+     without asking whether the word fit, and the next iteration emitted it
+     whole: measured at a 12-character budget, "abcdefghijklmnopqrstuvwxyz" broke
+     into three lines while "ab abcdefghijklmnopqrstuvwxyz" produced ["ab",
+     "abcdefghijklmnopqrstuvwxyz"] — 26 characters on a 12-character line.
+     No shipped string reaches it (the widest unbreakable token is the
+     39-character DOI, which fits every canvas the exporter draws), so the
+     function is CALLED rather than driven through an export — the same reason
+     __PAPER_KLAS is exposed for the split sentence. Measured against the real
+     canvas metric, not a port. */
+  await fresh('');
+  const wrapGuard = await page.evaluate(() => {
+    if (typeof window.__wrapText !== 'function') return { missing: true };
+    const font = '400 9px "IBM Plex Mono", monospace';
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = font;
+    const budget = ctx.measureText('x'.repeat(12)).width;
+    const run = t => {
+      const out = window.__wrapText(t, font, budget);
+      return { out, over: out.filter(l => ctx.measureText(l).width > budget + 0.01) };
+    };
+    return {
+      lead: run('abcdefghijklmnopqrstuvwxyz'),
+      after: run('ab abcdefghijklmnopqrstuvwxyz'),
+      mid: run('short abcdefghijklmnopqrstuvwxyz tail'),
+      plain: run('one two three four five'),
+    };
+  });
+  ck('an over-long token is hard-broken wherever it appears, not only first',
+    !wrapGuard.missing
+    && ['lead', 'after', 'mid', 'plain'].every(k => wrapGuard[k].over.length === 0)
+    && wrapGuard.lead.out.length === 3 && wrapGuard.after.out.length > 2
+    /* and ordinary wrapping is untouched */
+    && wrapGuard.plain.out.join('|') === 'one two|three four|five',
+    JSON.stringify(wrapGuard));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
