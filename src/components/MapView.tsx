@@ -157,9 +157,32 @@ export default function MapView({ S, setS, selectCounty, setHL, resetSeq, openCo
   useLayoutEffect(() => {
     const el = wrapRef.current?.querySelector('.legend');
     if (!el) { setLegend({ w: 0, h: 0 }); return; }
+    /* …and while we have it: the legend is a scroller nothing could scroll.
+       The cap and overflow-y:auto exist for the reader who raised Chrome's
+       minimum font size — at 108 px of stage the legend gives instead of the
+       controls — and the same rule keeps pointer-events:none, so a wheel over
+       it reached svg#map underneath and zoomed the map instead, while no
+       tabindex made it reachable from a keyboard in Firefox or Safari. What
+       overflows is the bottom of the legend, which is where the honesty note
+       lives. So it becomes interactive exactly while it overflows, and goes
+       back to being transparent to the pointer the moment it fits — the map
+       under it stays clickable in every ordinary state. Measured here because
+       this observer already fires on precisely the changes that start or end
+       the overflow. */
     const measure = () => {
       const r = el.getBoundingClientRect();
       setLegend(l => (l.w === r.width && l.h === r.height ? l : { w: r.width, h: r.height }));
+      const over = el.scrollHeight > el.clientHeight + 1;
+      el.classList.toggle('scrolls', over);
+      if (over) {
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('role', 'group');
+        el.setAttribute('aria-label', L('Legenda — pomaknite za ostatak', 'Legend — scroll for the rest'));
+      } else {
+        el.removeAttribute('tabindex');
+        el.removeAttribute('role');
+        el.removeAttribute('aria-label');
+      }
     };
     const ro = new ResizeObserver(measure);
     ro.observe(el);

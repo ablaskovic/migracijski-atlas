@@ -441,6 +441,11 @@ body.stage-collapsed .main{flex:none;height:420px}
 .legend{position:absolute;left:16px;bottom:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);
   border:1px solid var(--line);border-radius:3px;padding:8px 10px;font-size:0.65625rem;pointer-events:none;max-width:280px;
   max-height:calc(100% - 24px);overflow-y:auto}
+/* …and only then does it take the pointer. pointer-events:none is what keeps
+   the counties under the legend clickable, so it stays the default and the
+   class MapView sets while the box actually overflows lifts it. Contained, so
+   reaching the end of the note does not then scroll the page. */
+.legend.scrolls{pointer-events:auto;overscroll-behavior:contain}
 .legend-title{font-family:var(--mono);font-size:0.5625rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:5px;white-space:normal}
 .legend-bar{width:180px;height:9px;border:1px solid var(--line);position:relative}
 /* Two-tone, for the reason .focusring is. A single ink rule sits directly on the

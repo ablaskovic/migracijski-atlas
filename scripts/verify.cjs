@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 562;
+const EXPECTED_CHECKS = 564;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -816,7 +816,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR',
       '--blink-settings=minimumFontSize=24,minimumLogicalFontSize=24'],
   });
-  let legEscape, mfsRoom;
+  let legEscape, mfsRoom, legScroll;
   try {
     const pg = await watch(await mfsBrowser.newPage());
     await pinHr(pg);
@@ -868,11 +868,67 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
         escapes: l.top < b.top - 1, overCtrls: Math.round(ov),
         legH: Math.round(l.height), boxH: Math.round(b.height) };
     });
+    /* …and the reader who is in this state can reach what the cap hid. The cap
+       makes the legend a scroller, and the same rule keeps pointer-events:none
+       with no tabindex — so a wheel over it reached svg#map underneath and
+       zoomed the map instead, and no keyboard could reach it in Firefox or
+       Safari. What overflows is the bottom of the legend, which is where the
+       honesty note lives, and the reader in this state is exactly the one the
+       cap was written for. Klasifikacija because its legend is the tallest. */
+    await pg.setViewport({ width: 1280, height: 800 });
+    await pg.goto(url + '#v=klas&c=1&y=2024', { waitUntil: 'networkidle0' });
+    await pg.waitForFunction(() => !!document.querySelector('#legend'), { timeout: 15000 }).catch(() => {});
+    await settle(600);
+    const legRead = () => pg.evaluate(() => {
+      const el = document.querySelector('#legend');
+      if (!el) return { missing: true };
+      return { over: el.scrollHeight > el.clientHeight + 1,
+        pe: getComputedStyle(el).pointerEvents, tab: el.getAttribute('tabindex'),
+        lab: el.getAttribute('aria-label') || '', top: Math.round(el.scrollTop),
+        h: Math.round(el.clientHeight), sh: Math.round(el.scrollHeight) };
+    });
+    legScroll = await legRead();
+    if (legScroll.over) {
+      const at = await pg.evaluate(() => {
+        const r = document.querySelector('#legend').getBoundingClientRect();
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      });
+      await pg.mouse.move(at.x, at.y);
+      await pg.mouse.wheel({ deltaY: 120 });
+      await settle(350);
+      legScroll.after = await legRead();
+      legScroll.mapTf = await pg.evaluate(() => {
+        const g = document.querySelector('#map g[transform]');
+        return g ? g.getAttribute('transform') : null;
+      });
+      legScroll.focusable = await pg.evaluate(() => {
+        const el = document.querySelector('#legend');
+        el.focus();
+        return document.activeElement === el;
+      });
+    }
     await pg.close();
   } finally { await mfsBrowser.close(); }
   ck('the legend stays inside the map box under the reader’s own minimum font size',
     legEscape.root >= 24 && !legEscape.escapes && legEscape.overCtrls === 0
     && legEscape.legH <= legEscape.boxH, JSON.stringify(legEscape));
+  ck('a legend the cap turned into a scroller can actually be scrolled and reached',
+    !!legScroll && legScroll.over && legScroll.pe === 'auto' && legScroll.tab === '0'
+    && legScroll.lab.length > 5 && !!legScroll.after && legScroll.after.top > 0
+    && /scale(1)$/.test(legScroll.mapTf || '') && legScroll.focusable === true,
+    JSON.stringify(legScroll));
+  /* …and a legend that fits is transparent to the pointer, so every county under
+     it stays clickable — the reason pointer-events:none is the default. */
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('');
+  const legFits = await page.evaluate(() => {
+    const el = document.querySelector('#legend');
+    return { over: el.scrollHeight > el.clientHeight + 1,
+      pe: getComputedStyle(el).pointerEvents, tab: el.getAttribute('tabindex') };
+  });
+  ck('…and one that fits stays transparent to the pointer',
+    !legFits.over && legFits.pe === 'none' && legFits.tab === null,
+    JSON.stringify(legFits));
   ck('…and the stage still exists there, the dock stays off the controls, and the footer can be reached',
     mfsRoom.root >= 24 && mfsRoom.main >= 180 && mfsRoom.rail >= 180 && mfsRoom.stage >= 180
     && mfsRoom.dockOverCtrls === 0 && mfsRoom.bodyOv !== 'hidden' && mfsRoom.ftReached,
