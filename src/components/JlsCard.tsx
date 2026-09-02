@@ -24,9 +24,19 @@ export default function JlsCard({ S, setS, toggleJls }: {
     else if (S.dir === 'in') { rows = dd.in; cap = L('najveći dolazni koridori', 'largest inbound corridors'); }
     else { rows = dd.out.concat(dd.in).slice().sort((a, b) => b[2] - a[2]).slice(0, 12); cap = L('najveći bruto koridori (JLS neto nije objavljen)', 'largest gross corridors (LAU net is not published)'); }
   }
+  /* …and not when the municipality IS the county. Grad Zagreb is both — a
+     municipality at drill index 274 and SHORTN['HR-21'] — and it is the single
+     most frequent corridor endpoint in the payload, so rows read "Velika Gorica
+     → Grad Zagreb Grad Zagreb". Swept over all 21 counties × all three Smjer
+     values: 423 of 756 rendered rows carried the doubling, in 20 of the 21
+     counties; only s=HR-21 was clean, because there the first test already
+     returns null. Rail renders the same fact and guards it by name, with a
+     comment saying so and a check that encodes the rule — this is the surface
+     that did not get it. */
   const tag = (j: number) => {
     const iso = ISOS[JLS.names[j][1]];
-    return iso === S.sel ? null : <span className="jc"> {SHORTN[iso]}</span>;
+    if (iso === S.sel || JLS.names[j][0] === SHORTN[iso]) return null;
+    return <span className="jc"> {SHORTN[iso]}</span>;
   };
   const onKey = (e: ReactKeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleJls(); } };
 

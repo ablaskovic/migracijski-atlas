@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 589;
+const EXPECTED_CHECKS = 590;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7253,6 +7253,39 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   ck('the corridor card keeps room for its chart on a coarse pointer, not only below 700 px',
     Object.values(pairRoom).every(v => !v.none && v.need > 100 && v.ok),
     JSON.stringify(pairRoom));
+
+  /* ── a municipality that IS its county carries no county tag ──
+     JlsCard appended the partner's county whenever it was not the SELECTED one,
+     with no test for the case where the municipality's own name already is the
+     county's short name. Grad Zagreb is both — drill index 274 and
+     SHORTN['HR-21'] — and the most frequent corridor endpoint in the payload, so
+     rows read "Velika Gorica → Grad Zagreb Grad Zagreb". Swept over 21 counties
+     × three Smjer values before: 423 of 756 rows doubled, in 20 of the 21
+     counties; only s=HR-21 was clean, because there the selected-county test
+     already returns null. Rail renders the same fact and guards it by name, with
+     a comment saying so and a check that encodes the rule — this was the surface
+     that did not get it, and the two checks that touch this card both ran in
+     states where the tag renders nothing at all.
+     Detected as any immediately repeated name, so a doubling of any other
+     municipality-county pair would be caught too. */
+  const jlsDbl = { rows: 0, dbl: 0, bad: [] };
+  for (const iso of ['HR-01', 'HR-08', 'HR-13', 'HR-21']) {
+    for (const dir of ['net', 'out']) {
+      await fresh(`#v=flow&s=${iso}&dir=${dir}&jl=1&y=2018&c=0`);
+      await page.waitForSelector('#jcardList', { timeout: 15000 }).catch(() => {});
+      const r = await page.evaluate(() => [...document.querySelectorAll('#jcardList .jn')]
+        .map(e => (e.textContent || '').replace(/\s+/g, ' ').trim()));
+      jlsDbl.rows += r.length;
+      for (const t of r) {
+        if (/\b([A-ZŠĐČĆŽ][\wšđčćžŠĐČĆŽ.-]*(?: [\wšđčćžŠĐČĆŽ.-]+)*) \1\b/.test(t)) {
+          jlsDbl.dbl++;
+          if (jlsDbl.bad.length < 3) jlsDbl.bad.push(iso + '/' + dir + ': ' + t);
+        }
+      }
+    }
+  }
+  ck('no JLS corridor row names a municipality and its own county twice',
+    jlsDbl.rows >= 80 && jlsDbl.dbl === 0, JSON.stringify(jlsDbl));
   /* …and the exported twin of that legend has to be readable on a machine that
      has none of the app's fonts installed. It asked for IBM Plex Sans, which
      exportFonts deliberately does not embed — its comment says the only text
