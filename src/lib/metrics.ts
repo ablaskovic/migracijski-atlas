@@ -498,7 +498,16 @@ export function countyAria(S: State, iso: string): string {
        that tells the reader these are "this atlas's computation, not published
        statistics — do not pass them on as CBS figures". */
     const badge = S.cum ? badgeText('cum') : flowBadge(S.yi, S.cum);
-    return L(`${n}: iz ${h} ${fmtI.format(o)}, u ${h} ${fmtI.format(i)}, neto (${h}) ${sgn(i - o, fmtI)} · ${per} · ${badge}`,
+    /* Arrows, not prepositions. `iz ${h}` and `u ${h}` put an undeclined county
+       name after a Croatian preposition: "iz Grad Zagreb" for "iz Grada
+       Zagreba", and with a feminine hub "iz Zagrebačka" / "u Zagrebačka" for
+       "iz Zagrebačke" / "u Zagrebačku" — every partner, all 21 hubs, every
+       year, on the one surface a Croatian screen reader reads. exportDesc
+       already names this problem and prescribes the remedy — "the arrow is the
+       one form that is correct for all 21 without a grammar table" — and the
+       visible tooltip has used arrows all along. This was the surface that
+       kept the prose. English keeps its prepositions, which decline nothing. */
+    return L(`${n}: ${h} → ${n} ${fmtI.format(o)}, ${n} → ${h} ${fmtI.format(i)}, neto (${h}) ${sgn(i - o, fmtI)} · ${per} · ${badge}`,
       `${n}: ${fmtI.format(o)} from ${h}, ${fmtI.format(i)} to ${h}, net (${h}) ${sgn(i - o, fmtI)} · ${per} · ${badge}`);
   }
   if (S.view === 'klas') {

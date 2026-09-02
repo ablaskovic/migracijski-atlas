@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 594;
+const EXPECTED_CHECKS = 595;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10124,6 +10124,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     && langRuns.rl === 'hr' && /[čćšžđ]/i.test(langRuns.rlTxt || '')
     && langRuns.foot.some(t => /zbornik/i.test(t)) && langRuns.gloss,
     JSON.stringify(langRuns));
+
+  /* ── the Croatian flow sentence declines nothing, so it uses arrows ──
+     `iz ${h}` and `u ${h}` put an undeclined county name after a Croatian
+     preposition: "iz Grad Zagreb" for "iz Grada Zagreba", and with a feminine
+     hub "iz Zagrebačka" / "u Zagrebačka" for "iz Zagrebačke" / "u Zagrebačku" —
+     every partner, all 21 hubs, every year, on the one surface a Croatian screen
+     reader reads. exportDesc already names the problem and prescribes the
+     remedy, and the visible tooltip has used arrows all along; this was the
+     surface that kept the prose. Both hub genders, and English as the control:
+     its prepositions decline nothing and must stay. */
+  const flowAria = {};
+  for (const [k, h, iso] of [['m', '#v=flow&s=HR-21&dir=net&y=2018&c=0', 'HR-01'],
+    ['f', '#v=flow&s=HR-01&dir=net&y=2018&c=0', 'HR-21'],
+    ['en', '#l=en&v=flow&s=HR-21&dir=net&y=2018&c=0', 'HR-01']]) {
+    await fresh(h);
+    flowAria[k] = await page.evaluate(i => {
+      const e = document.querySelector(`.cnt[data-iso="${i}"]`);
+      return e ? e.getAttribute('aria-label') || '' : '';
+    }, iso);
+  }
+  const undeclined = /\b(iz|u) (Grad Zagreb|Zagrebačka|Osječko-baranjska|Splitsko-dalmatinska)\b/;
+  ck('the Croatian flow label uses the arrow, not a preposition it cannot decline',
+    !undeclined.test(flowAria.m) && !undeclined.test(flowAria.f)
+    && /→/.test(flowAria.m) && /→/.test(flowAria.f)
+    && / from | to /.test(flowAria.en) && !/→/.test(flowAria.en),
+    JSON.stringify(flowAria));
 
   /* ── PageUp and PageDown keep the reader's column ──
      the APG grid pattern this file cites as its contract has them preserve it,
