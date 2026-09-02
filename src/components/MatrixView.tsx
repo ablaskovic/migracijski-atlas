@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, badgeText, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
 import { L } from '../lib/i18n.ts';
 import type { useZoom } from '../lib/useZoom.ts';
-import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactElement } from 'react';
 import type { Patch, State } from '../lib/types.ts';
 
 /* 21×21 OD heatmap — the whole gravity structure at once (the star chart in
@@ -66,7 +66,9 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
   }, [setContentH, n, cell]);
   const x0 = box.left + (over <= 0 ? over / -2 : Math.max(2 - box.left, -over)), y0 = TOPL;
   const m = mxMax(S.dir, S.cum);
-  const col = S.dir === 'net' ? divScale(m) : seqScale(m, S.dir);
+  /* memoised because the grid memo below calls it: a scale rebuilt every render
+     would put a new function in that dep list on every pointermove */
+  const col = useMemo(() => (S.dir === 'net' ? divScale(m) : seqScale(m, S.dir)), [S.dir, m]);
   /* Measured per cell, not assumed from the cell size. `cell >= 22` asks whether
      a number could fit and never asks whether *this* number does: a cumulative
      −12.169 is seven glyphs where an annual 87 is two. Measured at 1920×1080 in
@@ -81,7 +83,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      test, with the same 0,6 em advance for the mono face. */
   const numFs = Math.min(8.5, cell / 3);
   const showNum = cell >= 22;
-  const fitsNum = (str: string) => str.length * numFs * 0.6 <= cell - 3;
+  const fitsNum = useCallback((str: string) => str.length * numFs * 0.6 <= cell - 3, [numFs, cell]);
   const hl = S.pairHl;
   const hlR = hl ? MXORD.indexOf(hl[0]) : -1, hlC = hl ? MXORD.indexOf(hl[1]) : -1;
   /* The selected corridor — the one the card in the rail describes. Orthogonal to
@@ -216,11 +218,16 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      IPF-fitted number with no marker at all, while hovering the same cell showed
      the identical table plus a "procjena (IPF)" pill. */
   const cellBadge = S.cum ? badgeText('cum') : flowBadge(S.yi, S.cum);
-  const cellAria = (a: string, b: string, v: number): string =>
-    (S.dir === 'net' ? L(`${D[a].n} ↔ ${D[b].n}: neto ${sgn(Math.round(v), fmtI)} za ${D[a].n}`,
-      `${D[a].n} ↔ ${D[b].n}: net ${sgn(Math.round(v), fmtI)} for ${D[a].n}`)
+  /* The two translated fragments, read once — so the memoised builder below
+     depends on the language through a value it actually uses rather than through
+     `L`, which reads a module mirror the dependency checker cannot see. The
+     string it produces is unchanged in both languages. */
+  const ariaNet = L('neto', 'net'), ariaFor = L('za', 'for');
+  const cellAria = useCallback((a: string, b: string, v: number): string =>
+    (S.dir === 'net' ? `${D[a].n} ↔ ${D[b].n}: ${ariaNet} ${sgn(Math.round(v), fmtI)} ${ariaFor} ${D[a].n}`
       : S.dir === 'in' ? `${D[b].n} → ${D[a].n}: ${fmtI.format(Math.round(v))}`
-        : `${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`) + ' · ' + cellBadge;
+        : `${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`) + ' · ' + cellBadge,
+  [S.dir, ariaNet, ariaFor, cellBadge]);
 
   /* Touch hit-testing: a finger is ~40 px against a ~10 px cell, so relying on
      the cell paths themselves means most taps land in a gap and read nothing.
@@ -257,106 +264,127 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      matrix — never engaged, and no cell had any positional context. Rows now
      wrap each line, the per-cell <g> is presentational so it does not break
      ownership, and row/col indices are declared. */
-  const rows = [];
-  for (let r = 0; r < n; r++) {
-    const cells = [];
-    for (let c = 0; c < n; c++) {
-      const a = MXORD[r], b = MXORD[c];
-      if (a === b) {
-        /* hatched, but no longer silent: probing the one visually distinct band
-           in the grid used to return nothing at all — and that explanation was
-           pointer-only, since the roving tabindex deliberately steps over the
-           diagonal. As a named gridcell a screen reader reaches it in browse
-           mode without it ever becoming a tab stop. */
-        cells.push(<rect key={a + b} className="mxd" data-a={a} data-b={b}
-          vectorEffect="non-scaling-stroke"
-          x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
-          fill="url(#mxhatch)" role="gridcell" tabIndex={-1} aria-colindex={c + 1}
-          /* the row is lang="hr" so its own bare-name label is voiced right, and
-             language resolves by walking ancestors — which handed these SENTENCE
-             labels to the Croatian voice as well. The cell says what document it
-             is in; the county name inside it takes English phonemes, which is the
-             cheaper loss against reading "−2,442" as a decimal. */
-          lang={S.lang}
-          aria-label={L(`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`,
-            `${D[a].n} — diagonal: moves within the same county are not part of the inter-county matrix`)}
-          onPointerEnter={() => setS({ pairHl: [a, b] })}
-          onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ pairHl: null }); }}
-          onPointerMove={moveTip} />);
-        continue;
-      }
-      const v = mxCell(a, b, S.dir, S.yi, S.cum);
-      const isHl = !!hl && hl[0] === a && hl[1] === b;
-      const isF = fc[0] === r && fc[1] === c;
-      cells.push(
-        <g key={a + b} role="presentation">
-          <rect className="mxc" data-a={a} data-b={b} vectorEffect="non-scaling-stroke"
+  /* The 21×21 loop below runs on every render, and a two-finger pinch renders
+     on every pointermove — twice over, one stream per finger. Measured on the
+     served build at 390×844 with a scripted pinch, counting
+     Intl.NumberFormat.format calls: 444,8 per pointermove in Matrica against
+     13,0 for Saldo's county map and 2,5 for the 556-feature JLS map, so the
+     expensive view is the grid and not the geometry, by roughly 180×. What all
+     of it buys is 2,2 DOM mutations per event — the transform, and the trace
+     band. Under a 6× CPU throttle thirty two-finger moves took 3.198 ms in
+     Matrica (107 ms each, 20 long tasks, 148 ms worst) against 1.078 ms in
+     Saldo: about 9 fps in the one view whose cells are ~10 px on a phone and
+     therefore unreadable until you pinch.
+     Nothing under the <g transform> depends on the gesture, so it is built once
+     per visual state and reused. The handlers are reached through a ref that is
+     rewritten every render, so a memoised element never holds a stale closure —
+     which is the correctness bug this optimisation would otherwise buy with. */
+  const live = useRef({ setS, onCellFocus, onCellKey, drill });
+  live.current = { setS, onCellFocus, onCellKey, drill };
+  const rows = useMemo(() => {
+    const rows: ReactElement[] = [];
+    for (let r = 0; r < n; r++) {
+      const cells = [];
+      for (let c = 0; c < n; c++) {
+        const a = MXORD[r], b = MXORD[c];
+        if (a === b) {
+          /* hatched, but no longer silent: probing the one visually distinct band
+             in the grid used to return nothing at all — and that explanation was
+             pointer-only, since the roving tabindex deliberately steps over the
+             diagonal. As a named gridcell a screen reader reaches it in browse
+             mode without it ever becoming a tab stop. */
+          cells.push(<rect key={a + b} className="mxd" data-a={a} data-b={b}
+            vectorEffect="non-scaling-stroke"
             x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
-            fill={col(S.dir === 'net' ? v : Math.abs(v))}
-            stroke={isHl ? '#20262B' : '#fff'} strokeWidth={isHl ? 1.6 : 0.5}
-            role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
-            /* see the diagonal cell above: the row's lang="hr" must not reach a
-               label that is a sentence with English numbers in it */
-            lang={S.lang} aria-label={cellAria(a, b, v)}
-            /* activating a cell opens the corridor card in the rail and leaves
-               the grid standing, so the cell is the control that owns it —
-               same contract `.cnt` has with the county card */
-            aria-expanded={r === selR && c === selC}
-            onPointerEnter={() => setS({ pairHl: [a, b] })}
-            /* per POINTER, not per session: a finger sends leave the moment it
-               lifts, which would flash the readout away — and that is as true of
-               a finger on a hybrid device, where the session flag says "mouse" */
-            onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ pairHl: null }); }}
-            /* a tap fires pointerenter and pointerdown and no pointermove, so
-               without this the only thing positioning the tip for a finger was
-               the coarse-only overlay below — absent on a hybrid device, where
-               the readout then painted at (0,0). The JLS paths take the same
-               signal for the same reason. */
-            onPointerDown={moveTip}
-            onPointerMove={moveTip}
-            onFocus={e => onCellFocus(e, a, b)}
-            onBlur={() => { setCellFoc(false); if (!COARSE) setS({ pairHl: null }); }}
-            onKeyDown={e => onCellKey(e, a, b)}
-            /* Drill-through is pointer-only. At 21×21 a cell is ~10 px on a
-               phone, so a tap that navigates is a tap that misfires — touch
-               reads the corridor instead (see the .mxhit overlay below). */
-            onClick={() => { if (!wasTouch()) drill(a, b); }} />
-          {showNum && Math.abs(v) >= 1 && fitsNum(fmtI.format(Math.round(v))) && (
-            /* No ink/white flip any more: measured against the shipping Lab
-               ramps there is no threshold that works, because there are bands
-               where *neither* colour reaches the 4.5:1 this ≤8.5 px text owes.
-               On the Dolasci ramp t=0.60–0.70 peaks at 4.42 (ink) / 4.30
-               (white); on Odlasci t=0.70–0.80 peaks at 4.43 / 4.14. The old
-               0.85 cut left the whole 0.6–0.85 span of the indigo ramp on ink
-               at 2.5–3.6:1. A halo removes the dependency instead of tuning it:
-               ink on its own white outline is 15.29:1 over every fill, and the
-               palette stays exactly as documented. */
-            /* aria-hidden: the cell's own aria-label already carries this
-               number, and the <g role="presentation"> around the pair is
-               flattened, so at a viewport where numbers render each row owned 21
-               gridcells interleaved with 20 loose StaticText nodes — measured at
-               1920×1080, 417 of them in Matrica and 315 in Godine, every value
-               announced twice and NVDA's row reading alternating cell / stray
-               text. The suite never saw it: it runs at 1440×900, where the cell
-               is 19 px and no number is drawn. */
-            <text className="mxnum" x={x0 + c * cell + cell / 2} y={y0 + r * cell + cell / 2 + 2.5}
-              textAnchor="middle" fontSize={numFs} fontFamily={MONO}
-              fill="#20262B" pointerEvents="none" aria-hidden="true">
-              {fmtI.format(Math.round(v))}
-            </text>
-          )}
-        </g>,
-      );
+            fill="url(#mxhatch)" role="gridcell" tabIndex={-1} aria-colindex={c + 1}
+            /* the row is lang="hr" so its own bare-name label is voiced right, and
+               language resolves by walking ancestors — which handed these SENTENCE
+               labels to the Croatian voice as well. The cell says what document it
+               is in; the county name inside it takes English phonemes, which is the
+               cheaper loss against reading "−2,442" as a decimal. */
+            lang={S.lang}
+            aria-label={L(`${D[a].n} — dijagonala: selidbe unutar iste županije nisu dio međužupanijske matrice`,
+              `${D[a].n} — diagonal: moves within the same county are not part of the inter-county matrix`)}
+            onPointerEnter={() => live.current.setS({ pairHl: [a, b] })}
+            onPointerLeave={e => { if (e.pointerType !== 'touch') live.current.setS({ pairHl: null }); }}
+            onPointerMove={moveTip} />);
+          continue;
+        }
+        const v = mxCell(a, b, S.dir, S.yi, S.cum);
+        const isHl = !!hl && hl[0] === a && hl[1] === b;
+        const isF = fc[0] === r && fc[1] === c;
+        cells.push(
+          <g key={a + b} role="presentation">
+            <rect className="mxc" data-a={a} data-b={b} vectorEffect="non-scaling-stroke"
+              x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
+              fill={col(S.dir === 'net' ? v : Math.abs(v))}
+              stroke={isHl ? '#20262B' : '#fff'} strokeWidth={isHl ? 1.6 : 0.5}
+              role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
+              /* see the diagonal cell above: the row's lang="hr" must not reach a
+                 label that is a sentence with English numbers in it */
+              lang={S.lang} aria-label={cellAria(a, b, v)}
+              /* activating a cell opens the corridor card in the rail and leaves
+                 the grid standing, so the cell is the control that owns it —
+                 same contract `.cnt` has with the county card */
+              aria-expanded={r === selR && c === selC}
+              onPointerEnter={() => live.current.setS({ pairHl: [a, b] })}
+              /* per POINTER, not per session: a finger sends leave the moment it
+                 lifts, which would flash the readout away — and that is as true of
+                 a finger on a hybrid device, where the session flag says "mouse" */
+              onPointerLeave={e => { if (e.pointerType !== 'touch') live.current.setS({ pairHl: null }); }}
+              /* a tap fires pointerenter and pointerdown and no pointermove, so
+                 without this the only thing positioning the tip for a finger was
+                 the coarse-only overlay below — absent on a hybrid device, where
+                 the readout then painted at (0,0). The JLS paths take the same
+                 signal for the same reason. */
+              onPointerDown={moveTip}
+              onPointerMove={moveTip}
+              onFocus={e => live.current.onCellFocus(e, a, b)}
+              onBlur={() => { setCellFoc(false); if (!COARSE) live.current.setS({ pairHl: null }); }}
+              onKeyDown={e => live.current.onCellKey(e, a, b)}
+              /* Drill-through is pointer-only. At 21×21 a cell is ~10 px on a
+                 phone, so a tap that navigates is a tap that misfires — touch
+                 reads the corridor instead (see the .mxhit overlay below). */
+              onClick={() => { if (!wasTouch()) live.current.drill(a, b); }} />
+            {showNum && Math.abs(v) >= 1 && fitsNum(fmtI.format(Math.round(v))) && (
+              /* No ink/white flip any more: measured against the shipping Lab
+                 ramps there is no threshold that works, because there are bands
+                 where *neither* colour reaches the 4.5:1 this ≤8.5 px text owes.
+                 On the Dolasci ramp t=0.60–0.70 peaks at 4.42 (ink) / 4.30
+                 (white); on Odlasci t=0.70–0.80 peaks at 4.43 / 4.14. The old
+                 0.85 cut left the whole 0.6–0.85 span of the indigo ramp on ink
+                 at 2.5–3.6:1. A halo removes the dependency instead of tuning it:
+                 ink on its own white outline is 15.29:1 over every fill, and the
+                 palette stays exactly as documented. */
+              /* aria-hidden: the cell's own aria-label already carries this
+                 number, and the <g role="presentation"> around the pair is
+                 flattened, so at a viewport where numbers render each row owned 21
+                 gridcells interleaved with 20 loose StaticText nodes — measured at
+                 1920×1080, 417 of them in Matrica and 315 in Godine, every value
+                 announced twice and NVDA's row reading alternating cell / stray
+                 text. The suite never saw it: it runs at 1440×900, where the cell
+                 is 19 px and no number is drawn. */
+              <text className="mxnum" x={x0 + c * cell + cell / 2} y={y0 + r * cell + cell / 2 + 2.5}
+                textAnchor="middle" fontSize={numFs} fontFamily={MONO}
+                fill="#20262B" pointerEvents="none" aria-hidden="true">
+                {fmtI.format(Math.round(v))}
+              </text>
+            )}
+          </g>,
+        );
+      }
+      rows.push(<g key={'row' + r} role="row" aria-rowindex={r + 1}
+              /* lang="hr" for the same reason .cnt, .jl and .rname carry it: these
+                 are Croatian place names in a document that may be lang="en", and
+                 an aria-label cannot annotate itself — the element that owns the
+                 name has to. It sits on the row rather than on each of its cells
+                 because language resolves by walking ancestors, so one attribute
+                 covers the row's own label and all of its 420 cell labels. */
+        lang="hr" aria-label={D[MXORD[r]].n}>{cells}</g>);
     }
-    rows.push(<g key={'row' + r} role="row" aria-rowindex={r + 1}
-            /* lang="hr" for the same reason .cnt, .jl and .rname carry it: these
-               are Croatian place names in a document that may be lang="en", and
-               an aria-label cannot annotate itself — the element that owns the
-               name has to. It sits on the row rather than on each of its cells
-               because language resolves by walking ancestors, so one attribute
-               covers the row's own label and all of its 420 cell labels. */
-      lang="hr" aria-label={D[MXORD[r]].n}>{cells}</g>);
-  }
+    return rows;
+  }, [n, x0, y0, cell, S.dir, S.yi, S.cum, S.lang, hl, fc, selR, selC, showNum, numFs,
+    col, cellAria, fitsNum]);
 
   return (
     /* tabIndex -1 for the skip link — see the county map in MapView */

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   D, SHORTN, YEARS, DOM, IX2007, FLOWN, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, fmtR, sgn,
 } from '../lib/metrics.ts';
@@ -6,7 +6,7 @@ import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
-import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactElement } from 'react';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
@@ -63,9 +63,10 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   const x0 = box.left + (overW <= 0 ? overW / -2 : Math.max(2 - box.left, -overW)), y0 = TOPL;
 
   const m = DOM[S.flow + S.den + S.cum];
-  const col = divScale(m);
+  /* memoised because the grid memo calls it — see MatrixView */
+  const col = useMemo(() => divScale(m), [m]);
   const rel = S.den !== 'abs';
-  const fmt = (v: number) => rel ? sgn(v, fmtR) + ' %' : sgn(Math.round(v), fmtI);
+  const fmt = useCallback((v: number) => (rel ? sgn(v, fmtR) + ' %' : sgn(Math.round(v), fmtI)), [rel]);
 
   /* In-cell numbers when the cell is big enough for the widest value it holds —
        .mxnum is the class, so the export bakes the same white halo it bakes for
@@ -75,7 +76,7 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
        cumulative −28.292 is nine glyphs where an annual −87 is three. */
   const numFs = Math.min(8.5, ch * 0.5, cw * 0.26);
   const showNum = cw >= 30 && ch >= 14 && numFs >= 6;
-  const fitsNum = (s: string) => s.length * numFs * 0.6 <= cw - 3;
+  const fitsNum = useCallback((s: string) => s.length * numFs * 0.6 <= cw - 3, [numFs, cw]);
 
   const hl = S.yrHl;
   const hlR = hl ? order.indexOf(hl[0]) : -1;
@@ -192,82 +193,94 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
 
   /* ARIA 1.2: gridcells must be owned by rows, or table navigation — the only
      practical way to read 588 cells — never engages. */
-  const rows = [];
-  for (let r = 0; r < nR; r++) {
-    const iso = order[r];
-    const cells = [];
-    for (let c = 0; c < nC; c++) {
-      const yi = cols[c];
-      const v = val(iso, yi, S.flow, S.den, S.cum);
-      const isF = fc[0] === r && fc[1] === c;
-      const txt = fmt(v);
-      cells.push(
-        <g key={yi} role="presentation">
-          <rect className="yrc" data-iso={iso} data-y={YEARS[yi]} vectorEffect="non-scaling-stroke"
-            x={x0 + c * cw} y={y0 + r * ch} width={cw} height={ch}
-            fill={col(v)} stroke="#fff" strokeWidth={0.5}
-            role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
-            /* the row carries lang="hr" for its own bare-name label, and language
-               resolves by walking ancestors — so without this the cell's SENTENCE
-               label went to the Croatian voice too, and "+19,285" was read as a
-               decimal. See MatrixView. */
-            lang={S.lang}
-            /* The displayed year is a teal column ring and a legend sentence
-               about its colour, and nothing else: arrowing across a row, every
-               cell read "Grad Zagreb, 1999.: +1.627" with no state on any of
-               them, so a screen-reader user could not tell which column the map,
-               the rail and the scrubber were showing. `gridcell` supports
-               aria-selected and NVDA/JAWS announce it. */
-            aria-selected={yi === S.yi || undefined}
-            /* the cell states its own county, PERIOD and value: #tip is
-               aria-hidden, so this string is the only copy of the number.
-               The period, not the year: in cumulative mode the number is the
-               2011–year sum, and a bare year said it was that year's figure.
-               Measured at #v=yrs&c=1&y=2018, Grad Zagreb / 2018 announced
-               "+19.285" as a 2018 value where 2018 alone is +3.242 — while the
-               tooltip on the same cell read "2011.–2018. +19.285", the scrubber
-               sub-line "2011.–2018." and the legend title carried the span too.
-               Every sighted surface named the period and the only AT surface did
-               not. countyAria states it the same way for the same value. */
-            aria-label={`${D[iso].n}, ${S.cum ? yrSpan(2011, YEARS[yi]) : yr(YEARS[yi])}: ${txt}`}
-            onPointerEnter={() => setS({ yrHl: [iso, yi] })}
-            /* see the matrix cell: a tap has no pointermove to position from,
-               and the leave question is per pointer, not per session */
-            onPointerLeave={e => { if (e.pointerType !== 'touch') setS({ yrHl: null }); }}
-            onPointerDown={moveTip}
-            onPointerMove={moveTip}
-            onFocus={e => onCellFocus(e, iso, yi)}
-            onBlur={() => { setCellFoc(false); if (!COARSE) setS({ yrHl: null }); }}
-            onKeyDown={e => onCellKey(e, yi)}
-            /* pointer activation is fine-pointer only, for the reason the matrix
-               documents: at ~9 px a tap that navigates is a tap that misfires */
-            onClick={() => { if (!wasTouch()) pickYear(yi); }} />
-          {showNum && fitsNum(txt) && (
-            /* aria-hidden: the cell's own aria-label already carries this
-               number, and the <g role="presentation"> around the pair is
-               flattened, so at a viewport where numbers render each row owned 21
-               gridcells interleaved with 20 loose StaticText nodes — measured at
-               1920×1080, 417 of them in Matrica and 315 in Godine, every value
-               announced twice and NVDA's row reading alternating cell / stray
-               text. The suite never saw it: it runs at 1440×900, where the cell
-               is 19 px and no number is drawn. */
-            <text className="mxnum" x={x0 + c * cw + cw / 2} y={y0 + r * ch + ch / 2 + numFs * 0.35}
-              textAnchor="middle" fontSize={numFs} fontFamily={MONO} fill="#20262B" pointerEvents="none" aria-hidden="true">
-              {txt}
-            </text>
-          )}
-        </g>,
-      );
+  /* Memoised for the reason MatrixView's twin is: a two-finger pinch renders on
+     every pointermove and nothing under the <g transform> depends on the
+     gesture. Measured on the served build at 390×844, 297,9 Intl.NumberFormat
+     calls per pointermove here against 13,0 for Saldo's county map. The
+     handlers go through a ref rewritten every render, so a reused element never
+     holds a stale closure. */
+  const live = useRef({ setS, onCellFocus, onCellKey, pickYear });
+  live.current = { setS, onCellFocus, onCellKey, pickYear };
+  const rows = useMemo(() => {
+    const rows: ReactElement[] = [];
+    for (let r = 0; r < nR; r++) {
+      const iso = order[r];
+      const cells = [];
+      for (let c = 0; c < nC; c++) {
+        const yi = cols[c];
+        const v = val(iso, yi, S.flow, S.den, S.cum);
+        const isF = fc[0] === r && fc[1] === c;
+        const txt = fmt(v);
+        cells.push(
+          <g key={yi} role="presentation">
+            <rect className="yrc" data-iso={iso} data-y={YEARS[yi]} vectorEffect="non-scaling-stroke"
+              x={x0 + c * cw} y={y0 + r * ch} width={cw} height={ch}
+              fill={col(v)} stroke="#fff" strokeWidth={0.5}
+              role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
+              /* the row carries lang="hr" for its own bare-name label, and language
+                 resolves by walking ancestors — so without this the cell's SENTENCE
+                 label went to the Croatian voice too, and "+19,285" was read as a
+                 decimal. See MatrixView. */
+              lang={S.lang}
+              /* The displayed year is a teal column ring and a legend sentence
+                 about its colour, and nothing else: arrowing across a row, every
+                 cell read "Grad Zagreb, 1999.: +1.627" with no state on any of
+                 them, so a screen-reader user could not tell which column the map,
+                 the rail and the scrubber were showing. `gridcell` supports
+                 aria-selected and NVDA/JAWS announce it. */
+              aria-selected={yi === S.yi || undefined}
+              /* the cell states its own county, PERIOD and value: #tip is
+                 aria-hidden, so this string is the only copy of the number.
+                 The period, not the year: in cumulative mode the number is the
+                 2011–year sum, and a bare year said it was that year's figure.
+                 Measured at #v=yrs&c=1&y=2018, Grad Zagreb / 2018 announced
+                 "+19.285" as a 2018 value where 2018 alone is +3.242 — while the
+                 tooltip on the same cell read "2011.–2018. +19.285", the scrubber
+                 sub-line "2011.–2018." and the legend title carried the span too.
+                 Every sighted surface named the period and the only AT surface did
+                 not. countyAria states it the same way for the same value. */
+              aria-label={`${D[iso].n}, ${S.cum ? yrSpan(2011, YEARS[yi]) : yr(YEARS[yi])}: ${txt}`}
+              onPointerEnter={() => live.current.setS({ yrHl: [iso, yi] })}
+              /* see the matrix cell: a tap has no pointermove to position from,
+                 and the leave question is per pointer, not per session */
+              onPointerLeave={e => { if (e.pointerType !== 'touch') live.current.setS({ yrHl: null }); }}
+              onPointerDown={moveTip}
+              onPointerMove={moveTip}
+              onFocus={e => live.current.onCellFocus(e, iso, yi)}
+              onBlur={() => { setCellFoc(false); if (!COARSE) live.current.setS({ yrHl: null }); }}
+              onKeyDown={e => live.current.onCellKey(e, yi)}
+              /* pointer activation is fine-pointer only, for the reason the matrix
+                 documents: at ~9 px a tap that navigates is a tap that misfires */
+              onClick={() => { if (!wasTouch()) live.current.pickYear(yi); }} />
+            {showNum && fitsNum(txt) && (
+              /* aria-hidden: the cell's own aria-label already carries this
+                 number, and the <g role="presentation"> around the pair is
+                 flattened, so at a viewport where numbers render each row owned 21
+                 gridcells interleaved with 20 loose StaticText nodes — measured at
+                 1920×1080, 417 of them in Matrica and 315 in Godine, every value
+                 announced twice and NVDA's row reading alternating cell / stray
+                 text. The suite never saw it: it runs at 1440×900, where the cell
+                 is 19 px and no number is drawn. */
+              <text className="mxnum" x={x0 + c * cw + cw / 2} y={y0 + r * ch + ch / 2 + numFs * 0.35}
+                textAnchor="middle" fontSize={numFs} fontFamily={MONO} fill="#20262B" pointerEvents="none" aria-hidden="true">
+                {txt}
+              </text>
+            )}
+          </g>,
+        );
+      }
+      rows.push(
+              /* lang="hr" for the same reason .cnt, .jl and .rname carry it: these
+                 are Croatian place names in a document that may be lang="en", and
+                 an aria-label cannot annotate itself — the element that owns the
+                 name has to. It sits on the row rather than on each of its cells
+                 because language resolves by walking ancestors, so one attribute
+                 covers the row's own label and all of its 28 cell labels. */
+        <g key={iso} role="row" aria-rowindex={r + 1} lang="hr" aria-label={D[iso].n}>{cells}</g>);
     }
-    rows.push(
-            /* lang="hr" for the same reason .cnt, .jl and .rname carry it: these
-               are Croatian place names in a document that may be lang="en", and
-               an aria-label cannot annotate itself — the element that owns the
-               name has to. It sits on the row rather than on each of its cells
-               because language resolves by walking ancestors, so one attribute
-               covers the row's own label and all of its 28 cell labels. */
-      <g key={iso} role="row" aria-rowindex={r + 1} lang="hr" aria-label={D[iso].n}>{cells}</g>);
-  }
+    return rows;
+  }, [nR, nC, order, cols, x0, y0, cw, ch, S.flow, S.den, S.cum, S.yi, S.lang,
+    fc, showNum, numFs, col, fmt, fitsNum]);
 
   /* …and only for a series that has an inter-county margin. Nalaz 15 opens this
      grid on `nat` — births minus deaths, whose county sums equal the national
