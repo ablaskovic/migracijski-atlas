@@ -117,15 +117,36 @@ AGG = {'Ukupno', 'Europa', 'Europska unija', 'Ostale europske zemlje', 'Azija',
        'Afrika', 'Sjeverna i Srednja Amerika', 'Južna Amerika', 'Oceanija', 'Nepoznato'}
 CONT = ['Europa', 'Azija', 'Afrika', 'Sjeverna i Srednja Amerika', 'Južna Amerika', 'Oceanija', 'Nepoznato']
 R = {}
+# …and the filter is no stricter than the converter it feeds. DZS writes a
+# suppressed or zero cell as '-' — the shipped I T2 has exactly that in the
+# Nepoznato row — and to_int has always mapped '-' to 0, while this test
+# accepted numbers only. A vintage in which Nepoznato or Oceanija has no
+# immigrants by origin therefore had no entry at all, and the continent-sum
+# assert below died with a bare KeyError from inside a generator expression:
+# it reads like a bug in the parser rather than like the source revision it is,
+# and the README's "if an assert fires, the source revision is real" rule never
+# got its assert. This is the KeyError half of MA4M-166, fixed in parse_cit.py
+# and not applied here.
+def cell_ok(v):
+    return isinstance(v, (int, float)) or (isinstance(v, str) and v.strip() in ('-', '–'))
 for r in rows:
     name = str(r[0]).strip() if r[0] is not None else ''
-    if name and isinstance(r[1], (int, float)):
+    if name and cell_ok(r[1]):
         R[name] = (to_int(r[1]), to_int(r[5]))
-assert R['Ukupno'] == (tot_d, tot_o), (R['Ukupno'], tot_d, tot_o)
-assert sum(R[c][0] for c in CONT) == tot_d and sum(R[c][1] for c in CONT) == tot_o
+
+def row(n):
+    assert n in R, ('row missing from I T4: ' + n)
+    return R[n]
+assert row('Ukupno') == (tot_d, tot_o), (row('Ukupno'), tot_d, tot_o)
+# …and each of these says what it found, so the operator gets the sentence the
+# README tells them to investigate rather than a bare AssertionError.
+assert sum(row(c)[0] for c in CONT) == tot_d and sum(row(c)[1] for c in CONT) == tot_o,     ('continents != Ukupno', sum(row(c)[0] for c in CONT), tot_d,
+     sum(row(c)[1] for c in CONT), tot_o)
 # both columns, not just doseljeni: the same drift in odseljeni was unguarded
-assert R['Europska unija'][0] + R['Ostale europske zemlje'][0] == R['Europa'][0]
-assert R['Europska unija'][1] + R['Ostale europske zemlje'][1] == R['Europa'][1]
+assert row('Europska unija')[0] + row('Ostale europske zemlje')[0] == row('Europa')[0],     ('Europa != EU + ostale europske, doseljeni', row('Europa')[0],
+     row('Europska unija')[0], row('Ostale europske zemlje')[0])
+assert row('Europska unija')[1] + row('Ostale europske zemlje')[1] == row('Europa')[1],     ('Europa != EU + ostale europske, odseljeni', row('Europa')[1],
+     row('Europska unija')[1], row('Ostale europske zemlje')[1])
 countries = sorted(((k,) + v for k, v in R.items() if k not in AGG),
                    key=lambda t: -t[1])[:12]
 # AGG is a literal list of the ten aggregate names this vintage happens to use,
