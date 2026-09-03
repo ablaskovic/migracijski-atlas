@@ -3594,7 +3594,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
        different documents — and they collided on a name in all seven views,
        because the only translated token that reached `fname` was the period and
        the Croatian "2024." sanitises to the English "2024". */
-    '#v=saldo&f=int&d=abs&c=0&y=2024&l=en']) {
+    '#v=saldo&f=int&d=abs&c=0&y=2024&l=en',
+    /* …and the two views this check's own note says the collision was "fixed
+       for". Five views were swept and Tokovi and the JLS map were not among
+       them, so `fnames` could not hold two flow hashes and the hub axis — the
+       one thing a corridor map varies — was asserted by a check that never
+       visited it. Three hubs and both directions, because a hub bit that only
+       appeared for one direction would still pass a two-state sweep. */
+    '#v=flow&s=HR-21&dir=net&c=0&y=2018', '#v=flow&s=HR-01&dir=net&c=0&y=2018',
+    '#v=flow&s=HR-21&dir=out&c=0&y=2018',
+    '#v=jmap&dir=out', '#v=jmap&dir=in']) {
     await fresh(h);
     const r = await page.evaluate(() => {
       let name = null;
@@ -3612,7 +3621,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   const collide = [...fnames].filter(([, h]) => h.size > 1).map(([n, h]) => n + ' ×' + h.size);
   ck('two different figures never export under one filename',
-    fnames.size === 12 && collide.length === 0, JSON.stringify({ n: fnames.size, collide }));
+    fnames.size === 17 && collide.length === 0, JSON.stringify({ n: fnames.size, collide }));
 
   ck('every view exports a self-contained document, including the classes whose stroke is the mark',
     expSweep.length === 5 && expSweep.every(x => !x.parseErr && x.n >= x.floor
