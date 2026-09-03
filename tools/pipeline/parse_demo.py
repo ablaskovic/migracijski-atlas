@@ -158,4 +158,10 @@ write_json('../../src/data/demo.json', out, ensure_ascii=False, separators=(',',
 print('vanjska 2025: %d / %d (muskarci %.0f%% / %.0f%%)' % (tot_d, tot_o, 100*dm/tot_d, 100*om/tot_o))
 print('unutarnja 2025: %d preseljenih (medu zupanijama %d == oi margins)' % (int_tot, int_cty))
 print('top countries:', ', '.join('%s %d' % (c[0], c[1]) for c in countries[:5]))
-print('bytes:', len(open('../../src/data/demo.json', encoding='utf-8').read()))
+# 'rb', as parse_jls.py:149 already does. In text mode this counted CHARACTERS:
+# every multi-byte UTF-8 character was counted once instead of by its length, so
+# the preamble's "only post-write self-check" printed 784 for a file that is 816
+# bytes on disk, and an operator comparing it against ls -l would read a short
+# write. citizen.json is pure ASCII today, so its count was right by accident —
+# one non-ASCII country name would have made it wrong too.
+print('bytes:', len(open('../../src/data/demo.json', 'rb').read()))

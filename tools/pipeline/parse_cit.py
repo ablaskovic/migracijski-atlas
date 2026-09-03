@@ -157,4 +157,10 @@ print('foreign share of doseljeni 2024: %.1f%%' % (100*(1-G['hr']['d'][i24]/tot[
 print('Azija dos 2024 vs sus+ukr:', G['az']['d'][i24], 'vs', G['sus']['d'][i24]+G['ukr']['d'][i24])
 print('HR-citizen saldo 2024, 2025:', G['hr']['d'][i24]-G['hr']['o'][i24], G['hr']['d'][i25]-G['hr']['o'][i25])
 print('Azija saldo 2024, 2025:', G['az']['d'][i24]-G['az']['o'][i24], G['az']['d'][i25]-G['az']['o'][i25])
-print('bytes:', len(open('../../src/data/citizen.json', encoding='utf-8').read()))
+# 'rb', as parse_jls.py:149 already does. In text mode this counted CHARACTERS:
+# every multi-byte UTF-8 character was counted once instead of by its length, so
+# the preamble's "only post-write self-check" printed 784 for a file that is 816
+# bytes on disk, and an operator comparing it against ls -l would read a short
+# write. citizen.json is pure ASCII today, so its count was right by accident —
+# one non-ASCII country name would have made it wrong too.
+print('bytes:', len(open('../../src/data/citizen.json', 'rb').read()))
