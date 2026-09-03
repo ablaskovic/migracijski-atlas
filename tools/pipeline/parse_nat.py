@@ -56,12 +56,22 @@ wb = openpyxl.load_workbook('raw/pregled-zupanije.xlsx', read_only=True, data_on
 ws = wb['7.4.1.']
 rows = list(ws.iter_rows(values_only=True))
 
-# header row: find the row whose col C is '1998.'
-hdr = next(r for r in rows if r[2] == '1998.')
+# ── the header row is found by its LABEL, not by a year it happens to carry ──
+# next(r for r in rows if r[2] == '1998.') had no default and no strip, so a
+# header cell stored as the number 1998, or as '1998' without the dot, or with a
+# trailing space — the padding raw/po-jls.xlsx already ships in its own labels —
+# exhausted the generator and the operator got a bare StopIteration: no message,
+# no line of prose, no hint that a header cell had changed shape. That is
+# MA4M-210's parse_cit.py fix, which stopped at that file. Measured with C8 set
+# to the integer 1998: StopIteration at this line, exit 1.
+# The year text is parsed through float() so '1998.', '1998', 1998 and 1998.0
+# all read alike.
+hdr = next((r for r in rows if r[0] and str(r[0]).strip() == 'Županija'), None)
+assert hdr, '7.4.1. header row (Županija) not found — did the sheet layout change?'
 years_in_sheet = []
 for cell in hdr[2:]:
-    if cell is None: break
-    years_in_sheet.append(int(str(cell).rstrip('.')))
+    if cell is None or str(cell).strip() == '': break
+    years_in_sheet.append(int(float(str(cell).strip().rstrip('.'))))
 # Positional alignment, not merely a matching first column: every value below is
 # read by INDEX out of the sheet's year columns, so a sheet that starts a year
 # late, or has a gap, or repeats a year, writes each county's figure into its
