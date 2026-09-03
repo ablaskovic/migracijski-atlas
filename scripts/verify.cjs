@@ -194,6 +194,19 @@ function ck(name, cond, extra = '') {
   else { fails++; console.log('FAIL  ' + name + (extra ? '  [' + extra + ']' : '')); }
 }
 const settle = ms => new Promise(r => setTimeout(r, ms));
+/* An evaluate racing a navigation this suite deliberately triggers rejects with
+   "Execution context was destroyed", which unwinds to the outer handler and ends
+   the run — a harness abort that costs every remaining check, not a failed one.
+   Re-run it once against the document that replaced it. Only that error, and
+   only once: a second occurrence is a real problem and must still surface. */
+const evalSafe = async (pg, fn) => {
+  try { return await pg.evaluate(fn); }
+  catch (e) {
+    if (!/Execution context was destroyed|Cannot find context/i.test(String(e && e.message))) throw e;
+    await pg.waitForFunction(() => document.readyState === 'complete', { timeout: 8000 }).catch(() => {});
+    return pg.evaluate(fn);
+  }
+};
 
 (async () => {
   const arg = process.argv[2] || 'dist';
@@ -5894,7 +5907,16 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      by another door, with the notice that explained it long off screen.
      Both halves, because the promise still has to be kept: a reader who stays in
      the failing view gets the reload they were told about. */
+  /* …and whatever happens in here costs ONE check. This block drives a page
+     through a reload it triggers itself, which is the one place in the file
+     where an evaluate can lose its execution context for a legitimate reason —
+     and a throw from a page-driving helper does not fail a check, it unwinds to
+     the outer handler and ends the RUN. Measured twice: "ABORTED after 315/612",
+     297 checks never attempted, on a build whose quiet run passes all of them.
+     The two throwing sites below are each handled now, but the containment is
+     what makes that a bug fix rather than a guess about which line races next. */
   const deferred = {};
+  try {
   for (const leave of [false, true]) {
     /* the blocked chunk goes through watch()'s predicate: a second
        page.on('request') makes both handlers call continue() on the same
@@ -5911,21 +5933,50 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     await settle(450);
     const armed = await pg.evaluate(() => !!document.querySelector('#joffline'));
     if (leave) { await pg.click('#segView button[data-v="klas"]'); await settle(550); }
+    /* Armed BEFORE anything that can start the reload. setOfflineMode(false)
+       fires the browser's own 'online' event, so on the stayed arm the reload
+       can already be under way by the time the line below runs — arming after it
+       is a race this observer would lose, and then miss. */
+    const nav = pg.waitForNavigation({ waitUntil: 'load', timeout: leave ? 2500 : 8000 })
+      .then(() => true).catch(() => false);
     await pg.setOfflineMode(false);
     /* on a macrotask: the listener retryGeo armed calls location.reload()
        synchronously, and an evaluate whose context is torn down before it can
        serialise its result rejects with "Execution context was destroyed" —
-       a harness abort, not a failed check. Returning first makes the order
-       deterministic; the wait below is what observes the reload. */
-    await pg.evaluate(() => { setTimeout(() => window.dispatchEvent(new Event('online')), 0); });
-    await settle(1200);
-    deferred[leave ? 'left' : 'stayed'] = { armed,
-      ...(await pg.evaluate(() => ({ mark: window.__mark || 'GONE', hash: location.hash }))) };
+       a harness abort, not a failed check.
+       …and a macrotask only NARROWED that race. The fixed wait that followed
+       still had to guess when the reload had landed, and under CPU load — a CI
+       runner sharing cores, or this file run beside anything else — the reload
+       arrived while the next evaluate was in flight and the throw took the whole
+       tail of the run with it: measured "ABORTED after 315/612", 297 checks
+       never attempted, from a build whose quiet run passes every one of them.
+       Observing beats waiting. The navigation promise is armed BEFORE the
+       dispatch, so it cannot be missed by a reload that starts early, and it
+       resolves the moment the reload lands instead of 1.2 s later. Whether it
+       navigated is now asserted rather than inferred from the sentinel: the
+       stayed arm must reload, the leave arm must not. evalSafe is the belt to
+       that brace — an evaluate whose context is torn down by the navigation this
+       block exists to cause is re-run once against the new one, so the expected
+       reload can never again be reported as a harness abort. */
+    /* …and the explicit dispatch is a belt for the case where the browser's own
+       event does not arrive. When it DID arrive first — which is what happens
+       under load — this evaluate's context is already gone, and the rejection is
+       the success case, not a failure: it is the reload this block exists to
+       observe, and it was the abort measured at 5948 twice over. */
+    await pg.evaluate(() => { setTimeout(() => window.dispatchEvent(new Event('online')), 0); })
+      .catch(() => { /* the reload beat us to it */ });
+    const navigated = await nav;
+    await settle(250);
+    deferred[leave ? 'left' : 'stayed'] = { armed, navigated,
+      ...(await evalSafe(pg, () => ({ mark: window.__mark || 'GONE', hash: location.hash }))) };
     await pg.close();
   }
+  } catch (e) { deferred.error = String(e && e.message).slice(0, 120); }
   ck('a deferred reload keeps its promise in the view that armed it and is dropped on the way out',
-    deferred.stayed.armed && deferred.stayed.mark === 'GONE'
-    && deferred.left.armed && deferred.left.mark === 'SESSION' && /v=klas/.test(deferred.left.hash),
+    !deferred.error && deferred.stayed && deferred.left
+    && deferred.stayed.armed && deferred.stayed.navigated && deferred.stayed.mark === 'GONE'
+    && deferred.left.armed && !deferred.left.navigated
+    && deferred.left.mark === 'SESSION' && /v=klas/.test(deferred.left.hash),
     JSON.stringify(deferred));
   ck('an empty rail and the map both name the missing geometry instead of promising rows',
     railGone.jl === 0 && railGone.rows === 0 && /Geometrija JLS nije u/.test(railGone.txt)
