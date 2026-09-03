@@ -81,9 +81,13 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      state. The same DEAD-px idea useZoom takes, so a press is still a press —
      paired with touch-action:pan-y in the stylesheet, which lets the browser
      claim a near-vertical drag and send the pointercancel onUp already
-     handles. */
+     handles. A press that never becomes a drag is still a press, though, so the
+     lift resolves it: onUp scrubs a touch that ended within DEAD_X of where it
+     went down. Held back to pointerup and to a pointer that stayed put, the
+     swipe above is still excluded twice over — the browser sends pointercancel
+     for the pan it claimed, and 90 px of travel is not a tap either way. */
   const DEAD_X = 4;
-  const pending = useRef<number | null>(null);
+  const pending = useRef<{ x: number; y: number } | null>(null);
   const onDown = (ev: ReactPointerEvent<SVGSVGElement>) => {
     if (drag.current !== null) return;   /* a second finger is not a scrub */
     /* …and neither is a right- or middle-click. useZoom filters exactly this for
@@ -100,7 +104,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
        (synthetic events, some assistive tech) — capture is an optimisation for
        the drag, not a precondition for scrubbing */
     try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch { /* no capture, still scrubs */ }
-    if (ev.pointerType === 'touch') { pending.current = ev.clientX; return; }
+    if (ev.pointerType === 'touch') { pending.current = { x: ev.clientX, y: ev.clientY }; return; }
     pending.current = null;
     scrubTo(ev);
   };
@@ -114,7 +118,7 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     if (drag.current !== ev.pointerId) return;
     if (ev.pointerType === 'mouse' && !ev.buttons) { drag.current = null; return; }
     if (pending.current !== null) {
-      if (Math.abs(ev.clientX - pending.current) < DEAD_X) return;
+      if (Math.abs(ev.clientX - pending.current.x) < DEAD_X) return;
       pending.current = null;
     }
     scrubTo(ev);
@@ -123,8 +127,20 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      without it the drag flag sticks and the next hover scrubs the year */
   const onUp = (ev: ReactPointerEvent<SVGSVGElement>) => {
     if (drag.current !== ev.pointerId) return;   /* the other finger's lift is not this drag's end */
+    /* A touch that went down and came back up without ever leaving the dead zone
+       is a tap, and a tap on a slider sets the value — the mouse path scrubs on
+       pointerdown, and before this the same one-finger tap on the app's primary
+       control was silently swallowed: only a >= 4 px drag moved the year. Both
+       tests matter. pointerup rejects the pointercancel the browser sends when
+       it claims a pan, and the dead-zone test rejects a swipe that reached us as
+       a pointerup anyway (a vertical pan clears DEAD_X in y, never in x, so the
+       y term is the one that catches it). */
+    const p = pending.current;
+    const tap = p !== null && ev.type === 'pointerup'
+      && Math.abs(ev.clientX - p.x) < DEAD_X && Math.abs(ev.clientY - p.y) < DEAD_X;
     drag.current = null;
     pending.current = null;
+    if (tap) scrubTo(ev);
   };
 
   /* Tick labels are ~28 px wide (mono 9). The 2013/2015 pair sits 2 years apart,

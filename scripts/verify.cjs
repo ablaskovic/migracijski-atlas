@@ -4116,11 +4116,25 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     await tcdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await settle(400);
     thumb.afterHorizontal = await yr();
+    /* …and the fourth leg is the other cost. Excluding the swipe made a plain
+       tap a no-op too: the press parked as pending and the lift threw it away,
+       so on a phone only a >= 4 px drag could move the year on the app's primary
+       control, while the same press with a mouse jumped it at once. Three legs
+       could not see that — one presses without lifting, two move far enough to
+       leave the dead zone. This one goes down and straight back up. */
+    await fresh('#v=saldo&y=2016&c=0');
+    const sp3 = await page.evaluate(() => { const r = document.querySelector('#spark').getBoundingClientRect();
+      return { x: Math.round(r.left + r.width * 0.15), y: Math.round(r.top + r.height / 2) }; });
+    await tcdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sp3.x, y: sp3.y, id: 1 }] });
+    await settle(60);
+    await tcdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await settle(400);
+    thumb.afterTap = await yr();
     await tcdp.detach();
     await page.setViewport({ width: 1440, height: 900 });
-    ck('a thumb resting on the phone timeline scrubs nothing, and the page still scrolls under it',
+    ck('a thumb resting on the phone timeline scrubs nothing, the page still scrolls under it, and a tap sets the year',
       /pan-y/.test(thumb.ta) && thumb.afterDown === thumb.y0 && thumb.afterSwipe === thumb.y0
-      && thumb.afterHorizontal !== thumb.y0,
+      && thumb.afterHorizontal !== thumb.y0 && thumb.afterTap !== thumb.y0,
       JSON.stringify(thumb));
   }
 
