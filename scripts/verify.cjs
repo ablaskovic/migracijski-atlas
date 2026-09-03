@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 611;
+const EXPECTED_CHECKS = 612;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1753,6 +1753,46 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     yr: document.querySelector('#bigYear').textContent }));
   ck('reset restores saldo / migracije / 2024', rst.view === 'saldo' && rst.flow === 'tot' && rst.yr === '2024.',
     JSON.stringify(rst));
+
+  /* …from a state that is not already the answer. The press above arrives with
+     view=saldo, cum=true and yi=2024 ALREADY at BASE — the divergence click
+     before it only moved `flow` — so two of that check's three assertions are
+     satisfied before the button is touched, and no other reset press in this
+     file starts from a non-default view or year either. Executed against a
+     resetAll stripped down to up({ flow: BASE.flow, den: BASE.den }): every
+     reset assertion in the suite stayed green while a reader pressing "Vrati na
+     početni prikaz" from Matrica 2003 with a corridor open stayed in Matrica
+     2003 with the corridor open. So press it from a state that differs in every
+     field it claims to restore, and assert the permalink the boot produces
+     rather than three controls. */
+  await fresh('#v=reg&f=ext&d=rel11&c=0&y=2003&s=HR-14&lb=1&cz=1');
+  const rstFar = await page.evaluate(() => ({
+    before: location.hash,
+    view0: document.querySelector('#segView button[aria-pressed="true"]').dataset.v,
+    card0: !!document.querySelector('#card.show'),
+    labels0: document.querySelectorAll('#map .clab').length,
+    citz0: !!document.querySelector('#citz .chip-body') }));
+  await click('#resetBtn');
+  await settle(250);
+  Object.assign(rstFar, await page.evaluate(() => ({
+    view: document.querySelector('#segView button[aria-pressed="true"]').dataset.v,
+    flow: document.querySelector('#segFlow button[aria-pressed="true"]').dataset.v,
+    den: document.querySelector('#segDen button[aria-pressed="true"]').dataset.v,
+    cum: document.querySelector('#segMode button[aria-pressed="true"]').dataset.v,
+    yr: document.querySelector('#bigYear').textContent,
+    hash: location.hash,
+    card: !!document.querySelector('#card.show'),
+    labels: document.querySelectorAll('#map .clab').length,
+    citz: !!document.querySelector('#citz .chip-body'),
+  })));
+  ck('and reset from a state that shares no field with the boot view restores every one of them',
+    /* the floor: each of these was moved away from BASE before the press */
+    rstFar.view0 === 'reg' && rstFar.card0 && rstFar.labels0 > 0 && rstFar.citz0
+    && rstFar.view === 'saldo' && rstFar.flow === 'tot' && rstFar.den === 'abs'
+    && rstFar.cum === 'cum' && rstFar.yr === '2024.'
+    && rstFar.hash === '#v=saldo&c=1&y=2024'
+    && !rstFar.card && rstFar.labels === 0 && !rstFar.citz,
+    JSON.stringify(rstFar));
 
   /* ── reset must not desync the language ──
      `resetAll` used to call setS directly, bypassing `up` — the only writer that
