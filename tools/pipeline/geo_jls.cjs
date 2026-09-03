@@ -152,8 +152,26 @@ const k2 = s => fold(s).replace(/[\s-]/g, '');
   const totOut = feats.reduce((a, f) => a + f.properties.o, 0);
   if (totIn !== 57465 || totOut !== 57465) throw new Error('stat totals drifted: ' + totIn + '/' + totOut);
 
+  /* …and it lands the way every other writer in this pipeline lands: tmp,
+     fsync, rename. ipf.py's note gives the reason and ends "there is no reason
+     to keep two habits" — this is the one non-Python writer in the pipeline,
+     and it kept the old one. writeFileSync opens with O_TRUNC and then loops
+     writeSync over the 475 kB string, so a Ctrl+C, a full disk or an OOM
+     between the truncation and the last chunk leaves the committed payload
+     empty or cut mid-array; the next vite build then fails at the static JSON
+     import on a file git status reports as merely modified. renameSync is
+     atomic on the same volume on Windows and POSIX alike, and an interrupted
+     run leaves a .tmp behind that the next successful one overwrites — a stray
+     temp file is a better outcome than a destroyed payload. */
   const outFC = { type: 'FeatureCollection', features: feats };
-  fs.writeFileSync(P('../../src/data/geo_jls.json'), JSON.stringify(outFC));
+  const dest = P('../../src/data/geo_jls.json');
+  const tmp = dest + '.tmp';
+  const fd = fs.openSync(tmp, 'w');
+  try {
+    fs.writeFileSync(fd, JSON.stringify(outFC));
+    fs.fsyncSync(fd);
+  } finally { fs.closeSync(fd); }
+  fs.renameSync(tmp, dest);
   console.log('geo_jls.json:', feats.length, 'features,',
     (fs.statSync(P('../../src/data/geo_jls.json')).size / 1024).toFixed(0) + ' KB · totals in/out = 57465 OK');
 })();
