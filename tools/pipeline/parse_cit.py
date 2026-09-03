@@ -66,7 +66,15 @@ def to_int(x):
 hdr = next((r for r in rows if r[0] and str(r[0]).strip() == 'Zemlja državljanstva'), None)
 assert hdr, 'I T2 header row not found — did the sheet layout change?'
 years = [int(str(v).rstrip('.')) for v in hdr[1:] if v not in (None,'')]
-assert years == [2021,2022,2023,2024,2025], years
+# STAN is a rolling five-year release, so the window SHIFTS every year by design:
+# the 2027 priopćenje carries 2022-2026. Pinning the five literals made that
+# routine shift fire an assert, and README's "if an assert fires after a DZS
+# refresh, the source revision is real — investigate before fixing the assert"
+# then pointed the operator at a revision that had not happened. Assert the
+# shape instead: five consecutive years. A gap, a repeat, a sixth column or a
+# reordering — the things that would actually mis-align every row below — still
+# fire, and the ordinary annual shift does not.
+assert len(years) == 5 and years == list(range(years[0], years[0] + 5)), years
 # ── the columns are anchored, not assumed ────────────────────────────────────
 # Every assert below this point compares rows to each other in the SAME columns,
 # so all of them are invariant under any uniform column transformation — and the

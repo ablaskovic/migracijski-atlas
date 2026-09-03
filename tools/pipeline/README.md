@@ -39,6 +39,9 @@ geometry input from scratch, re-run that Overpass→osmtogeojson→mapshaper cha
 Every script asserts its own validation (county sums vs RH row, group checksums,
 cell-exact match vs od2018.json, exact row margins). If an assert fires after a DZS
 refresh, the source revision is real — investigate before "fixing" the assert.
+One exception, and it is the routine one: the single-year literals listed in the
+checklist below move with the workbook by design, and an assert that names a year
+is asking to be moved, not investigated.
 
 DZS hash-URLs rot when workbooks are republished; navigate from
 `https://podaci.dzs.hr/hr/podaci/stanovnistvo/migracija-stanovnistva/` to find
@@ -74,6 +77,15 @@ These do NOT, and need a manual sweep in the same commit as the data refresh:
   (same rule as the ground-truth table)
 - `scripts/verify.cjs` ground-truth constants — recompute
   from raw sources if DZS revised the series, and say which vintage moved them
+- `tools/pipeline/parse_demo.py` — the single published year is a literal in three
+  places: `atlas['years'].index(2025)`, `cit['years'].index(2025)` and the
+  `'year': 2025` written into `demo.json` (which is the `DEMO.year` the UI copy
+  spot above refers to — it is SET here). Miss them and the cross-checks compare
+  the new year's totals against the old year's columns.
+  `parse_nat.py`'s closing `RH nat 2024/2025` print carries two more, which raise
+  ValueError after the write if the atlas span moves.
+  `parse_cit.py` no longer needs an edit: its window assert takes any five
+  consecutive years.
 
 ## v4 → React port: where things moved
 
