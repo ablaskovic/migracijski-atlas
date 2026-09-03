@@ -62,7 +62,16 @@ years_in_sheet = []
 for cell in hdr[2:]:
     if cell is None: break
     years_in_sheet.append(int(str(cell).rstrip('.')))
-assert years_in_sheet[0] == YEARS[0], years_in_sheet[:3]
+# Positional alignment, not merely a matching first column: every value below is
+# read by INDEX out of the sheet's year columns, so a sheet that starts a year
+# late, or has a gap, or repeats a year, writes each county's figure into its
+# neighbour's slot and every cross-check still balances. Compare the whole
+# overlap. A sheet LONGER than the atlas is fine and is truncated on write.
+_ov = min(len(years_in_sheet), len(YEARS))
+_bad = next((i for i in range(_ov) if years_in_sheet[i] != YEARS[i]), None)
+assert _bad is None, ('year columns misaligned at index', _bad,
+                      'sheet', years_in_sheet[max(0, _bad-2):_bad+3],
+                      'atlas', YEARS[max(0, _bad-2):_bad+3])
 
 def to_int(x):
     if x is None: return None
@@ -88,13 +97,23 @@ for iso, vals in got.items():
     vals = (vals + [None]*n)[:n]
     C[iso]['nat'] = vals
 
+# …and everything downstream reads the PADDED arrays, which is the whole point
+# of padding them. The cross-check indexed `got` and the unpadded `natRH`, so on
+# the one state this padding and the "missing cells" report below exist for —
+# the atlas years running past the sheet, i.e. the leaf series extended before
+# 7.4.1 in raw/ is refreshed, or DZS dropping a column — the first missing year
+# raised a bare IndexError inside a list comprehension, before natRH was written
+# and before anything could tell the operator the sheet was a year short. The
+# README's "investigate before fixing the assert" rule had nothing to point at,
+# because no assert had fired. Pad natRH here rather than at the write below, so
+# the cross-check, the report and the sample prints all see len(YEARS).
+atlas['natRH'] = natRH = (natRH + [None]*n)[:n]
+
 # cross-check: county nat sums == RH nat wherever all present
 for yi, y in enumerate(YEARS):
-    col = [got[iso][yi] for iso in got]
+    col = [C[iso]['nat'][yi] for iso in got]
     if all(v is not None for v in col) and natRH[yi] is not None:
         assert sum(col) == natRH[yi], (y, sum(col), natRH[yi])
-
-atlas['natRH'] = (natRH + [None]*n)[:n]
 write_json('../../src/data/atlas_data2.json', atlas, ensure_ascii=False, separators=(',',':'))
 missing = {iso: [YEARS[i] for i,v in enumerate(C[iso]['nat']) if v is None] for iso in got if any(v is None for v in C[iso]['nat'])}
 print('nat patched. years in sheet:', years_in_sheet[0], '-', years_in_sheet[-1])
