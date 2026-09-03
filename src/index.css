@@ -69,7 +69,8 @@
    Every number below is measured, not copied: tools/font-metrics.cjs renders
    a Croatian sample string in the real face and in the local one at 100 px, takes
    size-adjust as the width ratio, takes ascent/descent from the real face's
-   fontBoundingBox (divided by size-adjust, which the overrides are relative to),
+   fontBoundingBox at a 2000 px em (divided by size-adjust, which the overrides
+   are relative to),
    then *re-measures the declared face and corrects*. That correction is not
    optional: at weight 600 the raw probe gets Arial Bold while local('Arial')
    inside @font-face gets Arial Regular, so the analytic ratio was 6,5 % wrong
@@ -94,14 +95,28 @@
    here by accident.
    Regenerate if a font file or a family in the stack changes.
 
+   The vertical rows were regenerated once for a reason worth keeping: the tool
+   read fontBoundingBox at a 100 px em, and Chrome reports it in WHOLE PIXELS, so
+   every ascent/descent here was quantised to a whole percent and carried a bias
+   of up to +0,5 pp. IBM Plex's true 102,5 / 27,5 was committed as 103,017 /
+   28,005; Oswald's 119,3 / 28,9 as 119 / 29. Blink rounds a face's ascent and
+   descent separately at the used size, so that half-pixel does not cancel: at
+   9 px real Plex Mono laid out round(9,225) + round(2,475) = 11 px against the
+   fallback's round(9,272) + round(2,520) = 12 — one pixel taller per line, on
+   the 9 px legend title and every mono line in the footer and the scrubber, and
+   at device-scale 2 on main, #map, #scrubBox and .ft together. Read at a 2000 px
+   em the same quantum is 0,05 %, and the Mono rows now land on 102,517 / 27,504
+   — the face's own hhea 1025 / 275 per 1000. size-adjust did not move: it comes
+   from getBoundingClientRect, which was always sub-pixel.
+
    The generic families stay behind these in the stack: if local() resolves to
    nothing — Arial Narrow is frequently absent on Linux — the face is skipped and
    the stack behaves exactly as it did before. */
-@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:400;src:local('Arial');size-adjust:100.935%;ascent-override:102.046%;descent-override:27.741%;line-gap-override:0%}
-@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:500;src:local('Arial');size-adjust:102.678%;ascent-override:100.314%;descent-override:27.27%;line-gap-override:0%}
-@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:600;src:local('Arial');size-adjust:103.805%;ascent-override:99.225%;descent-override:26.974%;line-gap-override:0%}
-@font-face{font-family:'IBM Plex Mono Fallback';font-style:normal;font-weight:400;src:local('Courier New');size-adjust:99.984%;ascent-override:103.017%;descent-override:28.005%;line-gap-override:0%}
-@font-face{font-family:'IBM Plex Mono Fallback';font-style:normal;font-weight:500;src:local('Courier New');size-adjust:99.984%;ascent-override:103.017%;descent-override:28.005%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:400;src:local('Arial');size-adjust:100.935%;ascent-override:101.551%;descent-override:27.245%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:500;src:local('Arial');size-adjust:102.678%;ascent-override:99.827%;descent-override:26.783%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Sans Fallback';font-style:normal;font-weight:600;src:local('Arial');size-adjust:103.805%;ascent-override:98.743%;descent-override:26.492%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Mono Fallback';font-style:normal;font-weight:400;src:local('Courier New');size-adjust:99.984%;ascent-override:102.517%;descent-override:27.504%;line-gap-override:0%}
+@font-face{font-family:'IBM Plex Mono Fallback';font-style:normal;font-weight:500;src:local('Courier New');size-adjust:99.984%;ascent-override:102.517%;descent-override:27.504%;line-gap-override:0%}
 /* Oswald is fitted on CAPS alone, unlike the other two. It is the display face
    and only ever sets short runs — the uppercase title, the rail's period, the
    big year — and one scalar cannot match both its caps and its figures, whose
@@ -110,8 +125,8 @@
    fallback's 1,88 %; the caps are the only Oswald run long enough to wrap, so
    they are what it is matched to. The figures sit in fixed-width boxes
    (.big-year is 70 px) where their width moves nothing. */
-@font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:500;src:local('Arial Narrow');size-adjust:95.284%;ascent-override:124.89%;descent-override:30.435%;line-gap-override:0%}
-@font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:600;src:local('Arial Narrow');size-adjust:98.151%;ascent-override:121.242%;descent-override:29.546%;line-gap-override:0%}
+@font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:500;src:local('Arial Narrow');size-adjust:95.284%;ascent-override:125.205%;descent-override:30.331%;line-gap-override:0%}
+@font-face{font-family:'Oswald Fallback';font-style:normal;font-weight:600;src:local('Arial Narrow');size-adjust:98.151%;ascent-override:121.548%;descent-override:29.444%;line-gap-override:0%}
 
 /* Verbatim from the verified single-file v4 (reference/). Class names are the
    test API — scripts/verify.cjs selects on them. Change with care. */

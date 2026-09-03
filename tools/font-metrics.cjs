@@ -10,8 +10,10 @@
      1. renders a Croatian sample string at 100 px in the REAL webfont and in the
         local face the fallback wraps, and takes `size-adjust` as the width ratio
         (real ÷ local), so the fallback lays out at the real face's advances;
-     2. takes ascent and descent from the real face's own fontBoundingBox, each
-        divided by size-adjust — the overrides are relative to the adjusted em;
+     2. takes ascent and descent from the real face's own fontBoundingBox, read
+        at a 2000 px em (Chrome reports it in whole pixels, so a 100 px em
+        quantised every vertical override to 1 %), each divided by size-adjust —
+        the overrides are relative to the adjusted em;
      3. declares the candidate face and RE-MEASURES it, then corrects. That step
         is not optional: at weight 600 a raw probe of `Arial` gets Arial Bold
         while `local('Arial')` inside @font-face gets Arial Regular, so the
@@ -99,6 +101,23 @@ function serve(dir) {
   await page.evaluate(() => document.fonts.ready);
 
   const probe = await page.evaluate(async (faces, sample) => {
+    /* The vertical metrics are read at THIS em, not at the span's 100 px.
+       Chrome returns fontBoundingBoxAscent/Descent as whole pixels, so a 100 px
+       em quantises every override to a whole percent: IBM Plex's true 102,5 /
+       27,5 came back 103 / 28 and was committed as ascent-override 103,017 % /
+       descent-override 28,005 %, Oswald's 119,3 / 28,9 as 119 / 29 — a +0,5 pp
+       bias in every vertical row the stylesheet carries, under a comment saying
+       every number below it is measured. Blink rounds a face's ascent and its
+       descent separately at the used size, so the half-pixel does not cancel: at
+       9 px real Plex Mono lays out round(9,225) + round(2,475) = 11 px and the
+       fallback round(9,272) + round(2,520) = 12, one pixel taller per line. That
+       is the 9 px legend title, every mono line in the footer and the scrubber —
+       measured, the footer's second line re-breaks when Mono lands at 1350x940,
+       and at device-scale 2 the half-pixels stop cancelling for the containers
+       too and main, #map, #scrubBox and .ft all move 2 px at the swap.
+       At 2000 px the same whole-pixel quantum is 0,05 %. Widths keep their own
+       100 px em below: getBoundingClientRect is already sub-pixel. */
+    const VEM = 2000;
     const span = document.createElement('span');
     span.style.cssText = 'position:absolute;left:-99999px;top:0;white-space:pre;font-size:100px;line-height:normal';
     document.body.appendChild(span);
@@ -111,11 +130,15 @@ function serve(dir) {
       span.textContent = text;
       await document.fonts.ready;
       const r = span.getBoundingClientRect();
-      /* fontBoundingBox is what ascent-override/descent-override describe */
+      /* fontBoundingBox is what ascent-override/descent-override describe.
+         Normalised to the em here, so no caller has to remember which em it was
+         read at — that divisor being spelled `/ 100` at three separate call
+         sites is what made the quantisation above easy to miss. */
       const cv = document.createElement('canvas').getContext('2d');
-      cv.font = `${weight} 100px ${stack}`;
+      cv.font = `${weight} ${VEM}px ${stack}`;
       const m = cv.measureText(text);
-      return { w: r.width, asc: m.fontBoundingBoxAscent, desc: m.fontBoundingBoxDescent };
+      return { w: r.width,
+        asc: m.fontBoundingBoxAscent / VEM, desc: m.fontBoundingBoxDescent / VEM };
     };
 
     /* A family that cannot exist, so its measurement IS "resolved to nothing".
@@ -151,8 +174,8 @@ function serve(dir) {
         }
         /* step 1–2: the analytic candidate */
         let sizeAdjust = real.w / plain.w;
-        let ascent = real.asc / 100 / sizeAdjust;
-        let descent = real.desc / 100 / sizeAdjust;
+        let ascent = real.asc / sizeAdjust;
+        let descent = real.desc / sizeAdjust;
 
         /* step 3: declare it, re-measure, correct. `local()` inside @font-face
            does not resolve the same face a bare family name does at every
@@ -170,8 +193,8 @@ function serve(dir) {
           const err = real.w / got.w;
           if (Math.abs(err - 1) < 0.00005) break;
           sizeAdjust *= err;
-          ascent = real.asc / 100 / sizeAdjust;
-          descent = real.desc / 100 / sizeAdjust;
+          ascent = real.asc / sizeAdjust;
+          descent = real.desc / sizeAdjust;
         }
         style.textContent = decl(sizeAdjust);
         const final = await measure(`'${probe}'`, weight, text);
