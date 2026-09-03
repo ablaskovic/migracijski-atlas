@@ -69,16 +69,25 @@ jobs:
     # able to write one. With no `permissions:` block the job took the
     # repository's default GITHUB_TOKEN scope, and actions/checkout leaves that
     # token in $GITHUB_WORKSPACE/.git/config as an http.extraheader unless told
-    # not to — so the one line below that executes third-party install code was
-    # doing so a directory away from a push credential for this repository, in a
+    # not to — so the line below that executes third-party install code was doing
+    # so a directory away from a push credential for this repository, in a
     # workflow that runs on every push to every branch.
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      # PINNED BY DIGEST, both of them. `@v4` is a mutable major tag resolved at
+      # run time, so these two lines execute whatever the tag points at when the
+      # job starts — which is the same 'the tag moved' shape the puppeteer note
+      # below cites, and the shape of the 2025-03 tj-actions/changed-files
+      # incident, where a retagged major was the whole attack. The note used to
+      # call that install 'the only line in the job that executes third-party
+      # code' with these two standing above it; it was not, and a maintainer who
+      # believed it would have thought the surface closed.
+      # Digests are v4.4.0 of each, the tip of both v4 tags when this was pinned.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # matches engines.node in package.json
           node-version: '22.12'
@@ -86,8 +95,9 @@ jobs:
       - run: npm ci
       # Chrome for the puppeteer checks; --no-save keeps it out of the manifest.
       #
-      # PINNED, because this is the only line in the job that executes
-      # third-party code. `npm ci` above runs none: of the 117 package-lock
+      # PINNED, like the two actions above — this is the third and last place the
+      # job executes third-party code, and the only one that runs an install
+      # script. `npm ci` above runs none: of the 117 package-lock
       # entries exactly one declares an install script (fsevents, os:darwin, so
       # never on ubuntu-latest) and all 117 carry `resolved` + `integrity`.
       # puppeteer declares `postinstall: node install.mjs`, so an unpinned
@@ -119,10 +129,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22.12'
       # exit 1 is a real answer about the deploy and fails the job; exit 2 means
