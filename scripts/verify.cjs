@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 610;
+const EXPECTED_CHECKS = 611;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4874,6 +4874,32 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   });
   ck('and closing it hands the map’s 21 county stops straight back',
     handBack.cnt === 21 && !handBack.help, JSON.stringify(handBack));
+
+  /* ── …and "narrow" is the layout, not the width ──
+     Every modality check above is a width, and the stylesheet's overlay is not:
+     index.css:1187 fires on (max-width:900px), (max-height:560px) AND
+     ((pointer:coarse) and (max-height:780px)), while the component asked
+     matchMedia for the first of those alone. So the two legs added later were
+     overlay without modality, and no check here could see it — 390 px is inside
+     all three, 1000 and 1440 px outside all three. Measured on HEAD before the
+     fix, at 1024x700 with a coarse pointer (an iPad in landscape): .helpcard
+     position:fixed from x=8 to x=1016 over the whole header, map and rail,
+     aria-modal="false", nothing inerted, and 56 of the 64 focusables outside the
+     dialog still live — painted 100 % behind the card, focus ring included.
+     Both non-width legs, because they fail independently. */
+  await page.setViewport({ width: 1024, height: 700, hasTouch: true });
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  const gCoarse = await glossary();
+  gCoarse.pos = await page.evaluate(() => getComputedStyle(document.querySelector('#helpCard')).position);
+  await page.setViewport({ width: 1440, height: 550 });
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  const gShort = await glossary();
+  gShort.pos = await page.evaluate(() => getComputedStyle(document.querySelector('#helpCard')).position);
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the glossary is modal wherever the stylesheet makes it a full-viewport overlay, not only below 900 px',
+    gCoarse.pos === 'fixed' && gCoarse.modal === 'true' && gCoarse.outside > 30 && gCoarse.live === 0
+    && gShort.pos === 'fixed' && gShort.modal === 'true' && gShort.outside > 30 && gShort.live === 0,
+    JSON.stringify({ coarse: gCoarse, short: gShort }));
 
   /* …and the same property arrived at by permalink rather than by pressing the
      chip. Every suspension check above opens its overlay in-session, and the two

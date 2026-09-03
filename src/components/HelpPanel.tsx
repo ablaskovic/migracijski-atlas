@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { focusSoon } from '../lib/state.ts';
 import {
   NO_AFFIL, PAPER, PAPER_THR, PAPER_WINDOW,
@@ -114,16 +114,34 @@ function klasDiffSentence(): string {
    dialog is open and Escape hands straight back; the map keeps its pointer
    behaviour throughout, and every other control on the page stays reachable,
    which is what non-modal means here. */
+/* …and "narrow" is the layout, not a width. This asked matchMedia for
+   (max-width:900px) while index.css:1187 makes .helpcard a fixed, edge-to-edge
+   overlay under THREE conditions — that width, (max-height:560px), and
+   ((pointer:coarse) and (max-height:780px)) — so the two legs added later were
+   overlay without modality. Measured on an iPad in landscape (1024x700, coarse:
+   the third leg): the card covers x=8..1016, y=56..556 over the whole header,
+   map and rail, aria-modal reads 'false', nothing is inerted, and the ~28 header
+   controls painted 100 % behind it keep their tab stops — Enter activates the
+   language switch unseen. Restating the query here is what drifted, so it is not
+   restated: position:fixed IS the overlay (absolute at every other size), and
+   reading the value the block set is the signal App.tsx:604-608 already takes
+   for stage-collapsed, for the same reason — the test cannot drift from the rule
+   it is testing, and the (pointer:coarse) leg can become any-pointer without
+   this file hearing about it. Layout effect, not effect: the dialog must not
+   paint one frame declaring itself non-modal. */
 function useModalWhenNarrow(open: boolean, view: State['view']): boolean {
-  const [narrow, setNarrow] = useState(
-    () => typeof matchMedia === 'function' && matchMedia('(max-width:900px)').matches);
-  useEffect(() => {
-    const mq = matchMedia('(max-width:900px)');
-    const sync = () => setNarrow(mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  }, []);
+  const [narrow, setNarrow] = useState(false);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const card = document.getElementById('helpCard');
+      if (card) setNarrow(getComputedStyle(card).position === 'fixed');
+    };
+    measure();
+    /* a rotation or a window drag crosses these conditions with the card open */
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const card = document.getElementById('helpCard');
