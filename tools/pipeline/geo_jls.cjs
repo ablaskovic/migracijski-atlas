@@ -100,13 +100,39 @@ const k2 = s => fold(s).replace(/[\s-]/g, '');
     ])];
     /* names repeat across counties (Novigrad ×2, Privlaka ×2, Otok ×2 …) —
        the centroid's county picks the right one even for single hits, because a
-       bilingual registry name can shadow its cross-county namesake */
-    let cands = uni;
+       bilingual registry name can shadow its cross-county namesake.
+       It now does so. The old shape widened the candidate set when byCty was
+       non-empty and otherwise left cands = uni, so for uni.length === 1 with a
+       county MISS neither branch fired and the registry's county was accepted
+       unchallenged — the header's "resolved by which county polygon contains
+       the JLS centroid" and the sentence above both described a test that
+       decided nothing for the 545 of 555 matchable features that are single
+       hits. parse_jlsmap.py attributes every 7.5.18 row to the last county
+       header it recognised, so a DZS republication that renames or drops one
+       header hands a run of unique-name municipalities to the previous county,
+       and its own len(reg) == 556 survives it. Simulated on the committed
+       inputs with Jasenovac's registry county moved HR-03 -> HR-10: uni=1,
+       byCty=0, the polygon says HR-03, the match was ACCEPTED, and the feature
+       shipped c=9 — which Rail.tsx renders as Virovitičko-podravska, with no
+       message from the run. A disagreement now lands in unmatched, where the
+       1:1-cover assert below names the JLS and stops the join.
+       countyOf falls back to a vertex vote when no county polygon contains the
+       centroid, and that vote is fallible: over all 556 features it picks HR-12
+       for Strizivojna (registry HR-14) and HR-06 for Donja Dubrava (registry
+       HR-20). Both have in-county centroids today so the vote is never
+       consulted for them — but a geo_counties.json re-simplification could
+       route them there, and this would then stop the join on a correct match.
+       Loudly and by name, which is the posture README.md:39-41 prescribes; the
+       alternative is the silent wrong county index above. The line below names
+       both counties, so that case is diagnosable from the run's own output. */
+    let cands = [];
     if (uni.length >= 1) {
       const cIx = ISOS.indexOf(countyOf(f));
-      const byCty = uni.filter(i => stats[i][1] === cIx);
-      if (byCty.length === 1) cands = byCty;
-      else if (uni.length > 1) cands = byCty;   /* ambiguous + county miss = no match */
+      cands = uni.filter(i => stats[i][1] === cIx);
+      if (uni.length === 1 && cands.length === 0) {
+        console.log('county disagreement:', f.properties.name,
+          '— polygon says', ISOS[cIx], 'registry says', ISOS[stats[uni[0]][1]]);
+      }
     }
     if (cands.length !== 1) { unmatched.push(f.properties.name); continue; }
     const i = cands[0];
