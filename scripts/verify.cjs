@@ -2769,20 +2769,47 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
      901×430, #map came out 609×**0** — the choropleth, the whole page, gone —
      the rail list got 4 px for 21 rows, and .ft started at y=439 inside a 430 px
      viewport under `overflow:hidden`, unreachable by wheel or touch. */
+  /* …and both of the clauses that said so were unfalsifiable. `reach` compared
+     an in-flow element's top against document.scrollHeight, which by definition
+     contains it — the footer cannot be below the scrolling area it is part of.
+     `scrolls` counted overflow, and per CSSOM the root's scrollHeight includes
+     content that the pinned layout's body{overflow:hidden} merely HIDES: in the
+     exact 901x430 state this check was written against — .ft at y=439 inside a
+     430 px viewport, unreachable by wheel or by touch — both clauses reported
+     true. Only the map-height clause could ever fail, so a stylesheet edit that
+     dropped the (max-height:560px) arm but gave .map-box a desktop floor printed
+     ok at all three viewports with the rail and the footer sealed below the fold.
+     Assert the scrolling layout's own signature instead of a symptom shared with
+     the layout it is distinguishing itself from — index.css:1132 declares
+     body{display:block;overflow-y:auto} — and prove the reach by scrolling to
+     the bottom and finding the footer inside the viewport.
+     The computed-style clause is the load-bearing one, and this is why: an
+     overflow:hidden viewport is not user-scrollable but IS still scrollable
+     programmatically. Mutation-tested by dropping the (height<=560px) arm from
+     the built stylesheet and giving .map-box a desktop floor — the pinned layout
+     at 901x430 — window.scrollTo(0,1e6) moved scrollY to 467 and brought the
+     footer into view, so `reach` reported true on a page no finger or wheel can
+     scroll. `scrolls` was the clause that went red. The old pair printed ok on
+     that same mutant at all three viewports. */
   const landsc = [];
   for (const [vw, vh] of [[901, 430], [932, 430], [915, 412]]) {
     await page.setViewport({ width: vw, height: vh });
     await fresh('');
     const r = await page.evaluate(() => {
       const b = document.querySelector('.map-box').getBoundingClientRect();
+      const cs = getComputedStyle(document.body);
+      window.scrollTo(0, 1e6);
       const f = document.querySelector('.ft').getBoundingClientRect();
-      return { map: Math.round(b.height),
-        scrolls: document.documentElement.scrollHeight > window.innerHeight + 1,
-        reach: f.top < document.documentElement.scrollHeight };
+      const out = { map: Math.round(b.height),
+        scrolls: cs.display === 'block' && cs.overflowY === 'auto',
+        scrolled: Math.round(window.scrollY),
+        reach: f.bottom <= window.innerHeight + 1 && window.scrollY > 0 };
+      window.scrollTo(0, 0);
+      return out;
     });
     if (r.map < 240 || !r.scrolls || !r.reach) landsc.push(vw + 'x' + vh + ' ' + JSON.stringify(r));
   }
-  ck('a landscape phone gets the scrolling layout and a map with height in it',
+  ck('a landscape phone gets the scrolling layout, a map with height in it, and a footer it can actually reach',
     landsc.length === 0, landsc.join(' | '));
 
   /* ── a reserve that resolves to nothing is not a reserve ──
