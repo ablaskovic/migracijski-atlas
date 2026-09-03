@@ -38,13 +38,32 @@
 # msttcorefonts carries Arial and Courier New but no Arial Narrow.
 name: verify
 
+# …and smoke needs something other than a person remembering, too. smoke.cjs was
+# written after an audit found the production alias three releases back, and the
+# remedy was a manual script plus one README sentence — so the same class
+# recurred: production sat on one commit while the branch grew 241 ahead of it,
+# for weeks, and again the only thing that noticed was an audit. A script nothing
+# runs is a script nothing runs.
+# deployment_status is what the Vercel integration emits, so a deploy that went
+# out and went out WRONG is caught within a minute of promotion; the daily
+# schedule is what catches the other half, a deploy that never happened at all,
+# which is the case that actually occurred and which no push-triggered job can
+# see. workflow_dispatch so it can be asked directly.
 on:
   push:
     branches: ['**']
   pull_request:
+  deployment_status:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
 
 jobs:
   verify:
+    # the suite belongs to a commit, so the two origin-probing triggers skip it
+    if: >-
+      github.event_name == 'push' || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     # This job reads a repository and runs a test suite; it has no reason to be
     # able to write one. With no `permissions:` block the job took the
@@ -83,3 +102,41 @@ jobs:
       - run: npm i --no-save --no-audit --no-fund puppeteer@25.8.0
       # tsc --noEmit && oxlint --deny-warnings && vite build && verify.cjs dist
       - run: npm run verify
+
+  # The deployed origin, which the job above cannot see: it checks the commit it
+  # was handed, and every question smoke asks is about what readers are actually
+  # served. No npm ci — smoke.cjs imports only node builtins and vercel.json —
+  # and no secrets, because it is GET-only.
+  smoke:
+    # deployment_status fires for preview deployments as well, hence the
+    # environment filter; the schedule and a manual run always qualify.
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'deployment_status'
+          && github.event.deployment_status.state == 'success'
+          && github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12'
+      # exit 1 is a real answer about the deploy and fails the job; exit 2 means
+      # smoke could not reach the origin at all — DNS, a dropped packet, GitHub's
+      # egress — which is not this repository's news and must not cry wolf every
+      # morning. Annotated, not failed.
+      - name: smoke the deployed origin
+        run: |
+          set +e
+          node scripts/smoke.cjs
+          code=$?
+          set -e
+          if [ "$code" = "2" ]; then
+            echo "::warning::smoke could not reach the origin (exit 2) — network, not the deploy"
+            exit 0
+          fi
+          exit $code

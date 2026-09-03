@@ -64,7 +64,17 @@ had entered the bundle at some past release — which a build pinned to v2.2.0
 satisfied in full, i.e. it could not see the very failure this file was written
 after. The build stamps its version into the served markup (`<html data-v>`, see
 [`vite.config.ts`](vite.config.ts)) and smoke compares it with `package.json`.
-Run it after a deploy.
+
+[CI runs it](.github/workflows/verify.yml) on every successful production
+deployment and once a day, because the first time this happened the remedy was a
+script and a sentence telling a person to run it — and the same thing happened
+again, undetected for weeks, until an audit looked. The daily run is the half
+that matters: a deploy that never happened emits no event to react to.
+
+One limit, stated plainly: CI smoke compares the deployed origin against the
+commit CI checked out. Commits that exist only on your machine are invisible to
+it, and a local `npm run smoke` is what reports those — which is what its
+"N commits behind" line is for.
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
 are their own chunks: the view that needs one fetches it on entry, and the other is
