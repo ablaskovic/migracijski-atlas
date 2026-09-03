@@ -5,16 +5,18 @@ in/out sums over ALL JLS-to-JLS moves (both intra- and inter-county). This is th
 data half of the JLS map; geo_jls.cjs joins it onto OSM geometry.
 Needs ext/pitoski.xlsx (31 MB, not in repo - figshare files/23184374).
 Name matching is identical to parse_jls.py (three-tier, dash/đ folding)."""
-# …and the CONSOLE, not only the files. Commit 85a1086's encoding sweep gave
-# every open() an explicit encoding='utf-8' and left sys.stdout locale-derived,
-# so on Windows a REDIRECTED stdout is cp1252 — and every one of these scripts
-# prints Croatian place, country or group names AFTER it has written its payload.
-# Measured: `python parse_demo.py > refresh.log` writes src/data/demo.json
-# correctly, then raises UnicodeEncodeError on the first č of the top-countries
-# line and exits 1, so the byte-size read-back on the next line — the script's
-# only post-write self-check — never runs. The operator is left with a failed run
-# over a file that has in fact been overwritten, which is exactly the signal
-# README.md tells them to trust and go hunting for a DZS revision behind.
+# The CONSOLE is encoded too, not only the files. Commit 85a1086's encoding sweep
+# gave every open() an explicit encoding='utf-8' and left sys.stdout
+# locale-derived, so on Windows a REDIRECTED stdout is cp1252 — and every script
+# in this pipeline prints Croatian place, country or group names AFTER it has
+# written its payload.
+# Measured with parse_demo.py: `python parse_demo.py > refresh.log` writes
+# src/data/demo.json correctly, then raises UnicodeEncodeError on the first č of
+# the top-countries line and exits 1, so every post-write line after it — the
+# read-backs and totals that are these scripts' only self-check — never runs.
+# The operator is left with a failed run over a file that has in fact been
+# overwritten, which is exactly the signal README.md tells them to trust and go
+# hunting for a DZS revision behind.
 # errors='replace' rather than a hard failure: a mangled glyph on a genuinely
 # non-Unicode terminal is strictly better than aborting after the write.
 import sys
