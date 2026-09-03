@@ -3588,7 +3588,13 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
     '#v=saldo&f=int&d=rel11&c=0&y=2024', '#v=mx&dir=in&c=1&y=2018', '#v=mx&dir=out&c=1&y=2018',
     '#v=klas&c=1&y=2024&t=4500', '#v=klas&c=1&y=2024&t=2000',
     '#v=reg&f=int&c=1&y=2024', '#v=reg&f=ext&c=1&y=2024',
-    '#v=yrs&f=int&c=0&y=2024', '#v=yrs&f=ext&c=0&y=2024']) {
+    '#v=yrs&f=int&c=0&y=2024', '#v=yrs&f=ext&c=0&y=2024',
+    /* …and the language, which this sweep never varied. Every band string in
+       the figure is translated, so the HR and EN exports of one state are two
+       different documents — and they collided on a name in all seven views,
+       because the only translated token that reached `fname` was the period and
+       the Croatian "2024." sanitises to the English "2024". */
+    '#v=saldo&f=int&d=abs&c=0&y=2024&l=en']) {
     await fresh(h);
     const r = await page.evaluate(() => {
       let name = null;
@@ -3606,7 +3612,7 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
   }
   const collide = [...fnames].filter(([, h]) => h.size > 1).map(([n, h]) => n + ' ×' + h.size);
   ck('two different figures never export under one filename',
-    fnames.size === 11 && collide.length === 0, JSON.stringify(collide));
+    fnames.size === 12 && collide.length === 0, JSON.stringify({ n: fnames.size, collide }));
 
   ck('every view exports a self-contained document, including the classes whose stroke is the mark',
     expSweep.length === 5 && expSweep.every(x => !x.parseErr && x.n >= x.floor

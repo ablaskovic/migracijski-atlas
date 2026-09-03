@@ -241,6 +241,15 @@ function fname(S: State, per: string, ext: string): string {
      the picture. */
   const bits: string[] = [S.view];
   if (S.view === 'flow' || S.view === 'jmap' || S.view === 'mx') bits.push(S.dir);
+  /* …and the hub IS the Tokovi figure. That fix named the hub and the language
+     and then carried neither: every corridor map for one direction and period
+     downloaded as migracijski-atlas_flow_out_tot_2018 whatever county it was
+     centred on, so comparing two hubs — the one thing that view is for — put two
+     different maps, different arcs and different fills, under one name with the
+     browser's " (1)" as the only distinction. exportDesc has always named the
+     hub in the title, so the picture and its file name disagreed about what
+     varies. */
+  if (S.view === 'flow' && S.sel) bits.push(S.sel.toLowerCase());
   /* the component: every view but the JLS map, whose single measured year has
      no components to choose between */
   if (S.view !== 'jmap') bits.push(S.flow);
@@ -248,6 +257,11 @@ function fname(S: State, per: string, ext: string): string {
   if (S.view !== 'jmap' && S.view !== 'flow') bits.push(S.den);
   /* the class boundary IS the Klasifikacija figure */
   if (S.view === 'klas') bits.push(S.thrRel ? S.thrPct + 'pct' : String(S.thr));
+  /* …and the language, which changes every band string in the figure and was
+     the other axis that fix named. It cannot ride on `per` alone: the Croatian
+     period "2024." and the English "2024" sanitise to the same token, so the
+     HR and EN exports of one state collided on a name in all seven views. */
+  bits.push(S.lang);
   bits.push(per);
   return ('migracijski-atlas_' + bits.join('_'))
     .replace(/[–.]/g, '-').replace(/-+/g, '-').replace(/-$/, '') + '.' + ext;
