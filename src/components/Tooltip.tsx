@@ -172,8 +172,13 @@ function countyBlock(S: State, iso: string, yi: number): string {
     const rk = REGOF[iso];
     const rv = regVal(rk, yi, S.flow, S.den, S.cum);
     const rs = S.den === 'abs' ? sgn(Math.round(rv), fmtI) : sgn(rv, fmtR) + ' %';
+    /* …and the colour comes off the same rounded value the text does. Taken from
+       the raw one, a region whose share rounds to "0,0 %" still painted red or
+       blue — the tint asserting a direction the digits beside it had just
+       dropped. */
+    const rvR = S.den === 'abs' ? Math.round(rv) : Math.round(rv * 10) / 10;
     h += '<table><tr class="tip-net"><td>' + esc(REG[rk].name) + ' · ' + per
-      + '</td><td class="' + (rv < 0 ? 'neg' : 'pos') + '">' + rs + '</td></tr></table>';
+      + '</td><td class="' + (rvR < 0 ? 'neg' : 'pos') + '">' + rs + '</td></tr></table>';
   }
   return h;
 }

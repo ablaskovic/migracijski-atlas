@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 612;
+const EXPECTED_CHECKS = 613;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5639,6 +5639,42 @@ const evalSafe = async (pg, fn) => {
     ck(`den=${d} ranks the regije rail on its own denominator`,
       regRows[0].n === regLead && NBSP(regRows[0].v) === regPct,
       JSON.stringify(regRows.slice(0, 2)));
+  }
+
+  /* ── …and a sign belongs to the number that is printed ──
+     sgn() signed the value it was handed and formatted the magnitude
+     separately, so anything that rounded away to nothing kept its sign: at the
+     default year in the unutarnji / % popisa 2011. / annual lens the rail read
+     Primorsko-goranska "−0,0 %" for −30 people against 296.195, Varaždinska
+     "−0,0 %" for −20, Koprivničko-križevačka "−0,0 %" for −27 — beside true
+     zeros printing "0,0 %" with no sign, so rows showing identical digits
+     carried different signs, and the county paths announced it to a screen
+     reader too. 946 combinations across the relative lenses produced one.
+     Nothing in the suite read a rail value in an ANNUAL relative lens: the two
+     legs above are cumulative, where every county's share is large enough to
+     survive rounding. Three counties, the aria-label, and a real value in the
+     same sweep so this cannot pass by printing nothing at all. */
+  await fresh('#v=saldo&f=int&d=rel11&c=0&y=2024');
+  const signedZero = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#railList .rrow')].map(r => ({
+      n: (r.querySelector('.rname') || {}).textContent || '',
+      v: (r.querySelector('.rval') || {}).textContent || '' }));
+    const pick = iso => (document.querySelector('.cnt[data-iso="' + iso + '"]') || {})
+      .getAttribute?.('aria-label') || '';
+    return { rows, aria08: pick('HR-08'),
+      vals: rows.map(r => r.v) };
+  });
+  {
+    const vals = signedZero.vals.map(NBSP);
+    const signed = vals.filter(v => /^[+−]0,0 %$/.test(v));
+    /* the floor: the sweep must have read a populated rail with real values in
+       it, or "no signed zeros" is satisfied by an empty list */
+    const real = vals.filter(v => /^[+−][1-9]/.test(v) || /^[+−]0,[1-9]/.test(v));
+    ck('no relative surface prints a signed zero',
+      vals.length >= 20 && real.length >= 5 && signed.length === 0
+      && !/[+−]0,0/.test(NBSP(signedZero.aria08)),
+      JSON.stringify({ n: vals.length, real: real.length, signed,
+        aria08: NBSP(signedZero.aria08).slice(0, 60) }));
   }
 
   /* ── P3: the decodeHash repair that was never reached from a URL ── */

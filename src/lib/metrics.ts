@@ -77,8 +77,26 @@ export const ARC_MIN = 5;
 export const arcMinNote = (): string =>
   L(`Koridori ispod ${ARC_MIN} osoba nisu ucrtani. `, `Corridors under ${ARC_MIN} people are not drawn. `);
 
-export const sgn = (v: number, f: Pick<Intl.NumberFormat, 'format'>) =>
-  (v > 0 ? '+' : v < 0 ? '−' : '') + f.format(Math.abs(v));
+/* The sign belongs to the number that is PRINTED, not to the one that was
+   passed. Signing v and then formatting |v| separately meant a value that
+   rounds away to nothing still carried its sign: at the default year, Sastavnica
+   unutarnji + Vrijednosti "% popisa 2011." + annual, the rail printed
+   Primorsko-goranska "−0,0 %" (−30 people against 296.195), Varaždinska
+   "−0,0 %" (−20) and Koprivničko-križevačka "−0,0 %" (−27); at 2003 Grad Zagreb
+   read "+0,0 %" (+300) and Ličko-senjska "+0,0 %" (+1). A true zero in the same
+   column printed "0,0 %" with no sign, so rows showing identical digits carried
+   different signs — and the county paths announced the same thing to a screen
+   reader. Exhaustively over every flow × den × cum × year × county the metrics
+   layer can render in a relative lens, 946 combinations produced a signed zero.
+   One extra format() per call, and it fixes every relative surface at once
+   rather than at the five call sites, where the trap would be re-armed by the
+   sixth. The abs callers round before they get here, so nothing changes for
+   them — except that a fractional value rounding to "0" also stops claiming a
+   direction, which is the same bug. */
+export const sgn = (v: number, f: Pick<Intl.NumberFormat, 'format'>) => {
+  const a = f.format(Math.abs(v));
+  return (a === f.format(0) ? '' : v > 0 ? '+' : '−') + a;
+};
 
 /* The five regions the study proposes. Membership is data and does not move with
    the language; the names are descriptions of place and do — `name` is therefore
