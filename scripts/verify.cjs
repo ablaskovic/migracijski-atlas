@@ -389,8 +389,6 @@ const evalSafe = async (pg, fn) => {
   });
   ledger(page);
 
-  await page.goto(url, { waitUntil: 'networkidle0' });
-  await settle(500);
   /* Wait for the target before pressing it, for the same reason fresh() waits for
      the app: `page.click` throws "No element found for selector" the instant
      querySelector returns null, and that throw unwinds the whole run rather than
@@ -418,12 +416,19 @@ const evalSafe = async (pg, fn) => {
      condition, because a network that will not go quiet is not the same thing as
      a document that will not load; if both fail it is recorded and the mount
      wait below decides whether anything is really wrong. */
-  const goTo = async u => {
-    for (const waitUntil of ['networkidle0', 'domcontentloaded']) {
+  /* `waits` so a caller that needs a specific condition keeps it. Several blocks
+     deliberately load with domcontentloaded — a page whose chunk is blocked may
+     never go network-idle — and routing them through the default ladder would
+     have spent 30 s per boot discovering that. They were raw page.goto calls
+     for exactly that reason, and so had neither the retry nor the record: a
+     navigation timeout in any of them unwinds the run from inside the helper,
+     which is the class of flake this wrapper exists to absorb. */
+  const goTo = async (u, waits = ['networkidle0', 'domcontentloaded']) => {
+    for (const waitUntil of waits) {
       try { await page.goto(u, { waitUntil, timeout: 30000 }); return true; }
       catch { /* fall through to the weaker condition, then give up */ }
     }
-    missed.push('goto ' + u.replace(url, '') || '/');
+    missed.push('goto ' + (u.replace(url, '') || '/'));
     return false;
   };
   const click = async sel => {
@@ -475,6 +480,19 @@ const evalSafe = async (pg, fn) => {
         .catch(() => {});
     }
   };
+
+  /* The FIRST boot used to sit twenty lines above this, as
+     page.goto(url, networkidle0) + settle(500) — a stopwatch, while every boot
+     after it goes through fresh() and waits on the app. fresh()'s own comment
+     says why that matters: networkidle0 means the network went quiet, not that
+     React mounted, so a slow first mount walks into the evaluate below with no
+     tree and throws `Cannot read properties of null` from inside it, which is a
+     harness abort rather than a failed check — at check 1 of 616.
+     It is the same boot, so it is the same helper: goto, mount wait, one retry,
+     and a recorded miss instead of an abort if the app never comes up. Moved
+     here rather than fixed in place because fresh() is defined between the two
+     points, and nothing touched the page in between. */
+  await fresh('');
 
   /* ── geometry (winding-bug guards) ── */
   const geo = await page.evaluate(() => {
@@ -4579,7 +4597,7 @@ const evalSafe = async (pg, fn) => {
     page.waitForResponse(r => /geo_regions5-/.test(r.url()), { timeout: 20000 }).catch(() => null),
   ]);
   await page.goto('about:blank');
-  await page.goto(url, { waitUntil: 'load' });
+  await goTo(url, ['load']);
   const geoResp = (await geoWait).filter(Boolean).length;
   const geoWhen = await page.evaluate(() => {
     const nav = performance.getEntriesByType('navigation')[0];
@@ -5898,7 +5916,7 @@ const evalSafe = async (pg, fn) => {
   /* ── P3: the JLS chunk can fail, and the view says so and offers a retry ── */
   blockGeoChunk = true;
   await page.goto('about:blank');
-  await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+  await goTo(url + '#v=jmap&dir=net', ['domcontentloaded']);
   /* every other wait in this file is condition-based, and the project fixed this
      exact class once already for #v=jmap ("waits on 556 features, not a
      stopwatch"): a fixed sleep against an async import flakes on a slow machine */
@@ -5958,7 +5976,7 @@ const evalSafe = async (pg, fn) => {
      where this button does not exist. */
   await page.setViewport({ width: 1024, height: 768, hasTouch: true, isMobile: false });
   await page.goto('about:blank');
-  await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+  await goTo(url + '#v=jmap&dir=net', ['domcontentloaded']);
   await page.waitForFunction(() => !!document.querySelector('#jretry'), { timeout: 15000 }).catch(() => {});
   await settle(400);
   const retryTap = await page.evaluate(() => {
@@ -6071,7 +6089,7 @@ const evalSafe = async (pg, fn) => {
   {
     blockGeoChunk = true;
     await page.goto('about:blank');
-    await page.goto(url + '#v=jmap&c=0&y=2018&st=7', { waitUntil: 'domcontentloaded' });
+    await goTo(url + '#v=jmap&c=0&y=2018&st=7', ['domcontentloaded']);
     await page.waitForFunction(() => !!document.querySelector('#jerror'), { timeout: 15000 }).catch(() => {});
     await settle(400);
     capGeo.down = await page.evaluate(() => ({
@@ -6079,7 +6097,7 @@ const evalSafe = async (pg, fn) => {
       jl: document.querySelectorAll('#map .jl').length,
       err: !!document.querySelector('#jerror') }));
     await page.goto('about:blank');
-    await page.goto(url + '#v=saldo&f=all&c=1&y=2024&st=2', { waitUntil: 'domcontentloaded' });
+    await goTo(url + '#v=saldo&f=all&c=1&y=2024&st=2', ['domcontentloaded']);
     await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
     await settle(400);
     capGeo.other = await page.evaluate(() =>
@@ -6108,7 +6126,7 @@ const evalSafe = async (pg, fn) => {
      released before the view is opened. */
   blockGeoChunk = 'reg';
   await page.goto('about:blank');
-  await page.goto(url, { waitUntil: 'networkidle0' });
+  await goTo(url, ['networkidle0']);
   await settle(2200);
   blockGeoChunk = false;
   /* Still in Saldo, which needs neither chunk. Before the speculative flag the
@@ -6172,7 +6190,7 @@ const evalSafe = async (pg, fn) => {
   {
     const h = holdChunk(/geo_jls/);
     await page.goto('about:blank');
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await goTo(url, ['domcontentloaded']);
     /* the warm fires at t=1,5 s; wait for the request itself rather than for a
        stopwatch, so a slow runner does not open the view before it exists */
     const armed = await new Promise(res => {
@@ -6231,7 +6249,7 @@ const evalSafe = async (pg, fn) => {
      reproduces the failure the section is about. */
   blockGeoChunk = true;
   await page.goto('about:blank');
-  await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+  await goTo(url + '#v=jmap&dir=net', ['domcontentloaded']);
   await page.waitForFunction(() => !!document.querySelector('#jerror'), { timeout: 15000 })
     .catch(() => {});
   /* jmapMax()'s `if (!g) return 1` is a harmless domain for a map that draws
@@ -6272,7 +6290,7 @@ const evalSafe = async (pg, fn) => {
   const errsOff = errors.length;
   blockGeoChunk = true;
   await page.goto('about:blank');
-  await page.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
+  await goTo(url + '#v=jmap&dir=net', ['domcontentloaded']);
   await page.waitForFunction(() => !!document.querySelector('#jretry'), { timeout: 15000 }).catch(() => {});
   blockGeoChunk = false;
   await page.setOfflineMode(true);
@@ -9090,7 +9108,7 @@ const evalSafe = async (pg, fn) => {
   const headMeta = {};
   for (const [lang, h] of [['hr', ''], ['en', '?l=en']]) {
     await page.goto('about:blank');
-    await page.goto(url + h, { waitUntil: 'networkidle0' });
+    await goTo(url + h, ['networkidle0']);
     await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
     await settle(300);
     headMeta[lang] = await page.evaluate(() => {
@@ -9155,7 +9173,7 @@ const evalSafe = async (pg, fn) => {
      address must not re-impose English, and must not leave an English canonical
      over a Croatian page. */
   await page.goto('about:blank');
-  await page.goto(url + '?l=en', { waitUntil: 'domcontentloaded' });
+  await goTo(url + '?l=en', ['domcontentloaded']);
   await page.waitForFunction(() => !!document.querySelector('#map'), { timeout: 15000 }).catch(() => {});
   await settle(400);
   const qBefore = await page.evaluate(() => ({ lang: document.documentElement.lang,
@@ -11811,7 +11829,7 @@ const evalSafe = async (pg, fn) => {
   ck('Regije draws all five region outlines', regLines === 5, String(regLines));
   blockGeoChunk = 'reg';
   await page.goto('about:blank');
-  await page.goto(url + '#v=reg&c=1&y=2024', { waitUntil: 'domcontentloaded' });
+  await goTo(url + '#v=reg&c=1&y=2024', ['domcontentloaded']);
   await page.waitForFunction(() => !!document.querySelector('#jerror'), { timeout: 15000 })
     .catch(() => {});
   const regFail = await page.evaluate(() => {
@@ -11844,7 +11862,7 @@ const evalSafe = async (pg, fn) => {
      permanent UI, claiming progress it is not making. */
   blockEntry = true;
   await page.goto('about:blank');
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await goTo(url, ['domcontentloaded']);
   await settle(11000);
   const bootFail = await page.evaluate(() => {
     const f = document.querySelector('#bootFail');
@@ -12646,6 +12664,9 @@ const evalSafe = async (pg, fn) => {
      the real policy and a CSP that broke the app would have failed them rather
      than passing quietly. This asserts the policy is present and is the one the
      deploy will send. */
+  /* raw, and deliberately: this one needs the RESPONSE, not goTo's boolean —
+     the check below reads the deployed headers off it. Its sibling on the next
+     line is raw for the same reason. */
   const docHdr = (await page.goto(url, { waitUntil: 'domcontentloaded' })).headers();
   await fresh('');
   const entryUrl = await page.evaluate(() => {
