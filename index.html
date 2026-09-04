@@ -127,11 +127,20 @@
    its own and no CSP exception. The bar keeps running underneath: a slow
    connection and a dead one look the same from here, and the honest reading of
    both is "this is taking too long, try reloading". */
-.boot-fail{opacity:0;animation:bootgiveup 0s linear 10s forwards;
+/* visibility with the opacity, so the ten-second delay applies to the
+   ACCESSIBILITY TREE and not only to the pixels. .boot is role=status, and an
+   opacity:0 element is still in the tree — so browse-mode reading of that region
+   voiced "Učitavanje predugo traje. Osvježite stranicu…" from the first frame,
+   while a sighted reader sees it only if the load really does take ten seconds.
+   A screen-reader user was told the page had failed before it had had a chance
+   to load. visibility:hidden removes it, and the keyframe brings both back, so
+   the reveal is a tree change and the announcement lands when the sentence
+   becomes true. */
+.boot-fail{opacity:0;visibility:hidden;animation:bootgiveup 0s linear 10s forwards;
   font-family:var(--mono,'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace);
   font-size:0.6875rem;line-height:1.5;text-align:center;color:var(--mut,#5F6A72);margin:0;max-width:34ch}
 .boot-fail a{color:var(--acc,#0F7D8C)}
-@keyframes bootgiveup{to{opacity:1}}
+@keyframes bootgiveup{to{opacity:1;visibility:visible}}
 </style>
 <!-- Without JavaScript React never runs, so the placeholder would sit there
      claiming to load something forever, above a <noscript> explaining that it

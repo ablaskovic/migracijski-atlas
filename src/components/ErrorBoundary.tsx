@@ -93,7 +93,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
             <span lang="en">; this component, written to survive a failure of
             the i18n path itself, mixed the two. Literals only, so the rule
             above still holds: nothing here can throw. */}
-        <p className="boot-fail" id="renderFail" style={{ opacity: 1 }}>
+        {/* visibility too: .boot-fail is hidden from the tree until its delay
+            elapses, and this one has already happened — it must be readable now,
+            not in ten seconds' time. */}
+        <p className="boot-fail" id="renderFail" style={{ opacity: 1, visibility: 'visible' }}>
           <span lang="hr">
             Prikaz se nije mogao iscrtati. <a href={here} onClick={reload}>Osvježite stranicu</a>
             {' — ili '}<a href={plain} id="renderFailPlain">otvorite bez poveznice na prikaz</a>.
