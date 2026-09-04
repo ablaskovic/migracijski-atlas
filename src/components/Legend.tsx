@@ -340,8 +340,12 @@ export default function Legend({ S }: { S: State }) {
     const src = flowKind(S.yi, S.cum) === 'meas'
       ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021., CC BY).',
         'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
-      : L('Procjena (IPF): struktura 2018. skalirana na DZS odseljene razdoblja; doseljeni približno.',
-        'Estimate (IPF): the 2018 structure scaled to the period’s CBS out-margins; in-margins approximate.')
+      /* the shared string, like the Matrica branch above and the pair card and
+         the footer. This branch kept a third wording of the same claim — "DZS
+         odseljene razdoblja" / "the period's CBS out-margins" — which is the
+         exact drift ipfMargins() was extracted to end, and it sat one panel away
+         from the two surfaces that had already been unified. */
+      : L('Procjena (IPF): ', 'Estimate (IPF): ') + ipfMargins() + '.'
         + (S.dir === 'net' ? ' ' + t('note.pairEst') : '');
     if (S.dir === 'net') {
       return (

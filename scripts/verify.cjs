@@ -13004,9 +13004,16 @@ const evalSafe = async (pg, fn) => {
      now; the footer takes the short form of the same claim, because it is the
      last in-flow item in a body pinned to one viewport and the full clause costs
      it a line at 1024 and 960 px. */
+  /* …and Tokovi, which kept a THIRD wording of the same claim — "DZS odseljene
+     razdoblja" / "the period's CBS out-margins" — while this check read the
+     Matrica legend only and called the sentence "one export now". It is one
+     export now; the flow branch reads it too, and this sweep visits both views
+     so the claim in the comment is the claim being tested. */
   const ipfSay = {};
   for (const [k, h] of [['hr', '#v=mx&c=0&y=2002&s=HR-14&pp=HR-21'],
-    ['en', '#l=en&v=mx&c=0&y=2002&s=HR-14&pp=HR-21']]) {
+    ['en', '#l=en&v=mx&c=0&y=2002&s=HR-14&pp=HR-21'],
+    ['hrFlow', '#v=flow&s=HR-14&dir=net&y=2002&c=0'],
+    ['enFlow', '#l=en&v=flow&s=HR-14&dir=net&y=2002&c=0']]) {
     await fresh(h);
     ipfSay[k] = await page.evaluate(() => ({
       note: (document.querySelector('.pair-note') || {}).textContent || '',
@@ -13020,9 +13027,13 @@ const evalSafe = async (pg, fn) => {
     && /IPF procjena na DZS odseljene/.test(ipfSay.hr.foot)
     && ipfSay.en.note.includes(IPF_EN) && ipfSay.en.legend.includes(IPF_EN)
     && /IPF estimate on CBS out-margins/.test(ipfSay.en.foot)
-    && !/na DZS marginama|on CBS margins/.test(
-      ipfSay.hr.note + ipfSay.hr.foot + ipfSay.en.note + ipfSay.en.foot),
-    JSON.stringify({ hr: ipfSay.hr.note, en: ipfSay.en.note }));
+    /* the Tokovi legend, in both languages, saying it the same way */
+    && ipfSay.hrFlow.legend.includes(IPF_HR) && ipfSay.enFlow.legend.includes(IPF_EN)
+    && !/na DZS marginama|on CBS margins|odseljene razdoblja|period’s CBS out-margins/.test(
+      ipfSay.hr.note + ipfSay.hr.foot + ipfSay.en.note + ipfSay.en.foot
+      + ipfSay.hrFlow.legend + ipfSay.enFlow.legend),
+    JSON.stringify({ hr: ipfSay.hr.note, en: ipfSay.en.note,
+      hrFlow: ipfSay.hrFlow.legend.slice(0, 90), enFlow: ipfSay.enFlow.legend.slice(0, 90) }));
   ck('the export eyebrow shrinks to fit a narrow canvas instead of running off it',
     eyeWide === 10 && eyeNarrow < 10 && eyeNarrow >= 7 && eyeNarrowHr === 10,
     JSON.stringify({ en1440: eyeWide, en390: eyeNarrow, hr390: eyeNarrowHr }));
