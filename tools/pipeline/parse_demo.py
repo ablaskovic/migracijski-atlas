@@ -81,6 +81,20 @@ assert sum(d) == tot_d and sum(o) == tot_o, (sum(d), tot_d, sum(o), tot_o)
 # ── II T2: unutarnja by age (ukupno rows; col2 = total preseljeno, col5 = among counties) ──
 ws = wb['II T2']
 rows = list(ws.iter_rows(values_only=True))
+# …and those two columns are IDENTIFIED, not counted off. Both were taken by
+# position out of four adjacent integer columns, so a DZS C/D swap would ship
+# 15.935 — moves within one town — as the national total and the within-town
+# series as the age breakdown, with every assert below still balancing: they
+# compare rows to each other in the same columns, so all of them are invariant
+# under any uniform column transformation. Exit 0, wrong payload.
+# Two anchors, because either alone is weak. The header names the columns, and
+# the total column is the one the other three sum to — which a sub-column
+# cannot satisfy.
+_hdr = next((i for i, r in enumerate(rows)
+             if r[0] is not None and str(r[0]).strip() == 'Starost'), None)
+assert _hdr is not None, 'II T2 header row (Starost) not found — did the sheet layout change?'
+assert str(rows[_hdr][2]).strip() == 'Ukupno', ('II T2 col C is not Ukupno', rows[_hdr][2])
+assert 'županijama' in str(rows[_hdr + 1][5]), ('II T2 col F is not the among-counties column', rows[_hdr + 1][5])
 intm, int_ages, int_tot, int_m, int_cty = [], [], None, 0, None
 cur_age = None
 for r in rows:
@@ -89,6 +103,11 @@ for r in rows:
     if a:
         cur_age = a
     if sex == 'ukupno' and cur_age == 'Ukupno':
+        # the identity that says C is the total: it is D + E + F, the three
+        # published components of an internal move. Holds on all 51 data rows
+        # of the shipped sheet; asserted on the one this script reads.
+        assert to_int(r[2]) == to_int(r[3]) + to_int(r[4]) + to_int(r[5]), \
+            ('II T2 col C is not the total of the three components', r[2:6])
         int_tot, int_cty = to_int(r[2]), to_int(r[5])
     elif sex == 'muškarci' and cur_age == 'Ukupno':
         int_m = to_int(r[2])
