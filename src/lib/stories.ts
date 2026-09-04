@@ -1,7 +1,8 @@
 import { L } from './i18n.ts';
 /* "Nalazi" — curated state presets that walk a reader to the atlas's strongest
    findings (handoff §8 outreach set). Each entry is a plain State patch plus a
-   one-breath Croatian caption; App applies the patch and shows the banner.
+   one-breath caption, bilingual through L() since the English UI landed; App
+   applies the patch and shows the banner.
    Numbers here are display copy only — the map/rail render the same values from
    metrics.ts, so a data refresh that moves them must update these captions too
    (same rule as the ground-truth constants pinned in scripts/verify.cjs). */

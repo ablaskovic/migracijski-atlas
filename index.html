@@ -127,8 +127,9 @@
      requests /apple-touch-icon.png; and unfurlers and feed readers probe
      /favicon.ico unconditionally. vercel.json rewrites /(.*) to index.html
      except under assets/ and fonts/, so every one of those paths answered
-     200 text/html with the whole 10.185-byte SPA shell — and with nosniff set
-     the client cannot sniff its way out: it discards the payload, shows the
+     200 text/html with the whole SPA shell — 10.185 bytes of it when this was
+     measured, 18.945 today — and with nosniff set the client cannot sniff its
+     way out: it discards the payload, shows the
      default globe, and cannot tell "no icon here" from "an icon I failed to
      parse". public/robots.txt records this same mechanism as a defect fixed the
      same way: "This file has to exist as a *file*". Both are rendered from
