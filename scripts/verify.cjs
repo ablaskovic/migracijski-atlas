@@ -7526,8 +7526,12 @@ const evalSafe = async (pg, fn) => {
       }
       return was - errors.length;
     })();
-    ck('the mid-flight warm abort is swept, and it is the only thing swept',
-      joinDropped >= 1 && errors.length === 0,
+    /* its own drop only, not a clean ledger: the geo_regions5 scrub is the NEXT
+       check, so the two lines that abort leaves are still here by construction
+       — demanding an empty ledger at this point asserts the order of two
+       independent blocks rather than this one doing its job. */
+    ck('the mid-flight warm abort is swept, and no geo_jls line survives it',
+      joinDropped >= 1 && !errors.some(e => /geo_jls/.test(e)),
       JSON.stringify({ dropped: joinDropped, left: errors.slice(0, 2) }));
   }
   {
@@ -7641,11 +7645,14 @@ const evalSafe = async (pg, fn) => {
      own justification: the span includes the app's full reload after `online`,
      so an unrelated failure in that reload was swept with the rest and the
      end-of-run bracket saw a clean ledger. What the deliberate abort and the
-     offline second can produce is the two geometry chunks and the export's font
-     warm — that timer fires while the network is down — so those are named and
-     nothing else is. The count is asserted below, so a window that swept nothing
-     is itself a failure. */
-  const OFF_URL = /geo_jls|geo_regions5|\.woff2/;
+     offline second can produce is the two geometry chunks, the export's font
+     warm — that timer fires while the network is down — and the favicon, which
+     the browser re-requests across the reload the `online` event triggers.
+     Measured: /favicon.svg fails with ERR_INTERNET_DISCONNECTED inside this
+     window, and being un-named it survived into every later `errors.length === 0`
+     check in the file — four of them went red over one line from here. Those
+     four URLs are named and nothing else is. */
+  const OFF_URL = /geo_jls|geo_regions5|\.woff2|favicon/;
   let offDropped = 0;
   for (let i = errors.length - 1; i >= errsOff; i--) {
     if (OFF_URL.test(errors[i])
