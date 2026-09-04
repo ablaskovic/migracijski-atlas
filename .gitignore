@@ -12,6 +12,24 @@ dist
 dist-ssr
 *.local
 
+# Two things this project can produce that must never be committed, neither of
+# which the Vite template's `*.local` covers.
+#
+# Vite auto-loads .env, .env.production and the rest from the project root and
+# INLINES every VITE_* value into the bundle — so a secret in one is not merely
+# committed, it is published in dist/assets/index-*.js. Nothing in src/ reads
+# import.meta.env today and no such file has ever been committed (history
+# scanned), which is exactly when to add the line: before the first one exists.
+# .env.example is exempted so a template can be checked in on purpose.
+#
+# .vercel/project.json is written by `vercel link` and carries the org and
+# project ids; the CLI asks for it to be ignored, and the deploy here is on
+# Vercel (vercel.json), so a maintainer running it locally is the ordinary case.
+.env
+.env.*
+!.env.example
+.vercel/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
