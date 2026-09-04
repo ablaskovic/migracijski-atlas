@@ -12180,6 +12180,12 @@ const evalSafe = async (pg, fn) => {
        switch voice. Sweeping it made the blacklist fire on "županija" the moment
        its boundary was repaired to see a Croatian letter, on the one Croatian
        string in this card that belongs there. */
+    /* The loop over tabs is dead: HelpPanel renders no [role="tab"] at all, so
+       `tabs` is always [] and the body runs exactly once over the whole card.
+       Kept rather than deleted, because a tabbed glossary would put half its
+       prose behind a control this sweep would otherwise never press — and the
+       count is asserted below, so the day that changes the check says so
+       instead of quietly covering one panel of several. */
     for (const tb of tabs.length ? tabs : [null]) {
       if (tb) { tb.click(); await new Promise(r => setTimeout(r, 160)); }
       const clone = card.cloneNode(true);
@@ -12192,7 +12198,10 @@ const evalSafe = async (pg, fn) => {
     : [...(enHelp.text.match(CRO) || []), ...(enHelp.text.match(CROCTL) || [])].slice(0, 5);
   await click('#helpX');
   ck('the glossary reads in English too, including the control names it cites',
-    !enHelp.absent && enHelp.text.length > 2000 && helpBad.length === 0,
+    !enHelp.absent && enHelp.text.length > 2000 && helpBad.length === 0
+    /* the card is one panel, so the sweep saw all of it — see the note in the
+       loop above */
+    && enHelp.tabs === 0,
     JSON.stringify({ tabs: enHelp.tabs, len: enHelp.text.length, bad: helpBad }));
 
   /* Who gets which language, on a fresh visit with nothing shared and nothing
