@@ -9888,7 +9888,13 @@ const evalSafe = async (pg, fn) => {
     }).sort((a, b) => a.y - b.y);
     return { cap, row };
   });
-  const eraM = /od (\d{4})\. do (\d{4})\./.exec(era.cap);
+  /* Anchored on the VERB, not on "the first date range in the caption". The
+     pattern was `/od (\d{4})\. do (\d{4})\./`, and the caption is prose that may
+     grow another span — "Zagrebačka istodobno ubrzava: +1.047 (2019.) →
+     +2.238 (2022.)" is already in it, and a copy edit that leads with a range of
+     its own would silently re-target this check onto a claim it is not about.
+     "dobiva od X. do Y." is the claim, and the word is what makes it one. */
+  const eraM = /dobiva od (\d{4})\. do (\d{4})\./.exec(era.cap);
   const eraFrom = eraM ? +eraM[1] : 0, eraTo = eraM ? +eraM[2] : 0;
   const eraIn = era.row.filter(x => x.y >= eraFrom && x.y <= eraTo);
   const eraBefore = era.row.find(x => x.y === eraFrom - 1);
