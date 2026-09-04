@@ -10843,8 +10843,19 @@ const evalSafe = async (pg, fn) => {
       rl: rl ? rl.getAttribute('lang') : null, rlTxt: rl ? rl.textContent.trim() : null,
       foot, gloss: !!(dd && dd.querySelector('span[lang="hr"]')) };
   });
+  /* The header anchor is the one that changed sides. It used to print the
+     Croatian short citation — "Maras i Vinovrški (2026.)", a conjunction and an
+     ordinal dot the atlas composed itself — and lang="hr" was right for it. That
+     string now follows the language, so on the English UI it reads "Maras and
+     Vinovrški (2026)": English prose carrying two proper names, and annotating
+     the whole run "hr" would have a screen reader voice "and" as Croatian, which
+     is the same defect this check exists to catch, one direction over.
+     So it is asserted the other way now — the anchor must NOT claim Croatian —
+     while every clause below it is unchanged, because those runs are still
+     Croatian: the county names in the JLS card and the rail label, the journal
+     title in the footer, and the glossary's citation entry. */
   ck('every Croatian run in the English UI is annotated, not left to English phonemes',
-    langRuns.doc === 'en' && langRuns.hd === 'hr' && /Maras/.test(langRuns.hdTxt || '')
+    langRuns.doc === 'en' && langRuns.hd === 'en' && /Maras and/.test(langRuns.hdTxt || '')
     && langRuns.jc === 'hr' && /[čćšžđ]/i.test(langRuns.jcTxt || '')
     && langRuns.rl === 'hr' && /[čćšžđ]/i.test(langRuns.rlTxt || '')
     && langRuns.foot.some(t => /zbornik/i.test(t)) && langRuns.gloss,
