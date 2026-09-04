@@ -13,6 +13,19 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    /* The one strict flag NOT on, and the reason, so it does not have to be
+       re-measured to be argued about: --noUncheckedIndexedAccess reports 397
+       errors at HEAD, concentrated in metrics.ts (54), CitzPanel (53), Tooltip
+       (42), MatrixView (30), Rail and MapView (26 each) and YearsView (23). It
+       is the one flag that would catch an out-of-range year or county index, so
+       it is worth having — but as a long-tail migration with its own commit
+       series, not as a line here that turns the build red. The four above cost
+       three `override` modifiers and five `| undefined` widenings between
+       them. */
     "skipLibCheck": true
   },
   "include": ["src", "vite.config.ts"]

@@ -313,8 +313,12 @@ function download(blob: Blob, name: string) {
 type Sample = (n: number) => { off: number; v: number }[];
 type Leg =
   | { kind: 'klas'; counts: Record<Klas, number> }
-  | { kind: 'seq'; m: number; badge: string; scale?: (v: number) => string; sample?: Sample }
-  | { kind: 'div'; m: number; rel: boolean; badge: string; scale?: (v: number) => string; sample?: Sample };
+  /* `| undefined` on the optionals, because legendSpec builds them from a
+     conditional and passes the key with an undefined value rather than omitting
+     it — which exactOptionalPropertyTypes treats as a different statement from
+     "the key may be absent". See the same note on Legend's GradBar. */
+  | { kind: 'seq'; m: number; badge: string; scale?: ((v: number) => string) | undefined; sample?: Sample | undefined }
+  | { kind: 'div'; m: number; rel: boolean; badge: string; scale?: ((v: number) => string) | undefined; sample?: Sample | undefined };
 function legendSpec(S: State): Leg {
   if (S.view === 'klas') {
     const counts: Record<Klas, number> = { gain: 0, neu: 0, loss: 0 };

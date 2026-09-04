@@ -37,7 +37,11 @@ function gradStyle(scale: (v: number) => string, m: number, neg: boolean, n = 10
 /* mark: "you are here" tick for the hovered county's value, in [0,100] % */
 function GradBar({ scale, m, rel, mark, stops = 10, sample }: {
   scale: (v: number) => string; m: number; rel: boolean; mark?: number | null; stops?: number;
-  sample?: (k: number) => { off: number; v: number }[];
+  /* `| undefined` as well as optional. Under exactOptionalPropertyTypes the two
+     are different promises: `sample?: T` says the key may be absent, and the
+     JLS branch passes it explicitly as `T | undefined` — which is the shape a
+     conditional builder produces. Saying so is the honest declaration. */
+  sample?: ((k: number) => { off: number; v: number }[]) | undefined;
 }) {
   const lab = rel ? (v: number) => pctPlain(v) : (v: number) => fmtI.format(Math.round(v));
   return (
@@ -54,7 +58,7 @@ function GradBar({ scale, m, rel, mark, stops = 10, sample }: {
    evaluated markPct twice — once for the null test, once for the value. In jmap
    that is a linear scan over 556 features per call, per render, per hover. */
 function SeqBar({ scale, m, mark, stops = 10, sample }: { scale: (v: number) => string; m: number; mark: number | null;
-  stops?: number; sample?: (k: number) => { off: number; v: number }[] }) {
+  stops?: number; sample?: ((k: number) => { off: number; v: number }[]) | undefined }) {
   return (
     <>
       <div className="legend-bar" style={gradStyle(scale, m, false, stops, sample)}>

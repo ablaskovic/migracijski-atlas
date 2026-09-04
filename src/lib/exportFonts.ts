@@ -94,7 +94,10 @@ let pending: Promise<string> | null = null;
 const FONT_TIMEOUT = 8000;
 
 async function dataUri(url: string, signal?: AbortSignal): Promise<string> {
-  const r0 = await fetch(url, { signal });
+  /* the key is passed only when there is one: RequestInit's `signal?` means
+     "may be absent", and handing it an explicit undefined is a different
+     statement under exactOptionalPropertyTypes */
+  const r0 = await fetch(url, signal ? { signal } : {});
   /* `.blob()` succeeds on a 404 body just as happily as on a font, and the
      result is a perfectly valid data: URI for an HTML error page. The faces are
      hashed assets under /assets/, which vercel.json deliberately does NOT rewrite

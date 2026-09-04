@@ -29,7 +29,7 @@ import type { ErrorInfo, MouseEvent, ReactNode } from 'react';
    same address without the fragment, because a permalink is the most likely
    thing to have carried the reader into an unrenderable state. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
 
   /* One way out, and it is a reload. There is deliberately no "try again" that
      just clears the failed flag: what this boundary catches is a render throw,
@@ -45,13 +45,13 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
      neither of which is in the hash. */
   static getDerivedStateFromError() { return { failed: true }; }
 
-  componentDidCatch(err: Error, info: ErrorInfo) {
+  override componentDidCatch(err: Error, info: ErrorInfo) {
     /* the console is the only place a cause can go, and it is where the two
        export handlers already put theirs */
     console.error('render failed', err, info.componentStack);
   }
 
-  render() {
+  override render() {
     if (!this.state.failed) return this.props.children;
     /* Two addresses, and both of them whole. Each of the four links was built
        from `location.pathname` alone or, for one of them, pathname + hash — so
