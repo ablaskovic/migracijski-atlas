@@ -269,8 +269,16 @@ const dict = {
      is corrected in an effect. The English one lived nowhere, so a reader on the
      English UI shared a link whose preview card described the atlas in Croatian. */
   'meta.desc': {
-    hr: 'Interaktivni atlas migracija hrvatskih županija 1998.–2025.: saldo, klasifikacija, regije, godine, međužupanijski tokovi, matrica 21×21 i izmjerena JLS karta 2018. Izvor: DZS.',
-    en: 'An interactive atlas of migration in the Croatian counties, 1998–2025: net migration, classification, regions, years, inter-county flows, a 21×21 matrix and the measured 2018 LAU map. Source: CBS.',
+    /* {span} rather than a literal, for the reason document.title composes its
+       own: the span comes from the DATA. Written out here it was 1998.–2025.
+       against a title deriving 1998.–2026. from YEND the moment a year lands, so
+       one data refresh shipped a preview card whose title and description
+       disagreed about what the atlas covers. i18n.ts cannot import metrics.ts —
+       metrics imports i18n, and reaching back closes the cycle — so App fills it
+       in beside the title, which is where that same constraint already put the
+       title's own span. */
+    hr: 'Interaktivni atlas migracija hrvatskih županija {span}: saldo, klasifikacija, regije, godine, međužupanijski tokovi, matrica 21×21 i izmjerena JLS karta 2018. Izvor: DZS.',
+    en: 'An interactive atlas of migration in the Croatian counties, {span}: net migration, classification, regions, years, inter-county flows, a 21×21 matrix and the measured 2018 LAU map. Source: CBS.',
   },
   'badge.meas': { hr: 'izmjereno', en: 'measured' },
   'badge.est': { hr: 'procjena (IPF)', en: 'estimate (IPF)' },

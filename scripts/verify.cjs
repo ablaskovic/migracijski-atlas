@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 615;
+const EXPECTED_CHECKS = 616;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10526,6 +10526,30 @@ const evalSafe = async (pg, fn) => {
   ck('the meta description follows the language too',
     /županija/.test(metaDesc.hr) && /counties/.test(metaDesc.en)
     && metaDesc.hr !== metaDesc.en, JSON.stringify({ hr: metaDesc.hr.slice(0, 40), en: metaDesc.en.slice(0, 40) }));
+
+  /* …and it states the span the DATA has, which the dictionary used to write out
+     as a literal. document.title and og:title derive theirs from YEND, so the
+     next data year would have shipped a preview card whose title said
+     1998.–2026. and whose description said 1998.–2025. — about the same page.
+     The span is computed here from atlas_data2.json rather than from the app, so
+     this cannot agree with the bug by sharing it, and index.html's three static
+     strings are held to the same number: they are markup, nothing rewrites them
+     before a crawler that does not run JS, and the refresh checklist's whole
+     purpose is that they move with the payload. */
+  {
+    const yrs = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/atlas_data2.json'), 'utf8')).years;
+    const y0 = yrs[0], yn = yrs[yrs.length - 1];
+    const spanHr = `${y0}.–${yn}.`, spanEn = `${y0}–${yn}`;
+    const idx = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8');
+    const statics = ['<title>', 'name="description"', 'property="og:title"']
+      .map(k => (idx.split('\n').find(l => l.includes(k)) || ''));
+    ck('every span a share card can show is the span the data has',
+      metaDesc.hr.includes(spanHr) && metaDesc.en.includes(spanEn)
+      && statics.length === 3 && statics.every(l => l.includes(spanHr)),
+      JSON.stringify({ spanHr, spanEn,
+        hr: metaDesc.hr.includes(spanHr), en: metaDesc.en.includes(spanEn),
+        statics: statics.map(l => (l.match(/\d{4}\.?–\d{4}\.?/) || ['—'])[0]) }));
+  }
 
   /* The exported figure is where the country matters most: it leaves the app
      with no page around it to say which counties these are. The eyebrow was the

@@ -628,12 +628,16 @@ export default function App() {
      metrics.ts imports i18n.ts, and reaching back for Y0/YEND would close the
      cycle; `yrSpan` is what keeps the Croatian trailing dots off the English. */
   useEffect(() => {
-    document.title = `${t('hd.title')} · ${yrSpan(Y0, YEND)}`;
+    const span = yrSpan(Y0, YEND);
+    document.title = `${t('hd.title')} · ${span}`;
+    /* the description takes the SAME span, from the same call, so the card's
+       title and its text cannot state different years */
+    const desc = t('meta.desc').replace('{span}', span);
     /* …and the description with it. index.html ships the Croatian one because it
        is static markup, and nothing ever moved it: an English reader sharing a
        link handed the recipient a preview card written in Croatian, and a crawler
        that renders the page indexed the same. Same effect, same key on S.lang. */
-    document.querySelector('meta[name="description"]')?.setAttribute('content', t('meta.desc'));
+    document.querySelector('meta[name="description"]')?.setAttribute('content', desc);
     /* …and the two og: strings with it, which are the ones a preview card
        actually renders. The effect above was written because an English reader
        sharing a link handed the recipient a card in Croatian — and
@@ -644,7 +648,7 @@ export default function App() {
        Keyed on S.lang like the title and the description, not on the address:
        these are the copy on screen, and they are what a reader shares. */
     document.querySelector('meta[property="og:title"]')?.setAttribute('content', document.title);
-    document.querySelector('meta[property="og:description"]')?.setAttribute('content', t('meta.desc'));
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', desc);
     /* …and the canonical, which is now per-locale. index.html ships the Croatian
        one, and `?l=en` is a second indexable URL rather than a duplicate of it:
        a canonical pinned to the bare origin on both would tell a crawler the
