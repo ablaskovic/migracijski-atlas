@@ -14378,8 +14378,15 @@ const evalSafe = async (pg, fn) => {
          to buy space in this band is the same pressure that caused the clip in
          the first place, and nothing else covers 901–960. Left edge too, so an
          escape the other way is caught symmetrically. */
+      /* …and `display:none` is not the only way to hide it. A rect test catches
+         that one and neither of the other two: `visibility:hidden` and
+         `opacity:0` both keep the box, so a width-scoped rule using either would
+         buy the same space and leave all three checks green with the badge
+         invisible — the same pressure, one property along. */
+      const cs = getComputedStyle(tag);
       return { over: +(t.right - r.right).toFixed(2), badge: tag.textContent,
-        vis: tag.getClientRects().length > 0 && t.width > 0 && t.height > 0,
+        vis: tag.getClientRects().length > 0 && t.width > 0 && t.height > 0
+          && cs.visibility === 'visible' && parseFloat(cs.opacity) > 0.5,
         under: +(r.left - t.left).toFixed(2) };
     });
     ck(`the corridor badge stays inside the rail at ${w} px`,
