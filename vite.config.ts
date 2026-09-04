@@ -100,6 +100,15 @@ export default defineConfig({
   build: {
     sourcemap: 'hidden',
     chunkSizeWarningLimit: 608,
+    // A face is a file, always. The default inlines any asset under 4 kB as a
+    // base64 data: URI, and the two symbol subsets are 1,2 kB each — so they
+    // alone of the eight went into the entry chunk, which is the one thing
+    // exportFonts is written not to do ("a static import puts base64 in the
+    // entry chunk for a feature most readers never use"). Every reader paid
+    // 3,2 kB for the export's arrows. It also split the eight faces into two
+    // kinds for anything that watches them: verify.cjs's font-404 arm blocks by
+    // resourceType 'fetch' on a .woff2 URL, and a data: URI is neither.
+    assetsInlineLimit: (f: string) => (f.endsWith('.woff2') ? false : undefined),
     // …and three chunks instead of one, so a release does not re-send what did
     // not change. The entry carried react-dom, six d3 packages and ~165 kB of
     // static JSON along with the app code, and the app code is the only part

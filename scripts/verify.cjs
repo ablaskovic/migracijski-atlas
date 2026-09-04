@@ -425,7 +425,8 @@ const evalSafe = async (pg, fn) => {
        at boot are untouched", and all three call sites armed it BEFORE the boot
        they said it spared. Measured at 1440×900: a boot makes 22 woff2 requests,
        16 of them resourceType 'font' — index.css's @font-face rules — and 6
-       'fetch', which are exportFonts' warm (8 since the symbol subsets landed).
+       'fetch', which are exportFonts' warm (8 since the symbol subsets landed —
+       woff2 is excluded from asset inlining so all eight stay files).
        The unqualified test caught all of them,
        so the '404' arm rendered the page under test in the metric fallbacks
        rather than in the faces it ships.
