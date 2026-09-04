@@ -881,13 +881,20 @@ body.stage-collapsed .main{flex:none;height:420px}
    the taller of the two Državljanstvo tabs (English 377,28, Croatian 364,28).
    Unpinned it slid the tab row 8,6 px up under the pointer, which is the exact
    defect this rule exists to prevent. Croatian and English agree on Dob i spol.
+   It moved again for the same kind of reason: #zemList .jn stopped being nowrap
+   + ellipsis, because three country names and the total row's year were being
+   clipped away in a 118 px lane, so those rows take two lines now and the tab
+   grew 385,56 → 399,56 px in both languages. Unpinned again it slid the tab row
+   13,6 px up. Re-measured with the reserve released, all four tabs, both
+   languages: Zemlje 399,56 / 399,56, Državljanstvo 364,28 hr and 377,28 en,
+   Dob i spol 322,05 and 307,05. So 400, and Dob i spol is unchanged.
    `min()` against the same expression the cap uses, so a short window still
    caps the panel instead of a reserve pushing it up through the map's button
    strip: below ~800 px of stage the cap already holds the height constant on
    its own, and there the reserve resolves to exactly the cap. */
 .chipdock .jcard-cap{min-height:22px}
 .chipdock .agec .chip-body{min-height:min(322px,var(--chipfree))}
-.chipdock .citz .chip-body{min-height:min(386px,var(--chipfree))}
+.chipdock .citz .chip-body{min-height:min(400px,var(--chipfree))}
 .citz,.agec{position:static;right:auto;bottom:auto}
 .citz .chip-body{width:296px}
 .agec .chip-body{width:296px}
