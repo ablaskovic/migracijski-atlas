@@ -68,7 +68,7 @@ export const STORIES: Story[] = [
        positive through 1998–2008. Dated to the series it is demonstrable in, which
        is the rule this file already states for Nalaz 10: "Both claims are dated to
        the window they hold in". */
-    get cap() { return L('U 2025. hrvatski državljani prvi su put u objavljenoj seriji (od 2021.) neto pozitivni (+3.705, nakon −6.857 u 2024.), a azijski se val hladi — odseljavanje raste.', 'In 2025 Croatian citizens are net positive for the first time in the published series (since 2021) (+3,705, after −6,857 in 2024), while the Asian wave cools — departures are rising.'); },
+    get cap() { return L('U 2025. hrvatski državljani prvi su put u objavljenoj seriji (od 2021.) neto pozitivni (+3.705, nakon −6.857 u 2024.), a azijski se val hladi — odseljavanje raste.', 'In 2025 Croatian citizens are net positive for the first time in the published series (since 2021): +3,705, after −6,857 in 2024 — while the Asian wave cools and departures rise.'); },
     patch: { view: 'saldo', flow: 'ext', den: 'abs', cum: false, yi: Y25, citz: true, citzTab: 'grp', jls: false, age: false },
     /* the only caption whose claim lives in a panel — close it and the caption is
        describing something that is no longer on screen */
