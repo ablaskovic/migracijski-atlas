@@ -10808,6 +10808,19 @@ const evalSafe = async (pg, fn) => {
       await fresh('#v=saldo&c=1&y=2024');
       await page.evaluate(b => document.querySelector(b).focus(), btn);
       await page.keyboard.press('Enter');
+      /* …and an export actually RAN. Nothing here recorded that the button was
+         ever busy, so if the busy state stopped reaching the `disabled`
+         attribute — expressed as a class or aria-busy, or an onPng returning
+         early — waitForFunction below would resolve at once, no blur would
+         happen, and all four legs would read exactly the expected values while
+         exercising neither the blur nor the restore this check is named for.
+         Started right after the press, because the disable window is short on a
+         warm font cache, and polled at rAF. The text is read with it: '…' is the
+         busy label, so a busy state that stops using `disabled` still shows here
+         rather than passing silently. */
+      const busy = await page.waitForFunction(
+        b => { const e = document.querySelector(b); return !!e && (e.disabled || e.textContent.trim() === '…'); },
+        { timeout: 5000 }, btn).then(() => true, () => false);
       if (!stay) {
         await settle(120);
         await page.evaluate(() => document.querySelector('#spark').focus());
@@ -10817,11 +10830,23 @@ const evalSafe = async (pg, fn) => {
       await settle(400);
       expFocus[k + (stay ? 'Stayed' : 'Moved')] = await page.evaluate(() =>
         document.activeElement ? document.activeElement.id || document.activeElement.tagName : 'none');
+      expFocus[k + (stay ? 'Stayed' : 'Moved') + 'Busy'] = busy;
     }
   }
+  /* The busy floor is asserted for the PNG legs only, and the asymmetry is the
+     finding rather than a concession to it. Measured on a warm font cache: PNG
+     goes busy on both legs, SVG on neither — onSvg does call setBusySvg(true),
+     but ensureFonts() is already resolved and exportSVG is synchronous, so React
+     batches the true and the false into one render and no busy frame ever
+     paints. No paint, no blur; no blur, no drop to <body>; no drop, and the
+     restore this check is named for never runs on the SVG side. Those two legs
+     therefore assert where focus ENDS UP and nothing about the path, which is
+     worth knowing rather than papering over: making them exercise it needs a
+     held font fetch, which is the blockFonts machinery elsewhere in this file. */
   ck('a finished export leaves focus where the reader put it, and restores it only from body',
     expFocus.pngMoved === 'spark' && expFocus.svgMoved === 'spark'
-    && expFocus.pngStayed === 'pngBtn' && expFocus.svgStayed === 'svgBtn',
+    && expFocus.pngStayed === 'pngBtn' && expFocus.svgStayed === 'svgBtn'
+    && expFocus.pngMovedBusy && expFocus.pngStayedBusy,
     JSON.stringify(expFocus));
 
   /* ── two accessible-name repairs, measured where they are read ──
