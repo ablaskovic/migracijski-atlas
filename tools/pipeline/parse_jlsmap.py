@@ -103,6 +103,11 @@ def resolve(node):
 wbp = openpyxl.load_workbook('ext/pitoski.xlsx', read_only=True)
 wsp = wbp['GRAVITY']
 IN, OUT = defaultdict(int), defaultdict(int)
+# …and the per-county intra sum, accumulated here rather than in a second walk
+# of the same 31 MB sheet. The margin identity below needs it, and the loop
+# already has si, ti, w and both counties in hand; the second pass re-read
+# every row and re-resolved nothing, for a number this one can add in place.
+by_cty_intra = defaultdict(int)
 NODEC = {}
 tot = inter = intra = 0
 for r in wsp.iter_rows(min_row=2, values_only=True):
@@ -112,7 +117,9 @@ for r in wsp.iter_rows(min_row=2, values_only=True):
         if nm not in NODEC: NODEC[nm] = resolve(nm)
     si, ti = NODEC[s], NODEC[t]
     OUT[si] += w; IN[ti] += w; tot += w
-    if reg[si][0] == reg[ti][0]: intra += w
+    if reg[si][0] == reg[ti][0]:
+        intra += w
+        by_cty_intra[reg[si][0]] += w
     else: inter += w
 
 assert tot == 57465 and inter == 30384 and intra == 27081, (tot, inter, intra)
@@ -131,13 +138,6 @@ assert tot == 57465 and inter == 30384 and intra == 27081, (tot, inter, intra)
 od = json.load(open('ref/od2018.json', encoding='utf-8'))
 by_cty_out = defaultdict(int)
 for i, w in OUT.items(): by_cty_out[reg[i][0]] += w
-by_cty_intra = defaultdict(int)
-# recompute intra per county for the margin identity
-wsp2 = wbp['GRAVITY']
-for r in wsp2.iter_rows(min_row=2, values_only=True):
-    if r[0] is None: break
-    s, t, w = str(r[0]).strip(), str(r[1]).strip(), int(r[6])
-    if reg[NODEC[s]][0] == reg[NODEC[t]][0]: by_cty_intra[reg[NODEC[s]][0]] += w
 by_cty_in = defaultdict(int)
 for i, w in IN.items(): by_cty_in[reg[i][0]] += w
 for iso in ISOS:
