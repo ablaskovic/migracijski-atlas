@@ -260,7 +260,13 @@ export function denom(iso: string, yi: number, den: Den): number {
 }
 export function val(iso: string, yi: number, flow: Flow, den: Den, cum: boolean): number {
   let v = 0;
-  if (cum) { for (let i = IX2011; i <= yi; i++) v += netAt(iso, i, flow); if (yi < IX2011) v = 0; }
+  /* The loop IS the floor: with yi < IX2011 it does not run and v stays 0,
+     which is the "explicitly zero before the window opens" fsum() documents at
+     length. A second `v = 0` for the same case used to follow it — true, and
+     unreachable, so it read as a guard against a case the line it guards has
+     already made impossible. fsum keeps its floor because there the early
+     return is doing real work. */
+  if (cum) for (let i = IX2011; i <= yi; i++) v += netAt(iso, i, flow);
   else v = netAt(iso, yi, flow);
   return den === 'abs' ? v : v / denom(iso, yi, den) * 100;
 }
