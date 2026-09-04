@@ -4037,10 +4037,14 @@ const evalSafe = async (pg, fn) => {
   const aIn = await page.evaluate(() => document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').getAttribute('aria-label'));
   await fresh('#v=mx&c=0&y=2018&dir=net');
   const aNet = await page.evaluate(() => document.querySelector('.mxc[data-a="HR-21"][data-b="HR-01"]').getAttribute('aria-label'));
-  ck('matrix cell label states Odlasci as Grad Zagreb → Zagrebačka 2.311',
-    NBSP(aOut) === 'Grad Zagreb → Zagrebačka: 2.311 · izmjereno', aOut);
+  /* …and the PERIOD, which these labels did not carry. A cell reading "2.311 ·
+     izmjereno" is the same string whether the scrubber is on 2018 or summing
+     2011–2024, so the year is part of what the label states and is pinned here
+     with the rest of it. */
+  ck('matrix cell label states Odlasci as Grad Zagreb → Zagrebačka 2.311, for the year it is showing',
+    NBSP(aOut) === 'Grad Zagreb → Zagrebačka: 2.311 · 2018. · izmjereno', aOut);
   ck('matrix cell label flips direction for Dolasci (1.977 is Zagrebačka → Grad Zagreb)',
-    NBSP(aIn) === 'Zagrebačka → Grad Zagreb: 1.977 · izmjereno', aIn);
+    NBSP(aIn) === 'Zagrebačka → Grad Zagreb: 1.977 · 2018. · izmjereno', aIn);
   ck('matrix cell label calls a net balance a net, not a directed flow',
     aNet.includes('↔') && aNet.includes('neto') && NBSP(aNet).includes('−334'), aNet);
   /* the hatched diagonal's explanation was pointer-only: the roving tabindex
