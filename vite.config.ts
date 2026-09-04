@@ -34,6 +34,58 @@ const stampVersion = {
   },
 };
 
+/* The four faces first paint actually draws with, asked for at the same moment
+   as the stylesheet that names them instead of one round trip later.
+
+   A @font-face src is discoverable only after index-*.css has arrived AND
+   parsed, so the preload scanner — which reads the raw HTML before any CSS
+   exists — cannot see it. Measured on the built output over a uniform 60 ms
+   link: the stylesheet is requested at 104 ms and these four at 214-216 ms,
+   which is exactly one round trip of pure serialisation. The other four woff2
+   the page requests (Sans, and Mono 500) come at 377 ms, a further hop later,
+   because nothing above the fold needs them at first paint; preloading those
+   would spend bandwidth on the critical path to no effect, so this list is the
+   four and not the eight.
+
+   The names are read from the bundle rather than written down, because they are
+   content-hashed and a literal here would silently rot into a preload of a file
+   that no longer exists — a warning in the console and a wasted request, which
+   is worse than not preloading. A face this cannot find is a build that must
+   not finish, for the same reason stamp-version throws.
+
+   crossorigin is not optional even though the fonts are same-origin: a font is
+   always fetched in anonymous CORS mode, so a preload without it lands in a
+   different cache partition than the @font-face fetch and the file is
+   downloaded twice. */
+const FIRST_PAINT_FACES = ['ibm-plex-mono-400-latin', 'ibm-plex-mono-400-latin-ext',
+  'oswald-latin', 'oswald-latin-ext'];
+const preloadFaces = {
+  name: 'preload-faces',
+  enforce: 'post' as const,
+  transformIndexHtml: {
+    order: 'post' as const,
+    handler(html: string, ctx: { bundle?: Record<string, { originalFileNames?: string[] }> }) {
+      if (!ctx.bundle) return html;   // dev server: the faces are unhashed and already discoverable
+      const bundle = ctx.bundle;
+      const tags = FIRST_PAINT_FACES.map(f => {
+        /* Matched on the SOURCE name the bundle records, not on the emitted one.
+           A hash may contain '-' (oswald-latin-9AWb_KF-.woff2 is a real emitted
+           name), so a pattern over the output cannot tell where the face name
+           ends: 'ibm-plex-mono-400-latin-<hash>' and
+           'ibm-plex-mono-400-latin-ext-<hash>' both matched the shorter of the
+           two names, which is the build this threw on. */
+        const want = 'src/fonts/' + f + '.woff2';
+        const hit = Object.keys(bundle).filter(n => (bundle[n].originalFileNames || [])
+          .some(o => o.replace(/\\/g, '/').endsWith(want)));
+        if (hit.length !== 1) throw new Error(`preload-faces: ${f} matched ${hit.length} assets`);
+        return { tag: 'link', injectTo: 'head-prepend' as const,
+          attrs: { rel: 'preload', as: 'font', type: 'font/woff2', crossorigin: '', href: '/' + hit[0] } };
+      });
+      return { html, tags };
+    },
+  },
+};
+
 const dropDataChunkMaps = {
   name: 'drop-data-chunk-maps',
   /* Deleting the two .map assets is the whole of it. This also stripped a
@@ -71,7 +123,7 @@ const dropDataChunkMaps = {
 // the entry is an ES module and a module fetched from a null origin is
 // CORS-blocked — measured, blank page, "blocked by CORS policy". Serve it.)
 export default defineConfig({
-  plugins: [react(), dropDataChunkMaps, stampVersion],
+  plugins: [react(), dropDataChunkMaps, stampVersion, preloadFaces],
   base: '/',
   // Source maps are BUILT and not advertised. They were shipped with a
   // sourceMappingURL on the reasoning that "a stack trace from the deployed app

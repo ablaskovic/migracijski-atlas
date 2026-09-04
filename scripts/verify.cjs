@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 637;
+const EXPECTED_CHECKS = 638;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10492,6 +10492,53 @@ const evalSafe = async (pg, fn) => {
   if (headMeta.hr.og[1] === headMeta.en.og[1] || headMeta.hr.og[2] === headMeta.en.og[2]) headBad.push('hr and en share card copy');
   ck('the head carries a per-locale canonical, an hreflang set and complete cards, on one origin',
     headBad.length === 0, headBad.slice(0, 3).join(' | '));
+
+  /* ── and the four faces first paint draws with are asked for from the markup ──
+     A preload is only worth anything if the browser then USES it, and the two
+     ways to get that wrong are silent: a stale href (the names are
+     content-hashed, so a literal rots into a 404 the console reports as a
+     warning nobody reads) and a missing `crossorigin` (a font is always fetched
+     in anonymous CORS mode, so a preload without it sits in a different cache
+     partition and the file is downloaded twice — costing bandwidth on the
+     critical path to make the page slower).
+     Asserted from what the browser recorded rather than from the markup alone:
+     for each of the four, the resource-timing entry must exist, its
+     initiatorType must be 'link' — which is the browser saying the @font-face
+     use was served from the preload rather than fetched again — and there must
+     be exactly ONE such non-warm entry. The warm entries (initiatorType
+     'fetch', exportFonts) are excluded: those are a different request by
+     design.
+     Measured over a uniform 60 ms link before and after: the four went from
+     requested at 152 ms / complete at 259 ms to requested at 74 ms / complete
+     at 146 ms — one full round trip, because a @font-face src is discoverable
+     only once index-*.css has arrived and parsed. */
+  await fresh('');
+  /* the entries are what this reads, so wait for them rather than for the map:
+     fresh() returns on svg#map and a face can still be in flight */
+  await page.waitForFunction(() => performance.getEntriesByType('resource')
+    .filter(x => /(ibm-plex-mono-400-latin(-ext)?|oswald-latin(-ext)?)-[\w-]+\.woff2$/.test(x.name)
+      && x.initiatorType !== 'fetch').length >= 4, { timeout: 15000 }).catch(() => {});
+  const pre = await page.evaluate(() => {
+    const FIRST = /(ibm-plex-mono-400-latin(-ext)?|oswald-latin(-ext)?)-[\w-]+\.woff2$/;
+    const links = [...document.querySelectorAll('link[rel="preload"][as="font"]')];
+    const res = performance.getEntriesByType('resource')
+      .filter(x => FIRST.test(x.name) && x.initiatorType !== 'fetch');
+    return {
+      links: links.length,
+      hrefs: links.map(l => l.getAttribute('href')),
+      matched: links.filter(l => FIRST.test(l.getAttribute('href') || '')).length,
+      abs: links.every(l => (l.getAttribute('href') || '').startsWith('/assets/')),
+      cors: links.every(l => l.hasAttribute('crossorigin')),
+      type: links.every(l => l.getAttribute('type') === 'font/woff2'),
+      entries: res.length,
+      fromLink: res.filter(x => x.initiatorType === 'link').length,
+      dup: res.length !== new Set(res.map(x => x.name)).size,
+    };
+  });
+  ck('first paint’s four faces are preloaded from the markup, and the page then uses those bytes',
+    pre.links === 4 && pre.matched === 4 && pre.abs && pre.cors && pre.type
+    && pre.entries === 4 && pre.fromLink === 4 && !pre.dup,
+    JSON.stringify(pre));
   /* …and the journey through that address, which nothing walked. The only load
      of `?l=en` in this file reads the head and leaves — no check has ever
      pressed a language button on a query arrival, let alone reloaded after one.
