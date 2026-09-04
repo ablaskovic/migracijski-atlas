@@ -489,7 +489,13 @@ body.stage-collapsed .main{flex:none;height:420px}
    encode magnitude, so they are geometry, not chrome. */
 .cnt{stroke:#fff;stroke-width:.8;cursor:pointer;transition:fill .25s}
 .cnt.hl{stroke:var(--ink);stroke-width:1.6}
-.cnt.sel{stroke:var(--acc);stroke-width:2.2}
+/* The selection is drawn as an overlay above the fills (MapView), not as the
+   county's own stroke: a single teal line on the ramp measured 1,02–1,99:1
+   across the whole gain half, under the 3:1 a state indicator owes. What is
+   left here is the fill nudge, which is not the indicator. */
+.selring{pointer-events:none;fill:none}
+.selring .sr-halo{stroke:#fff;stroke-width:4.6;stroke-linejoin:round}
+.selring .sr-ink{stroke:var(--acc);stroke-width:2.2;stroke-linejoin:round}
 /* outline on an SVG path draws round its bbox, not its shape — a stray rectangle,
    so focus has to be drawn as the county's own stroke. It used to lean on .hl,
    which onFocus sets — but .hl is *shared with hover*, and a single value at that:
@@ -508,7 +514,8 @@ body.stage-collapsed .main{flex:none;height:420px}
    pointerdown, so this is the app answering for its own hand-back rather than a
    second heuristic competing with the pseudo. */
 .cnt:focus-visible,.cnt[data-kf]:focus{stroke:var(--ink);stroke-width:2.2;stroke-dasharray:4 2.5}
-.cnt.sel:focus-visible,.cnt.sel[data-kf]:focus{stroke:var(--acc);stroke-width:2.4}
+/* the focus ring is its own overlay too, so a selected county that also holds
+   focus needs nothing here beyond what .focusring already draws */
 /* 1.4.11 — a *single-tone* ring cannot clear 3:1 against a diverging data ramp,
    and this one was being drawn as the feature's own stroke, i.e. directly on
    the colour it has to contrast with. Measured against the shipping Lab ramp:

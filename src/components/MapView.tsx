@@ -880,6 +880,24 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
                 KMAX — exactly where a reader zoomed in to click. */}
             {arcs && <circle className="hubdot" cx={arcs.sx} cy={arcs.sy} r={4.5 / k} fill="var(--ink)" stroke="#fff" strokeWidth={1.5 / k} />}
           </g>
+          {/* …and the SELECTION, on the same argument and for the same reason.
+              It was `.cnt.sel{stroke:var(--acc)}` — the county's own stroke,
+              competing with the county's own fill. Measured against the shipped
+              Lab ramp: teal is 1,73:1 on Grad Zagreb's deep indigo, 1,02:1 at
+              +0,75·m, 1,25:1 on the −m vermilion and 1,99:1 on the Tokovi hub —
+              below the 3:1 that 1.4.11 asks of a state indicator across the whole
+              gain half and the deep loss end. Matrica's equivalent ring was made
+              two-tone on exactly that measurement, and its comment records the
+              1,02:1. The rail does not mark a selected county, so on map + rail
+              this ring is the only visual answer to "which one is selected".
+              Above the fills, so what it is drawn on is white and ink rather
+              than whatever the ramp put underneath. */}
+          {S.sel && cds[S.sel] && (
+            <g className="selring">
+              <path className="sr-halo" d={cds[S.sel]} vectorEffect="non-scaling-stroke" />
+              <path className="sr-ink" d={cds[S.sel]} vectorEffect="non-scaling-stroke" />
+            </g>
+          )}
           {/* Two-tone focus ring, drawn above every fill so it is never the
               county's own stroke competing with its own colour. See index.css. */}
           {fIso && cds[fIso] && (

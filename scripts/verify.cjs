@@ -182,7 +182,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 626;
+const EXPECTED_CHECKS = 627;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -11793,10 +11793,57 @@ const evalSafe = async (pg, fn) => {
   ck('Escape marks the element it hands focus back to, and only for that gesture',
     !kfRing.noPoint && kfRing.click1.focused && !kfRing.click1.kf
     && kfRing.esc.focused && kfRing.esc.kf && !kfRing.click2.kf
-    && ['.cnt[data-kf]:focus', '.cnt.sel[data-kf]:focus', '.mxc[data-kf]:focus',
+    /* `.cnt.sel[data-kf]:focus` is gone from this list with the rule it named.
+       It existed to out-specify `.cnt.sel`'s own teal stroke so a SELECTED county
+       did not lose its focus ring to its own selection; the selection is an
+       overlay above the fills now, so `.cnt` alone reaches it. Measured: focus a
+       selected county and .focusring .fr-ink is drawn. */
+    && ['.cnt[data-kf]:focus', '.mxc[data-kf]:focus',
       '.mxd[data-kf]:focus', '.yrc[data-kf]:focus', '.jl[data-kf]:focus']
       .every(s => String(kfRing.rule).includes(s)),
     JSON.stringify(kfRing));
+
+  /* ── and the SELECTION ring, on the same argument the focus ring settled ──
+     It was `.cnt.sel{stroke:var(--acc)}` — a single teal line drawn as the
+     county's own stroke, on the county's own fill. Measured against the shipped
+     ramp: 1,53:1 on Grad Zagreb at the default landing, and scripted across the
+     scale 1,02:1 at +0,75·m, 1,25:1 on the −m vermilion and 1,99:1 on the Tokovi
+     hub — under the 3:1 that 1.4.11 asks of a state indicator, across the whole
+     gain half. Matrica's equivalent ring was made two-tone on exactly that
+     measurement. The rail marks no selected county, so this ring is the only
+     visual answer to "which one is selected".
+     Asserted against the halo it is drawn on rather than against the fill: that
+     is the point of an overlay, and reading it against the fill would measure
+     the construction this replaced. The fill is read too, so a build that put
+     the ring back on the county cannot pass by drawing a halo nothing sits on. */
+  await page.setViewport({ width: 1440, height: 900 });
+  const selRing = [];
+  for (const [h, iso] of [['#v=saldo&c=1&y=2024&s=HR-21', 'HR-21'],
+    ['#v=saldo&c=1&y=2024&s=HR-14', 'HR-14'], ['#v=klas&c=1&y=2024&s=HR-09', 'HR-09']]) {
+    await fresh(h);
+    selRing.push({ iso, ...await page.evaluate(() => {
+      const num = c => { const x = String(c).match(/[\d.]+/g); return x ? x.slice(0, 3).map(Number) : null; };
+      const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const lum = c => { const p = num(c); if (!p) return null;
+        return 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2]); };
+      const cr = (a, b) => { const A = lum(a), B = lum(b); if (A === null || B === null) return null;
+        return +((Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)).toFixed(2); };
+      const p = document.querySelector('#map .cnt.sel');
+      const ink = document.querySelector('#map .selring .sr-ink');
+      const halo = document.querySelector('#map .selring .sr-halo');
+      return { hasSel: !!p, overlay: !!(ink && halo),
+        fill: p ? getComputedStyle(p).fill : null,
+        onHalo: ink && halo ? cr(getComputedStyle(ink).stroke, getComputedStyle(halo).stroke) : null,
+        haloW: halo ? parseFloat(getComputedStyle(halo).strokeWidth) : 0,
+        inkW: ink ? parseFloat(getComputedStyle(ink).strokeWidth) : 0 };
+    }) });
+  }
+  ck('the selected county is ringed above its own fill, not stroked in it',
+    selRing.length === 3
+    && selRing.every(r => r.hasSel && r.overlay && r.fill)
+    /* 1.4.11 for a state indicator, read against what it is actually drawn on */
+    && selRing.every(r => r.onHalo >= 3 && r.haloW > r.inkW && r.inkW >= 2),
+    JSON.stringify(selRing));
 
   /* ── Tokovi says what it does not draw ──
      the arc list is filtered at |v| >= 5, inherited from the first commit and
