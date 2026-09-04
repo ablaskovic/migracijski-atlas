@@ -215,9 +215,15 @@ export default function Scrubber({ S, setYi, togglePlay }: {
   const ticks = su >= 470 ? [2000, 2005, 2010, 2013, 2015, 2020, YEND]
     : su >= 239 ? [2000, 2010, 2020, YEND]
     : [2000, YEND];
-  const cap = sw >= 380
-    ? L('RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)',
-      'Croatia · net external migration (area) · moves between counties (dashed)')
+  /* What the chart under the slider shows. role=slider makes every <text>
+     inside the svg presentational, so this caption — the only thing naming the
+     blue area and the dashed line — reached no screen reader at all. It is the
+     slider's description now, in a visually-hidden copy beside it, and always
+     the long form: the hidden one is not competing for pixels with the
+     keyboard hint the way the drawn one is. */
+  const capFull = L('RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)',
+    'Croatia · net external migration (area) · moves between counties (dashed)');
+  const cap = sw >= 380 ? capFull
     : L('RH · vanjski saldo · preseljeni', 'Croatia · net external · moves');
   /* The hint and the caption share one line, so the room one needs is the room
      the other does not have. A flat 560 was set against the SHORT caption: the
@@ -293,11 +299,13 @@ export default function Scrubber({ S, setYi, togglePlay }: {
         </svg>
       </button>
       <div className="scrub-chart" ref={chartRef}>
+        <span className="sr-only" id="sparkDesc">{capFull}</span>
         {/* a real slider: the year is the app's primary control, and it was
             reachable only by dragging with a mouse. Arrow keys are handled
             globally in App, so focus here just makes that discoverable. */}
         <svg id="spark" role="slider" tabIndex={inert ? -1 : 0}
-          aria-label={L('Godina prikaza', 'Displayed year')} aria-disabled={inert || undefined}
+          aria-label={L('Godina prikaza', 'Displayed year')} aria-describedby="sparkDesc"
+          aria-disabled={inert || undefined}
           aria-valuemin={S.cum || S.view === 'klas' ? 2011 : Y0} aria-valuemax={YEND}
           aria-valuenow={yr} aria-valuetext={yrL(yr)}
           onPointerDown={inert ? undefined : onDown} onPointerMove={inert ? undefined : onMove}
