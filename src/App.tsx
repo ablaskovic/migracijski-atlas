@@ -531,11 +531,27 @@ export default function App() {
   const histQ = useRef<string | null>(null);
   const histT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const histAt = useRef(0);
-  useEffect(() => () => {
-    if (histT.current !== null) clearTimeout(histT.current);
+  /* …and on the way OUT of the page, not only on unmount. The throttle holds a
+     write for up to 320 ms, and React unmounting is not how a reader leaves:
+     scrub the year and press F5 — or close the tab — inside that window and the
+     app reboots on the year before the last one, i.e. the address is not the
+     state, which is the contract the throttle exists to protect in the first
+     place. The pagehide event fires for a reload, a navigation and a bfcache
+     suspend alike — the unload event does not, and registering that one
+     disqualifies the page from the bfcache.
+     One flush, shared, so the two paths cannot drift. */
+  const flushHist = () => {
+    if (histT.current !== null) { clearTimeout(histT.current); histT.current = null; }
     const p = histQ.current;
     histQ.current = null;
     if (p !== null) { try { history.replaceState(null, '', p); } catch { /* rate cap */ } }
+  };
+  const flushRef = useRef(flushHist);
+  flushRef.current = flushHist;
+  useEffect(() => {
+    const onHide = () => flushRef.current();
+    addEventListener('pagehide', onHide);
+    return () => { removeEventListener('pagehide', onHide); flushRef.current(); };
   }, []);
   useEffect(() => {
     const h = '#' + encodeHash(S);
