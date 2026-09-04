@@ -362,7 +362,12 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <b>{L(' razmaknica', ' space')}</b>{L(' pokreće reprodukciju kroz godine.', ' starts playback through the years.')}
         {/* zoom was wheel/pinch/drag only — the feature, and the county labels that
             only appear once a county is zoomed large enough, had no keyboard route */}
-        <b> +</b>{L(' i ', ' and ')}<b>−</b>{L(` zumiraju kartu, ${t('view.mx').toLowerCase().slice(0, -1)}u i ${t('view.yrs')}, `, ` zoom the map, the ${t('view.mx').toLowerCase()} and ${t('view.yrs')}, `)}
+        {/* the last sliced case form in the file: the Matrica label had its final
+            character cut off to build an accusative, so renaming that button
+            would have printed a non-word into the glossary. Quoted, like the
+            colour paragraph above — a quoted name does not decline, and nothing
+            has to know how. */}
+        <b> +</b>{L(' i ', ' and ')}<b>−</b>{L(` zumiraju kartu te prikaze „${t('view.mx')}” i „${t('view.yrs')}”, `, ` zoom the map, the “${t('view.mx')}” and “${t('view.yrs')}” views, `)}
         <b>0</b>{L(' vraća na početno, a ', ' resets, and ')}<b>Shift</b>
         {L(' + strelice pomiču zumirani prikaz; isto radi kotačić miša, odnosno povlačenje mišem. Na karti i u matrici ',
           ' + the arrow keys pan a zoomed view; the mouse wheel and dragging do the same. On the map and in the matrix ')}
