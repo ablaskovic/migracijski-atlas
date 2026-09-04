@@ -147,7 +147,17 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   <text key={v} className={'cyr' + (v === y ? ' on' : '')}
                     x={x(v)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize="0.5625rem"
                     fontFamily="var(--mono)" fontWeight={v === y ? 600 : 400}
-                    fill={v === y ? 'var(--acc)' : 'var(--mut)'}>{yrOf(v)}</text>
+                    /* --ink, not --acc. Teal at 9 px weight 600 is 4,72:1 over
+                       the panel at BEST, and this body is 94 % panel plus 6 % of
+                       whatever the map shows under the dock: measured 4,28:1 with
+                       a Tokovi hub beneath it and 4,31:1 over the deepest fills,
+                       under the 4,5:1 AA asks of text this size. The margin over
+                       sea was 0,22, so any content under the translucent body
+                       sank it. YearsView removed this exact construction from its
+                       column labels for this exact reason — keep teal on --panel
+                       or larger than 18 px — and the weight and the 1,4 px
+                       .citz-frame already mark which year is selected. */
+                    fill={v === y ? 'var(--ink)' : 'var(--mut)'}>{yrOf(v)}</text>
                 ))}
                 <line x1={mL} x2={w - mR} y1={y0} y2={y0} stroke="var(--ink)" strokeWidth={0.8} />
               </svg>
