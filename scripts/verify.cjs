@@ -4580,12 +4580,30 @@ const evalSafe = async (pg, fn) => {
   await page.evaluate(() => document.querySelector('#map').dispatchEvent(
     new WheelEvent('wheel', { deltaY: -400, clientX: 200, clientY: 300, bubbles: true, cancelable: true })));
   await settle(400);
-  const repad = await page.evaluate(() => {
-    /* height for the nine, width only where the block sets min-width: a segment
-       button is 33 px wide by design and it is the row that carries it. */
+  /* …and the three the sweep still did not name. index.css re-pads twelve
+     declarations under a coarse pointer and this list held nine: `.play{width:48px}`
+     and `.thr input[type=range]{height:24px}` were never measured, and neither
+     was `.geostat button`, which mounts only in the failure UI (measured with the
+     geometry chunk blocked, further down, where that UI exists).
+     `.thr` needs Klasifikacija, so the sweep runs over two states and unions what
+     it found; the floor is the count of selectors it must have reached. */
+  const repadStates = ['#v=saldo&c=1&y=2024&s=HR-21&cz=1&st=1', '#v=klas&c=1&y=2024'];
+  const repad = { small: [], mounted: [], coarse: false };
+  for (const rh of repadStates) {
+    if (rh !== repadStates[0]) {
+      await fresh(rh);
+      await settle(250);
+    }
+    const one = await page.evaluate(() => {
+    /* height for the eleven, width only where the block sets min-width: a segment
+       button is 33 px wide by design and it is the row that carries it.
+       `.thr input[type=range]` is 24 px by that block's own rule, which is the
+       WCAG 2.5.8 minimum for a slider thumb rather than the 44 px target the
+       buttons take — so it carries its own floor. */
     const want = ['.seg button', '.jtabs button', '.chip-hd', '.rrow', '.storysel select',
-      '.rstbtn', '.card-x', '.zoomrst', '.labbtn'];
-    const wide = ['.rstbtn', '.card-x'];
+      '.rstbtn', '.card-x', '.zoomrst', '.labbtn', '.play', '.thr input[type=range]'];
+    const wide = ['.rstbtn', '.card-x', '.play'];
+    const floor = sel => (sel === '.thr input[type=range]' ? 24 : 44);
     const small = [], mounted = [];
     for (const sel of want) {
       const els = [...document.querySelectorAll(sel)].filter(e => e.getClientRects().length);
@@ -4593,16 +4611,20 @@ const evalSafe = async (pg, fn) => {
       mounted.push(sel);
       for (const e of els) {
         const b = e.getBoundingClientRect();
-        if (b.height < 44 || (wide.includes(sel) && b.width < 44)) {
+        if (b.height < floor(sel) || (wide.includes(sel) && b.width < 44)) {
           small.push(sel + ' ' + Math.round(b.width) + 'x' + Math.round(b.height));
           break;
         }
       }
     }
     return { small, mounted, coarse: matchMedia('(any-pointer:coarse)').matches };
-  });
-  ck('every coarse-pointer re-pad still reaches its 44 px target',
-    repad.coarse && repad.mounted.length === 9 && repad.small.length === 0,
+    });
+    repad.small.push(...one.small);
+    for (const m of one.mounted) if (!repad.mounted.includes(m)) repad.mounted.push(m);
+    repad.coarse = repad.coarse || one.coarse;
+  }
+  ck('every coarse-pointer re-pad still reaches its target',
+    repad.coarse && repad.mounted.length === 11 && repad.small.length === 0,
     JSON.stringify(repad));
   await page.setViewport({ width: 390, height: 844, hasTouch: true, isMobile: true });
 
