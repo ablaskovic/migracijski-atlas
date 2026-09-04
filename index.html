@@ -27,7 +27,24 @@
      thing static markup can say about that. -->
 <meta property="og:locale" content="hr_HR">
 <meta property="og:locale:alternate" content="en_GB">
-<meta name="twitter:card" content="summary">
+<!-- og:url and og:image are two of Open Graph's four required properties and
+     this card had neither, so the block that exists to stop permalinks
+     unfurling as bare URLs still produced a text-only card in Slack, Discord,
+     iMessage and WhatsApp. og:url is the canonical address of the page the card
+     names — App rewrites it with the canonical when the locale resolves to the
+     ?l=en form, for the same reason it rewrites that one.
+     The image is a committed 1200×630 PNG, not a build step: the atlas's own
+     mark, title and sources in its own palette. Absolute, because a scraper
+     resolves it against nothing. -->
+<meta property="og:url" content="https://migracijski-atlas.hr/">
+<meta property="og:image" content="https://migracijski-atlas.hr/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="Migracijski atlas županija 1998.–2025. — izvor DZS i Pitoski i sur. 2021.">
+<!-- summary_large_image now that there IS an image: with `summary` the card
+     crops the 1200×630 to a small square thumbnail. -->
+<meta name="twitter:card" content="summary_large_image">
 <!-- Every path on this origin renders this same page, so without a canonical the
      blanket Allow: in robots.txt invites an unbounded set of duplicate URLs into
      an index. The fragment carries the state and is never sent to a server, so
@@ -48,6 +65,55 @@
 <link rel="alternate" hreflang="hr" href="https://migracijski-atlas.hr/">
 <link rel="alternate" hreflang="en" href="https://migracijski-atlas.hr/?l=en">
 <link rel="alternate" hreflang="x-default" href="https://migracijski-atlas.hr/">
+<!-- The provenance in a form a machine can read. The page states its four
+     upstream sources in prose — the footer, the glossary and the <noscript>
+     below — and a crawler had no structured form of any of it. Dataset rather
+     than WebApplication: what is worth finding here is the data and where it
+     came from; the interface is how it is read.
+     A copy of what licences.ts and credits.ts own, under the same standing
+     arrangement as the <noscript>: this file cannot import them, so the suite is
+     what keeps the two in step. Croatian, like the rest of the static markup —
+     it describes the page a crawler is given. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "Migracijski atlas županija · 1998.–2025.",
+  "description": "Interaktivni atlas migracija hrvatskih županija 1998.–2025.: saldo, klasifikacija, regije, godine, međužupanijski tokovi, matrica 21×21 i izmjerena JLS karta 2018.",
+  "url": "https://migracijski-atlas.hr/",
+  "inLanguage": ["hr", "en"],
+  "temporalCoverage": "1998/2025",
+  "spatialCoverage": { "@type": "Place", "name": "Hrvatska" },
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "creator": { "@type": "Person", "name": "Ante Blašković" },
+  "isBasedOn": [
+    {
+      "@type": "Dataset",
+      "name": "DZS — tablice 7.4.1.–7.4.3. i STAN-2026-2-1",
+      "url": "https://podaci.dzs.hr/"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "name": "Pitoski i sur. (2021.) — izmjereni tokovi 2018.",
+      "url": "https://doi.org/10.1186/s40649-021-00093-0",
+      "license": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "name": "Maras i Vinovrški (2026.) — klasifikacija i prijedlog regija",
+      "url": "https://hrcak.srce.hr/349820",
+      "identifier": "https://doi.org/10.51650/ezrvs.20.1-2.4",
+      "license": "https://creativecommons.org/licenses/by-nc/4.0/"
+    },
+    {
+      "@type": "Dataset",
+      "name": "geoBoundaries / OpenStreetMap — granice",
+      "url": "https://www.openstreetmap.org/copyright",
+      "license": "https://opendatacommons.org/licenses/odbl/1-0/"
+    }
+  ]
+}
+</script>
 <!-- Three, because one SVG is not an icon for every agent that asks. Safari does
      not use SVG favicons and requests /favicon.ico; iOS "Add to Home Screen"
      requests /apple-touch-icon.png; and unfurlers and feed readers probe

@@ -761,6 +761,11 @@ export default function App() {
     const urlEn = new URLSearchParams(location.search).get('l') === 'en' && S.lang === 'en';
     document.querySelector('link[rel="canonical"]')
       ?.setAttribute('href', SITE + (urlEn ? '?l=en' : ''));
+    /* og:url with it: it is the card's copy of the canonical, and a card naming
+       the Croatian address over an English title is the same contradiction the
+       per-locale canonical exists to avoid. */
+    document.querySelector('meta[property="og:url"]')
+      ?.setAttribute('content', SITE + (urlEn ? '?l=en' : ''));
     document.querySelector('meta[property="og:locale"]')
       ?.setAttribute('content', urlEn ? 'en_GB' : 'hr_HR');
     document.querySelector('meta[property="og:locale:alternate"]')
