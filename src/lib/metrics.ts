@@ -287,8 +287,15 @@ export type ColorScale = ScaleLinear<string, string>;
 export function divScale(m: number): ColorScale {
   return scaleLinear<string>().domain([-m, 0, m]).range(['#B5341F', '#F1EEE9', '#1D4E89']).interpolate(interpolateLab).clamp(true);
 }
+/* .clamp(true) on both. Every caller feeds this |v| <= m by construction —
+   flowMax, mxMax and jmapMax are maxima over the series being painted, Rail
+   makes its mx-net rows non-negative, MapView passes Math.abs — so no wrong
+   colour is reachable today. Unclamped it would extrapolate past the ramp end
+   in Lab and hand back a colour the legend does not contain, which is what the
+   diverging scale beside it has been clamped against all along; a future caller
+   sampling a gradient past m would find the asymmetry, not the rule. */
 export function seqScale(m: number, dir: Dir): ColorScale {
-  return scaleLinear<string>().domain([0, m]).range(['#F1EEE9', dir === 'in' ? '#1D4E89' : '#B5341F']).interpolate(interpolateLab);
+  return scaleLinear<string>().domain([0, m]).range(['#F1EEE9', dir === 'in' ? '#1D4E89' : '#B5341F']).interpolate(interpolateLab).clamp(true);
 }
 /* thrRel: threshold as % of the 2011 census instead of absolute persons —
    the paper's −4.500 is absolute while its own figures argue in relatives */
