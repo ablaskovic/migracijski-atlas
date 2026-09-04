@@ -4,8 +4,12 @@
 Other years = IPF: 2018 structure rescaled to exact DZS margins from atlas_data2.json
 (rows = oi 'odseljeni u drugu zupaniju', cols = ii 'doseljeni iz druge zupanije').
 1998-2006 margins don't balance (DZS asymmetry, max 550) -> in-margins rescaled proportionally.
-Integer rounding: largest remainder per row (rows exact; col drift <= ~5 against the
-fitted margin, <= 146 against the published ii before 2007, <= 4 from 2007)."""
+Integer rounding: largest remainder per row. Rows are exact by construction; the
+columns are what rounding moves, and the asserts below carry headroom the
+measurements do not need. Both numbers, so the prose and the assert cannot be
+read as disagreeing: against the fitted margin, asserted <= 5 (measured 4);
+against the ii DZS published, asserted <= 150 before 2007 (measured 146, in 2002)
+and <= 5 from 2007 on (measured 4, in 2011)."""
 # The CONSOLE is encoded too, not only the files. Commit 85a1086's encoding sweep
 # gave every open() an explicit encoding='utf-8' and left sys.stdout
 # locale-derived, so on Windows a REDIRECTED stdout is cp1252 — and every script
