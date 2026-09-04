@@ -6665,6 +6665,22 @@ const evalSafe = async (pg, fn) => {
     await settle(250);
     deferred[leave ? 'left' : 'stayed'] = { armed, navigated,
       ...(await evalSafe(pg, () => ({ mark: window.__mark || 'GONE', hash: location.hash }))) };
+    /* …and what the view SAYS when the reader comes back to it. This leg proved
+       the reload was dropped and stopped there, so nothing read the notice that
+       explains the reload — and the notice was a boolean set on the retry press
+       and never cleared, so it outlived what it describes. Measured: return to
+       the JLS view after leaving and "nastavit će se automatski kad se veza
+       vrati" is printed again with nothing armed, over an error the reader can
+       only clear by pressing retry a second time. A promise with nothing behind
+       it is worse than no promise: it is the reason to wait. */
+    if (leave) {
+      await pg.click('#segView button[data-v="jmap"]').catch(() => {});
+      await settle(700);
+      deferred.left.back = await evalSafe(pg, () => ({
+        err: !!document.querySelector('#jerror'),
+        retry: !!document.querySelector('#jretry'),
+        note: !!document.querySelector('#joffline') }));
+    }
     await pg.close();
   }
   } catch (e) { deferred.error = String(e && e.message).slice(0, 120); }
@@ -6672,7 +6688,11 @@ const evalSafe = async (pg, fn) => {
     !deferred.error && deferred.stayed && deferred.left
     && deferred.stayed.armed && deferred.stayed.navigated && deferred.stayed.mark === 'GONE'
     && deferred.left.armed && !deferred.left.navigated
-    && deferred.left.mark === 'SESSION' && /v=klas/.test(deferred.left.hash),
+    && deferred.left.mark === 'SESSION' && /v=klas/.test(deferred.left.hash)
+    /* the failure UI is still there on return — err and retry — and only the
+       promise that is no longer true is gone */
+    && deferred.left.back && deferred.left.back.err && deferred.left.back.retry
+    && !deferred.left.back.note,
     JSON.stringify(deferred));
   ck('an empty rail and the map both name the missing geometry instead of promising rows',
     railGone.jl === 0 && railGone.rows === 0 && /Geometrija JLS nije u/.test(railGone.txt)

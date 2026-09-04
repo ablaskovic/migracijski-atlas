@@ -7,7 +7,7 @@ import {
   val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, flowKind, jlsVal, jmapScale, countyAria, fmtI, fmtR, sgn,
   ARC_MIN,
 } from '../lib/metrics.ts';
-import { jlsGeo, regGeo, jlsFailed, regFailed, retryGeo, cancelRetry, geoStatus } from '../lib/geoAsync.ts';
+import { jlsGeo, regGeo, jlsFailed, regFailed, retryGeo, cancelRetry, retryArmed, geoStatus } from '../lib/geoAsync.ts';
 import Legend from './Legend.tsx';
 import DetailCard from './DetailCard.tsx';
 import PairCard from './PairCard.tsx';
@@ -103,8 +103,18 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
   const [jFoc, setJFoc] = useState(false);
   /* roving tabindex over the 556 municipalities — see the .jl paths below */
   const [jf, setJf] = useState(0);
-  /* whether the last retry press found no network at all — see retryGeo */
-  const [offline, setOffline] = useState(false);
+  /* A render trigger, not the answer. This used to BE the answer — a boolean set
+     from the retry press and never cleared — and it outlived the thing it
+     describes: the effect below disarms the deferred reload on a view change and
+     left the flag standing, so returning to a failed geometry view printed "it
+     will resume by itself when the connection comes back" with nothing armed at
+     all. The reader who trusts that waits; the one who does not has to guess
+     that a second press of retry is needed. The notice reads retryArmed() now,
+     which is the state it is describing — geoAsync exports it "for the notice
+     that explains it", and nothing consumed it — so it cannot say more than is
+     true. The press still has to force a render, because arming happens outside
+     React. */
+  const [, bumpRetry] = useState(0);
   /* …and it is dropped when this view is no longer the one asking. retryGeo arms
      a reload for when the connection returns; scoped to nothing it fired under a
      reader who had long since moved to a view that works offline, taking the
@@ -977,9 +987,9 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
                     network-error page. retryGeo says which happened; here we
                     only have to render the answer, and the listener it armed
                     reloads by itself when the connection comes back. */}
-                <button id="jretry" onClick={() => setOffline(retryGeo() === 'offline')}>
+                <button id="jretry" onClick={() => { retryGeo(); bumpRetry(n => n + 1); }}>
                   {L('Pokušaj ponovno', 'Try again')}</button>
-                {offline && <span id="joffline">{L('Nema mreže — nastavit će se automatski kad se veza vrati.',
+                {retryArmed() && <span id="joffline">{L('Nema mreže — nastavit će se automatski kad se veza vrati.',
                   'No connection — this will resume by itself when the network is back.')}</span>}
               </>
             ) : <span id="jloading">{geoStatus(jm)}</span>}
