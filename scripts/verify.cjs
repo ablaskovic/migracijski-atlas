@@ -5223,28 +5223,61 @@ const evalSafe = async (pg, fn) => {
      still in the tab order. Walking the cycle is the only version of this that
      cannot be fooled: 80 of 80 stops outside the dialog were covered county
      paths before the fix. */
-  const tabWalk = async (steps, cardSel = '#helpCard') => {
+  /* `rectSel` because containment and coverage are two different boxes, and only
+     one of them is the element. A panel whose body is absolutely positioned is
+     still a DOM descendant of its card — so `card.contains(a)` is right — but its
+     card's BORDER BOX is then just the header strip, and `covered` asked whether
+     the focused element lay inside that. Measured at 1000×800 on this block's own
+     second leg, `#v=jmap&dir=net&cz=1`: `.chipcard.open` resolves to #citz at
+     [445,558,247,27] — a 247×27 px header — while the panel a reader actually
+     sees is [396,250,296,335], drawn ABOVE the header stack and outside the
+     card's rect (index.css: the open body is position:absolute against .chipdock,
+     "out of the flow it is also out of the card's border"). No municipality
+     polygon fits inside 247×27, so `covered === 0` was not a finding on that leg,
+     it was a shape: the boot-time suspension could stop suspending, Tab could
+     land on one of the 149 municipalities the body covers — the exact case
+     MapView measured before its fix — and this would still print ok.
+     Each box on its own, not their bounding union. A union is the obvious move
+     and it is wrong here, because the two boxes are DISJOINT — the body ends at
+     y 519 and the header starts at 558 — so their bounding rect swallows the gap
+     between them, and #ageHd lives in that gap at [506,524,185,25]. Measured with
+     the union: 1 covered stop, #ageHd, whose centre elementFromPoint returns its
+     own child and which no panel is drawn over. A false finding is worse than the
+     silent one it replaces. `some`, then: a stop is covered when it lies inside
+     ONE of the panel's boxes. The tallest of those boxes is reported so a
+     regression back to the 27 px strip fails instead of passing quietly. */
+  const tabWalk = async (steps, cardSel = '#helpCard', rectSel = null) => {
     const stops = [];
     for (let i = 0; i < steps; i++) {
       await page.keyboard.press('Tab');
-      stops.push(await page.evaluate(cardSel => {
+      stops.push(await page.evaluate((cardSel, rectSel) => {
         const a = document.activeElement, card = document.querySelector(cardSel);
         if (!a || a === document.body) return { body: true, who: 'BODY' };
         if (!card) return { body: true, who: 'NO-CARD' };
-        const r = a.getBoundingClientRect(), c = card.getBoundingClientRect();
+        const bs = [...document.querySelectorAll(rectSel || cardSel)]
+          .filter(e => e.getClientRects().length).map(e => e.getBoundingClientRect());
+        if (!bs.length) return { body: true, who: 'NO-BOX' };
+        const r = a.getBoundingClientRect();
+        const inside = c => r.left >= c.left - 0.5 && r.right <= c.right + 0.5
+          && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5;
+        const big = bs.reduce((m, b) => (b.bottom - b.top > m.bottom - m.top ? b : m));
         return {
           inDialog: card.contains(a),
-          covered: !card.contains(a) && r.left >= c.left - 0.5 && r.right <= c.right + 0.5
-            && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5,
+          covered: !card.contains(a) && bs.some(inside),
+          boxH: Math.round(big.bottom - big.top), boxW: Math.round(big.right - big.left),
           who: a.id || a.getAttribute('data-iso') || String(a.getAttribute('class') || a.tagName),
         };
-      }, cardSel));
+      }, cardSel, rectSel));
     }
     /* `moved` is the floor: focus that never goes anywhere reports "nothing
        outside the dialog" just as loudly as a correct trap does */
     return { stops: stops.length, moved: stops.filter((s, i) => i && s.who !== stops[i - 1].who).length,
       outside: stops.filter(s => !s.body && !s.inDialog).length,
       covered: stops.filter(s => s.covered).length,
+      /* the box the coverage was decided against, so "nothing was covered" can be
+         read together with what it was not covered by */
+      boxH: Math.max(0, ...stops.map(s => s.boxH || 0)),
+      boxW: Math.max(0, ...stops.map(s => s.boxW || 0)),
       who: [...new Set(stops.filter(s => s.covered).map(s => s.who))].slice(0, 4) };
   };
   const wNarrow = await tabWalk(60);
@@ -5356,10 +5389,15 @@ const evalSafe = async (pg, fn) => {
   for (const h of ['#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net&jl=1', '#v=jmap&dir=net&cz=1']) {
     await fresh(h);
     await settle(400);
-    bootWalk.push({ h: h.slice(0, 22), ...await tabWalk(60, '.chipcard.open') });
+    bootWalk.push({ h: h.slice(0, 22),
+      ...await tabWalk(60, '.chipcard.open', '.chipcard.open, .chipcard.open .chip-body') });
   }
+  /* boxH as a floor, not as decoration: 27 px is what this measured against on
+     the citizenship leg, and 227/269 is what the two panels really are. Anything
+     under 100 means the walk is back to comparing polygons with a header strip. */
   ck('and Tab proves it: a boot-opened panel has no stop drawn underneath it',
-    bootWalk.length === 2 && bootWalk.every(w => w.covered === 0 && w.moved >= 5 && w.outside > 10),
+    bootWalk.length === 2 && bootWalk.every(w => w.covered === 0 && w.moved >= 5
+      && w.outside > 10 && w.boxH > 100),
     JSON.stringify(bootWalk));
   await page.setViewport({ width: 1440, height: 900 });
 
