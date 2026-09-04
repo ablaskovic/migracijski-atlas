@@ -4,6 +4,7 @@
    the same object App boots from. Keeping two copies is what let a Nalaz caption
    survive a link that no longer produced its numbers (see hash.ts). */
 import { YEARS } from './metrics.ts';
+import { PAPER_THR } from './credits.ts';
 import { detectLang, storedLang } from './i18n.ts';
 import type { Den, Flow, State, View } from './types.ts';
 
@@ -17,7 +18,10 @@ import type { Den, Flow, State, View } from './types.ts';
 export const BASE: State = {
   lang: storedLang() ?? detectLang(),
   view: 'saldo', flow: 'tot', den: 'abs', cum: true, yi: YEARS.indexOf(2024),
-  thr: 4500, thrRel: false, thrPct: 1.5, playing: false, hl: null, sel: null,
+  /* PAPER_THR, not 4500. credits.ts declares that constant with the note that
+     it is the paper's threshold and "none of them should own it"; this was one
+     of the copies that did. credits imports only i18n, so there is no cycle. */
+  thr: PAPER_THR, thrRel: false, thrPct: 1.5, playing: false, hl: null, sel: null,
   pair: null, pairHl: null, yrHl: null, jlsHl: null, regHl: null, dir: 'net', flowSeen: false,
   labels: false, citz: false, jls: false, age: false, help: false,
   jlsTab: 'inter', citzTab: 'grp', ageTab: 'ext', story: null,

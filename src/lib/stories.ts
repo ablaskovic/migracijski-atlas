@@ -6,6 +6,7 @@ import { L } from './i18n.ts';
    metrics.ts, so a data refresh that moves them must update these captions too
    (same rule as the ground-truth constants pinned in scripts/verify.cjs). */
 import { YEARS, IX2018 } from './metrics.ts';
+import { PAPER_THR } from './credits.ts';
 import { BASE, STORY_KEYS } from './state.ts';
 import type { Patch, State } from './types.ts';
 
@@ -79,8 +80,8 @@ export const STORIES: Story[] = [
        surface still writing out a pair that PAPER_KLAS_DIFF exists to derive, and
        so the one that would keep asserting the difference after a DZS revision
        closed it. The legend below the caption names them, from the data. */
-    get cap() { return L('Prag −4.500 iz rada, primijenjen na noviju DZS seriju, ne razvrstava županije isto kao rad — legenda imenuje one koje se razlikuju. Pomakni prag i prati legendu — ova se napomena tada miče, jer više ne opisuje ono što je na ekranu.', 'The paper’s −4,500 threshold, applied to the newer CBS series, does not classify the counties the way the paper does — the legend names the ones that differ. Move the threshold and watch the legend — this note then steps aside, because it no longer describes what is on screen.'); },
-    patch: { view: 'klas', thr: 4500, thrRel: false, cum: true, yi: Y24 },
+    get cap() { return L(`Prag −${PAPER_THR.toLocaleString('hr-HR')} iz rada, primijenjen na noviju DZS seriju, ne razvrstava županije isto kao rad — legenda imenuje one koje se razlikuju. Pomakni prag i prati legendu — ova se napomena tada miče, jer više ne opisuje ono što je na ekranu.`, `The paper’s −${PAPER_THR.toLocaleString('en-GB')} threshold, applied to the newer CBS series, does not classify the counties the way the paper does — the legend names the ones that differ. Move the threshold and watch the legend — this note then steps aside, because it no longer describes what is on screen.`); },
+    patch: { view: 'klas', thr: PAPER_THR, thrRel: false, cum: true, yi: Y24 },
   },
   {
     get label() { return L('Istočna regija: −97 tisuća', 'The Eastern region: −97 thousand'); },
