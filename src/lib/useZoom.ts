@@ -86,6 +86,9 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
      can exceed their box, because they lay out on a fixed cell geometry with a
      12 px floor rather than fitting a projection to the box, so for them a short
      box is a crop. 0 means "no taller than the box", which is every map view. */
+  /* whether a pan is under way — the cursor's only honest source. See the note
+     by `style` below. */
+  const [panning, setPanning] = useState(false);
   const [contentH, setContentH] = useState(0);
   const ch = Math.max(h, contentH);
   const kmin = h > 0 && ch > h ? h / ch : KMIN;
@@ -306,6 +309,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
     gesture.current = { ids: [ia, ib], d: Math.hypot(a.x - b.x, a.y - b.y),
       cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, t: tRef.current };
     drag.current = null;
+    setPanning(false);
   };
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -347,6 +351,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
     if (e.pointerType !== 'touch' && !(e.buttons & 1)) {
       pts.current.delete(e.pointerId);
       drag.current = null;
+      setPanning(false);
       return;
     }
     pts.current.set(e.pointerId, local(e));
@@ -384,6 +389,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
       if (!dr.moved && Math.hypot(dx, dy) < DEAD) return;
       dr.moved = true;
       panned.current = true;
+      setPanning(true);
       grab(e.currentTarget, e.pointerId);
       setTT(fit({ k: dr.t.k, x: dr.t.x + dx, y: dr.t.y + dy }, w, h, ch, kmin));
     }
@@ -401,7 +407,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
        edge: the pair that remains after a third contact is dropped is a pinch
        the reader is still making, and it had no way to be recognised. */
     if (!gesture.current && pts.current.size === 2) arm();
-    if (!pts.current.size) { drag.current = null; gesturing.current = false; }
+    if (!pts.current.size) { drag.current = null; gesturing.current = false; setPanning(false); }
   };
 
   /* No onPointerLeave: with capture the pointer cannot leave mid-gesture, and
@@ -413,11 +419,22 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
     onPointerCancel: onPointerUp,
   };
   /* pan-y keeps one-finger page scrolling alive; pinch still reaches us */
-  const style = { touchAction: 'pan-y' as const, cursor: t.k > 1 ? 'grab' : undefined };
+  /* …and 'grabbing' while a pan is actually happening. The cursor read 'grab'
+     for the whole drag — the hand never closed — so above 1× the map looked
+     pannable and never looked panned. `panning` is set on the first move past
+     the dead zone, which is the same moment the drag becomes real, and cleared
+     everywhere the drag is: pointerup, pointercancel, the buttons-released
+     escape, and the pinch that takes the drag over.
+     index.css carries the other half: .cnt, .mxc and the rest set
+     cursor:pointer on themselves, so over a feature — which is most of the box
+     — the feature's cursor wins over this one, and a pan looked like a hover.
+     `.map-box.panning *` overrides them for the duration. */
+  const style = { touchAction: 'pan-y' as const,
+    cursor: t.k > 1 ? (panning ? 'grabbing' : 'grab') : undefined };
   /* `zoomed` gates the readout and the "vrati na početni prikaz" button, so it
      has to mean "not at 1×" rather than "magnified": zoomed OUT to see a whole
      grid is a state the reader needs the same way back from. The grab cursor
      stays on k > 1 alone, since below 1 there is nothing to pan. */
-  return { t, bind, style, reset, zoomBy, panBy, setContentH, gesturing,
+  return { t, bind, style, panning, reset, zoomBy, panBy, setContentH, gesturing,
     zoomed: Math.abs(t.k - 1) > 0.001 };
 }

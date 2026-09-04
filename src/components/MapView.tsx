@@ -751,7 +751,10 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
           other. Below 900 px the stage is a plain block and the dock joins the
           normal flow, where nothing overlays anything. */}
       <div className="map-stage">
-      <div className="map-box" ref={wrapRef}>
+      {/* `panning` reaches the CSS because the feature cursors are set on the
+          features themselves and win over the svg's inline one — see the note
+          by `style` in useZoom. */}
+      <div className={'map-box' + (zoom.panning ? ' panning' : '')} ref={wrapRef}>
       {/* `drawn` guards the county paths and the JLS map already; the two grids
           were the exception, and they are the two that lay themselves out around
           a MEASURED legend box. On a cold link the first paint used {w:0,h:0}

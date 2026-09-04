@@ -498,6 +498,13 @@ body.stage-collapsed .main{flex:none;height:420px}
    .mxband and .mxnum have to be baked. Arc widths are excluded on purpose: they
    encode magnitude, so they are geometry, not chrome. */
 .cnt{stroke:#fff;stroke-width:.8;cursor:pointer;transition:fill .25s}
+/* While a pan is actually under way, the closed hand wins over every feature
+   cursor. `.cnt`, `.mxc`, `.yrc`, `.jl` and the rest each set cursor:pointer on
+   themselves, and a cursor is resolved on the element under the pointer — so
+   above 1× the svg's own `grabbing` was visible only over sea and grid gaps,
+   which is a minority of the box. useZoom sets .panning on .map-box for the
+   duration of the drag; see the note by its `style`. */
+.map-box.panning, .map-box.panning *{cursor:grabbing !important}
 .cnt.hl{stroke:var(--ink);stroke-width:1.6}
 /* The selection is drawn as an overlay above the fills (MapView), not as the
    county's own stroke: a single teal line on the ramp measured 1,02–1,99:1
