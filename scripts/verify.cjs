@@ -4958,17 +4958,35 @@ const evalSafe = async (pg, fn) => {
       hidden: stops.filter(s => s.hidden).length,
       who: [...new Set(stops.filter(s => s.hidden).map(s => s.who))].slice(0, 4) };
   };
+  /* the reserve and the thing reserved for, read together — see below */
+  const barLane = () => page.evaluate(() => ({
+    pad: parseFloat(getComputedStyle(document.documentElement).scrollPaddingBottom),
+    barH: Math.ceil(document.querySelector('#scrubBox').getBoundingClientRect().height),
+  }));
   await fresh('#v=saldo&c=1&y=2024');
   const barOpen = await barWalk();
+  Object.assign(barOpen, await barLane());
   ck('390: Tab never lands on a row the fixed scrubber covers',
     barOpen.hidden === 0 && barOpen.moved >= 10 && barOpen.n >= 75, JSON.stringify(barOpen));
   await page.evaluate(() => document.querySelector('.scrub-tog').click());
   await settle(300);
   const barShut = await barWalk();
-  barShut.pad = await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingBottom);
-  ck('390: and the collapsed bar reserves its own 78 px, not the open bar’s 136',
-    barShut.hidden === 0 && barShut.moved >= 10 && barShut.n >= 75 && barShut.pad === '78px',
-    JSON.stringify(barShut));
+  Object.assign(barShut, await barLane());
+  /* Against the bar, not against 78. This asserted the literal the CSS used to
+     carry, and the reserve is measured now (--scrubh), so it read 83 px for an
+     86 px bar and failed while describing a lane that had just become correct.
+     A literal could not have been right in the first place: the bar's height is
+     its caption's, and the caption wraps — 86 px at this width with the default
+     Tokovi caption, 129 with the browser font raised, against the 78 reserved.
+     What the check is for survives unchanged and is stated directly: the lane
+     clears the bar, does not over-reserve, and SHRINKS when the bar is folded
+     away — which is the whole of "its own, not the open bar's". */
+  ck('390: and the collapsed bar reserves its own measured height, not the open bar’s',
+    barShut.hidden === 0 && barShut.moved >= 10 && barShut.n >= 75
+    && barShut.barH < barOpen.barH
+    && barShut.pad < barOpen.pad
+    && [barOpen, barShut].every(b => b.pad >= b.barH && b.pad <= b.barH + 16),
+    JSON.stringify({ shut: barShut, open: { pad: barOpen.pad, barH: barOpen.barH } }));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── errors ── */
