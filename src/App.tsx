@@ -507,8 +507,19 @@ export default function App() {
      URL that the next write repairs, rather than a blank page. */
   const HIST_MS = 320;
   /* the same URL with the continuous fields taken out — equal means this change
-     moved nothing but a slider */
-  const histShape = (x: string) => x.replace(/(^|[#&])(y|t|tp)=[^&]*/g, '$1');
+     moved nothing but a slider.
+     The separator goes with the field, or an omitted one is a different shape
+     from a present one. `t` and `tp` are emitted only away from their defaults
+     (hash.ts), so dragging the Klasifikacija threshold 4500 → 4750 → 4500 →
+     4250 alternated between `#v=klas&c=1&` and `#v=klas&c=1&&` — the `$1` kept
+     the `&` — and every step across the default read as a discrete change and
+     was written immediately, which is exactly the unthrottled case the 320 ms
+     cap above exists to prevent. A range input fires at pointer rate, so a
+     wiggle over the default reaches WebKit's 100-per-30 s budget in about
+     seven seconds, and the throw is swallowed: the address bar quietly stops
+     following the slider. `y`, `t` and `tp` are never the first key — encodeHash
+     always leads with `l` or `v` — so nothing needs the separator kept. */
+  const histShape = (x: string) => x.replace(/[#&](y|t|tp)=[^&]*/g, '');
   const histQ = useRef<string | null>(null);
   const histT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const histAt = useRef(0);
