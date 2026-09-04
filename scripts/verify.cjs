@@ -14952,12 +14952,23 @@ const evalSafe = async (pg, fn) => {
   const featPol = await page.evaluate(() => {
     const fp = document.featurePolicy;
     if (!fp || typeof fp.allowsFeature !== 'function') return { none: true };
+    /* allowsFeature returns false for a feature the engine does not KNOW, so a
+       Chrome bump that renames or flag-gates browsing-topics would leave
+       `topics === false` green while measuring nothing at all — the check's name
+       says "the feature browsers actually have", and this is the half that says
+       it. geolocation, camera and microphone are long-standing and need no such
+       guard, but the list is asked for as a whole so a rename of any of them
+       shows up here rather than as a silent pass. */
+    const known = typeof fp.features === 'function' ? fp.features() : [];
     return { topics: fp.allowsFeature('browsing-topics'), geo: fp.allowsFeature('geolocation'),
-      cam: fp.allowsFeature('camera'), mic: fp.allowsFeature('microphone') };
+      cam: fp.allowsFeature('camera'), mic: fp.allowsFeature('microphone'),
+      hasTopics: known.includes('browsing-topics'),
+      knows: ['geolocation', 'camera', 'microphone'].filter(f => known.includes(f)).length };
   });
   ck('the permissions policy denies the ad-cohort feature browsers actually have',
     !featPol.none && featPol.topics === false && featPol.geo === false
-    && featPol.cam === false && featPol.mic === false,
+    && featPol.cam === false && featPol.mic === false
+    && featPol.hasTopics && featPol.knows === 3,
     JSON.stringify(featPol));
   /* …and Vary with them. The origin content-negotiates every compressible
      response — the same URL returns 573.949 bytes as identity, 191.684 as gzip
