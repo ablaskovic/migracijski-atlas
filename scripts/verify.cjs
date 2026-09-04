@@ -6452,15 +6452,25 @@ const evalSafe = async (pg, fn) => {
   const drillFocus = await page.evaluate(async () => {
     const c = document.querySelector('.mxc[tabindex="0"]');
     c.focus();
+    const was = c.getAttribute('aria-expanded');
     c.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await new Promise(r => setTimeout(r, 500));
     return { view: location.hash, body: document.activeElement === document.body,
-      id: document.activeElement ? document.activeElement.id : null };
+      id: document.activeElement ? document.activeElement.id : null,
+      /* …and that the Enter did something. `/v=mx/ && !body` is satisfied by a
+         keydown handler that does nothing at all — the view is already mx and
+         focus never moved — so the check's own name was the only thing claiming
+         an activation happened. The cell announces the card it opened, and that
+         is the one bit that separates "activated and kept focus" from "inert". */
+      was, now: document.activeElement ? document.activeElement.getAttribute('aria-expanded') : null,
+      card: !!document.querySelector('#pairName') };
   });
   /* v2.0.7: the cell no longer unmounts the grid, so the fix is now "focus stays
      on the control that opened the card" rather than "focus is handed onward" */
   ck('activating a matrix cell does not drop focus to <body>',
-    /v=mx/.test(drillFocus.view) && !drillFocus.body, JSON.stringify(drillFocus));
+    /v=mx/.test(drillFocus.view) && !drillFocus.body
+    && drillFocus.was !== 'true' && drillFocus.now === 'true' && drillFocus.card,
+    JSON.stringify(drillFocus));
 
   /* …and the three that unmount under a KEY rather than an activation. Every
      activation path in this app hands focus on and this file asserts them; the
