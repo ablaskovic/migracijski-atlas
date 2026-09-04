@@ -8827,7 +8827,15 @@ const evalSafe = async (pg, fn) => {
     for (const [k, h] of [['mx', '#v=mx&y=2018&c=0&dir=out'], ['saldo', '#v=saldo&c=1&y=2024']]) {
       await page.setViewport({ width: 1440, height: 900 });
       await fresh(h);
-      await settle(700);
+      /* Past the geometry warm, not just past the mount. geoAsync fires its
+         speculative fetch ~1.500 ms after mount and parses 543 kB of JSON on the
+         main thread; fresh() plus settle(700) ends around 1.100 ms, so that
+         parse landed INSIDE the measured window on both legs. It adds the same
+         constant to each, which pushes the ratio toward 1 and eats the 0,8
+         margin on a slow runner — a false red for a reason that is not the
+         projection. settle(2600) puts the warm behind us, the way the block
+         above already does before its own measurement. */
+      await settle(2600);
       const s0 = await script();
       const N = 16;
       for (let i = 0; i < N; i++) {
