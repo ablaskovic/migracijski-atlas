@@ -1474,11 +1474,21 @@ body.stage-collapsed .main{flex:none;height:420px}
   .scrub-tog::before{content:'';position:absolute;left:-24px;right:-24px;top:0;bottom:-10px}
   .scrub-tog:hover{color:var(--ink)}
   .scrub-tog svg{width:16px;height:16px;fill:currentColor}
-  /* top strip at 390: jcard chip left, Nalazi right; labels are desktop/export-only.
-     The other two used to need their own offsets to slide into the space it
-     frees; in the row a display:none item takes its gap with it. */
-  .labbtn{display:none}
   .storysel select{width:100%}
+}
+
+/* The labels toggle is hidden by WIDTH, not by this block's three legs.
+   It lived inside the block above, whose other two legs are heights — so a
+   1440×550 desktop window (the max-height:560 leg) lost the toggle while
+   S.labels stayed on and the export went on honouring it: a reader could not
+   turn off a thing the figure was still drawing. The argument for hiding it was
+   always about the narrow top strip — "at 390: jcard chip left, Nalazi right" —
+   and that is a width, so it is stated as one. Above 900 px the coarse block
+   re-pads .labbtn to 44 px, which only makes sense if it is on screen there.
+   The other two items in the strip used to need their own offsets to slide into
+   the space it frees; in the row a display:none item takes its gap with it. */
+@media (max-width:900px){
+  .labbtn{display:none}
 }
 
 /* ── the header is taller than the phone ──────────────────────────────────
