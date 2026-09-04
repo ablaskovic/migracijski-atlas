@@ -14683,7 +14683,10 @@ const evalSafe = async (pg, fn) => {
   ck('the glossary says the citizenship panel moves with the scrubber, because it does',
     new Set([czMove[2021].rows, czMove[2023].rows, czMove[2025].rows]).size === 3
     && !czMove[2021].clamp && czMove[2015].clamp
-    && czMove[2015].rows === czMove[2025].rows
+    /* …to the NEAREST published year, which from 2015 is 2021 and not 2025 —
+       the far end of the window is what it used to pick. The clamped view has
+       to BE one of the published years, and this names which. */
+    && czMove[2015].rows === czMove[2021].rows
     && /Dr[žz]avljanstvo samo unutar/.test(czNote.hr) && !/ne mijenja panele Dr/.test(czNote.hr)
     && /Citizenship panel only within/.test(czNote.en)
     && /Zemlje i Dob i spol/.test(czNote.hr) && /Countries or Age and sex/.test(czNote.en),
