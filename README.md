@@ -145,8 +145,10 @@ styles), `img-src 'self' data: blob:` (the PNG export goes through a blob URL),
 `font-src 'self' data:` (the faces are self-hosted, and the SVG export embeds
 its own copies as data URLs),
 `object-src`/`base-uri`/`form-action`/`frame-ancestors` set to none, plus
-nosniff, a referrer policy, a permissions policy, COOP, HSTS (two years) and
-`Vary: Accept-Encoding`. Caching is two rules, and neither of them is about the
+nosniff, a referrer policy, a permissions policy, COOP, HSTS (two years, all
+subdomains) and `Vary: Accept-Encoding`. HSTS carries no `preload` token: the
+token does nothing until the apex is submitted to hstspreload.org, which this
+repository cannot do, and leaving that list takes months. Caching is two rules, and neither of them is about the
 fonts: `/fonts/` for a week — which covers the two OFL licence texts, the only
 files in that directory — and the document `must-revalidate`. The eight woff2
 are bundled, so they ship as hashed `/assets/` outputs and take the platform's
