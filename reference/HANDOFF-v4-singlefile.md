@@ -12,6 +12,42 @@ committed harness `src/verify.js` (32 checks, all passing on both variants).
 
 ---
 
+## 0. THIS DOCUMENT IS A FROZEN v4 RECORD — read this section first
+
+Everything below describes the single-file v4 artifact and was accurate when it was
+written. The project is now a Vite + React + TypeScript app and much of it has moved.
+§1 (working style), §6 (data caveats) and the §4 note that the
+Ličko-senjska → Sjeverni Jadran assignment is this project's own call, footnoted in the
+UI, still hold as written. The rest has drifted, and the drift is listed here rather
+than edited into the sections, so the record of what v4 was stays intact.
+
+- **Build and harness (§0, §7, §9, §10).** `src/verify.js` with 32 checks →
+  `scripts/verify.cjs`, whose `EXPECTED_CHECKS` is in the hundreds, plus
+  `scripts/smoke.cjs` against the deployed origin. `src/build.py`,
+  `build_offline.py`, `atlas_template2.html` and `vendor_d3.min.js` no longer
+  exist; the build is `vite.config.ts`.
+- **Data files (§4).** `src/data/hrv21_fixed.geojson` → `src/data/geo_counties.json`;
+  `regions5.geojson` → `geo_regions5.json`. The spreadsheets moved from
+  `src/data/raw/` to `tools/pipeline/raw/` and `od2018.json` to
+  `tools/pipeline/ref/`. The parsers `src/parse_*.py` and `ipf.py` are now
+  `tools/pipeline/`, joined by `parse_demo.py`, `parse_jlsmap.py` and
+  `geo_jls.cjs`, which emit `demo.json` and `geo_jls.json`.
+- **Runtime (§5).** "No storage APIs" → `localStorage` holds the language choice
+  (`src/lib/i18n.ts`, written only by the toggle; `src/lib/privacy.ts` carries the
+  reader-facing wording). "d3 7.9.0 from cdnjs + Google Fonts" → the d3-geo
+  modules are bundled and the fonts are self-hosted in `src/fonts` behind
+  metric-matched fallbacks. `State` gained the views `mx`, `jmap` and `yrs` and the
+  fields `lang`, `thrRel`, `thrPct`, `pairHl`, `yrHl`, `jlsHl`, `regHl`, `labels`,
+  `age`, `help`, `citzTab`, `ageTab` and `story`. The single `window.__exportPNG`
+  is now a PNG and an SVG exporter (`src/lib/exportPng.ts`, `window.__exportSVG`).
+- **Findings (§3-T7, §8).** "Only three counties positive on ukupna promjena" → five;
+  Zagrebačka (+2.240) and Dubrovačko-neretvanska (+125) join them. "Grad Zagreb
+  appended as its own JLS" → it is `names[1]` in `jls_drill.json`.
+- **Critique (§2).** Item 2, the Karlovačka / Koprivničko-križevačka flip, is derived
+  live now (`PAPER_KLAS_DIFF` in `src/lib/credits.ts`) rather than written out.
+
+---
+
 ## 1. User context
 
 - Ante (handle: TypicalHog). Junior full-stack dev at a small Croatian GIS firm.
