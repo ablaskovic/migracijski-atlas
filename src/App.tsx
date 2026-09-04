@@ -485,7 +485,24 @@ export default function App() {
     if (q.get('l') && q.get('l') !== S.lang) q.delete('l');
     const qs = q.toString();
     const search = qs ? '?' + qs : '';
-    const u = location.pathname + search + h;
+    /* ABSOLUTE and same-origin, the way ErrorBoundary.tsx:78 already writes it.
+       A bare pathname is not always a usable URL: vercel.json's catch-all serves
+       the app for any path, so a reader can arrive on //#v=… — the shape naive
+       origin + '/' + link joining produces — or on //example.com/#v=…, and the
+       app boots correctly from the hash because every asset is root-absolute.
+       location.pathname is then '//' or '//example.com/', and
+       history.replaceState(null, '', '//#v=…') is a scheme-relative URL that
+       does not parse, while '//example.com/#v=…' resolves off-origin and is
+       refused as a SecurityError. Both land in write()'s catch, whose comment
+       says "the next write repairs it" — which is true of the engine's rate cap
+       and never true of these: every later write fails identically, so for the
+       whole session the address bar stops tracking the state it is supposed to
+       BE, view presses push no history entry, Back leaves the site, and every
+       link the reader copies is the one they arrived on.
+       An origin-prefixed URL parses for any pathname and cannot resolve
+       elsewhere. MA4M-116 fixed exactly this shape in ErrorBoundary; the writer
+       that runs on every render was not covered. */
+    const u = location.origin + location.pathname + search + h;
     /* the timer holds a URL that is now stale — a burst that comes back to where
        it started must not have its own intermediate land after it */
     const cancel = () => {
