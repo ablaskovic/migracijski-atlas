@@ -10002,12 +10002,18 @@ const evalSafe = async (pg, fn) => {
      that did not change. One JLS crossing costs 5,64 ms of task at 1× CPU.
      Read out of the source for the same reason as the check above: an extra
      render with identical output mutates no DOM. The behaviour those four
-     handlers still owe is measured at :3337 and by the roving-focus checks. */
+     handlers still owe is measured at :3337 and by the roving-focus checks.
+     Five now, not four: the pointermove handler re-asserts which municipality
+     the pointer is over, because hover and keyboard focus share this highlight
+     and only pointerenter used to set it — so after Tab moved it, a nudge
+     inside the municipality the cursor was already in replayed the FOCUSED
+     one's readout under the cursor. It goes through the same guard, which is
+     what this check is about; the number is the handler count. */
   const jlsRaw = [...mvSrc.matchAll(new RegExp('setS[(][{] jlsHl', 'g'))].length;
   const jlsGuarded = [...mvSrc.matchAll(new RegExp('setJlsHl[(]', 'g'))].length;
   const appSrc = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8');
   ck('the JLS paths write their highlight through the guard App declares for it',
-    jlsRaw === 0 && jlsGuarded === 4 && /<MapView[^>]*setJlsHl=[{]setJlsHl[}]/.test(appSrc),
+    jlsRaw === 0 && jlsGuarded === 5 && /<MapView[^>]*setJlsHl=[{]setJlsHl[}]/.test(appSrc),
     JSON.stringify({ jlsRaw, jlsGuarded, passed: /setJlsHl=[{]setJlsHl[}]/.test(appSrc) }));
 
   /* The dock covers cells when it is CLOSED too — the case nothing was watching.
