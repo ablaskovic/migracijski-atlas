@@ -106,9 +106,19 @@ because it is the thing that is enforced: **the entry chunk stays under 600 kB**
 asserted by `npm run verify`. `npm run build` prints the exact sizes of every
 chunk on every run, which is where a current number belongs.
 
-Requires Node ≥ 22.12 — the `engines.node` range in `package.json`, which is
-also what Vercel reads to choose the build image's Node major. (This line used
-to say 20.19, vite's own floor, which is not the floor this project sets.)
+Requires Node ≥ 22.12 — the `engines.node` range in `package.json`. (This line
+used to say 20.19, vite's own floor, which is not the floor this project sets.)
+
+Vercel reads that range too, and because it is open it takes the **highest**
+supported major rather than the floor — its build log warns that such a range
+"will automatically upgrade when a new major Node.js version is released". CI's
+`setup-node: '22.12'` resolves to 22.12.0 for ever, so the gate and the deploy
+run different majors by construction. [CI](.github/workflows/verify.yml) closes
+that with a second job, `build-on-latest`, which runs the deploy's own command
+(`npm run build` — what `vercel.json` names as the buildCommand, and not the
+puppeteer suite) on Node 24. Capping the range instead would work, and would
+mean setting the Vercel project's Node version to match; the job is the half
+this repository can carry on its own.
 
 `CLAUDE.md` carries general behavioural guidelines. The project's own hard rules
 — the verification protocol, the DOM contract, honesty labelling and the design

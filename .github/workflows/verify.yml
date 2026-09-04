@@ -113,7 +113,10 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          # matches engines.node in package.json
+          # engines.node's FLOOR. The range is open (">=22.12"), so this pin is
+          # the low end of what the project claims to support, not the version
+          # the deploy uses — Vercel reads the same range and takes the highest
+          # supported major. The build-on-latest job below covers that end.
           node-version: '22.12'
           cache: npm
       # --ignore-scripts here too, for the reason spelled out for the ci/ tree
@@ -179,6 +182,40 @@ jobs:
       - run: npm run verify
         env:
           PUPPETEER_PATH: ${{ github.workspace }}/ci/node_modules/puppeteer
+
+  # The Node major Vercel ACTUALLY builds on, which the job above does not use.
+  #
+  # engines.node is ">=22.12", an open range, and Vercel reads it and picks the
+  # highest supported major — its build log says so, warning that such a range
+  # "will automatically upgrade when a new major Node.js version is released".
+  # setup-node '22.12' above resolves to 22.12.0, the only 22.12.x, for ever. So
+  # the gate and the deploy have been on different majors, and nothing here has
+  # ever run the deploy's own command on the deploy's own Node.
+  #
+  # This runs exactly what Vercel runs — vercel.json's buildCommand is
+  # `npm run build`, i.e. tsc && oxlint && vite build, and NOT the puppeteer
+  # suite — so it costs about a minute rather than doubling the twenty-minute
+  # job. `24` tracks the newest supported major the same way engines.node does;
+  # if that range is ever capped, this pin is the other half to move.
+  build-on-latest:
+    if: >-
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name != github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
 
   # The deployed origin, which the job above cannot see: it checks the commit it
   # was handed, and every question smoke asks is about what readers are actually
