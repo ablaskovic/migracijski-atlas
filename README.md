@@ -2,7 +2,7 @@
 
 Interactive atlas of Croatian county migration 1998–2025. React + Vite port of the
 verified single-file D3 atlas (kept in `reference/`, together with the full project
-handoff). Data: DZS series 7.4.1–7.4.3, DZS STAN-2026-2-1 (citizenship + dob/spol +
+handoff). Data: DZS series 7.4.1.–7.4.3., DZS STAN-2026-2-1 (citizenship + dob/spol +
 zemlje), measured 2018 OD matrix, JLS corridors and a 556-municipality 2018 map
 (Pitoski et al. 2021, CC BY; boundaries OSM/ODbL), IPF estimates for other years —
 all honesty-labeled in the UI.
