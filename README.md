@@ -191,7 +191,7 @@ is the authority on exactly what regenerates and what does not.
   glossary, and on exports of the two views that use the study's method.
 - **Fonts** — Oswald and IBM Plex Sans/Mono, self-hosted from `src/fonts/`,
   under the **SIL Open Font License 1.1**. The licence text ships with the build
-  at `./fonts/OFL-*.txt`, as OFL §2 requires of anything redistributing the font
+  at `/fonts/OFL-*.txt`, as OFL §2 requires of anything redistributing the font
   files, and both holders are named and linked in the glossary's "Licencije i
   izvori" section. `src/fonts/` is carved out of the MIT grant in LICENSE §1 for
   exactly this reason.

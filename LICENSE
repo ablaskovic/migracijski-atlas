@@ -91,7 +91,7 @@ under ODbL 1.0 and must carry the same attribution.
 Both are licensed under the **SIL Open Font License, Version 1.1**. OFL §2
 requires the licence to travel with any copy of the font software, so the full
 text ships in `public/fonts/OFL-Oswald.txt` and `public/fonts/OFL-IBMPlex.txt`
-and is served by the built site at `./fonts/`. The fonts are self-hosted rather
+and is served by the built site at `/fonts/`. The fonts are self-hosted rather
 than loaded from Google's CDN so that no visitor's IP reaches a third party on
 first paint.
 
