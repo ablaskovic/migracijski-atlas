@@ -166,14 +166,23 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     if (S.view === 'flow') openPair(d.iso);
     else selectCounty(d.iso);
   };
-  /* which row the open corridor card describes — the rail is also where that card
-     lives in Matrica, so an unmarked list next to it reads as unrelated */
+  /* which row the open card describes — the rail is also where that card lives
+     in Matrica, so an unmarked list next to it reads as unrelated.
+     …and the COUNTY card counts. A plain row in Saldo or Klasifikacija activates
+     selectCounty, which opens #card and gives the county path aria-expanded plus
+     the .sel stroke — MapView's own comment says the control that toggles the
+     card owes aria-expanded — while the row that was actually pressed went on
+     announcing "Grad Zagreb +41.986, button" with no state at all. Press Enter
+     again and the card closes and the row reads exactly the same string, so a
+     screen-reader user cannot tell which of the 21 rows opened it, and a
+     keyboard user sees no selected row while the card names one. */
   const isOpen = (d: Row): boolean => d.pair
     ? S.sel === d.pair[0] && S.pair === d.pair[1]
-    : S.view === 'flow' && S.pair === d.iso;
-  /* activating either kind of row toggles the corridor card, so the row owns a
-     disclosure — the same contract `.cnt` has with the county card */
-  const owns = (d: Row): boolean => canActivate(d) && (!!d.pair || S.view === 'flow');
+    : S.view === 'flow' ? S.pair === d.iso : S.sel === d.iso;
+  /* every activatable row toggles a disclosure — a corridor card, a partner card
+     or a county card — which is the same contract `.cnt` has with the county
+     card, and it is now stated for all three rather than for the first two */
+  const owns = (d: Row): boolean => canActivate(d);
   const name = (d: Row) => {
     if (d.reg) return REG[d.iso].name;
     if (d.nm) return SHORTN[d.nm[0]] + ' → ' + SHORTN[d.nm[1]];
