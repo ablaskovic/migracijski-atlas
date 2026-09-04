@@ -42,13 +42,20 @@ export const privacyShort = (): string => L(
   'Usage measurement: Vercel Web Analytics, no cookies or on-device storage.');
 
 /** The full statement, for the glossary, which has room for the reason. */
+/* Scoped to the MEASUREMENT, the way privacyShort already is. Unscoped it said
+   "nothing is stored on your device" — and privacyState, four lines below and
+   rendered in the same glossary section, says the language choice is stored
+   locally. Both sentences are true of their own subject and the pair is a
+   contradiction on the page, in the one section a reader consults precisely
+   because they do not want to take it on trust. The claim that matters is
+   unchanged and is the narrower one: the analytics store nothing. */
 export const privacyNote = (): string => L(
   'Atlas koristi Vercel Web Analytics i Speed Insights: bilježe se posjet stranici i mjere brzine učitavanja. '
-  + 'Nema kolačića i ništa se ne pohranjuje na vašem uređaju. IP adresa i podaci preglednika obrađuju se na '
+  + 'Mjerenje ne koristi kolačiće i ništa ne pohranjuje na vašem uređaju. IP adresa i podaci preglednika obrađuju se na '
   + 'Vercelovoj mreži da bi se izveli država posjeta i dnevni anoniman otisak, i ne pohranjuju se kao takvi. '
   + 'Ne postoji prijava, korisnički račun ni profiliranje, a podaci se ne prodaju niti ustupaju trećima.',
   'The atlas uses Vercel Web Analytics and Speed Insights: page views and load-speed metrics. '
-  + 'There are no cookies and nothing is stored on your device. Your IP address and browser details are '
+  + 'The measurement sets no cookies and stores nothing on your device. Your IP address and browser details are '
   + 'processed at Vercel’s edge to derive a country and a daily anonymous fingerprint, and are not retained '
   + 'as such. There is no sign-in, no account and no profiling, and nothing is sold or passed to third parties.');
 
