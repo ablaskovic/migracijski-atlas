@@ -257,6 +257,28 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
      read by the hit overlays, which must not arm a readout during one */
   const gesturing = useRef(false);
 
+  /* Record WHICH two pointers the gesture is between, not just that there were
+     two. With a third finger down and one of the first two lifted, `size`
+     returns to 2 over a different pair, and the move handler kept measuring
+     against the original `d` — so the zoom jumped by the ratio between two
+     unrelated finger spans. Identity is what a gesture is.
+     Its own function because a pinch has two edges, and only one of them was
+     arming. A gesture was recognised solely at a pointerdown that made
+     pts.size === 2, so after a third contact — a palm, a resting thumb —
+     lifting one of the ORIGINAL two left exactly two live pointers and no
+     gesture: correctly dropped, since its own pointer had gone, and nothing
+     could replace it, because no pointerdown arrives while both survivors stay
+     down. The two fingers on the glass could no longer zoom until every finger
+     lifted, and gesturing.current stayed true throughout, so the .mxhit/.yrhit
+     overlays refused their taps as well. */
+  const arm = () => {
+    const [ia, ib] = [...pts.current.keys()];
+    const [a, b] = [...pts.current.values()];
+    gesture.current = { ids: [ia, ib], d: Math.hypot(a.x - b.x, a.y - b.y),
+      cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, t };
+    drag.current = null;
+  };
+
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     /* Only the primary button pans. Without the filter a right-button drag
        moved the map, so the context menu opened over a map that had shifted
@@ -264,18 +286,8 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     panned.current = false;   /* a fresh gesture starts as a click until it moves */
     pts.current.set(e.pointerId, local(e));
-    if (pts.current.size === 2) {
-      const [ia, ib] = [...pts.current.keys()];
-      const [a, b] = [...pts.current.values()];
-      /* Record WHICH two pointers the gesture is between, not just that there
-         were two. With a third finger down and one of the first two lifted,
-         `size` returns to 2 over a different pair, and the move handler kept
-         measuring against the original `d` — so the zoom jumped by the ratio
-         between two unrelated finger spans. Identity is what a gesture is. */
-      gesture.current = { ids: [ia, ib], d: Math.hypot(a.x - b.x, a.y - b.y),
-        cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, t };
-      drag.current = null;
-    } else if (pts.current.size === 1 && e.pointerType !== 'touch') {
+    if (pts.current.size === 2) arm();
+    else if (pts.current.size === 1 && e.pointerType !== 'touch') {
       const p = local(e);
       drag.current = { x: p.x, y: p.y, t, moved: false };
     }
@@ -346,6 +358,10 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
     /* the gesture ends when either of ITS OWN pointers goes, not when the count
        happens to drop below two */
     if (gesture.current && !gesture.current.ids.every(id => pts.current.has(id))) gesture.current = null;
+    /* …and the fingers still on the glass become the gesture. This is the other
+       edge: the pair that remains after a third contact is dropped is a pinch
+       the reader is still making, and it had no way to be recognised. */
+    if (!gesture.current && pts.current.size === 2) arm();
     if (!pts.current.size) { drag.current = null; gesturing.current = false; }
   };
 
