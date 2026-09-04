@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 642;
+const EXPECTED_CHECKS = 643;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -12550,6 +12550,22 @@ const evalSafe = async (pg, fn) => {
     ck('the static description a scraper reads is the one the app writes over it',
       !!dictHr && staticHr === dictHr,
       JSON.stringify({ static: (staticHr || '').slice(0, 60), dict: (dictHr || '').slice(0, 60) }));
+    /* …and the one other literal in that head that duplicates a value from
+       index.css. theme-color paints Chrome Android's toolbar, and it is a hex
+       string in a file that cannot import the stylesheet — exactly the shape of
+       the description above, and the same failure if it drifts: a toolbar in
+       last season's background colour, on the only platform that reads it.
+       Read from :root's --bg, so the token is the source and the markup is
+       compared to it. */
+    const css = fs.readFileSync(path.resolve(__dirname, '../src/index.css'), 'utf8');
+    const bgTok = (/--bg:\s*(#[0-9A-Fa-f]{3,8})/.exec(css) || [])[1] || null;
+    const themeCol = (/<meta name="theme-color" content="([^"]+)"/.exec(idx) || [])[1] || null;
+    ck('the Android toolbar colour is the background token, not a copy of it that drifted',
+      !!bgTok && !!themeCol && themeCol.toUpperCase() === bgTok.toUpperCase()
+      /* and there is no dark variant to keep in step, which is what makes one
+         value enough — see the color-scheme note in index.css */
+      && /color-scheme:\s*only light/.test(css),
+      JSON.stringify({ themeCol, bgTok }));
   }
 
   /* The exported figure is where the country matters most: it leaves the app

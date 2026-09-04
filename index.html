@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Chrome on Android paints its toolbar from this; without it the strip above
+     the page is the browser's own grey against the atlas's #F4F5F2, a seam at
+     the top of every mobile visit. One value, no dark variant to keep in step,
+     because index.css declares `color-scheme: only light` — see the note by that
+     line. The literal duplicates --bg in src/index.css, which this file cannot
+     import; it is the same standing arrangement the author and the citation
+     below are under. -->
+<meta name="theme-color" content="#F4F5F2">
 <title>Migracijski atlas županija · 1998.–2025.</title>
 <!-- Shareable permalinks are the point of this app, and a pasted link rendered as
      a bare URL in every chat client and mail preview. -->
