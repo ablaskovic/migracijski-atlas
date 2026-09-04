@@ -12492,18 +12492,27 @@ const evalSafe = async (pg, fn) => {
       let cap = null;
       document.createElement = function (t, ...a) {
         const el = orig(t, ...a);
-        if (t === 'canvas') setTimeout(() => { if (el.width > 100) cap = { w: el.width, h: el.height }; }, 0);
+        /* > 1000, not > 100. exportPNG measures the credit band first, on a
+           canvas it never resizes — a default 300×150 — and only then allocates
+           the real one. With the throw swallowed below, an export that died in
+           between reported {300, 150, 45.000 px}: inside the cap, not `none`,
+           and this check printed ok for the two windows it exists for while no
+           PNG was produced at all. The smallest window in the sweep yields
+           2296 px, so nothing legitimate is near the new floor. */
+        if (t === 'canvas') setTimeout(() => { if (el.width > 1000) cap = { w: el.width, h: el.height }; }, 0);
         return el;
       };
-      await window.__exportPNG(false).catch(() => {});
+      /* …and the throw is kept rather than swallowed, for the same reason */
+      let threw = null;
+      await window.__exportPNG(false).catch(e => { threw = String(e && e.message || e); });
       document.createElement = orig;
       await new Promise(r => setTimeout(r, 30));
-      return cap ? { w: cap.w, h: cap.h, px: cap.w * cap.h } : { none: true };
+      return cap ? { w: cap.w, h: cap.h, px: cap.w * cap.h, threw } : { none: true, threw };
     });
   }
   await page.setViewport({ width: 1440, height: 900 });
   ck('the PNG canvas never exceeds the backing-store cap, however large the window',
-    Object.values(canvasPx).every(v => !v.none && v.px <= 16_777_216)
+    Object.values(canvasPx).every(v => !v.none && !v.threw && v.w >= 1000 && v.px <= 16_777_216)
     /* …and the reference window still gets its exact 2× */
     && canvasPx['1440x900'].w === 2296,
     JSON.stringify(canvasPx));
