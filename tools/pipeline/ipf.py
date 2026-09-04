@@ -126,7 +126,12 @@ for yi,y in enumerate(YRS):
         # worth stating: the guard says what the output relies on.
         assert (np.diag(R)==0).all(),(y,'largest remainder put a person on the diagonal')
         Mi=R
-    assert int(abs(Mi.sum(1)-r).max())==0,(y,'row dev')
+    # No int() around it. The margins are integers today — verified, no
+    # non-integer ii/oi cell in atlas_data2.json — so truncating changed
+    # nothing; but int(0.9) is 0, so the assert would have accepted a row nine
+    # tenths of a person off if a margin ever arrived as a float, which is the
+    # one case an exactness assert exists for.
+    assert abs(Mi.sum(1)-r).max()==0,(y,'row dev',float(abs(Mi.sum(1)-r).max()))
     # …and the column bound the docstring states, which nothing enforced. Rows are
     # exact by construction (largest remainder is applied per row); the columns
     # are what rounding is free to move, and 'col drift <= ~5' was an assertion
