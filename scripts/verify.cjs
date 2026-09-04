@@ -12071,7 +12071,24 @@ const evalSafe = async (pg, fn) => {
   await fresh('#cz=2');
   const hrZem = await page.evaluate(() => [...document.querySelectorAll('#zemList .jrow .jn')]
     .map(e => e.textContent.trim()));
-  const SAME_IN_BOTH = ['Nepal', 'Kosovo'];
+  /* Derived from CTRY_EN, not written down. A hand list goes stale the moment
+     the annual top-12 refresh brings in another exonym that is the same word in
+     both — Pakistan, Uzbekistan, Iran, Peru — and this check then turns red over
+     a correct translation, which is a failure that teaches the maintainer to
+     edit the check. The table itself already knows: a row may match its Croatian
+     twin exactly when its Croatian key maps to itself.
+     Read out of metrics.ts's source rather than restated here, for the same
+     reason the timeline's key set is read out of App.tsx: a second copy of a
+     table is only as good as the thing that compares them. */
+  const SAME_IN_BOTH = (() => {
+    const src = fs.readFileSync(path.resolve(__dirname, '../src/lib/metrics.ts'), 'utf8');
+    const blk = /const CTRY_EN: Record<string, string> = \{([\s\S]*?)\};/.exec(src);
+    const out = [];
+    for (const m of (blk ? blk[1] : '').matchAll(/'?([^':,{}\n]+)'?\s*:\s*'([^']+)'/g)) {
+      if (m[1].trim().replace(/^'|'$/g, '') === m[2]) out.push(m[2]);
+    }
+    return out;
+  })();
   const zemSame = enZem.filter((s, i) => s === hrZem[i] && !SAME_IN_BOTH.includes(s));
   ck('the Zemlje tab reads in English too, every row of it',
     enZem.length === 14 && hrZem.length === enZem.length && zemSame.length === 0
