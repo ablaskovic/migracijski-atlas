@@ -771,7 +771,15 @@ body.stage-collapsed .main{flex:none;height:420px}
    2,52 is the widest year plus ~2 %. The webfont's own fallback is narrower
    (Arial Narrow tops out at 2,1141 em) so the real face is what binds, and the
    px floor keeps the box from shrinking below today's design if a reader sets a
-   root under 16. */
+   root under 16.
+   The three px numbers — 122 here, 84 at ≤1200 and 70 at ≤900 — are floors and
+   nothing else, and they are what the boxes USED to be: each was measured at a
+   16 px root, where 122 px minus its 12 px padding is 110 px of content. Put
+   that beside the narrowest year in the set and the arithmetic is the whole of
+   the defect above: 110 ÷ 2,1491 em = 51,2 px of font-size, i.e. a root of
+   17,8 px. So even "2011.", the year with the most room to spare, left the box
+   one notch past Chrome's default — which is why the width is a rem expression
+   now and the px is only the bottom stop. */
 .big-year{width:max(122px,calc(2.875rem * 2.52 + 12px));display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding-left:12px}
 /* Stretched and right-aligned rather than shrink-to-fit. `align-items:flex-end`
    made this box exactly as wide as its glyphs, so it MOVED when the face swapped:
