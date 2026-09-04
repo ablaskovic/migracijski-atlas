@@ -182,7 +182,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 627;
+const EXPECTED_CHECKS = 628;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8166,6 +8166,45 @@ const evalSafe = async (pg, fn) => {
   ck('resizing Matrica costs less script than resizing the view that draws the map',
     projCost.saldo > 1 && projCost.mx < projCost.saldo * 0.8,
     JSON.stringify({ ...projCost, ratio: +(projCost.mx / projCost.saldo).toFixed(2) }));
+
+  /* ── and the JLS hover is one element, not a class on 556 ──
+     Structural rather than timed, because a millisecond threshold on a shared
+     runner tells you about the runner. The construction is the thing: the
+     highlight used to be `'jl' + (S.jlsHl === p.j ? ' hl' : '')`, so crossing one
+     municipality changed a className string on all 556 paths and React diffed
+     556 fibers to move one outline — on the view whose entire interaction is
+     crossing municipalities. Measured over 60 crossings at 1440×900, before and
+     after moving it to an overlay and memoising the list: 2,36 → 1,66 ms of
+     script and 4,81 → 3,82 ms of task per crossing, and a wheel-zoom frame 1,72
+     → 0,93 ms.
+     So: exactly one highlight, it is NOT one of the 556 (no data-j), it does not
+     take the pointer, and none of the 556 carries the class. The last clause is
+     the one that fails if the old construction comes back. */
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('#v=jmap&dir=net');
+  await page.waitForFunction(() => document.querySelectorAll('#map .jl[data-j]').length === 556,
+    { timeout: 20000 }).catch(() => {});
+  const hlBox = await page.evaluate(() => {
+    const e = document.querySelectorAll('#map .jl[data-j]')[120];
+    if (!e) return null;
+    const r = e.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  if (hlBox) await page.mouse.move(hlBox.x, hlBox.y);
+  await settle(280);
+  const jlHl = await page.evaluate(() => {
+    const all = [...document.querySelectorAll('#map .jl[data-j]')];
+    const hl = [...document.querySelectorAll('#map .jl.hl')];
+    return { n: all.length, hl: hl.length,
+      inList: hl.filter(e => e.hasAttribute('data-j')).length,
+      listHl: all.filter(e => e.classList.contains('hl')).length,
+      pe: hl[0] ? getComputedStyle(hl[0]).pointerEvents : null,
+      stroke: hl[0] ? getComputedStyle(hl[0]).stroke : null };
+  });
+  ck('the JLS hover is one outline above the list, not a class on all 556',
+    jlHl.n === 556 && jlHl.hl === 1 && jlHl.inList === 0 && jlHl.listHl === 0
+    && jlHl.pe === 'none' && jlHl.stroke === 'rgb(32, 38, 43)',
+    JSON.stringify(jlHl));
 
   /* ── no two tick labels overlap, at any phone width, in either language ──
      the four-tick tier was gated at 200 px of chart and its comment reasons

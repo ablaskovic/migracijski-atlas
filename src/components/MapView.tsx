@@ -358,6 +358,13 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
     return { drawn: true, cent, cds, box, p };
   }, [size, drawsMap]);
   /* the same projection as the counties, built only for the view that draws it */
+  /* which feature the hover is on, as an INDEX into the same arrays the paths
+     are drawn from — so the overlay above can be one element instead of a class
+     on all 556. Memoised on the id, not recomputed per render. */
+  const jlsHlIx = useMemo(
+    () => (JGEO && S.jlsHl != null
+      ? JGEO.features.findIndex(f => f.properties.j === S.jlsHl) : -1),
+    [JGEO, S.jlsHl]);
   const jds = useMemo(
     () => (p && JGEO && S.view === 'jmap' ? JGEO.features.map(f => p(f) || '') : [] as string[]),
     [p, JGEO, S.view]);
@@ -559,6 +566,111 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
         placed.push(r); return true;
       })
     : [];
+  /* The 556 municipality paths, memoised on the arrays they are drawn from.
+     Every crossing and every pinch frame re-runs MapView, and this loop built
+     556 <path> elements with seven inline closures each — 3.892 allocations —
+     for React to diff against 556 fibers that had not changed. Measured at
+     1440×900 over 60 crossings: 2,36 ms of script and 4,81 ms of task each,
+     on a view whose whole interaction is crossing municipalities.
+     Its inputs are all stable during a hover and a pinch: jds and jlsPaint are
+     memoised on the projection and the data, the zoom transform is on the
+     parent <g> rather than on the paths, and the hover is an overlay above the
+     list rather than a class inside it. What was NOT stable is the handlers —
+     App re-creates setJlsHl on every render — so those go through a ref that is
+     refreshed each render and read at event time. Identity out of the deps,
+     freshness kept. */
+  const live = useRef({ setJlsHl, setJf, setJFoc, zoom, jNav });
+  live.current = { setJlsHl, setJf, setJFoc, zoom, jNav };
+  const jlsPathEls = useMemo(() => (drawn && JGEO && jlsPaint
+    ? (() => {
+      return JGEO.features.map((f, ix) => {
+        const p = f.properties;
+        const paint = jlsPaint[ix];
+        return (
+          <path key={p.j} className="jl" data-j={p.j}
+            d={jds[ix]} fill={paint.fill}
+            vectorEffect="non-scaling-stroke"
+            /* the per-JLS numbers lived only in a hover tooltip, so the
+               whole view was unreachable without a pointer. One tab stop
+               in, arrows walk the features (grouped by county). */
+            tabIndex={ix === jf ? 0 : -1}
+            /* Nothing opens when a municipality is activated, so this is
+               a readout, not a button — the same call the inert rail
+               rows make. role=img is what keeps the aria-label exposed
+               on a focusable element that claims no behaviour. */
+            role="img"
+            aria-label={paint.label}
+            /* and not here either, for the reason the county paths give:
+               "… in, … out, net …" is a sentence carrying English words
+               and English-formatted numbers */
+            /* not while a pinch owns the pointers: the coarse branch
+               suppresses the matching leave, so a two-finger gesture
+               left a municipality readout parked over the zoomed map */
+            onPointerEnter={() => { if (!live.current.zoom.gesturing.current) live.current.setJlsHl(p.j); }}
+            /* touch sends leave the moment the finger lifts, which would
+               flash the readout away; keep it until the next tap instead */
+            onPointerLeave={e => { if (e.pointerType !== 'touch') live.current.setJlsHl(null); }}
+            /* A tap fires pointerover, pointerenter, pointerdown, pointerup
+               and pointerleave — and no pointermove. So on the one device
+               class this tip exists for (Tooltip says it outright: on a
+               coarse pointer it is the JLS map's only value readout) the
+               only positioning input never ran: `last` stayed null,
+               placeTip() was a no-op, and .tip's position:fixed with auto
+               insets painted the box at its static flow position.
+               Measured at 390×844 coarse, one clean tap on Sveti Martin na
+               Muri: style.left and style.top both empty, rect (0,1918) —
+               1.074 px below a 844 px viewport, and fixed positioning means
+               scrolling never brings it back. At 1024×768 the same tap
+               painted it at (0,0), over the header, 300 px from the polygon.
+               One drag-tap placed it and every clean tap afterwards
+               replayed that stale point under a different municipality's
+               numbers. Matrica and Godine already position from pointerdown
+               through their touch overlays; this is the same signal. */
+            onPointerDown={moveTip}
+            onPointerMove={moveTip}
+            onFocus={e => {
+              /* through the guard, not through setS: clicking a municipality
+                 raises pointerenter first, which has already written this
+                 exact value, and `up` spreads into a fresh object that
+                 Object.is never matches — so the raw write re-rendered
+                 the whole app for state that did not change. The blur
+                 below pairs with pointerleave the same way. */
+              live.current.setJlsHl(p.j);
+              /* clicking a municipality focuses it, and the ring plus the
+                 tip-jump that follow are both keyboard behaviour: the
+                 pointer already placed the tip on pointermove */
+              if (!isKeyFocus(e.currentTarget)) return;
+              live.current.setJFoc(true);
+              const r = e.currentTarget.getBoundingClientRect();
+              moveTip({ clientX: r.right, clientY: r.bottom });
+            }}
+            onBlur={() => { live.current.setJFoc(false); if (!COARSE) live.current.setJlsHl(null); }}
+            onKeyDown={e => {
+              /* Shift+arrow is the documented keyboard pan and useZoom
+                 listens for it on the window; matching on `e.key` alone
+                 swallowed the chord here the same way the two grids did.
+                 See the note in MatrixView.onCellKey. */
+              if (e.shiftKey) return;
+              const last = JGEO.features.length - 1;
+              const d: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+              /* 556 features on a flat list is 555 presses end to end;
+                 Home/End/PageUp/PageDown make it navigable */
+              const abs: Record<string, number> = { Home: 0, End: last };
+              const page: Record<string, number> = { PageUp: -25, PageDown: 25 };
+              let next: number | null = null;
+              if (d[e.key]) next = ix + d[e.key];
+              else if (e.key in abs) next = abs[e.key];
+              else if (page[e.key]) next = ix + page[e.key];
+              if (next === null) return;
+              e.preventDefault(); e.stopPropagation();
+              live.current.jNav.current = true;
+              live.current.setJf(Math.max(0, Math.min(last, next)));
+            }} />
+        );
+      });
+      })()
+    : null),
+  [drawn, JGEO, jlsPaint, jds, jf]);
   const labelG = (
     <g>
       {labels.map(iso => (
@@ -661,94 +773,18 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
           {...zoom.bind} style={zoom.style}>
           <g transform={zt}>
           <g ref={jgRef}>
-            {drawn && JGEO && jlsPaint && (() => {
-              return JGEO.features.map((f, ix) => {
-                const p = f.properties;
-                const paint = jlsPaint[ix];
-                return (
-                  <path key={p.j} className={'jl' + (S.jlsHl === p.j ? ' hl' : '')} data-j={p.j}
-                    d={jds[ix]} fill={paint.fill}
-                    vectorEffect="non-scaling-stroke"
-                    /* the per-JLS numbers lived only in a hover tooltip, so the
-                       whole view was unreachable without a pointer. One tab stop
-                       in, arrows walk the features (grouped by county). */
-                    tabIndex={ix === jf ? 0 : -1}
-                    /* Nothing opens when a municipality is activated, so this is
-                       a readout, not a button — the same call the inert rail
-                       rows make. role=img is what keeps the aria-label exposed
-                       on a focusable element that claims no behaviour. */
-                    role="img"
-                    aria-label={paint.label}
-                    /* and not here either, for the reason the county paths give:
-                       "… in, … out, net …" is a sentence carrying English words
-                       and English-formatted numbers */
-                    /* not while a pinch owns the pointers: the coarse branch
-                       suppresses the matching leave, so a two-finger gesture
-                       left a municipality readout parked over the zoomed map */
-                    onPointerEnter={() => { if (!zoom.gesturing.current) setJlsHl(p.j); }}
-                    /* touch sends leave the moment the finger lifts, which would
-                       flash the readout away; keep it until the next tap instead */
-                    onPointerLeave={e => { if (e.pointerType !== 'touch') setJlsHl(null); }}
-                    /* A tap fires pointerover, pointerenter, pointerdown, pointerup
-                       and pointerleave — and no pointermove. So on the one device
-                       class this tip exists for (Tooltip says it outright: on a
-                       coarse pointer it is the JLS map's only value readout) the
-                       only positioning input never ran: `last` stayed null,
-                       placeTip() was a no-op, and .tip's position:fixed with auto
-                       insets painted the box at its static flow position.
-                       Measured at 390×844 coarse, one clean tap on Sveti Martin na
-                       Muri: style.left and style.top both empty, rect (0,1918) —
-                       1.074 px below a 844 px viewport, and fixed positioning means
-                       scrolling never brings it back. At 1024×768 the same tap
-                       painted it at (0,0), over the header, 300 px from the polygon.
-                       One drag-tap placed it and every clean tap afterwards
-                       replayed that stale point under a different municipality's
-                       numbers. Matrica and Godine already position from pointerdown
-                       through their touch overlays; this is the same signal. */
-                    onPointerDown={moveTip}
-                    onPointerMove={moveTip}
-                    onFocus={e => {
-                      /* through the guard, not through setS: clicking a municipality
-                         raises pointerenter first, which has already written this
-                         exact value, and `up` spreads into a fresh object that
-                         Object.is never matches — so the raw write re-rendered
-                         the whole app for state that did not change. The blur
-                         below pairs with pointerleave the same way. */
-                      setJlsHl(p.j);
-                      /* clicking a municipality focuses it, and the ring plus the
-                         tip-jump that follow are both keyboard behaviour: the
-                         pointer already placed the tip on pointermove */
-                      if (!isKeyFocus(e.currentTarget)) return;
-                      setJFoc(true);
-                      const r = e.currentTarget.getBoundingClientRect();
-                      moveTip({ clientX: r.right, clientY: r.bottom });
-                    }}
-                    onBlur={() => { setJFoc(false); if (!COARSE) setJlsHl(null); }}
-                    onKeyDown={e => {
-                      /* Shift+arrow is the documented keyboard pan and useZoom
-                         listens for it on the window; matching on `e.key` alone
-                         swallowed the chord here the same way the two grids did.
-                         See the note in MatrixView.onCellKey. */
-                      if (e.shiftKey) return;
-                      const last = JGEO.features.length - 1;
-                      const d: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
-                      /* 556 features on a flat list is 555 presses end to end;
-                         Home/End/PageUp/PageDown make it navigable */
-                      const abs: Record<string, number> = { Home: 0, End: last };
-                      const page: Record<string, number> = { PageUp: -25, PageDown: 25 };
-                      let next: number | null = null;
-                      if (d[e.key]) next = ix + d[e.key];
-                      else if (e.key in abs) next = abs[e.key];
-                      else if (page[e.key]) next = ix + page[e.key];
-                      if (next === null) return;
-                      e.preventDefault(); e.stopPropagation();
-                      jNav.current = true;
-                      setJf(Math.max(0, Math.min(last, next)));
-                    }} />
-                );
-              });
-            })()}
+            {jlsPathEls}
           </g>
+          {/* The hover, drawn ABOVE the list rather than as a class on one of
+              its members. As a class it was part of every path's className, so
+              crossing one municipality changed a string on all 556 and React had
+              to diff all 556 fibers to move one outline — on a view whose whole
+              interaction is crossing municipalities. Same outline, same rule,
+              one element. */}
+          {drawn && JGEO && jlsHlIx >= 0 && jds[jlsHlIx] && (
+            <path className="jl hl" d={jds[jlsHlIx]} fill="none" pointerEvents="none"
+              vectorEffect="non-scaling-stroke" />
+          )}
           <g>
             {drawn && ISOS.map(iso => <path key={iso} className="jbord" d={cds[iso]} vectorEffect="non-scaling-stroke" />)}
           </g>
