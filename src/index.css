@@ -228,8 +228,22 @@ html,body{height:100%}
    at the default setting and everything tracks the reader's preference above it. */
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:0.875rem;
   display:flex;flex-direction:column;overflow:hidden}
+/* …and the [data-kf] twin, which only the SVG rules got. state.ts stamps data-kf
+   on whatever Escape hands focus back to, and all six HTML targets carry it —
+   the three chip headers, a rail row, #story and #helpBtn — but the only rules
+   that read it were .cnt, .cnt.sel, .mxc, .mxd, .yrc and .jl. Chrome hid that:
+   it flips :focus-visible on the keypress, so the ring appears there either way.
+   Measured in Firefox 153 after clicking #citzHd and pressing Escape: data-kf
+   present, :focus-visible false, outline none, box-shadow none — the control the
+   reader is standing on shows nothing. Same for #ageHd, #jcardHd, a rail row
+   after a corridor opens, #story after a Nalaz is dismissed, and #helpBtn after
+   the glossary closes — the last being a hand-back where focus MOVES, so the
+   note above about Firefox not re-evaluating when focus stays put is narrower
+   than the engine actually is. WCAG 2.4.7, in the second desktop engine.
+   `:not(svg *)` keeps this box outline off the paths, whose own stroke rules
+   below already answer for them. */
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
-:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+:focus-visible,:not(svg *)[data-kf]:focus{outline:2px solid var(--acc);outline-offset:2px}
 /* …but never on a graphic. An outline on an SVG element is drawn round its
    *bbox* — a rounded rectangle, nothing like the shape it is meant to indicate —
    and inside the zoom transform it scales with k as well (measured ~20 px of ink
@@ -391,7 +405,7 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
   font-family:var(--mono);font-size:0.59375rem;letter-spacing:.08em;text-transform:uppercase;
   padding:4px 6px;cursor:pointer;width:98px}
 .storysel select:hover{color:var(--ink)}
-.storysel select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.storysel select:focus-visible,.storysel select[data-kf]:focus{outline:2px solid var(--acc);outline-offset:2px}
 .storysel-row{display:flex;gap:4px;align-items:stretch}
 /* reset: without it the only way back from a deep view was reversing every
    control by hand (Back used to leave the site — App now pushes view changes) */
@@ -650,7 +664,7 @@ body.stage-collapsed .main{flex:none;height:420px}
    — and the rest of its appearance (teal border-left, grey fill) is what plain
    hover paints anyway, so a keyboard reader could not tell the two apart. Same
    answer .seg, .jtabs, #spark and svg#map already take in this file. */
-.rrow:focus-visible{outline-offset:-2px}
+.rrow:focus-visible,.rrow[data-kf]:focus{outline-offset:-2px}
 .rrow.big{padding:6px 14px}
 .rname{font-size:0.6875rem;line-height:1.25;overflow-wrap:anywhere}
 .rbar-track{position:relative;height:9px}
