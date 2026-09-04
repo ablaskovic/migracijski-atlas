@@ -14761,10 +14761,22 @@ const evalSafe = async (pg, fn) => {
          The flow arcs, their casings and the hub dot are exempt: they divide
          their own stroke width by k by design, which is the other way of
          solving the same problem. */
-      const scaling = [...document.querySelectorAll('#map g [stroke]')]
-        .filter(e => e.getAttribute('stroke') !== 'none')
+      /* By the COMPUTED stroke, not by the presence of a stroke ATTRIBUTE.
+         `[stroke]` selects only elements carrying the attribute, and index.css
+         strokes .cnt, .regline, .mxband rect, .jbord, the focus ring and .mxnum
+         from the stylesheet — so an element stroked by class and missing the
+         attribute is invisible to this half, and to the raster half above as
+         well, which strips vector-effect and diffs and therefore cannot see an
+         element that never declared it. Every one of those also carries
+         vector-effect today; the point is that nothing was checking. */
+      const scaling = [...document.querySelectorAll('#map g *')]
+        .filter(e => {
+          const cs = getComputedStyle(e);
+          const w = parseFloat(cs.strokeWidth);
+          return cs.stroke && cs.stroke !== 'none' && w > 0;
+        })
         .filter(e => !e.matches('.arc, .arccase, .hubdot'))
-        .filter(e => e.getAttribute('vector-effect') !== 'non-scaling-stroke')
+        .filter(e => getComputedStyle(e).vectorEffect !== 'non-scaling-stroke')
         .map(e => e.tagName + '.' + (e.getAttribute('class') || e.parentElement?.getAttribute('class') || '?'));
       return { moved, px: a.length / 4, declares, scaling: scaling.slice(0, 6), nScaling: scaling.length };
     }, sels);
