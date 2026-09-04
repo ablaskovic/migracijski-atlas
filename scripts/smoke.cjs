@@ -87,13 +87,15 @@ function get(url, hop = 0) {
    it should reach. Comment out any ck() and it printed ALL 11 SMOKE CHECKS
    PASS with exit 0 — a success-shaped banner for a smaller protocol, the exact
    failure mode verify.cjs's own pin was built to end.
-   Fourteen fixed checks — the three at the top, the CSP and the nosniff pair,
-   the revalidate, the entry chunk, the asset trio (either arm), the two version
-   checks, the stylesheet (either arm) and this pin itself — plus one per header
+   Sixteen fixed checks — the three at the top, the two rewrite probes (a font
+   licence served as a file and a two-segment path booting the app), the CSP and
+   the nosniff pair, the revalidate, the entry chunk, the asset trio (either
+   arm), the two version checks, the stylesheet (either arm) and this pin
+   itself — plus one per header
    vercel.json declares, because that loop is driven by the same config the
    deploy reads: adding a header there is a deliberate change to what is asked;
    deleting a ck() is not. */
-const EXPECTED_SMOKE = 14 + require(path.resolve(__dirname, '../vercel.json'))
+const EXPECTED_SMOKE = 16 + require(path.resolve(__dirname, '../vercel.json'))
   .headers.find(h => h.source === '/(.*)').headers.length;
 let fails = 0, n = 0;
 function ck(name, cond, extra = '') {
@@ -127,6 +129,28 @@ function localEntry() {
   const home = await get(ORIGIN);
   ck('the home page answers 200 as HTML', home.status === 200 && /text\/html/.test(home.type),
     home.status + ' ' + home.type);
+
+  /* The rewrite, from both sides, on the only machine that can answer for it.
+     verify.cjs proves the regex locally — that it renders index.html for any
+     path and excludes /assets/ and /fonts/ — but a regex that is right in the
+     repo says nothing about whether the platform applied it, and this file
+     exists because the platform once served something else entirely.
+     Two GETs, one per side. A font licence must come back as the text file it
+     is: if the exclusion is not applied, the shell answers with 200 text/html
+     and OFL §2's requirement that the licence travel with the font software is
+     satisfied by a page that is not the licence. And a two-segment path must
+     boot the app: that is the case `base: '/'` in vite.config.ts exists for,
+     recorded there as the shape where a relative asset URL resolved into the
+     rewrite and React never mounted. */
+  const ofl = await get(ORIGIN + 'fonts/OFL-Oswald.txt');
+  ck('a font licence is served as a file, not answered by the SPA rewrite',
+    ofl.status === 200 && /text\/plain/.test(ofl.type)
+    && /SIL OPEN FONT LICENSE/i.test(ofl.body) && !/<!DOCTYPE html>/i.test(ofl.body),
+    ofl.status + ' ' + ofl.type);
+  const deep = await get(ORIGIN + 'en/saldo');
+  ck('a two-segment path still boots the app through the rewrite',
+    deep.status === 200 && /text\/html/.test(deep.type) && /id="root"/.test(deep.body),
+    deep.status + ' ' + deep.type);
 
   /* The live origin sent exactly one security header (HSTS) before the audit
      pass: no CSP, no frame-ancestors, no nosniff, no Referrer-Policy. These are
