@@ -148,8 +148,9 @@ its own copies as data URLs),
 nosniff, a referrer policy, a permissions policy, COOP, HSTS (two years, all
 subdomains) and `Vary: Accept-Encoding`. HSTS carries no `preload` token: the
 token does nothing until the apex is submitted to hstspreload.org, which this
-repository cannot do, and leaving that list takes months. Caching is two rules, and neither of them is about the
-fonts: `/fonts/` for a week — which covers the two OFL licence texts, the only
+repository cannot do, and leaving that list takes months.
+
+Caching is two rules, and neither of them is about the fonts: `/fonts/` for a week — which covers the two OFL licence texts, the only
 files in that directory — and the document `must-revalidate`. The eight woff2
 are bundled, so they ship as hashed `/assets/` outputs and take the platform's
 own immutable default along with the JS and the CSS. There is deliberately no `/assets/` rule — a Vercel headers
