@@ -215,7 +215,13 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
             contained in it — "Rad: Maras, M. i Vinovrški, L. …" does not contain
             "Maras i Vinovrški (2026.)", and a speech-input user saying what they
             can see would have missed the link. */}
-        <div className="hd-sub">{L('Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz',
+        {/* 'uz rad', not 'uz' + a citation. Croatian 'uz' governs the
+            accusative, and the citation that follows is a fixed form the page
+            prints verbatim in four places — so the sentence read "nadopuna uz
+            Maras i Vinovrški", undeclined surnames after a preposition, which
+            is the class MA4M-186 fixed for county names. 'rad' takes the case
+            and the citation stays a citation. English needs no such repair. */}
+        <div className="hd-sub">{L('Unutarnje i vanjske migracije + međužupanijski tokovi — interaktivna nadopuna uz rad',
           'Internal and external migration + inter-county flows — an interactive companion to')}{' '}
           {/* Croatian inside an English document: the short citation and the journal
               name are what is printed on the paper, and county names are place names —
