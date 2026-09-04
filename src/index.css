@@ -1316,15 +1316,18 @@ body.stage-collapsed .main{flex:none;height:420px}
      the play button returned the glossary, 46.002 px² of overlap. Pin it to the
      viewport instead and reserve the bar's own lane, so the two cannot meet. */
   .helpcard{position:fixed;left:8px;right:8px;width:auto;top:56px;
-    max-height:none;bottom:144px;overflow-y:auto}
-  body.scrub-collapsed .helpcard{bottom:86px}
+    max-height:none;bottom:calc(var(--scrubh,128px) + 16px);overflow-y:auto}
 
   /* time scrubber pinned to the bottom so the year is always reachable while
      scrolling the map/rail. Body padding keeps the footer clear of it. */
   .scrub{position:fixed;left:0;right:0;bottom:0;z-index:8;padding:18px 10px 8px;
     box-shadow:0 -2px 12px rgba(32,38,43,.10)}
-  body{padding-bottom:136px}
-  body.scrub-collapsed{padding-bottom:78px}
+  /* The bar's measured height plus a gap, not a literal per state. --scrubh is
+     published by Scrubber from a ResizeObserver on the bar itself; its comment
+     carries the measurements. The 128px fallback is what reproduces the 136 and
+     144 these two rules used to carry, so a build where the property never
+     arrives behaves exactly as this file did before. */
+  body{padding-bottom:calc(var(--scrubh,128px) + 8px)}
   /* …and the same two numbers as scroll padding, because trailing body padding
      is not what moves a focused element out from under the bar. An element
      behind a position:fixed overlay is still inside the scrollport, so
@@ -1336,11 +1339,12 @@ body.stage-collapsed .main{flex:none;height:420px}
      the same focus move now scrolls the row clear: measured, 0 obscured stops
      left, both bar states. The bar's own two controls sit inside it by
      definition and are not counted.
-     :has() so the collapsed lane reserves only its own 78 px; where it is not
-     supported the base 136 px still clears the bar, it just scrolls further
-     than it needs to. */
-  html{scroll-padding-bottom:136px}
-  html:has(body.scrub-collapsed){scroll-padding-bottom:78px}
+     The pair of literals is gone with the body padding's: this is the same
+     measured height, so the lane the browser refuses to scroll into is exactly
+     the lane the bar occupies, in both states and at any root font size. It used
+     to be a :has() rule selecting the collapsed state, which reserved 78 px for a
+     bar measuring 86 to 129. */
+  html{scroll-padding-bottom:calc(var(--scrubh,128px) + 8px)}
   .scrub.collapsed .scrub-chart{display:none}
   /* The bar's bottom edge is pinned to the viewport and its top is not, so
      folding the chart away moved the play button down and halved it — measured

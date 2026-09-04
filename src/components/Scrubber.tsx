@@ -18,15 +18,49 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     return () => ro.disconnect();
   }, []);
 
-  /* Collapsing is presentation-only, so it stays local rather than entering S
-     (it must not land in the permalink). The body class lets the layout reserve
-     the right amount of space under the fixed bar — same escape hatch App uses
-     for panel-open. */
-  const [collapsed, setCollapsed] = useState(false);
+  /* …and the bar's own height, published for the layout to reserve against.
+     Below 900 px this bar is position:fixed, so the space under it has to be
+     reserved by hand — body padding, scroll-padding and the glossary's bottom
+     edge. Those were three px literals per state (136/78, 136/78, 144/86), and
+     the bar's height is not a literal: it is whatever its tallest child is, and
+     that is the caption, which has no line clamp and wraps freely inside a 62–72
+     px box. The DEFAULT Tokovi/Matrica caption — "tokovi · kumulativna procjena"
+     — takes three lines, so the collapsed bar measures 86 px at 390×844 and 92 at
+     844×390 against the 78 reserved, and 104–129 px once the reader raises the
+     browser font. Measured at all three of Chrome's presets: the footer sat 8 to
+     51 px under the bar in every collapsed sample, and elementFromPoint at the
+     centre of the footer's source-code link returned #scrubBox — the link is
+     behind the bar, so it cannot be tapped, and scroll-padding-bottom carried the
+     same short number so Tab could not bring it out either (2.4.11).
+     Measured rather than re-derived, then, the way MapView already publishes
+     --stageh: no literal has to know how many lines a caption takes, or what root
+     font size the reader chose.
+     Written only when the number changes: a ResizeObserver that writes on every
+     delivery can re-enter itself, and the suite reads console errors.
+     Unconditionally otherwise, including 0 — --stageh's own comment records what
+     skipping a zero measurement costs, and a bar with no height needs no reserve,
+     so 0 is the honest value and not a reason to leave a stale one behind. */
+  const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    document.body.classList.toggle('scrub-collapsed', collapsed);
-    return () => document.body.classList.remove('scrub-collapsed');
-  }, [collapsed]);
+    const el = barRef.current!;
+    let last = -1;
+    const ro = new ResizeObserver(() => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      if (h === last) return;
+      last = h;
+      document.documentElement.style.setProperty('--scrubh', h + 'px');
+    });
+    ro.observe(el);
+    return () => { ro.disconnect(); document.documentElement.style.removeProperty('--scrubh'); };
+  }, []);
+
+  /* Collapsing is presentation-only, so it stays local rather than entering S
+     (it must not land in the permalink). It used to publish a body.scrub-collapsed
+     class as well, so the layout could switch between two sets of px reserves;
+     --scrubh above measures the bar in both states, so nothing read that class any
+     more — not one rule in index.css and not one check in verify.cjs — and a body
+     class nobody reads is a state signal that only looks load-bearing. */
+  const [collapsed, setCollapsed] = useState(false);
 
   const sh = 96, mL = 6, mR = 6, mT = 14, mB = 16;
   const { x, sy, dExt, dVol } = useMemo<{
@@ -218,7 +252,8 @@ export default function Scrubber({ S, setYi, togglePlay }: {
     : L('Pokreni reprodukciju kroz godine', 'Play through the years');
 
   return (
-    <div className={'scrub' + (inert ? ' inert' : '') + (collapsed ? ' collapsed' : '')} id="scrubBox">
+    <div className={'scrub' + (inert ? ' inert' : '') + (collapsed ? ' collapsed' : '')} id="scrubBox"
+      ref={barRef}>
       {/* mobile-only handle: the bar is pinned to the bottom there, so it needs a
           way to give the map its space back. Play + year stay visible collapsed. */}
       <button className="scrub-tog" id="scrubTog" aria-expanded={!collapsed}

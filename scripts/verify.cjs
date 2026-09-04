@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 618;
+const EXPECTED_CHECKS = 619;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2371,6 +2371,80 @@ const evalSafe = async (pg, fn) => {
      over-wide value column shows up as a scrollbar under all 21 rows; that is
      asserted directly rather than inferred. And .ctrl-lab pinned its line box in
      px under a rem font-size, so the caps grew out of the line at 20 px and up. */
+  /* ── and the lane reserved under the bar that is pinned over the page ──
+     Below 900 px .scrub is position:fixed, so the space under it is reserved by
+     hand: body padding-bottom, html scroll-padding-bottom, and the glossary's
+     bottom edge. Those were six px literals — 136/78, 136/78, 144/86 — and the
+     bar's height is not a literal. Its tallest child is .big-year-s, which has no
+     line clamp and wraps inside a 62–72 px box, so the DEFAULT Tokovi/Matrica
+     caption takes three lines and the collapsed bar measures 86 px at 390×844
+     and 92 at 844×390, against 78 reserved; raising the browser font takes it to
+     129. Measured before the fix, in every collapsed sample: the footer sat 8 to
+     51 px under the bar, and elementFromPoint at the centre of its source-code
+     link returned #scrubBox — the link was behind the bar and untappable, with
+     scroll-padding carrying the same short number so Tab could not free it
+     either (2.4.11, the case the rail rows were already fixed for).
+     The reserve is now the bar's measured height (--scrubh, published by
+     Scrubber from a ResizeObserver), so this asserts the relation rather than any
+     number: nothing a reader is asked to reach may sit below the bar's top edge,
+     in both bar states, at all three of Chrome's font presets. The hit test is
+     the point — geometry alone would accept a link that clears the bar by a
+     pixel while its centre is still covered. */
+  const barCdp = await page.createCDPSession();
+  const lane = [];
+  for (const [w, h] of [[390, 844], [844, 390]]) {
+    for (const fs of [16, 20, 24]) {
+      await barCdp.send('Page.setFontSizes', { fontSizes: { standard: fs, fixed: fs } });
+      await page.setViewport({ width: w, height: h, isMobile: w < 500, hasTouch: w < 500 });
+      for (const shut of [false, true]) {
+        await fresh('#v=flow&s=HR-21&c=1&y=2024');
+        if (shut) {
+          await click('#scrubTog');
+          await page.waitForFunction(
+            () => document.querySelector('#scrubTog').getAttribute('aria-expanded') === 'false',
+            { timeout: 8000 }).catch(() => {});
+          await settle(200);
+        }
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await settle(200);
+        const seen = await page.evaluate(() => {
+          const bar = document.querySelector('#scrubBox').getBoundingClientRect();
+          const ft = document.querySelector('.ft');
+          const links = [...document.querySelectorAll('.ft a')];
+          const last = links[links.length - 1];
+          const lb = last ? last.getBoundingClientRect() : null;
+          const el = lb ? document.elementFromPoint(lb.left + lb.width / 2, lb.top + lb.height / 2) : null;
+          return { barH: +bar.height.toFixed(1), nLinks: links.length,
+            cap: (document.querySelector('.big-year-s') || {}).textContent || '',
+            ftUnder: ft ? +(ft.getBoundingClientRect().bottom - bar.top).toFixed(1) : null,
+            linkUnder: lb ? +(lb.bottom - bar.top).toFixed(1) : null,
+            hit: el ? (el.id || el.tagName) : null };
+        });
+        /* the glossary is fixed here too, and reserved against the same lane */
+        await click('#helpBtn');
+        await settle(250);
+        const help = await page.evaluate(() => {
+          const bar = document.querySelector('#scrubBox').getBoundingClientRect();
+          const hc = document.querySelector('#helpCard');
+          return hc ? +(hc.getBoundingClientRect().bottom - bar.top).toFixed(1) : null;
+        });
+        await click('#helpX');
+        lane.push({ w, fs, shut, ...seen, helpUnder: help });
+      }
+    }
+  }
+  await barCdp.detach();
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('nothing a reader must reach is left under the pinned timeline, in either bar state',
+    lane.length === 12
+    /* the footer carries several links, and a 0-length list hits nothing */
+    && lane.every(r => r.nLinks >= 2 && r.barH > 40 && /\S/.test(r.cap))
+    && lane.every(r => r.ftUnder <= 0 && r.linkUnder <= 0 && r.helpUnder <= 0
+      && r.hit !== 'scrubBox' && r.hit !== 'bigYear'),
+    JSON.stringify(lane.filter(r => r.nLinks < 2 || !(r.barH > 40) || !/\S/.test(r.cap)
+      || r.ftUnder > 0 || r.linkUnder > 0 || r.helpUnder > 0
+      || r.hit === 'scrubBox' || r.hit === 'bigYear')) + ' n=' + lane.length);
+
   const boxCdp = await page.createCDPSession();
   const boxes = [];
   for (const [w, h] of [[1440, 900], [800, 900], [390, 844]]) {
