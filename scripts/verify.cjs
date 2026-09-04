@@ -7499,12 +7499,27 @@ const evalSafe = async (pg, fn) => {
     offlineState.href === urlBefore && offlineState.mounted && !!offlineState.note
     && /Nema mreže/.test(offlineState.note) && backOnline === 556,
     JSON.stringify({ offlineState, backOnline }));
+  /* moved below the sweep so the count it reports is the sweep's own */
   /* the offline window logs its own resource failures; they are ours — but only
      the ones that arrived INSIDE it. Sweeping the whole ledger took the
      deliberate geo_jls abort the next check exists to sweep and assert, and that
      check then failed on a clean ledger with nothing dropped. */
+  /* …and only the URLs the offline moment can actually fail. `net::` on its own
+     matched every network line in the window, which is wider than the window's
+     own justification: the span includes the app's full reload after `online`,
+     so an unrelated failure in that reload was swept with the rest and the
+     end-of-run bracket saw a clean ledger. What the deliberate abort and the
+     offline second can produce is the two geometry chunks and the export's font
+     warm — that timer fires while the network is down — so those are named and
+     nothing else is. The count is asserted below, so a window that swept nothing
+     is itself a failure. */
+  const OFF_URL = /geo_jls|geo_regions5|\.woff2/;
+  let offDropped = 0;
   for (let i = errors.length - 1; i >= errsOff; i--) {
-    if (/geo_jls/.test(errors[i]) || /ERR_INTERNET_DISCONNECTED|ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+    if (OFF_URL.test(errors[i])
+      && /ERR_INTERNET_DISCONNECTED|ERR_FAILED|ERR_ABORTED|net::|Failed to load resource/.test(errors[i])) {
+      errors.splice(i, 1); offDropped++;
+    }
   }
   /* The aborted request above is a deliberate console error. Drop exactly it —
      the comment always said so, but the pattern matched any net:: failure with
@@ -7517,7 +7532,13 @@ const evalSafe = async (pg, fn) => {
     }
     ck('the deliberate abort is the only error swept, and it was swept',
       before - errors.length >= 1 && errors.length === 0,
-      JSON.stringify({ dropped: before - errors.length, left: errors.slice(0, 2) }));
+      /* offDropped is REPORTED and not asserted, on purpose. Console lines
+         arrive over CDP after the evaluate that caused them, so the offline
+         window's own failures may not be in the ledger yet when the loop above
+         runs — they are then caught by the URL-scoped sweep here, which is why
+         that one can assert its count and this one cannot. A floor on
+         offDropped would be a race, not a guarantee. */
+      JSON.stringify({ dropped: before - errors.length, offDropped, left: errors.slice(0, 2) }));
   }
   blockGeoChunk = false;
 
