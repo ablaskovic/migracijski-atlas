@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { D, REG, SHORTN, MXORD, mxCell, mxMax, divScale, seqScale, badgeText, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
+import { D, REG, SHORTN, MXORD, YEARS, mxCell, mxMax, divScale, seqScale, badgeText, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
 import { isKeyFocus } from '../lib/state.ts';
-import { L } from '../lib/i18n.ts';
+import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactElement } from 'react';
 import type { Patch, State } from '../lib/types.ts';
@@ -264,6 +264,15 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      IPF-fitted number with no marker at all, while hovering the same cell showed
      the identical table plus a "procjena (IPF)" pill. */
   const cellBadge = S.cum ? badgeText('cum') : flowBadge(S.yi, S.cum);
+  /* WHICH YEARS. A cell announced "Grad Zagreb ↔ Zagrebačka: neto −12.169 za Grad
+     Zagreb · kumulativna procjena" — the 2011–2024 sum — and nothing in the grid
+     said so; scrub to 2018 and the same cell reads a different number with
+     "· izmjereno" and still no year. The grid's own name was period-less too,
+     while the legend title outside it and countyAria on the map both state the
+     span for these same corridor values. MA4M-075 named both grids and its
+     commit changed Godine only, so this half shipped unfixed.
+     Once, from the state, exactly as Godine composes its own. */
+  const per = S.cum ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi]);
   /* The two translated fragments, read once — so the memoised builder below
      depends on the language through a value it actually uses rather than through
      `L`, which reads a module mirror the dependency checker cannot see. The
@@ -272,8 +281,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
   const cellAria = useCallback((a: string, b: string, v: number): string =>
     (S.dir === 'net' ? `${D[a].n} ↔ ${D[b].n}: ${ariaNet} ${sgn(Math.round(v), fmtI)} ${ariaFor} ${D[a].n}`
       : S.dir === 'in' ? `${D[b].n} → ${D[a].n}: ${fmtI.format(Math.round(v))}`
-        : `${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`) + ' · ' + cellBadge,
-  [S.dir, ariaNet, ariaFor, cellBadge]);
+        : `${D[a].n} → ${D[b].n}: ${fmtI.format(Math.round(v))}`) + ' · ' + per + ' · ' + cellBadge,
+  [S.dir, ariaNet, ariaFor, cellBadge, per]);
 
   /* Touch hit-testing: a finger is ~40 px against a ~10 px cell, so relying on
      the cell paths themselves means most taps land in a gap and read nothing.
@@ -440,8 +449,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
   return (
     /* tabIndex -1 for the skip link — see the county map in MapView */
     <svg id="map" role="grid" tabIndex={-1} aria-rowcount={n} aria-colcount={n}
-      aria-label={L('Matrica međužupanijskih tokova — strelice pomiču odabir, Enter otvara koridor',
-        'Inter-county flow matrix — arrow keys move the selection, Enter opens the corridor')}
+      aria-label={L(`Matrica međužupanijskih tokova · ${per} — strelice pomiču odabir, Enter otvara koridor`,
+        `Inter-county flow matrix · ${per} — arrow keys move the selection, Enter opens the corridor`)}
       {...zoom.bind} style={zoom.style}>
       <defs>
         <pattern id="mxhatch" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
