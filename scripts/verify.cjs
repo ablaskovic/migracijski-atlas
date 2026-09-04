@@ -226,7 +226,14 @@ async function finish(code) {
   }
   /* exitCode rather than exit(): with 190+ log lines, process.exit truncates a
      pending stdout flush when the output is redirected to a file or a pipe */
-  process.exitCode = code !== undefined ? code : (fails ? 1 : 0);
+  /* …and `short` decides it too, so the banner and the exit code cannot
+     disagree. The banner above reads both; this line read only `fails`, so an
+     IIFE that resolved early with nothing failed would print "ABORTED after
+     n/642 CHECKS" and exit 0 — a green CI over a run that stopped. No top-level
+     `return` exists today, so there is no trigger; smoke.cjs already writes
+     `fails || short ? 1 : 0`, and the two files should not answer this
+     differently. */
+  process.exitCode = code !== undefined ? code : (fails || short ? 1 : 0);
 }
 function ck(name, cond, extra = '') {
   n++;
