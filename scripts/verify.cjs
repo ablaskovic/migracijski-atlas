@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 636;
+const EXPECTED_CHECKS = 637;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -11386,6 +11386,34 @@ const evalSafe = async (pg, fn) => {
      is not a permalink field, so the ~40 % of the app's English prose that lives
      in #helpCard sat outside every English check in this file — every read of
      that card here is in Croatian. */
+  /* The mirror of the ordinal sweep, for the other half of the same rule: a
+     Croatian WORD reaching an English reader unannotated. The rule is stated in
+     three components and enforced above on six named surfaces and by the word
+     list inside the glossary — seven Croatian words, in one card. Everything
+     else was on trust: a view name, a legend caption, a chip label or a footer
+     line reverted to Croatian anywhere outside #helpCard is invisible to every
+     check in this file.
+     Diacritics are the mechanical part of "is this Croatian": čćžšđ appear in
+     no English word, so a visible text node containing one, whose nearest
+     [lang] ancestor is not hr, is either a bug or a place name. Place names are
+     the entire false-positive class and they cannot be translated, so they are
+     subtracted from the string first — 21 county names from atlas_data2 and 556
+     JLS names from geo_jls, longest first so "Šibensko-kninska" is removed
+     before "Šibenik" can match half of it — plus the four proper nouns the
+     citation and the two chip panels carry. What is left is prose, and prose
+     with a diacritic in it is Croatian. Without the subtraction the sweep
+     reports #srLive, .card-sub and .paper-link, all of them legitimate.
+     Invisible nodes are skipped for the same reason the ordinal sweep does not
+     look at them: an unmounted panel is not shown to anyone. */
+  const DIA_NAMES = (() => {
+    const raw = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/atlas_data2.json'), 'utf8'));
+    const jls = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/geo_jls.json'), 'utf8'));
+    return [...Object.values(raw.c).map(c => c.n),
+      ...jls.features.map(f => String(f.properties.n || '')),
+      'Vinovrški', 'Maras', 'Županije', 'Državljanstvo']
+      .filter(n => /[čćžšđČĆŽŠĐ]/.test(n)).sort((a, b) => b.length - a.length);
+  })();
+  const enDia = [];
   const enOrd = [];
   for (const [h, openHelp] of [['#l=en&v=saldo&c=1&y=2024&s=HR-18'], ['#l=en&v=klas&c=1&y=2024'],
     ['#l=en&v=yrs&f=int&c=0&y=2022'], ['#l=en&v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0'],
@@ -11422,6 +11450,25 @@ const evalSafe = async (pg, fn) => {
       return out;
     });
     if (bad.length) enOrd.push(h + (openHelp ? ' +glossary' : '') + ' → ' + bad.slice(0, 2).join(' ; '));
+    const dia = await page.evaluate(NAMES => {
+      const DIA = /[čćžšđČĆŽŠĐ]/;
+      const out = [];
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        const t = (n.textContent || '').trim();
+        if (!t || !DIA.test(t)) continue;
+        const el = n.parentElement;
+        if (!el || !el.getClientRects().length) continue;
+        const lg = el.closest('[lang]');
+        if (lg && lg.getAttribute('lang') === 'hr') continue;
+        let rest = t;
+        for (const nm of NAMES) rest = rest.split(nm).join('');
+        if (!DIA.test(rest)) continue;
+        out.push((el.id || el.className || el.tagName) + ' «' + t.slice(0, 44) + '»');
+      }
+      return out;
+    }, DIA_NAMES);
+    if (dia.length) enDia.push(h + (openHelp ? ' +glossary' : '') + ' → ' + dia.slice(0, 2).join(' ; '));
     if (openHelp) {
       const helpEn = await page.evaluate(() => {
         const c = document.querySelector('#helpCard');
@@ -11456,6 +11503,8 @@ const evalSafe = async (pg, fn) => {
   }
   ck('no Croatian year ordinal survives into English, anywhere on the page',
     enOrd.length === 0, enOrd.slice(0, 3).join(' | '));
+  ck('no unannotated Croatian word survives into English, anywhere on the page',
+    enDia.length === 0, enDia.slice(0, 3).join(' | '));
 
   /* The other half of the same problem: a Croatian place name inside a lang="en"
      document is voiced with English phonemes unless the element that carries it
