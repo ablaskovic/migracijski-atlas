@@ -357,7 +357,14 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
 
   return (
     /* tabIndex -1 for the skip link — see the county map in MapView */
-    <svg id="map" role="grid" tabIndex={-1} aria-rowcount={nR} aria-colcount={nC}
+    /* aria-multiselectable, because a year selects a whole COLUMN: all 21
+       cells of it carry aria-selected, which ARIA 1.2 reads as a violation
+       unless the grid says it allows more than one. The behaviour is the
+       wanted one — a reader arrowing down the column hears "selected" on
+       every cell of the year they are on — so this makes the declaration
+       match it rather than changing what is announced. */
+    <svg id="map" role="grid" tabIndex={-1} aria-multiselectable="true"
+      aria-rowcount={nR} aria-colcount={nC}
       /* …and the series, once on the grid rather than 588 times in the cells:
          tot/int/ext/nat/all all announced "Grad Zagreb, 2018.: …" with nothing
          saying which of the five the number was. */
