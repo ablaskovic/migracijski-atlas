@@ -39,6 +39,23 @@ let touching = false;
 export const wasTouch = (): boolean => touching;
 if (typeof window !== 'undefined') {
   window.addEventListener('pointerdown', e => { touching = e.pointerType === 'touch'; }, true);
+  /* …and a mouse that starts hovering clears it, which pointerdown alone could
+     not. The flag was written by presses only, so on a hybrid device — a
+     touchscreen laptop, a Surface, an iPad with a trackpad — one finger tap left
+     it true for as long as the reader then used the mouse, and every county hover
+     after it showed no tooltip at all: the tip is gated on !wasTouch() at render
+     time, and nothing rewrote the flag until the next press. The same latch also
+     decided the tip's placement pad and its above/below flip, so the mouse got
+     touch geometry until it clicked something.
+     pointerover, not pointermove: it fires once per element crossing rather than
+     per pixel, so this costs one boolean write per hovered element. In the
+     capture phase for the same reason the press listener is — a handler that
+     stops propagation must not be able to hide the pointer's identity. A click's
+     own pointerdown still precedes its click, so the drill and pickYear guards
+     that ask "was this a finger?" keep their meaning. */
+  window.addEventListener('pointerover', e => {
+    if (e.pointerType !== 'touch') touching = false;
+  }, true);
 }
 
 let tipNode: HTMLDivElement | null = null;
