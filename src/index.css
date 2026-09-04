@@ -1637,6 +1637,14 @@ body.stage-collapsed .main{flex:none;height:420px}
   body{display:block;padding-bottom:0}
   .main{display:block}
   .map-wrap,.map-stage{display:block;height:auto}
+  /* …and the one .main rule a media query cannot outrank. `.main{display:block}`
+     above is (0,1,1); `body.stage-collapsed .main{height:420px}` is (0,2,1), and
+     a media query adds no specificity — so on the very case that class exists
+     for, a large-font reader on a short window, .main printed as a 420 px block
+     while its content (a 430 px map box, the Nalazi banner, the in-flow cards
+     and a 21-row rail) overflowed it onto the timeline and the footer. Reset by
+     name, at the same specificity. */
+  body.stage-collapsed .main{height:auto}
   /* …and then the stage has no flex parent left, so `.map-box{flex:1}` resolved
      to `auto`: the box sat on its 180 px floor and the SVG inside it, whose
      height is a percentage of that auto height, fell back to the 150 px
