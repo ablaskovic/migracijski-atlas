@@ -101,9 +101,21 @@ export function focusSoon(sel: string, kb = false) {
       if (document.activeElement !== el) { if (kb) el.removeAttribute('data-kf'); continue; }
       if (kb) {
         if (had) el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-        const drop = () => el.removeAttribute('data-kf');
-        el.addEventListener('blur', drop, { once: true });
-        el.addEventListener('pointerdown', drop, { once: true });
+        /* ONE of these two fires, and it removes both. They are alternatives —
+           the marker goes when focus leaves or when a pointer presses, whichever
+           happens — but {once:true} only removes the listener that fired, so the
+           other stayed registered for the life of the element. A keyboard reader
+           never produces a pointerdown, so ten Escape hand-backs on #helpBtn left
+           it holding pointerdown(once) x10 against blur(once) x1 (measured with
+           CDP DOMDebugger.getEventListeners); mouse users accumulate the blur
+           half instead. Each stale closure only removes an attribute when it
+           finally fires, so this cost bytes rather than behaviour — but it is
+           unbounded in the number of hand-backs, which is the shape worth not
+           having. An AbortController is the one signal both listeners share. */
+        const ac = new AbortController();
+        const drop = () => { el.removeAttribute('data-kf'); ac.abort(); };
+        el.addEventListener('blur', drop, { once: true, signal: ac.signal });
+        el.addEventListener('pointerdown', drop, { once: true, signal: ac.signal });
       }
       return;
     }
