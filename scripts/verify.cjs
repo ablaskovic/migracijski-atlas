@@ -182,7 +182,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 633;
+const EXPECTED_CHECKS = 634;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -5063,6 +5063,57 @@ const evalSafe = async (pg, fn) => {
     && tfYears.every((v, i) => !i || v >= tfYears[i - 1])
     && twoFinger.survivor.after !== twoFinger.survivor.before,
     JSON.stringify(twoFinger));
+
+  /* …and the map's own pinch survives a third contact taking one of its
+     fingers. Identity is what ends a gesture — right, since the pointer it was
+     measured from has gone — but only a pointerdown that made the count two
+     ever STARTED one, and no pointerdown arrives while the two survivors stay
+     on the glass. So a palm or a resting thumb, followed by lifting one of the
+     original pair, froze the grid until every finger came off; gesturing stayed
+     true with it, so the .mxhit overlay refused their taps as well. Real touch
+     points, on their own page, because a pinch-zoomed viewport does not wash
+     out. */
+  const rearm = await (async () => {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    const c = await pg.createCDPSession();
+    await pg.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+    await pg.goto(url + '#v=mx&c=0&y=2018&dir=out', { waitUntil: 'domcontentloaded' });
+    await pg.waitForFunction(() => !!document.querySelector('#map g[transform]'), { timeout: 20000 }).catch(() => {});
+    await settle(700);
+    const k = async () => Number((/scale\(([\d.]+)\)/.exec(await pg.evaluate(
+      () => document.querySelector('#map g[transform]')?.getAttribute('transform') || '')) || ['', '1'])[1]);
+    const b = await pg.evaluate(() => { const r = document.querySelector('#map').getBoundingClientRect();
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2),
+        h: Math.round(r.height) }; });
+    const touch = (type, pts) => c.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+    const P1 = d => ({ x: b.x - d, y: b.y, id: 1 }), P2 = d => ({ x: b.x + d, y: b.y, id: 2 });
+    /* ABOVE the centre: the map box runs under the scrubber at this size, so a
+       third contact placed below it lands on the dock and never reaches the
+       svg — traced, no pointerdown at all, and the leg then measured nothing. */
+    const P3 = { x: b.x, y: Math.round(b.y - b.h / 4), id: 3 };
+    await touch('touchStart', [P1(40)]);
+    await touch('touchStart', [P1(40), P2(40)]);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', [P1(40 + i * 8), P2(40 + i * 8)]);
+    await settle(150);
+    const pinched = await k();
+    /* a third contact, then ONE OF THE ORIGINAL TWO lifts — touchEnd takes the
+       points that ended, so this names finger 1 */
+    await touch('touchStart', [P1(104), P2(104), P3]);
+    await touch('touchEnd', [P1(104)]);
+    await settle(150);
+    const dropped = await k();
+    for (let i = 1; i <= 20; i++) await touch('touchMove', [{ x: b.x + 104 + i * 5, y: b.y, id: 2 }, { x: b.x - i * 5, y: P3.y, id: 3 }]);
+    await settle(200);
+    const survivors = await k();
+    await touch('touchEnd', []);
+    await c.detach(); await pg.close();
+    return { pinched, dropped, survivors };
+  })();
+  ck('a pinch that loses one finger to a third contact is re-armed from the two still down',
+    rearm.pinched > 1.05 && Math.abs(rearm.dropped - rearm.pinched) < 0.001
+    && rearm.survivors > rearm.dropped * 1.05,
+    JSON.stringify(rearm));
 
   /* ── P3: no panel flag without a panel behind it ──
      the JLS chip only exists in Tokovi. Carried elsewhere it still set
