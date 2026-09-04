@@ -171,7 +171,15 @@ function bakeMapClone(node: SVGSVGElement, u: string, h = node.clientHeight, fac
      document ships without one — so an export taken while a corridor was
      highlighted painted a solid black row and column (measured: rgb(0,0,0))
      straight across the heatmap. Everything visible has to be baked, not just
-     the shapes that carry data. */
+     the shapes that carry data.
+     Baked rather than stripped, which is the opposite of what happens to the
+     focus ring ten lines down, and the difference is worth stating: the ring is
+     an artefact of navigating — a keyboard reader cannot avoid leaving one, and
+     it marks the cell they happened to stop on. The trace follows the POINTER,
+     which is under the hand of whoever presses Export at that moment: a figure
+     taken while a corridor is traced is a figure whose author chose to mark it.
+     So it ships, as an outline (the suite pins both the outline and its
+     absence when nothing is hovered), and the same holds for .yrband. */
   clone.querySelectorAll('.mxband rect').forEach(r => {
     r.setAttribute('fill', 'none'); r.setAttribute('stroke', '#20262B');
     r.setAttribute('stroke-width', '1.1'); r.setAttribute('opacity', '0.5');
