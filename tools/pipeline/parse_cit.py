@@ -101,13 +101,24 @@ for r in rows:
     name = str(r[0]).strip()
     vals = [to_int(v) for v in r[1:11]]
     if name and any(vals): R[name] = {'d': vals[0::2], 'o': vals[1::2]}
+# Every lookup goes through `row()`, including the five that used to index R
+# directly — the group definitions and the Ukupno row. R only holds rows that
+# had a non-zero value: a
+# republication in which a referenced row goes all-zero — Nepoznato and Oceanija
+# are the plausible ones — made this die with a bare KeyError from inside a
+# generator expression, which reads like a bug in the parser rather than like
+# the source revision it is. The assert below says the same thing in the words
+# the README tells the operator to look for.
+def row(n):
+    assert n in R, ('row missing or all-zero in the workbook: ' + n)
+    return R[n]
 def add(*names):
-    return {'d':[sum(R[n]['d'][i] for n in names) for i in range(5)],
-            'o':[sum(R[n]['o'][i] for n in names) for i in range(5)]}
+    return {'d':[sum(row(n)['d'][i] for n in names) for i in range(5)],
+            'o':[sum(row(n)['o'][i] for n in names) for i in range(5)]}
 SUS = ('Bosna i Hercegovina','Srbija','Kosovo','Sjeverna Makedonija','Albanija','Crna Gora')
-G = {'hr': R['Hrvatska'], 'sus': add(*SUS),
-     'ukr': R['Ukrajina'], 'eu': R['Europska unija'], 'az': R['Azija']}
-tot = R['Ukupno']
+G = {'hr': row('Hrvatska'), 'sus': add(*SUS),
+     'ukr': row('Ukrajina'), 'eu': row('Europska unija'), 'az': row('Azija')}
+tot = row('Ukupno')
 G['ost'] = {'d':[tot['d'][i]-sum(G[k]['d'][i] for k in G) for i in range(5)],
             'o':[tot['o'][i]-sum(G[k]['o'][i] for k in G) for i in range(5)]}
 assert all(v >= 0 for k in G for v in G[k]['d']+G[k]['o']), 'negative residual'
@@ -123,15 +134,6 @@ assert all(v >= 0 for k in G for v in G[k]['d']+G[k]['o']), 'negative residual'
 # double count exceeds the whole residual. Neither identity below closes that
 # gap either; the third assert in the loop is the one that does.
 # These two identities are the sheet's own and are checked, not derived.
-# Through `row()`, because R only holds rows that had a non-zero value: a
-# republication in which a referenced row goes all-zero — Nepoznato and Oceanija
-# are the plausible ones — made this die with a bare KeyError from inside a
-# generator expression, which reads like a bug in the parser rather than like
-# the source revision it is. The assert below says the same thing in the words
-# the README tells the operator to look for.
-def row(n):
-    assert n in R, ('row missing or all-zero in the workbook: ' + n)
-    return R[n]
 for i in range(5):
     for f in ('d','o'):
         assert row('Europa')[f][i] == row('Europska unija')[f][i] + row('Ostale europske zemlje')[f][i],             ('Europa != EU + ostale europske', years[i], f)
