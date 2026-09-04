@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { area, line, curveMonotoneX } from 'd3-shape';
-import { YEARS, Y0, YEND, D, netAt, natAt, fmtI, sgn } from '../lib/metrics.ts';
+import { YEARS, Y0, YEND, IX2011, D, netAt, natAt, val, fmtI, sgn } from '../lib/metrics.ts';
 import { focusSoon } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
@@ -29,6 +29,27 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
   const areaG = area<number>().x((_, i) => x(YEARS[i])).y0(y(0)).y1(v => y(v)).curve(curveMonotoneX);
   const lineG = line<number>().x((_, i) => x(YEARS[i])).y(v => y(v)).curve(curveMonotoneX);
   const cx = x(YEARS[S.yi]);
+
+  /* The readout row is the figure the reader compares against the rail row
+     they clicked, so it has to be scoped the way that ranking is — the
+     argument PairCard's row already carries, and the policy this card was the
+     last surface not to follow. At #v=saldo&c=1&y=2024&s=HR-18 the rail
+     header reads "kumulativno 2011.–2024.", its row "Istarska +22.537" and
+     the tooltip on the same county "migracije · 2011.–2024. +22.537", while
+     this row printed "2024. · unut. +454 · vanj. +4.329 · prir. −1.105" —
+     annual figures roughly 10× smaller, under the bare year tag every other
+     surface uses only in annual mode.
+     Klasifikacija is cumulative by construction, the way Tooltip's county
+     block reads it. The plotted series above stays annual: it is a time
+     series and the sub-caption says so, which is the trade PairCard took. */
+  const cum = S.cum || S.view === 'klas';
+  const rInt = cum ? val(sel, S.yi, 'int', 'abs', true) : ints[S.yi];
+  const rExt = cum ? val(sel, S.yi, 'ext', 'abs', true) : exts[S.yi];
+  /* natAt has no cumulative primitive of its own; this is the sum Tooltip
+     writes as a loop, over the series this card already has. Floored to zero
+     before the window opens, like val() and fsum(). */
+  const rNat = !cum ? nats[S.yi]
+    : S.yi < IX2011 ? 0 : nats.slice(IX2011, S.yi + 1).reduce((a, b) => a + b, 0);
 
   return (
     /* inert while the glossary is open: .helpcard and .card share top:14/left:16
@@ -86,14 +107,14 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
         <line id="cardCur" y1={mT} y2={h - mB} stroke="var(--acc)" strokeWidth={1.4} x1={cx} x2={cx} />
       </svg>
       <div className="card-row" id="cardRow">
-        <span className="cy">{yr(YEARS[S.yi])}</span>
-        <span>{L('unut. ', 'internal ')}<b>{sgn(ints[S.yi], fmtI)}</b></span>
-        <span>{L('vanj. ', 'external ')}<b>{sgn(exts[S.yi], fmtI)}</b></span>
-        <span>{L('prir. ', 'natural ')}<b>{sgn(nats[S.yi], fmtI)}</b></span>
+        <span className="cy">{cum ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi])}</span>
+        <span>{L('unut. ', 'internal ')}<b>{sgn(rInt, fmtI)}</b></span>
+        <span>{L('vanj. ', 'external ')}<b>{sgn(rExt, fmtI)}</b></span>
+        <span>{L('prir. ', 'natural ')}<b>{sgn(rNat, fmtI)}</b></span>
         {/* "uk." reads as ukupna promjena broja stanovnika — the one reading the
             tooltip, the legend and the glossary are all careful to deny. Name the
             two components instead, and carry the same caveat they carry. */}
-        <span>{L('mig.+prir. ', 'mig.+nat. ')}<b>{sgn(ints[S.yi] + exts[S.yi] + nats[S.yi], fmtI)}</b></span>
+        <span>{L('mig.+prir. ', 'mig.+nat. ')}<b>{sgn(rInt + rExt + rNat, fmtI)}</b></span>
       </div>
       {/* the caveat the tooltip, the legend and the glossary all carry: this is
           an identity sum of two published components, not DZS total population

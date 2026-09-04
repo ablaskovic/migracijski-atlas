@@ -182,7 +182,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 631;
+const EXPECTED_CHECKS = 632;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1387,6 +1387,31 @@ const evalSafe = async (pg, fn) => {
     !/\buk\.\s/.test(cardRow.row) && cardRow.note.includes('nije ukupna promjena'), cardRow.note.slice(0, 60));
   await click('#cardX');
   await page.mouse.move(4, 4); await settle(60);
+
+  /* …and in cumulative mode it has to be the figure the reader clicked. The
+     card row was the last surface still printing annual numbers under a bare
+     year tag while the rail header said "kumulativno 2011.–2024.", the rail
+     row "+22.537" and the tooltip the same: unut.+vanj. came to +4.783, five
+     times smaller, on the county the reader had just picked FROM that rail.
+     Read off the rail rather than recomputed, so it measures the agreement
+     the defect was about and not this file's own arithmetic. */
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  const cumRow = await page.evaluate(() => {
+    const row = document.querySelector('#cardRow');
+    const rail = [...document.querySelectorAll('#railList .rrow')]
+      .find(r => r.dataset.iso === 'HR-18');
+    const n = s => Number(String(s).replace(/[^0-9,.−-]/g, '').replace(/./g, '').replace(',', '.').replace('−', '-'));
+    const b = [...row.querySelectorAll('b')].map(e => n(e.textContent));
+    return { tag: row.querySelector('.cy').textContent, b,
+      rail: rail ? n(rail.querySelector('.rval').textContent) : NaN,
+      railTxt: rail ? rail.querySelector('.rval').textContent : '' };
+  });
+  ck('cumulative detail card reads the period, and the migration figure the rail ranks',
+    cumRow.tag === '2011.–2024.' && cumRow.b[0] + cumRow.b[1] === cumRow.rail
+    /* and the sum is still the sum of the three it prints */
+    && cumRow.b[3] === cumRow.b[0] + cumRow.b[1] + cumRow.b[2],
+    cumRow.tag + ' ' + JSON.stringify(cumRow.b) + ' rail ' + cumRow.railTxt);
+  await fresh('');
 
   /* ── county labels toggle ── */
   await click('#labBtn');
