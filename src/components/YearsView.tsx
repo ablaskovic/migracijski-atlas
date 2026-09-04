@@ -374,6 +374,9 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
       /* …and which denominator the cells are in. This said the same thing under
          "% popisa 2011." and "% tek. procjene", while every cell in it read a
          different number — the grid named its series and never its base. */
+      /* no year: this grid shows all 28 columns at once, so naming one year's
+         fallback estimate here would be naming it for 27 columns it does not
+         describe. The cells' own labels carry it. */
       aria-label={L(`Županije kroz godine · ${FLOWN[S.flow]}${denName(S.den)} — strelice pomiču odabir, Enter postavlja godinu prikaza`,
         `Counties over time · ${FLOWN[S.flow]}${denName(S.den)} — arrow keys move the selection, Enter sets the displayed year`)}
       {...zoom.bind} style={zoom.style}>

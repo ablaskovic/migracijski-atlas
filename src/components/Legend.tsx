@@ -191,7 +191,7 @@ export default function Legend({ S }: { S: State }) {
   /* one wording for one denominator — the control, the legend and the export
      caption used to say this three different ways */
   /* from metrics, so the printed name and the spoken one are the same string */
-  const denLab = denName(S.den);
+  const denLab = denName(S.den, S.yi);
   const per = S.cum ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi]);
 
   if (S.view === 'klas') {

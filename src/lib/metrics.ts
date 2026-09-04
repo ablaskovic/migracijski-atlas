@@ -145,9 +145,22 @@ export const FLOWN = {} as Record<Flow, string>;
    the 2011 census or the current estimate — two different numbers under one
    spoken string. Hoisted from Legend so the spoken name and the printed one
    cannot drift. */
-export const denName = (den: Den): string =>
+/* …and WHICH estimate, when the year has none of its own. `pe` is null for
+   1998.–2000. and 2025. in all 21 counties, so peAt() divides those four years
+   by 2001's or 2024's — disclosed in the glossary and nowhere near the number
+   itself, on the surface a reader reads it from and in the exported figure.
+   Returns the year actually divided by, or null when the year has its own. */
+export function peYear(yi: number): number | null {
+  if (ISOS.every(iso => D[iso].pe[yi] != null)) return null;
+  for (let k = yi; k >= 0; k--) if (ISOS.every(iso => D[iso].pe[k] != null)) return YEARS[k];
+  for (let k = yi; k < YEARS.length; k++) if (ISOS.every(iso => D[iso].pe[k] != null)) return YEARS[k];
+  return null;
+}
+export const denName = (den: Den, yi?: number): string =>
   (den === 'rel11' ? L(' · % popisa 2011.', ' · % of 2011 census')
-    : den === 'relest' ? L(' · % tek. procjene', ' · % of current estimate') : '');
+    : den === 'relest' ? L(' · % tek. procjene', ' · % of current estimate')
+      + (yi != null && peYear(yi) != null ? L(` (procjena ${peYear(yi)}.)`, ` (${peYear(yi)} estimate)`) : '')
+      : '');
 for (const k of Object.keys(FLOWN_) as Flow[]) {
   Object.defineProperty(FLOWN, k, { get: () => L(FLOWN_[k][0], FLOWN_[k][1]), enumerable: true });
 }
@@ -561,7 +574,7 @@ export function countyAria(S: State, iso: string): string {
   /* …and says what the percentage is of. `+0,4 %` is two different figures
      depending on Vrijednosti, and this string was the same in both. */
   const num = (v: number) => (S.den === 'abs' ? sgn(Math.round(v), fmtI)
-    : sgn(v, fmtR) + ' %' + denName(S.den));
+    : sgn(v, fmtR) + ' %' + denName(S.den, S.yi));
   if (S.view === 'flow') {
     if (iso === S.sel) return n + L(' — odabrana županija', ' — selected county');
     /* `fsum(a, b)` is ODM[a][b], i.e. a → b — so `o` is the hub's outflow
