@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 639;
+const EXPECTED_CHECKS = 640;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2519,6 +2519,23 @@ const evalSafe = async (pg, fn) => {
     await new Promise(r => setTimeout(r, 200));
     const out = rowsIn();
     const badge = !!document.querySelector('#zoomRst');
+    /* …and the export HERE, at k ≠ 1, which no check in this file had ever
+       taken. gridCrop's contract is "grids only, at 1× only": above 1× the frame
+       is one the reader chose, so the figure must come out uncropped. Every
+       export the suite performs was at k = 1 — this block resets with '0' two
+       lines down before exporting, and the crop checks use fresh pages — so the
+       half of the contract that says "and not otherwise" was unguarded, which
+       is exactly how a zoomK whose regex had lost its backslashes
+       (`/scale(([d.]+))/`, matching the letters d and .) shipped green: exec
+       returned null, `?? 1` made k exactly 1, and every zoomed grid was cropped
+       to the ink of its magnified content.
+       A cropped figure is an inner <svg> carrying a viewBox; an uncropped one
+       has none. */
+    const zoomed = window.__exportSVG(false);
+    const zd = new DOMParser().parseFromString(zoomed, 'image/svg+xml');
+    const zi = zd.querySelector('svg[y]');
+    const zk = Number(/scale\(([\d.]+)\)/.exec(
+      document.querySelector('#map g[transform]')?.getAttribute('transform') || '')?.[1] ?? 1);
     /* and the export, back at 1× where the crop was silent */
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '0', bubbles: true }));
     await new Promise(r => setTimeout(r, 200));
@@ -2548,6 +2565,7 @@ const evalSafe = async (pg, fn) => {
     const clipped = cells.filter(c => +c.getAttribute('y') + +c.getAttribute('height') > vy + vh + 0.5);
     return { at1, out, badge, vbRaw, vbOk, vy, vh, expCells: cells.length,
       expClipped: clipped.length,
+      zk, zoomedVB: zi ? zi.getAttribute('viewBox') : null, zoomedCells: zd.querySelectorAll('.mxc').length,
       expRowsClipped: new Set(clipped.map(c => c.getAttribute('data-a'))).size };
   });
   ck('a matrix taller than its box is recoverable by one zoom-out, and exports whole',
@@ -2556,6 +2574,11 @@ const evalSafe = async (pg, fn) => {
     /* …read in the figure's own coordinates, and not by accident */
     && tallGrid.vbOk,
     JSON.stringify(tallGrid));
+  /* the other half of gridCrop's contract, which nothing had ever exported for */
+  ck('a grid exported at a zoom the reader chose keeps that frame, uncropped',
+    Math.abs(tallGrid.zk - 1) > 0.001 && tallGrid.zoomedVB === null
+    && tallGrid.zoomedCells === 420,
+    JSON.stringify({ zk: tallGrid.zk, vb: tallGrid.zoomedVB, cells: tallGrid.zoomedCells }));
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── matrix: measured-year ring, keyboard grid, diagonal, trace bands ── */
