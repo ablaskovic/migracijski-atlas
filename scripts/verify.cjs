@@ -13328,6 +13328,10 @@ const evalSafe = async (pg, fn) => {
      classifies, and it was a 110×16 target on a coarse pointer ── */
   await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   await fresh('#v=klas&c=1&y=2024');
+  /* Prag is one of the groups behind the header disclosure at this width, and a
+     control that is not laid out measures 0×0 — which this check read as a
+     failure of the 24 px floor rather than as a control it had not opened. */
+  await openMore();
   const thrBox = await page.evaluate(() => {
     const r = document.querySelector('#thr').getBoundingClientRect();
     return { w: Math.round(r.width), h: Math.round(r.height) };
@@ -14322,7 +14326,16 @@ const evalSafe = async (pg, fn) => {
   for (const r of heldFonts.splice(0)) { try { await r.abort(); } catch { /* cancelled */ } }
   await settle(400);
   /* by URL and counted, like its two siblings above: the aborted faces are the
-     only lines this window may lose */
+     only lines this window may lose — and since 2a2c7c3 there are none to lose.
+     blockFonts holds only exportFonts' own fetch() now, not the page's
+     @font-face requests, and a rejected fetch is caught inside ensureFonts
+     rather than reported to the console; it was the 16 parked CSS font loads
+     that produced the net::ERR_FAILED lines this scrub was written for.
+     So the count is asserted at ZERO rather than at "at least one": the claim is
+     that this window loses no console line, and that is now true because it
+     produces none, which is a better outcome than scrubbing them. If a future
+     change parks the page's own faces again, this goes red rather than quietly
+     swallowing whatever it finds. */
   const raceDropped = (() => {
     const before = errors.length;
     for (let i = errors.length - 1; i >= raceErrs; i--) {
@@ -14333,7 +14346,7 @@ const evalSafe = async (pg, fn) => {
   await fresh('');
   ck('a PNG pressed during a slow font fetch ships the map the reader pressed on',
     raceBefore !== raceAfter && raceClone === raceBefore
-    && raceDropped >= 1 && errors.length === raceErrs,
+    && raceDropped === 0 && errors.length === raceErrs,
     JSON.stringify({ changed: raceBefore !== raceAfter, cloneIsBefore: raceClone === raceBefore,
       cloneIsAfter: raceClone === raceAfter, dropped: raceDropped, n: raceClone.split('|').length }));
 
