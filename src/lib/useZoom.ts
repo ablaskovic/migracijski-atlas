@@ -123,8 +123,21 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
   };
 
   const reset = useCallback(() => setT(IDENT), []);
-  /* a resize changes the clamp bounds — re-fit so content cannot end up adrift */
-  useEffect(() => { setT(p => fit(p, w, h, ch, kmin)); }, [w, h, ch, kmin]);
+  /* a resize changes the clamp bounds — re-fit so content cannot end up adrift.
+     Returning the PREVIOUS object when nothing moved, because fit() builds a
+     fresh one either way: at identity it hands back a `{k:1,x:0,y:0}` that is
+     not IDENT, so Object.is never matched and every ResizeObserver step — a
+     window drag, a Nalaz banner mounting, the chip dock changing height, the
+     legend re-measuring — scheduled a second MapView render for a transform that
+     had not moved. In the JLS map that second render is the 556-path list; in
+     Matrica and Godine it is the grid. The guarded-updater shape the rest of
+     this app already uses for exactly this. */
+  useEffect(() => {
+    setT(p => {
+      const n = fit(p, w, h, ch, kmin);
+      return n.k === p.k && n.x === p.x && n.y === p.y ? p : n;
+    });
+  }, [w, h, ch, kmin]);
 
   /* zoom about the centre of the box by a factor — the keyboard's shape */
   const zoomBy = useCallback((f: number) => {
