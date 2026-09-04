@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 614;
+const EXPECTED_CHECKS = 615;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -13084,6 +13084,21 @@ const evalSafe = async (pg, fn) => {
      documented check count below stays a constant. */
   ck('every control this run pressed was present, and every boot mounted the app',
     missed.length === 0, missed.slice(0, 4).join(' | '));
+  /* …and the README's copy of that number, which drifted by 147 — it advertised
+     a 463-check suite against an EXPECTED_CHECKS of 610. It had been repaired
+     once already and re-drifted, because nothing read it: the pin below guards
+     the suite against itself and says nothing about the file a reader actually
+     opens first. Read from disk for the reason LICENSE §1 is: it does not ship
+     to the browser, and a second copy of a number is only as good as the thing
+     that compares them. */
+  const readmeCount = (() => {
+    try { return fs.readFileSync(path.resolve(__dirname, '../README.md'), 'utf8'); }
+    catch { return ''; }
+  })();
+  ck('the README states the suite size the suite actually has',
+    new RegExp('\\b' + EXPECTED_CHECKS + '-check\\b').test(readmeCount),
+    (readmeCount.match(/\b\d+-check\b/) || ['no "N-check" phrase in README'])[0]
+    + ' vs ' + EXPECTED_CHECKS);
   ck('the suite ran its full documented check count', n + 1 === EXPECTED_CHECKS, `${n + 1} vs ${EXPECTED_CHECKS}`);
 })().then(
   () => finish(),
