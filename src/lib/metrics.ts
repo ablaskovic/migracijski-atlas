@@ -587,7 +587,13 @@ export function countyAria(S: State, iso: string): string {
   if (S.view === 'klas') {
     const k = klasOf(iso, S.yi, S.thr, S.thrRel, S.thrPct);
     const v = sgn(Math.round(val(iso, S.yi, 'tot', 'abs', true)), fmtI);
-    return L(`${n}: ${KLAB[k]}, saldo ${v} · ${per}`, `${n}: ${KLAB[k]}, net ${v} · ${per}`);
+    /* klasLab(k, 1), not KLAB[k]: this is a sentence ABOUT one county, not a
+       category tag beside a swatch. The legend and the tooltip pill keep the
+       plural because there they name the class; here the plural adjective
+       landed on a single feminine name — "Zagrebačka: pobjednice" — which is
+       the construction KLAB1_ was added for two hundred lines up. English is
+       number-neutral either way. */
+    return L(`${n}: ${klasLab(k, 1)}, saldo ${v} · ${per}`, `${n}: ${klasLab(k, 1)}, net ${v} · ${per}`);
   }
   if (S.view === 'reg') {
     const rk = REGOF[iso];
