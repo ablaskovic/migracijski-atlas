@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { focusSoon } from '../lib/state.ts';
 import {
   NO_AFFIL, PAPER, PAPER_THR, PAPER_WINDOW,
@@ -31,7 +32,9 @@ const plHr = (n: number, one: string, few: string, many: string): string => {
    however many counties move — and derived from PAPER_KLAS_DIFF rather than
    written out, so a DZS revision that closes the gap deletes the sentence
    instead of leaving it asserting a difference that is no longer there. */
-function klasDiffSentence(): string {
+/* ReactNode for the reason klasNote is: the county names are Croatian inside an
+   English sentence and need lang="hr", which a string cannot carry. */
+function klasDiffSentence(): ReactNode {
   if (!PAPER_KLAS_DIFF.length) {
     return L('Na seriji koju atlas prikazuje razredi se poklapaju s objavljenima.',
       'On the series the atlas shows, the classes match the published ones.');
@@ -43,9 +46,14 @@ function klasDiffSentence(): string {
   }
   const parts = [...by.entries()].map(([k, ds]) => {
     const [paper, here] = k.split('|') as [keyof typeof KLAB, keyof typeof KLAB];
-    const names = ds.map(d => D[d.iso]?.n ?? d.iso).join(L(' i ', ' and '));
-    return L(`${names} (u radu ${klasLab(paper, ds.length)}, ovdje ${klasLab(here, ds.length)})`,
-      `${names} (${KLAB[paper]} in the paper, ${KLAB[here]} here)`);
+    /* one span per NAME, with the conjunction outside them: joining first and
+       wrapping the result put the English "and" inside a Croatian span, which is
+       the same defect one direction over. */
+    const names = ds.map(d => D[d.iso]?.n ?? d.iso);
+    return (<span key={k}>
+      {names.map((nm, i) => <Fragment key={nm}>{i > 0 ? L(' i ', ' and ') : ''}<span lang="hr">{nm}</span></Fragment>)}
+      {L(` (u radu ${klasLab(paper, ds.length)}, ovdje ${klasLab(here, ds.length)})`,
+        ` (${KLAB[paper]} in the paper, ${KLAB[here]} here)`)}</span>);
   });
   /* How far past the line, derived — the sentence this replaced said the gap was
      "a few hundred people", which is true of the distance to the threshold and
@@ -76,8 +84,14 @@ function klasDiffSentence(): string {
       + `${over.map(v => `${fmtI.format(v)} ${Math.abs(v) === 1 ? 'person' : 'people'}`).join(' and ')}`
       + `${over.length > 1 ? ' respectively' : ''}.`)
     : '';
-  return L(`${one ? 'Razlikuje' : 'Razlikuju'} se: ${parts.join('; ')}.${tail}`,
-    `The ${one ? 'difference' : 'differences'}: ${parts.join('; ')}.${tail}`);
+  /* Composed rather than joined, because `parts` are elements now: a template
+     literal would stringify each of them to [object Object]. The separator and
+     the tail are the same text they were. */
+  return (<>
+    {L(`${one ? 'Razlikuje' : 'Razlikuju'} se: `, `The ${one ? 'difference' : 'differences'}: `)}
+    {parts.map((p, i) => <Fragment key={i}>{i > 0 ? '; ' : ''}{p}</Fragment>)}
+    {'.' + tail}
+  </>);
 }
 
 /* "Kako čitati" — the one stable place the vocabulary lives. Every other
@@ -389,7 +403,7 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
             plurals that stay correct for any count of five or more. */}
         {L(` Klasifikacija ovdje primjenjuje prag iz rada, ali na novijoj DZS seriji, pa rezultat nije istovjetan objavljenome. Rad za ${PW()} objavljuje ${PAPER_KLAS.gain.length} pobjednica, ${PAPER_KLAS.neu.length} neutralnih i ${PAPER_KLAS.loss.length} gubitnica.`,
           ` The classification here applies the paper’s threshold, but to a newer CBS series, so the result is not identical to the published one. For ${PW()} the paper publishes ${PAPER_KLAS.gain.length} gaining, ${PAPER_KLAS.neu.length} neutral and ${PAPER_KLAS.loss.length} losing counties.`)}
-        {' ' + klasDiffSentence()}
+        {' '}{klasDiffSentence()}
         {L(` Metoda je ista; razlikuje se berba podataka. Rad računa ${PW()} — pomaknete li vremensku vrpcu dalje, prikaz više ne odgovara razdoblju koje je rad analizirao.`,
           ` The method is the same; the data vintage differs. The paper computes ${PW()} — move the scrubber beyond it and the view no longer matches the period the paper analysed.`)}
       </div>

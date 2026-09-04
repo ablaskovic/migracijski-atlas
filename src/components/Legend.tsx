@@ -7,7 +7,7 @@ import {
 import { PAPER_WINDOW, paperSplit, paperThrLine } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { Klas, State } from '../lib/types.ts';
 
 /* Eleven stops sampled at evenly spaced VALUES, with the renderer interpolating
@@ -151,7 +151,13 @@ const PW = (): string => yrSpan(PAPER_WINDOW.from, PAPER_WINDOW.to);
 const preNote = (S: State, inter: boolean): string =>
   preMargin(S, inter)
     ? ' ' + preMarginNote() + L(' — v. „Kako čitati”.', ' — see “How to read”.') : '';
-function klasNote(S: State): string {
+/* ReactNode, not string, so the county names can carry lang="hr". They are
+   Croatian proper names in an English sentence, and the atlas annotates exactly
+   this everywhere else — the JLS card title, the rail label, the footer's
+   journal — because the nearest lang ancestor is what a screen reader consults,
+   and on the English UI that was lang="en": Osječko-baranjska read with English
+   phonemes. A string cannot carry the markup, which is why it did not. */
+function klasNote(S: State): ReactNode {
   if (paperKlasComparable(S)) {
     if (!PAPER_KLAS_DIFF.length) {
       return L(`Podjela odgovara objavljenoj u radu za ${PW()}`,
@@ -160,10 +166,14 @@ function klasNote(S: State): string {
     const who = PAPER_KLAS_DIFF.map(d => SHORTN[d.iso]).join(', ');
     /* Croatian needs the verb to agree with the count; English does not, so the
        plural branch exists only on the Croatian side. */
-    return L(`Rad za ${PW()} objavljuje ${paperSplit()}. Na novijoj DZS seriji drukčije `
-      + `${PAPER_KLAS_DIFF.length > 1 ? 'su razvrstane' : 'je razvrstana'}: ${who} — v. „Kako čitati”.`,
-    `The paper publishes ${paperSplit()} for ${PW()}. On the newer CBS series `
-      + `${PAPER_KLAS_DIFF.length > 1 ? 'these fall' : 'this falls'} differently: ${who} — see “How to read”.`);
+    return (<>
+      {L(`Rad za ${PW()} objavljuje ${paperSplit()}. Na novijoj DZS seriji drukčije `
+        + `${PAPER_KLAS_DIFF.length > 1 ? 'su razvrstane' : 'je razvrstana'}: `,
+      `The paper publishes ${paperSplit()} for ${PW()}. On the newer CBS series `
+        + `${PAPER_KLAS_DIFF.length > 1 ? 'these fall' : 'this falls'} differently: `)}
+      <span lang="hr">{who}</span>
+      {L(' — v. „Kako čitati”.', ' — see “How to read”.')}
+    </>);
   }
   /* signed, like the title above: the threshold is a LOSS of 4.500 and the sign
      is the whole of its meaning. It was signed on one branch and left bare on
