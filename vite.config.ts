@@ -91,6 +91,22 @@ const preloadFaces = {
   },
 };
 
+/* Not `json: { stringify: true }`, and the reason is a browser measurement.
+   Vite can emit a JSON module as `JSON.parse('…')` instead of an object
+   literal, on the argument that the parse is faster than the compile. That
+   argument was made here from a NODE number — a synchronous require of the
+   chunk, ~25 ms — and Node is the wrong machine to ask: Chrome streams a module
+   compile off the main thread while it downloads, which is exactly the cost the
+   swap would remove.
+   Measured in the browser instead, median of seven, past the speculative warm,
+   with the 464 kB geometry chunk: import() costs 16,4 ms of main-thread time at
+   1× and 24,9 ms at a 4× CPU throttle — and that includes the fetch — against
+   JSON.parse of the same payload at 4,5 ms and 18,0 ms. No long task is
+   recorded in either case. So the swap is worth single-digit milliseconds on a
+   path that is off the critical path by construction, and it would cost the
+   drop-data-chunk-maps arrangement below, which exists because these chunks have
+   no statements to map. Left alone, with the numbers, so the question does not
+   have to be re-opened from the wrong side of the process boundary. */
 const dropDataChunkMaps = {
   name: 'drop-data-chunk-maps',
   /* Deleting the two .map assets is the whole of it. This also stripped a
