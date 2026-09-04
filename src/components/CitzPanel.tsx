@@ -95,6 +95,33 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
         <span className="chip-arr" aria-hidden="true">▸</span>
         <span>{L('Državljanstvo', 'Citizenship')}<span className="chip-more">{L(` · RH · ${yy[0]}.–${yy[yy.length - 1]}.`, ` · Croatia · ${yy[0]}–${yy[yy.length - 1]}`)}</span></span>
       </div>
+      {/* A load-bearing honesty message that appears and disappears as the year
+          is scrubbed, with no focus moving — exactly the case role=status exists
+          for. Without it the panel silently shows one year while the big year
+          reads another.
+          Mounted whether or not it has something to say: a live region inserted
+          already populated is not guaranteed to announce, which is the pattern
+          #srLive follows and this one did not. Empty it paints nothing — it
+          carries only type styles and has no box of its own, which is what lets
+          it stay in the tree. It is NOT on the `:empty{display:none}` rule —
+          cc8bec5 took it off precisely so the region keeps registering, and
+          putting it back would recreate MA3-057.
+          …and OUTSIDE the `open &&` gate, which is the other half of the same
+          argument: inside it, the region was created the moment the panel was,
+          so opening the panel with the scrubber already out of range inserted it
+          already populated — the very case the paragraph above is about. Mounted
+          with the card, the message becomes a mutation of a region AT already
+          knows. Skupine only: Zemlje is frozen at one year and says so in its
+          own line.
+          The panel body is positioned above the headers rather than in flow, so
+          nothing mounted outside it can sit inside it: the region is the
+          sr-only copy and the visible line stays in the body, above the source
+          note, where it has always been. Same split as the charts and their
+          sr-only tables. */}
+      <div className="sr-only" id="citzClamp" role="status" aria-live="polite">
+        {open && !zem && !inRange && L(`Vremenska vrpca je na ${yrOf(YEARS[S.yi])} — izvan objavljenog raspona, prikazano ${yrOf(y)}`,
+          `The time scrubber is at ${yrOf(YEARS[S.yi])} — outside the published range, showing ${yrOf(y)}`)}
+      </div>
       {open && (
         <div className="chip-body">
           <div className="jcard-cap">
@@ -266,19 +293,10 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                   </tbody>
                 </table>
               </div>
-              {/* A load-bearing honesty message that appears and disappears as
-                  the year is scrubbed, with no focus moving — exactly the case
-                  role=status exists for. Without it the panel silently shows one
-                  year while the big year reads another. */}
-              {/* Mounted whether or not it has something to say: a live region
-                  inserted already populated is not guaranteed to announce, which
-                  is the pattern #srLive follows and this one did not. Empty it
-                  paints nothing — it carries only type
-                  styles and has no box of its own, which is what lets it stay in the
-                  tree. It is NOT on the `:empty{display:none}` rule — cc8bec5 took
-                  it off precisely so the region keeps registering, and putting it
-                  back would recreate MA3-057. */}
-              <div className="citz-clamp" id="citzClamp" role="status" aria-live="polite">
+
+              {/* the visible half; the announcement is #citzClamp, mounted with
+                  the card so it can register before it speaks */}
+              <div className="citz-clamp" aria-hidden="true">
                 {!inRange && L(`Vremenska vrpca je na ${yrOf(YEARS[S.yi])} — izvan objavljenog raspona, prikazano ${yrOf(y)}`,
                   `The time scrubber is at ${yrOf(YEARS[S.yi])} — outside the published range, showing ${yrOf(y)}`)}
               </div>
