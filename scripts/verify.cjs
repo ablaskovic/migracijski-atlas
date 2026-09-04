@@ -827,10 +827,61 @@ const evalSafe = async (pg, fn) => {
       }).length,
       pca: lb ? (getComputedStyle(lb).printColorAdjust || getComputedStyle(lb).webkitPrintColorAdjust) : null };
   });
+  /* …and the other five selectors the print rule names, which this never read.
+     `printed.pca` is .legend-bar alone, in Saldo — so delete `.legend-sw` from
+     that rule and Klasifikacija prints three blank squares beside "pobjednice · 7
+     / neutralne · 5 / gubitnice · 9", the exact defect the CSS comment records,
+     while a check whose name says "keeps the colour key" prints ok. In
+     Klasifikacija the swatches ARE the key, and in the citizenship panel the
+     row swatches are.
+     Measured while widening it, and worth writing down: for .legend-sw,
+     .legend-bar and .legend-mark the deletion is in fact harmless, because
+     print-color-adjust INHERITS and .legend is in the same rule and is their
+     ancestor. The two that genuinely need their own entries are the two outside
+     .legend — .citz-rows .sw and .zbar span — and neither was read at all.
+     Mutation-tested: deleting either now fails this check (6 and 13 elements
+     reading ), deleting any of the other three changes nothing that any
+     computed-style test could see.
+     Every element the rule names, then, with a population floor: an empty
+     selector list has nothing that is not 'exact'. */
+  const pcaOf = sels => page.evaluate(ss => {
+    const out = [];
+    for (const s of ss) for (const e of document.querySelectorAll(s)) {
+      const cs = getComputedStyle(e);
+      out.push({ s, v: cs.printColorAdjust || cs.webkitPrintColorAdjust });
+    }
+    return out;
+  }, sels);
+  const pcaSaldo = await pcaOf(['.legend-bar', '.legend-mark', '.legend']);
   await page.emulateMediaType(null);
+  await fresh('#v=klas&c=1&y=2024');
+  await page.emulateMediaType('print');
+  await settle(250);
+  const pcaKlas = await pcaOf(['.legend-sw']);
+  await page.emulateMediaType(null);
+  await fresh('#cz=1');
+  await page.emulateMediaType('print');
+  await settle(300);
+  const pcaCitz = await pcaOf(['.citz-rows .sw']);
+  await page.emulateMediaType(null);
+  /* the Zemlje tab as well, because .zbar span exists in no other one — read
+     from cz=1 alone it contributes nothing and could be deleted from the rule
+     unnoticed, which is the shape of the defect this widening is about */
+  await fresh('#cz=2');
+  await page.emulateMediaType('print');
+  await settle(300);
+  const pcaZem = await pcaOf(['.zbar span']);
+  await page.emulateMediaType(null);
+  const pcaAll = [...pcaSaldo, ...pcaKlas, ...pcaCitz, ...pcaZem];
+  const pcaBad = pcaAll.filter(x => x.v !== 'exact');
   ck('printing carries the whole ranking and keeps the colour key',
-    printed.rows === 21 && printed.inside === 21 && printed.pca === 'exact',
-    JSON.stringify(printed));
+    printed.rows === 21 && printed.inside === 21 && printed.pca === 'exact'
+    /* three legend elements in Saldo, three klas swatches, and the citizenship
+       swatches and bars — five is the floor a selector rename has to clear */
+    && pcaAll.length >= 5 && pcaKlas.length === 3 && pcaCitz.length >= 1 && pcaZem.length >= 5
+    && pcaBad.length === 0,
+    JSON.stringify({ ...printed, n: pcaAll.length, klas: pcaKlas.length, zem: pcaZem.length,
+      citz: pcaCitz.length, bad: pcaBad.slice(0, 3) }));
 
   /* …and the figure itself, which this block never looked at. It ran on the
      default view and measured the rail; the map was left to the same collapse
