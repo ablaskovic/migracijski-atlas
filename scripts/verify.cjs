@@ -7826,7 +7826,12 @@ const evalSafe = async (pg, fn) => {
      that did not get it, and the two checks that touch this card both ran in
      states where the tag renders nothing at all.
      Detected as any immediately repeated name, so a doubling of any other
-     municipality-county pair would be caught too. */
+     municipality-county pair would be caught too — provided the boundary can see
+     the name. \b is ASCII-only, so it does not fire beside a Croatian letter:
+     "Čakovec Čakovec" and "Sveti Đurđ Sveti Đurđ" both went undetected, because
+     the leading \b fails before Č and the trailing one after đ. Unicode property
+     escapes instead, which also retires the hand-listed diacritic class — it
+     spelled out šđčćž and their capitals and had no ž in the lowercase run. */
   const jlsDbl = { rows: 0, dbl: 0, bad: [] };
   for (const iso of ['HR-01', 'HR-08', 'HR-13', 'HR-21']) {
     for (const dir of ['net', 'out']) {
@@ -7836,7 +7841,7 @@ const evalSafe = async (pg, fn) => {
         .map(e => (e.textContent || '').replace(/\s+/g, ' ').trim()));
       jlsDbl.rows += r.length;
       for (const t of r) {
-        if (/\b([A-ZŠĐČĆŽ][\wšđčćžŠĐČĆŽ.-]*(?: [\wšđčćžŠĐČĆŽ.-]+)*) \1\b/.test(t)) {
+        if (/(?<!\p{L})(\p{Lu}[\p{L}.-]*(?: [\p{L}.-]+)*) \1(?!\p{L})/u.test(t)) {
           jlsDbl.dbl++;
           if (jlsDbl.bad.length < 3) jlsDbl.bad.push(iso + '/' + dir + ': ' + t);
         }
