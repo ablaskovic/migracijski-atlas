@@ -8101,6 +8101,7 @@ const evalSafe = async (pg, fn) => {
     await fresh(hash);
     const before = await page.evaluate(() =>
       +document.querySelector('.mxc').getBoundingClientRect().width.toFixed(1));
+    let railRow = null;
     const selCell = `.mxc[data-a="${a}"][data-b="${b}"]`;
     if (how === 'key') {
       await page.evaluate(s => {
@@ -8109,6 +8110,12 @@ const evalSafe = async (pg, fn) => {
         c.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       }, selCell);
     } else if (how === 'rail') {
+      /* the row's own wording, read BEFORE the click, so the check below can ask
+         whether the corridor that opened is the corridor that was pressed */
+      railRow = await page.evaluate(() => {
+        const r = document.querySelector('#railList .rrow');
+        return r ? r.querySelector('.rname').textContent.trim() : null;
+      });
       await click('#railList .rrow');
     } else {
       await click(selCell);
@@ -8148,7 +8155,7 @@ const evalSafe = async (pg, fn) => {
           * Math.max(0, Math.min(g.b, cb.bottom) - Math.max(g.t, cb.top))) : 0,
         before: null,
       };
-    }, selCell).then(r => ({ ...r, before }));
+    }, selCell).then(r => ({ ...r, before, railRow }));
   };
 
   const gz = await mxOpen('#v=mx&y=2018&c=0&dir=out', 'HR-21', 'HR-01', 'click');
@@ -8204,9 +8211,21 @@ const evalSafe = async (pg, fn) => {
 
   /* the same click, from the rail row and from the keyboard */
   const viaRail = await mxOpen('#v=mx&y=2018&c=0&dir=out', 'HR-21', 'HR-01', 'rail');
+  /* WHICH corridor, not just that one opened. `!!viaRail.name` is true of any
+     card, so an off-by-one in the rail's pair list — a row that opens its
+     neighbour — satisfied it, and `selrow === 1` only says that some row is
+     marked. The row names its two endpoints and the card names the same two, in
+     the same order; measured, "1. Grad Zagreb → Zagrebačka" opens
+     "Grad Zagreb ⇄ Zagrebačka". Containment rather than equality, because the
+     two surfaces separate the endpoints differently and the rank prefix is the
+     rail's alone. */
+  const railEnds = String(viaRail.railRow || '').replace(/^\d+\.\s*/, '').split(' → ');
+  const iA = railEnds.length === 2 ? String(viaRail.name).indexOf(railEnds[0]) : -1;
+  const iB = railEnds.length === 2 ? String(viaRail.name).indexOf(railEnds[1]) : -1;
   ck('the matrix rail row opens the corridor in place too, and keeps its own list',
-    viaRail.view === 'mx' && viaRail.cells === 420 && viaRail.selrow === 1 && !!viaRail.name,
-    JSON.stringify({ v: viaRail.view, name: viaRail.name, selrow: viaRail.selrow }));
+    viaRail.view === 'mx' && viaRail.cells === 420 && viaRail.selrow === 1 && !!viaRail.name
+    && railEnds.length === 2 && railEnds.every(e => e.length > 2) && iA === 0 && iB > iA,
+    JSON.stringify({ v: viaRail.view, row: viaRail.railRow, name: viaRail.name, selrow: viaRail.selrow }));
   const viaKey = await mxOpen('#v=mx&y=2018&c=0&dir=out', 'HR-21', 'HR-01', 'key');
   ck('Enter on a cell does the same and leaves focus where it was',
     viaKey.view === 'mx' && viaKey.cells === 420 && viaKey.focusOnCell && !!viaKey.name,
