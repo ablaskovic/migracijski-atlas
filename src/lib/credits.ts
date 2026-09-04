@@ -1,4 +1,5 @@
 import { L } from './i18n.ts';
+import type { Klas } from './types.ts';
 /* ── The companion study ────────────────────────────────────────────────────
    This atlas was built as an interactive companion to a paper on county
    migration as a criterion for regionalisation. Until 27 July 2026 it was an
@@ -64,7 +65,13 @@ export const paperPending = (): boolean => !PAPER.published || !PAPER.citation;
    "the study computes 2011.–2024. at 4.500" and none of them should own it. */
 export const PAPER_WINDOW = { from: 2011, to: 2024 } as const;
 export const PAPER_THR = 4500;
-export type PaperKlas = 'gain' | 'neu' | 'loss';
+/* types.ts's Klas, not a second copy of it. The two were the same three-member
+   union declared twice, and a union declared twice is a union that can disagree:
+   add a class to the app's own classification and the study's table silently
+   stops covering it, with no type error anywhere to say so. Re-exported under
+   the old name because that is what this module's readers ask for, and the
+   name says whose classification it is. */
+export type PaperKlas = Klas;
 export const PAPER_KLAS: Record<PaperKlas, readonly string[]> = {
   gain: ['HR-21', 'HR-01', 'HR-18', 'HR-13', 'HR-08', 'HR-19', 'HR-17'],
   neu: ['HR-02', 'HR-09', 'HR-04', 'HR-06', 'HR-05', 'HR-20', 'HR-15'],
