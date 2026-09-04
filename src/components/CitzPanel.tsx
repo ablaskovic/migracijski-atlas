@@ -113,6 +113,42 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
             `Fixed at ${yrOf(DEMO.year)} — the time scrubber does not change this list.`)}</div>}
           {zem ? (
             <>
+              {/* the twelve countries as a table too, for the reason the group
+                  rows have one: .jrow is four spans and the +/− was the whole
+                  of the column semantics. The remainder row below is part of
+                  the same reading, so it is in here as well. */}
+              <div className="sr-only" id="zemTable">
+                <table>
+                  <caption>{L(`Vanjska migracija prema zemlji, ${yrOf(DEMO.year)} — najvećih 12 po doseljenima`,
+                    `External migration by country, ${yrOf(DEMO.year)} — top 12 by arrivals`)}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">{L('Zemlja', 'Country')}</th>
+                      <th scope="col">{L('doseljeni', 'arrivals')}</th>
+                      <th scope="col">{L('odseljeni', 'departures')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {DEMO.countries.map(([nm, d, o]) => (
+                      <tr key={nm}>
+                        <th scope="row">{countryName(nm)}</th>
+                        <td>{fmtI.format(d)}</td>
+                        <td>{fmtI.format(o)}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <th scope="row">{L('Ostale zemlje', 'Other countries')}</th>
+                      <td>{fmtI.format(zemRem[0])}</td>
+                      <td>{fmtI.format(zemRem[1])}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">{L('Ukupno', 'Total')}</th>
+                      <td>{fmtI.format(DEMO.cTot[0])}</td>
+                      <td>{fmtI.format(DEMO.cTot[1])}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
               <div id="zemList">
                 {DEMO.countries.map(([nm, d, o]) => (
                   <div className="jrow" key={nm}>
@@ -161,7 +197,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
             </>
           ) : (
             <>
-              <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={L('Doseljeni i odseljeni prema državljanstvu', 'Arrivals and departures by citizenship')}>
+              <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-describedby="citzTable" aria-label={L('Doseljeni i odseljeni prema državljanstvu', 'Arrivals and departures by citizenship')}>
                 {chart!.bars}
                 {chart!.frames}
                 {/* through the formatter, not `{yr}.` — the trailing dot is a
@@ -194,6 +230,41 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                 <span className="ct">{L('Ukupno ', 'Total ') + yrOf(y) + L(' · saldo ', ' · net ') + sgn(ts, fmtI)}</span>
                 <span className="cv ct">{'+' + fmtI.format(td)}</span>
                 <span className="cv ct">{'−' + fmtI.format(to)}</span>
+              </div>
+              {/* …and the same figures as a table, the way #ageSvg has
+                  #ageTable. .citz-rows is a CSS grid of spans: nothing in it
+                  says which column is arrivals and which departures, so the
+                  leading + or − was the only signal, and a reader navigating by
+                  column had nothing to navigate. The div takes .sr-only and not
+                  the table, for the reason AgePanel records: a table reads
+                  width:1px as a minimum and would leave a real box in the page
+                  for the overlay sweeps to find. */}
+              <div className="sr-only" id="citzTable">
+                <table>
+                  <caption>{L(`Vanjska migracija prema državljanstvu, ${yrOf(y)}`,
+                    `External migration by citizenship, ${yrOf(y)}`)}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">{L('Skupina', 'Group')}</th>
+                      <th scope="col">{L('doseljeni', 'arrivals')}</th>
+                      <th scope="col">{L('odseljeni', 'departures')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cgroups().map(([k, lab]) => (
+                      <tr key={k}>
+                        <th scope="row">{lab}</th>
+                        <td>{fmtI.format(CIT.g[k].d[ci])}</td>
+                        <td>{fmtI.format(CIT.g[k].o[ci])}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <th scope="row">{L('Ukupno', 'Total')}</th>
+                      <td>{fmtI.format(td)}</td>
+                      <td>{fmtI.format(to)}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
               {/* A load-bearing honesty message that appears and disappears as
                   the year is scrubbed, with no focus moving — exactly the case
