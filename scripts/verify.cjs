@@ -6375,12 +6375,43 @@ const evalSafe = async (pg, fn) => {
         if (e > worst) worst = e;
         if (e > 3) over3++;
       }
-      return { stops: parts.length, n: vals.length, worst: +worst.toFixed(2), over3 };
+      /* …and the EXPORTED key, which this block could not see. It read
+         #legend .legend-bar, so the two exporters were unguarded — and they were
+         wrong: they carried the right NUMBER of stops and placed them at evenly
+         spaced values, which understates the middle of a √ ramp. Measured before
+         the fix, the exported ramp against this same set of fills: net worst
+         ΔE 4,55 with 363 of 556 over 3. Same canvas, same Lab test, same
+         municipalities — only the ramp under test changes. */
+      const svg = window.__exportSVG(false);
+      const lg = new DOMParser().parseFromString(svg, 'image/svg+xml').querySelector('linearGradient');
+      const eStops = lg ? [...lg.querySelectorAll('stop')].map(s =>
+        [s.getAttribute('stop-color'), parseFloat(s.getAttribute('offset'))]) : [];
+      let eWorst = 99, eOver3 = 999;
+      if (eStops.length) {
+        const cv2 = document.createElement('canvas'); cv2.width = W; cv2.height = 1;
+        const c2 = cv2.getContext('2d');
+        const g2 = c2.createLinearGradient(0, 0, W, 0);
+        for (const [c, p] of eStops) g2.addColorStop(Math.min(1, Math.max(0, p / 100)), c);
+        c2.fillStyle = g2; c2.fillRect(0, 0, W, 1);
+        const p2 = c2.getImageData(0, 0, W, 1).data;
+        const expAt = t => { const i = Math.min(W - 1, Math.max(0, Math.round(t * (W - 1)))) * 4;
+          return [p2[i], p2[i + 1], p2[i + 2]]; };
+        eWorst = 0; eOver3 = 0;
+        for (const x of vals) {
+          const t = d === 'net' ? (x.v + mm) / (2 * mm) : x.v / mm;
+          const e = dE(x.fill, expAt(t));
+          if (e > eWorst) eWorst = e;
+          if (e > 3) eOver3++;
+        }
+      }
+      return { stops: parts.length, n: vals.length, worst: +worst.toFixed(2), over3,
+        eStops: eStops.length, eWorst: +eWorst.toFixed(2), eOver3 };
     }, dir);
   }
-  ck('the JLS key draws the √ ramp it keys, not an eleven-point straight line through it',
+  ck('the JLS key draws the √ ramp it keys, on screen AND in the export',
     ['net', 'out', 'in'].every(d => keyFit[d].n === 556 && keyFit[d].stops >= 40
-      && keyFit[d].worst < 2 && keyFit[d].over3 === 0),
+      && keyFit[d].worst < 2 && keyFit[d].over3 === 0
+      && keyFit[d].eStops >= 40 && keyFit[d].eWorst < 2 && keyFit[d].eOver3 === 0),
     JSON.stringify(keyFit));
 
   /* …and the ticks that read it sit over the ramp they read. The label row was
