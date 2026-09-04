@@ -228,7 +228,7 @@ function serve(dir) {
       + `descent-override:${r.descent}%;line-gap-override:0%}`);
   }
   let worstAll = 0;
-  for (const chars of [...new Set(out.map(r => r.chars))]) {
+  for (const chars of new Set(out.map(r => r.chars))) {
     const rows = out.filter(r => r.chars === chars);
     const worst = Math.max(...rows.map(r => Math.abs(r.residual)));
     worstAll = Math.max(worstAll, worst);

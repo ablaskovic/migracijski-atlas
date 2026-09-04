@@ -1,8 +1,20 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "oxc"],
+  // `plugins` REPLACES oxlint's default set, it does not extend it. Listing only
+  // react and oxc therefore turned OFF the eslint, typescript and unicorn rules —
+  // their correctness rules included — in `npm run lint`, in the `npm run build`
+  // that gates the Vercel deploy, and in `npm run verify`. The line read as
+  // "react and oxc as well"; it meant "instead of". These five are the default
+  // four plus the one the file was trying to add.
+  "plugins": ["eslint", "typescript", "unicorn", "react", "oxc"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+    // A style preference, not a correctness rule, and the only thing that stood
+    // between this repo and the default plugin set: scripts/verify.cjs states
+    // twelve of its assertions as anchored regexes — /scale\(1\)$/, /^https:\/\//
+    // — because that is how the rest of that file reads. Off deliberately and by
+    // name, so that everything above it is on.
+    "unicorn/prefer-string-starts-ends-with": "off"
   }
 }
