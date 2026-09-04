@@ -58,12 +58,27 @@ on:
     - cron: '17 6 * * *'
   workflow_dispatch:
 
+# A run whose commit has been superseded is describing a tree nobody has any
+# more: pushing three times in five minutes queued three ten-minute suites and
+# reported on all three. Keyed on the ref, so branches never cancel each other,
+# and on the event, so a push cannot cancel the origin-probing runs — those are
+# about production rather than about a commit, and cancel-in-progress is off for
+# them for the same reason.
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
 jobs:
   verify:
     # the suite belongs to a commit, so the two origin-probing triggers skip it
+    # …and a same-repo pull request is a push AND a pull_request, which ran the
+    # ten-minute job twice on one commit for the same answer. The pull_request
+    # arm is kept for the case no push on this repository can cover — a PR from
+    # a fork, whose commits never touch this repo's refs.
     if: >-
-      github.event_name == 'push' || github.event_name == 'pull_request'
-      || github.event_name == 'workflow_dispatch'
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
     # This job reads a repository and runs a test suite; it has no reason to be
     # able to write one. With no `permissions:` block the job took the
