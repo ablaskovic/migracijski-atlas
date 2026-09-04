@@ -10905,23 +10905,31 @@ const evalSafe = async (pg, fn) => {
     await page.mouse.click(kfPoint.x, kfPoint.y);
     await settle(350);
     const click2 = await kfRead();
+    /* WHICH rules, not how many. A floor of five over a set of six is satisfied
+       by any five of them, so the ring could be deleted from the county paths,
+       or from the matrix cells, and the count still cleared the bar — on a
+       stylesheet where the remaining rules cover elements this leg never
+       touches. The hand-back targets are named instead, so losing any one of
+       them is a failure by name. */
     const rule = await page.evaluate(() => {
-      let found = 0;
+      const sel = [];
       for (const sh of document.styleSheets) {
         let rules;
         try { rules = sh.cssRules; } catch { continue; }
         for (const r of rules) {
-          if (r.selectorText && /\[data-kf\]:focus/.test(r.selectorText)) found++;
+          if (r.selectorText && /\[data-kf\]:focus/.test(r.selectorText)) sel.push(r.selectorText);
         }
       }
-      return found;
+      return sel.join(' ; ');
     });
     kfRing = { click1, esc, click2, rule };
   }
   ck('Escape marks the element it hands focus back to, and only for that gesture',
     !kfRing.noPoint && kfRing.click1.focused && !kfRing.click1.kf
     && kfRing.esc.focused && kfRing.esc.kf && !kfRing.click2.kf
-    && kfRing.rule >= 5,
+    && ['.cnt[data-kf]:focus', '.cnt.sel[data-kf]:focus', '.mxc[data-kf]:focus',
+      '.mxd[data-kf]:focus', '.yrc[data-kf]:focus', '.jl[data-kf]:focus']
+      .every(s => String(kfRing.rule).includes(s)),
     JSON.stringify(kfRing));
 
   /* ── Tokovi says what it does not draw ──
