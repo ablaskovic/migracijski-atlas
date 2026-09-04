@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  D, SHORTN, YEARS, DOM, IX2007, FLOWN, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, fmtR, sgn,
+  D, SHORTN, YEARS, DOM, IX2007, FLOWN, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, fmtR, sgn, denName,
 } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
@@ -342,8 +342,11 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
       /* …and the series, once on the grid rather than 588 times in the cells:
          tot/int/ext/nat/all all announced "Grad Zagreb, 2018.: …" with nothing
          saying which of the five the number was. */
-      aria-label={L(`Županije kroz godine · ${FLOWN[S.flow]} — strelice pomiču odabir, Enter postavlja godinu prikaza`,
-        `Counties over time · ${FLOWN[S.flow]} — arrow keys move the selection, Enter sets the displayed year`)}
+      /* …and which denominator the cells are in. This said the same thing under
+         "% popisa 2011." and "% tek. procjene", while every cell in it read a
+         different number — the grid named its series and never its base. */
+      aria-label={L(`Županije kroz godine · ${FLOWN[S.flow]}${denName(S.den)} — strelice pomiču odabir, Enter postavlja godinu prikaza`,
+        `Counties over time · ${FLOWN[S.flow]}${denName(S.den)} — arrow keys move the selection, Enter sets the displayed year`)}
       {...zoom.bind} style={zoom.style}>
       <defs>
         <pattern id="yrhatch" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">

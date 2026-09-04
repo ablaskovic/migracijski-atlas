@@ -2,7 +2,7 @@ import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, preMargin, preMarginNote, pragText, fmtI, fmtR,
   arcMinNote,
-  ipfMargins, rampStops,
+  ipfMargins, rampStops, denName,
 } from '../lib/metrics.ts';
 import { PAPER_WINDOW, paperSplit, paperThrLine } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
@@ -190,8 +190,8 @@ export default function Legend({ S }: { S: State }) {
   const flowName = FLOWN[S.flow];
   /* one wording for one denominator — the control, the legend and the export
      caption used to say this three different ways */
-  const denName = S.den === 'rel11' ? L(' · % popisa 2011.', ' · % of 2011 census')
-    : S.den === 'relest' ? L(' · % tek. procjene', ' · % of current estimate') : '';
+  /* from metrics, so the printed name and the spoken one are the same string */
+  const denLab = denName(S.den);
   const per = S.cum ? yrSpan(2011, YEARS[S.yi]) : yr(YEARS[S.yi]);
 
   if (S.view === 'klas') {
@@ -221,7 +221,7 @@ export default function Legend({ S }: { S: State }) {
     const span = yrSpan(YEARS[cs[0]], YEARS[cs[cs.length - 1]]);
     return (
       <div className="legend" id="legend">
-        <div className="legend-title">{L('Županije × godine · ', 'Counties × years · ')}{flowName}{denName} · {span}</div>
+        <div className="legend-title">{L('Županije × godine · ', 'Counties × years · ')}{flowName}{denLab} · {span}</div>
         <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
         <div className="legend-note">
           {L('Redak je županija, stupac godina; redci su poredani po zbroju razdoblja. Tirkizni stupac je odabrana godina — klik na ćeliju je postavlja.',
@@ -238,7 +238,7 @@ export default function Legend({ S }: { S: State }) {
     const m = RDOM[S.flow + S.den + S.cum];
     return (
       <div className="legend" id="legend">
-        <div className="legend-title">{L('Regije (5) · ', 'Regions (5) · ')}{flowName}{denName}</div>
+        <div className="legend-title">{L('Regije (5) · ', 'Regions (5) · ')}{flowName}{denLab}</div>
         <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
         {/* The note used to say Lika was "u radu neodređeno". Now that the study
             is retrievable that is checkable and not quite true — its nine-region
@@ -380,7 +380,7 @@ export default function Legend({ S }: { S: State }) {
      living only in the flow-net legend most readers never reach. */
   return (
     <div className="legend" id="legend">
-      <div className="legend-title">{flowName}{denName}</div>
+      <div className="legend-title">{flowName}{denLab}</div>
       <GradBar scale={divScale(m)} m={m} rel={rel} mark={markPct(S, m)} />
       <div className="legend-note">
         {L('Plavo: županija dobiva stanovnike · crveno: gubi ih · 0 = ravnoteža.',

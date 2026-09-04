@@ -138,6 +138,16 @@ const FLOWN_: Record<Flow, [string, string]> = {
   all: ['migracije + prirodni prirast', 'migration + natural change'],
 };
 export const FLOWN = {} as Record<Flow, string>;
+/* What a relative value is a percentage OF. The two denominators are named in
+   the Vrijednosti control and in the legend, and nowhere a screen reader reaches:
+   Godine's grid announced the same "Županije kroz godine · migracijski saldo"
+   under both, and a cell read "+0,4 %" with nothing saying whether the base is
+   the 2011 census or the current estimate — two different numbers under one
+   spoken string. Hoisted from Legend so the spoken name and the printed one
+   cannot drift. */
+export const denName = (den: Den): string =>
+  (den === 'rel11' ? L(' · % popisa 2011.', ' · % of 2011 census')
+    : den === 'relest' ? L(' · % tek. procjene', ' · % of current estimate') : '');
 for (const k of Object.keys(FLOWN_) as Flow[]) {
   Object.defineProperty(FLOWN, k, { get: () => L(FLOWN_[k][0], FLOWN_[k][1]), enumerable: true });
 }
@@ -526,7 +536,10 @@ export function countyAria(S: State, iso: string): string {
      that render it carry lang="hr" themselves (MapView). */
   const n = D[iso].n, y = YEARS[S.yi];
   const per = (S.cum || S.view === 'klas') ? yrSpan(2011, y) : yr(y);
-  const num = (v: number) => S.den === 'abs' ? sgn(Math.round(v), fmtI) : sgn(v, fmtR) + ' %';
+  /* …and says what the percentage is of. `+0,4 %` is two different figures
+     depending on Vrijednosti, and this string was the same in both. */
+  const num = (v: number) => (S.den === 'abs' ? sgn(Math.round(v), fmtI)
+    : sgn(v, fmtR) + ' %' + denName(S.den));
   if (S.view === 'flow') {
     if (iso === S.sel) return n + L(' — odabrana županija', ' — selected county');
     /* `fsum(a, b)` is ODM[a][b], i.e. a → b — so `o` is the hub's outflow
