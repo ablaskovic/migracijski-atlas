@@ -185,10 +185,15 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
   }, [selR, selC]);
   const moveF = (dr: number, dc: number) => {
     navRef.current = true;
-    setFc(([r, c]) => {
+    setFc(prev => {
+      const [r, c] = prev;
       let nr = r + dr, nc = c + dc;
       if (nr === nc) { nr += dr; nc += dc; }   /* the diagonal holds no value */
-      return nr < 0 || nr >= n || nc < 0 || nc >= n ? [r, c] : [nr, nc];
+      /* the previous tuple, not a fresh [r, c]: an arrow at the edge is a no-op,
+         and a new tuple is never Object.is the old one — so React re-rendered,
+         the 441 cells rebuilt (fc is a memo dep) and the focus effect ran again,
+         at key-repeat rate, for a move that did not happen. */
+      return nr < 0 || nr >= n || nc < 0 || nc >= n ? prev : [nr, nc];
     });
   };
   const onCellKey = (e: ReactKeyboardEvent<SVGRectElement>, a: string, b: string) => {

@@ -169,9 +169,12 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
 
   const moveF = (dr: number, dc: number) => {
     navRef.current = true;
-    setFc(([r, c]) => {
+    setFc(prev => {
+      const [r, c] = prev;
       const nr = r + dr, nc = c + dc;
-      return nr < 0 || nr >= nR || nc < 0 || nc >= nC ? [r, c] : [nr, nc];
+      /* the previous tuple at the edge — see MatrixView: a fresh one for a
+         no-op move rebuilds all 588 cells and re-runs the focus effect. */
+      return nr < 0 || nr >= nR || nc < 0 || nc >= nC ? prev : [nr, nc];
     });
   };
   /* `playing: false`, like every other route that takes the year FOR the
