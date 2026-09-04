@@ -213,7 +213,11 @@ export default function App() {
     const carried = s.view === 'jmap' ? preJmap.current : null;
     const restore = mem ?? carried;
     if (v === 'flow' || v === 'mx') {
-      if (v === 'flow' && !s.sel) p.sel = 'HR-21';
+      /* HUB_MINT, not the literal: hash.ts mints the same hub when a flow link
+         arrives without one, and App has to be able to tell that value apart
+         from a hub the reader chose. Two copies of one default is how those two
+         paths drift. */
+      if (v === 'flow' && !s.sel) p.sel = HUB_MINT;
       if (!s.flowSeen) { p.flowSeen = true; p.cum = false; p.yi = IX2018; }
       else if (restore) { p.yi = restore.yi; p.cum = restore.cum; }
     } else if (v !== 'jmap' && restore) { p.yi = restore.yi; p.cum = restore.cum; }

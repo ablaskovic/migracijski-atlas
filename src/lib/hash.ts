@@ -1,7 +1,7 @@
 /* Permalink codec: a whitelisted subset of State ↔ location.hash, so any view
    can be shared as a URL. Years are encoded as calendar years (…&y=2018) for
    human-readable links; unknown or invalid fields are ignored on decode. */
-import { YEARS, ISOS } from './metrics.ts';
+import { YEARS, ISOS, IX2011, IX2018 } from './metrics.ts';
 import { STORIES, storyHolds } from './stories.ts';
 import { BASE, LOCK_FD } from './state.ts';
 import { storedLang } from './i18n.ts';
@@ -136,7 +136,10 @@ export function decodeHash(hash: string): Patch {
   /* flow-ish views need a hub and must not re-trigger the first-entry jump */
   if (at('view') === 'flow' && !at('sel')) o.sel = HUB_MINT;
   if (at('view') === 'flow' || at('view') === 'mx') o.flowSeen = true;
-  if (at('view') === 'jmap') { o.yi = YEARS.indexOf(2018); o.cum = false; }
+  /* metrics owns which index those two years are — this file recomputed both,
+     so a change to YEARS would have had to be made in two places that never
+     mention each other */
+  if (at('view') === 'jmap') { o.yi = IX2018; o.cum = false; }
   /* Klasifikacija is always cumulative — klasOf reads val(…, true) whatever cum
      says — so the codec has to say so too, exactly as it forces jmap's pair above.
      The click path was repaired and this was not, so `#v=klas&c=0&y=2024` decoded
@@ -147,8 +150,7 @@ export function decodeHash(hash: string): Patch {
      hand-typed one. The next Saldo press is where the two twins part. */
   if (at('view') === 'klas') o.cum = true;
   /* klas is always cumulative from 2011; so is any cum view */
-  const ix2011 = YEARS.indexOf(2011);
-  if ((at('view') === 'klas' || at('cum')) && at('yi') < ix2011) o.yi = ix2011;
+  if ((at('view') === 'klas' || at('cum')) && at('yi') < IX2011) o.yi = IX2011;
   /* `f=` and `d=` were the two fields no repair constrained, and they are the
      same shape of dead flag. Klasifikacija, Tokovi, Matrica and JLS karta each
      read their own metric and ignore both — `klasOf` hardcodes
