@@ -6611,18 +6611,26 @@ const evalSafe = async (pg, fn) => {
     await fresh(h);
     czClamp[k] = await page.evaluate(() => {
       const c = document.querySelector('#citzClamp');
+      /* the year the panel actually went to, read off its own totals row rather
+         than written here as a literal: the clamp lands on the NEAREST published
+         year, so from 2015 it is 2021 and from 2026 it would be 2025, and a
+         check naming one of them pins the direction as well as the fact */
+      const tot = [...document.querySelectorAll('#citzRows .ct')].map(e => e.textContent)[0] || '';
+      const shown = (tot.match(/\b(\d{4})\b/) || [])[1] || null;
       return { has: !!c, role: c && c.getAttribute('role'), live: c && c.getAttribute('aria-live'),
-        txt: c ? (c.textContent || '').trim() : null };
+        shown, txt: c ? (c.textContent || '').trim() : null };
     });
   }
   ck('the out-of-range citizenship note is announced, and says both years',
     ['hrOut', 'hrIn', 'enOut'].every(k => czClamp[k].has && czClamp[k].role === 'status'
       && czClamp[k].live === 'polite')
-    && /2015/.test(czClamp.hrOut.txt) && /2025/.test(czClamp.hrOut.txt)
+    /* 2021 is the nearest published year to 2015, which is where the panel goes */
+    && czClamp.hrOut.shown === '2021' && czClamp.enOut.shown === '2021'
+    && /2015/.test(czClamp.hrOut.txt) && new RegExp(czClamp.hrOut.shown).test(czClamp.hrOut.txt)
     && /izvan objavljenog raspona/.test(czClamp.hrOut.txt)
-    && /2015/.test(czClamp.enOut.txt) && /2025/.test(czClamp.enOut.txt)
+    && /2015/.test(czClamp.enOut.txt) && new RegExp(czClamp.enOut.shown).test(czClamp.enOut.txt)
     && /outside the published range/.test(czClamp.enOut.txt)
-    && czClamp.hrIn.txt === '',
+    && czClamp.hrIn.txt === '' && czClamp.hrIn.shown === '2024',
     JSON.stringify(czClamp));
 
   /* ── P3: the corridor card encodes its two series with shape, not hue ── */

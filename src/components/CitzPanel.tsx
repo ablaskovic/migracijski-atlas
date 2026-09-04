@@ -16,7 +16,14 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
      2021–2025, and the clamp used to be silent: the big year could read 2015.
      while the chart highlighted 2025. Say so when it actually bites. */
   const inRange = yy.includes(YEARS[S.yi]);
-  const y = inRange ? YEARS[S.yi] : yy[yy.length - 1];
+  /* …to the NEAREST published year, not the last one. A reader scrubbing
+     forward from 2015 was shown 2025 — the far end of a five-year window — when
+     the year they were about to reach is 2021. Below the window that is the
+     first year, above it the last; inside it nothing clamps. The status line
+     names both years either way, so this is which of the two published years
+     the panel picks, not whether it admits picking one. */
+  const y = inRange ? YEARS[S.yi]
+    : YEARS[S.yi] < yy[0] ? yy[0] : yy[yy.length - 1];
   const ci = yy.indexOf(y);
 
   /* The bar column is scaled to the largest quantity IN it, and the remainder is
