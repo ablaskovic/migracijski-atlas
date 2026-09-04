@@ -623,17 +623,36 @@ const evalSafe = async (pg, fn) => {
     const lum = p => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
       return 0.2126 * f(p[0]) + 0.7152 * f(p[1]) + 0.0722 * f(p[2]); };
     const a = frames[0] && rgb(getComputedStyle(frames[0]).stroke), b = rgb(panel);
+    /* the selected year is the one drawn at full opacity, and its frames are the
+       ones sharing its band x — read from the DOM rather than from a year, so
+       this cannot drift from whatever the panel actually emphasises */
+    const bars = [...svg.querySelectorAll('rect:not(.citz-frame)')];
+    const selBar = bars.find(e => parseFloat(e.getAttribute('opacity')) >= 0.999);
+    const selX = selBar ? selBar.getAttribute('x') : null;
     return {
       n: frames.length,
+      selX,
+      fr: frames.map(e => ({ x: e.getAttribute('x'), sw: +e.getAttribute('stroke-width') })),
       widths: [...new Set(frames.map(e => +e.getAttribute('stroke-width')))].sort((p, q) => p - q),
       contrast: a && b ? +((Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)).toFixed(2) : null,
       minOp: Math.min(...[...svg.querySelectorAll('rect:not(.citz-frame)')]
         .map(e => parseFloat(e.getAttribute('opacity')))),
     };
   });
-  ck('every citizenship stack carries an edge that clears 3:1, and no year is dimmed out of legibility',
+  /* …and the heavy edge is on the year the scrubber is at. `widths` is a sorted
+     distinct SET, so it reads [0.6, 1.4] whichever year carries which — invert
+     the ternary in CitzPanel and the four unselected years take the heavy
+     outline, the selected stack the hairline, and every clause above stays
+     true. The emphasis is the panel's whole answer to "which year am I looking
+     at", and nothing tied it to the year. */
+  const selFr = citzEdge.fr.filter(f => f.x === citzEdge.selX);
+  const othFr = citzEdge.fr.filter(f => f.x !== citzEdge.selX);
+  ck('every citizenship stack carries an edge that clears 3:1, no year is dimmed out of legibility, and the heavy edge is the selected year’s',
     citzEdge.n === 10 && citzEdge.widths.length === 2 && citzEdge.widths[1] > citzEdge.widths[0]
-    && citzEdge.contrast >= 3 && citzEdge.minOp >= 0.7,
+    && citzEdge.contrast >= 3 && citzEdge.minOp >= 0.7
+    && citzEdge.selX !== null && selFr.length === 2 && othFr.length === 8
+    && selFr.every(f => f.sw === citzEdge.widths[1])
+    && othFr.every(f => f.sw === citzEdge.widths[0]),
     JSON.stringify(citzEdge));
 
   /* ── prirodno / ukupna promjena flows ── */
