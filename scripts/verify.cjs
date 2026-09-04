@@ -3239,7 +3239,9 @@ const evalSafe = async (pg, fn) => {
   await click('#citzHd');
   const p2keep = await page.evaluate(() => ({ cap: !!document.querySelector('#storyCap'),
     open: !!document.querySelector('#citz.open') }));
-  ck('a Nalaz that never mentions a panel survives one being opened',
+  /* named for the Nalaz it uses, because a check whose name is a prefix of
+     another's is greppable only by the difference — see the ordinal pair */
+  ck('a Nalaz that never mentions a panel survives one being opened: Nalaz 2',
     p2keep.cap && p2keep.open, JSON.stringify(p2keep));
 
   /* ── the picker is a third route into a view and owes the same clamps ──
@@ -11944,7 +11946,11 @@ const evalSafe = async (pg, fn) => {
     langSweep.length === 0, langSweep.slice(0, 3).join(' | '));
   await fresh('');
 
-  ck('no Croatian year ordinal survives into English',
+  /* Renamed to say which one it is. This and the sweep four hundred lines up
+     shared a name up to the suffix — "…, anywhere on the page" — so grepping the
+     log or the source for either found both, and the narrow one read like a
+     weaker copy of the broad one rather than the three pinned surfaces it is. */
+  ck('no Croatian year ordinal survives into English: the three pinned surfaces',
     /for 2011–2024\. On the newer/.test(enKlas) && !/\d{4}\.\.|\d{4}\.–/.test(enKlas)
     && enYrs.cols.length >= 28 && enYrs.cols.every(t => !t.endsWith('.'))
     && !/\d{4}\./.test(enYrs.cell),
