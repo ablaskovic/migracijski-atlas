@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 641;
+const EXPECTED_CHECKS = 642;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -7443,9 +7443,22 @@ const evalSafe = async (pg, fn) => {
       JSON.stringify({ ...joined, ...held }));
     /* the abort was ours; keep it out of the two zero-error assertions, the same
        targeted splice the geo_regions5 scrub above uses */
-    for (let i = errors.length - 1; i >= 0; i--) {
-      if (/geo_jls/.test(errors[i]) && /ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
-    }
+    /* …and prove it swept its own. Every other deliberate-fault scrub in this
+       file asserts `>= 1`, and this one continued silently — so if the abort's
+       console line never arrived (a settle that was too short, an interceptor
+       flag left stale) the scrub removed nothing, said nothing, and left the
+       line to fail the end-of-run bracket hundreds of checks later with no
+       pointer back here. */
+    const joinDropped = (() => {
+      const was = errors.length;
+      for (let i = errors.length - 1; i >= 0; i--) {
+        if (/geo_jls/.test(errors[i]) && /ERR_FAILED|net::/.test(errors[i])) errors.splice(i, 1);
+      }
+      return was - errors.length;
+    })();
+    ck('the mid-flight warm abort is swept, and it is the only thing swept',
+      joinDropped >= 1 && errors.length === 0,
+      JSON.stringify({ dropped: joinDropped, left: errors.slice(0, 2) }));
   }
   {
     /* The one scrub in this file with no `net::` qualifier and no assertion. Its
