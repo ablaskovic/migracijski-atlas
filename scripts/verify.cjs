@@ -6333,8 +6333,17 @@ const evalSafe = async (pg, fn) => {
   await page.setOfflineMode(false);
   /* on a macrotask, for the reason given at the deferred-reload block above:
      the armed listener reloads synchronously, and this evaluate raced its own
-     teardown — it aborted this file at 321/610 once. */
-  await page.evaluate(() => { setTimeout(() => window.dispatchEvent(new Event('online')), 0); });
+     teardown — it aborted this file at 321/610 once.
+     The macrotask narrowed that race; it did not close it. setOfflineMode(false)
+     restores connectivity, and the browser fires its OWN `online` event for that
+     — so by the time this call is sent, the app's reload can already be in
+     flight and there is no context left to schedule anything in. It aborted
+     again at 324/616 on exactly that, one statement earlier than before.
+     evalSafe, then: if the context is gone the reload we were about to ask for
+     has already happened, and re-dispatching after it settles is a no-op. What
+     is asserted is unchanged and is below — the app must be back with all 556
+     municipalities — so this cannot pass by skipping the trigger. */
+  await evalSafe(page, () => { setTimeout(() => window.dispatchEvent(new Event('online')), 0); });
   await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 20000 })
     .catch(() => {});
   const backOnline = await page.evaluate(() => document.querySelectorAll('#map .jl').length);
