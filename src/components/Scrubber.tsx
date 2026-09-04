@@ -260,8 +260,17 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      accessible name — on the bar that carries the year for every view. */
   const togLab = collapsed ? L('Prikaži vremensku traku', 'Show the timeline')
     : L('Sakrij vremensku traku', 'Hide the timeline');
-  const playLab = S.playing ? L('Zaustavi reprodukciju', 'Stop playback')
-    : L('Pokreni reprodukciju kroz godine', 'Play through the years');
+  /* One name, whatever the state. It used to change its accessible name AND
+     toggle aria-pressed on the same press, so AT announced "Zaustavi
+     reprodukciju, prekidač, pritisnuto" — a name saying the action is Stop
+     beside a state saying pressed, which reads as "stopped" as easily as
+     "playing". The APG toggle pattern asks for exactly one of the two: if
+     aria-pressed carries the state, the label must not.
+     aria-pressed is what stays, because it is what the button already ships and
+     what the suite reads; and nothing is lost by the constant name, since
+     #srLive announces "Reprodukcija kroz godine u tijeku" when the film starts
+     and the year itself when it stops. */
+  const playLab = L('Reprodukcija kroz godine', 'Play through the years');
 
   return (
     <div className={'scrub' + (inert ? ' inert' : '') + (collapsed ? ' collapsed' : '')} id="scrubBox"
