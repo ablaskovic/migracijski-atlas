@@ -12329,10 +12329,15 @@ const evalSafe = async (pg, fn) => {
      pinned to hr-HR and Europe/Zagreb at launch, so the <head> block's
      self-referential assertion only ever runs with the reader's language already
      equal to the URL's. */
-  const bareHead = [...detect, ...inR, ...outR, stored];
+  /* storedHr too. The sweep folded in the four blocks and `stored` — the
+     en-in-Zagreb boot — and left out its own mirror, the hr-in-London one, which
+     is the only row here whose stored choice and browser language disagree in
+     that direction. "However the reader is configured" is the claim; sixteen
+     rows is the configuration space this file actually boots. */
+  const bareHead = [...detect, ...inR, ...outR, stored, storedHr];
   const bareBad = bareHead.filter(r => !/^https:\/\/[^?#]+\/$/.test(r.canon) || r.ogl !== 'hr_HR');
   ck('and the bare / still calls itself the Croatian page however the reader is configured',
-    bareBad.length === 0 && bareHead.length >= 15, JSON.stringify(bareBad.slice(0, 3)));
+    bareBad.length === 0 && bareHead.length >= 16, JSON.stringify(bareBad.slice(0, 3)));
 
   /* A shared link outranks both the browser and the stored choice: a link sent
      in English has to arrive in English, or the sender cannot show anyone
