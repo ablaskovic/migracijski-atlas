@@ -12135,15 +12135,26 @@ const evalSafe = async (pg, fn) => {
      Its own reader, because httpGet concatenates chunks into a string and a
      favicon is not text — and asserted by MAGIC BYTES, because the failure mode
      was a wrong body under a plausible header. */
-  const binGet = u => new Promise(resolve => {
-    const rq = http.get(u, r => {
+  /* By PROTOCOL, like httpGet twenty lines above it. This hardcoded `http`, so
+     `node scripts/verify.cjs https://…` — the one run in which the header and
+     cache checks are reading real responses instead of ones this file
+     synthesised from vercel.json — threw ERR_INVALID_PROTOCOL out of http.get.
+     A synchronous throw inside a Promise executor rejects the promise, the
+     `error` handler below never sees it because no request was ever made, and
+     the await unwound past every remaining check to finish(2): 44 checks from
+     the end. That is the same defect MA4M-058 fixed in httpGet; this probe was
+     added beside it afterwards and repeated it.
+     The trailing .catch is httpGet's other half, for the same reason its comment
+     gives: a fault costs one check rather than the tail of the run. */
+  const binGet = u => new Promise((resolve, reject) => {
+    const rq = (u.startsWith('https:') ? https : http).get(u, r => {
       const bufs = [];
       r.on('data', d => bufs.push(d));
       r.on('end', () => resolve({ status: r.statusCode, buf: Buffer.concat(bufs) }));
     });
     rq.setTimeout(15000, () => rq.destroy(new Error('timeout')));
-    rq.on('error', () => resolve({ status: 0, buf: Buffer.alloc(0) }));
-  });
+    rq.on('error', reject);
+  }).catch(() => ({ status: 0, buf: Buffer.alloc(0) }));
   const icons = {};
   for (const [p, want] of [['/favicon.ico', '00000100'], ['/apple-touch-icon.png', '89504e47'],
     ['/favicon.svg', '3c737667']]) {
