@@ -246,9 +246,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:0.8
    present, :focus-visible false, outline none, box-shadow none — the control the
    reader is standing on shows nothing. Same for #ageHd, #jcardHd, a rail row
    after a corridor opens, #story after a Nalaz is dismissed, and #helpBtn after
-   the glossary closes — the last being a hand-back where focus MOVES, so the
-   note above about Firefox not re-evaluating when focus stays put is narrower
-   than the engine actually is. WCAG 2.4.7, in the second desktop engine.
+   the glossary closes — the last being a hand-back where focus MOVES, which is
+   why the .cnt note further down states the rule as "the hand-back follows a
+   pointer-opened surface" rather than as "focus does not move".
+   WCAG 2.4.7, in the second desktop engine.
    `:not(svg *)` keeps this box outline off the paths, whose own stroke rules
    below already answer for them. */
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
@@ -513,11 +514,16 @@ body.stage-collapsed .main{flex:none;height:420px}
    A dash is orthogonal to colour, so focus survives on top of hover (ink) and
    selection (teal) without hiding either. */
 /* Keyboard focus only — the UA ring is killed above, for every graphic at once. */
-/* …and the same, for a hand-back the engine cannot mark. Escape returns focus to
-   an element that already has it, and Firefox does not re-evaluate :focus-visible
-   when focus does not move — measured on .cnt[data-iso="HR-14"] after a click and
-   an Escape: Chromium draws the dashed ring, Firefox draws nothing and the county
-   holds keyboard focus on a role=button with no indicator (2.4.7). focusSoon sets
+/* …and the same, for a hand-back the engine cannot mark. Firefox leaves
+   :focus-visible false when the hand-back follows a pointer-opened surface, and
+   that is wider than "focus does not move", which is how this note read. Two
+   measured shapes, and only the first is a stay-put: Escape on
+   .cnt[data-iso="HR-14"] after a click returns focus to the element that already
+   has it — Chromium draws the dashed ring, Firefox draws nothing and the county
+   holds keyboard focus on a role=button with no indicator (2.4.7). And Escape on
+   a glossary opened by CLICKING #helpBtn MOVES focus, from #helpCard back to the
+   button, and Firefox reports :focus-visible false there too. data-kf covers both
+   because it is stamped on the target of the hand-back either way. focusSoon sets
    data-kf only on the keyboard paths and clears it on the next blur or
    pointerdown, so this is the app answering for its own hand-back rather than a
    second heuristic competing with the pseudo. */
