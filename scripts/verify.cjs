@@ -378,10 +378,21 @@ const evalSafe = async (pg, fn) => {
     /* a purged hashed chunk against a cached index.html — the ordinary way the
        first-paint placeholder is left with nothing to replace it */
     if (blockEntry && /\/assets\/index-[\w-]+\.js$/.test(u)) return r.abort();
-    /* the export's OWN font fetch, failed or wedged on demand. Set only after a
-       page has loaded, so the @font-face fetches at boot are untouched and only
-       exportFonts' re-fetch meets it. */
-    if (blockFonts && /\.woff2(\?|$)/.test(u)) {
+    /* The export's OWN font fetch, failed or wedged on demand — told apart from
+       the page's by resource type, not by timing. The comment here used to claim
+       the flag was "set only after a page has loaded, so the @font-face fetches
+       at boot are untouched", and all three call sites armed it BEFORE the boot
+       they said it spared. Measured at 1440×900: a boot makes 22 woff2 requests,
+       16 of them resourceType 'font' — index.css's @font-face rules — and 6
+       'fetch', which are exportFonts' warm. The unqualified test caught all 22,
+       so the '404' arm rendered the page under test in the metric fallbacks
+       rather than in the faces it ships.
+       'fetch' is also exactly what these checks want: the same measurement shows
+       the export click issues NO further request, because App's mount-time warm
+       has already cached the payload. The warm IS the export's fetch, made early
+       — so blocking it is blocking the path, and the page still boots in its own
+       typography. */
+    if (blockFonts && r.resourceType() === 'fetch' && /\.woff2(\?|$)/.test(u)) {
       if (blockFonts === 'hang') { heldFonts.push(r); return; }
       return r.respond({ status: 404, contentType: 'text/html', body: '<h1>404</h1>' });
     }
@@ -439,10 +450,12 @@ const evalSafe = async (pg, fn) => {
     return true;
   };
 
-  /* fresh boot helper: hash state is read at module init, so force a real reload */
-  const fresh = async h => {
+  /* fresh boot helper: hash state is read at module init, so force a real reload.
+     `waits` is passed through for the one caller that knows networkidle0 cannot
+     resolve — see the held-font arms. */
+  const fresh = async (h, waits) => {
     await page.goto('about:blank').catch(() => {});
-    await goTo(url + h);
+    await goTo(url + h, ...(waits ? [waits] : []));
     /* Wait for the app, not for a stopwatch. `networkidle0` says the network went
        quiet, which is not the same as React having mounted — and every block
        after a fresh() reads the DOM straight away, so a slow mount surfaces as
@@ -13480,7 +13493,15 @@ const evalSafe = async (pg, fn) => {
   const png404 = await page.evaluate(() => ({ disabled: document.querySelector('#pngBtn').disabled,
     label: document.querySelector('#pngBtn').textContent }));
   blockFonts = 'hang';
-  await fresh('');
+  /* domcontentloaded only. This arm PARKS the warm's fetches and never answers
+     them, and puppeteer counts a paused request as in flight — so networkidle0,
+     which goTo tries first with a 30 s budget, cannot be satisfied by
+     construction. It was never satisfied: both hang arms burned the full
+     timeout, about a minute of every run, and then re-navigated on the weaker
+     condition anyway. Asking for the condition that can be met removes a wait
+     the harness was inflicting on itself, and changes nothing about what is
+     measured — fresh() waits on svg#map either way. */
+  await fresh('', ['domcontentloaded']);
   const tFont0 = Date.now();
   await click('#pngBtn');
   await page.waitForFunction(() => !document.querySelector('#pngBtn').disabled, { timeout: 20000 }).catch(() => {});
@@ -13537,7 +13558,10 @@ const evalSafe = async (pg, fn) => {
     };
   });
   blockFonts = 'hang';
-  await fresh('#v=saldo&c=0&y=2019');
+  /* domcontentloaded, for the reason the first hang arm gives: a parked request
+     counts as in flight, so networkidle0 cannot resolve while this arm holds the
+     warm open. */
+  await fresh('#v=saldo&c=0&y=2019', ['domcontentloaded']);
   const fillsNow = () => page.evaluate(() => [...document.querySelectorAll('#map .cnt')]
     .map(p => getComputedStyle(p).fill.replace(/\s+/g, '')).join('|'));
   const raceBefore = await fillsNow();
