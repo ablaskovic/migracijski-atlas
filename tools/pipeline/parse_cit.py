@@ -99,8 +99,19 @@ R = {}
 for r in rows:
     if r[0] is None: continue
     name = str(r[0]).strip()
+    # the header row is not a country. Its label cell holds the first year, and
+    # to_int('2021.') is 2021, so it entered R as a row of years — harmless
+    # while nothing reads that key, and a trap for anything that iterates R.
+    if r is hdr or r is sub: continue
     vals = [to_int(v) for v in r[1:11]]
-    if name and any(vals): R[name] = {'d': vals[0::2], 'o': vals[1::2]}
+    # Last-wins was silent. The sheet is one table today; stack a second block
+    # under it — a by-sex split, say, with the same country labels — and every
+    # group in this file would quietly describe the lower block instead, with
+    # the checksum against Ukupno still passing because that row would be
+    # overwritten in step.
+    if name and any(vals):
+        assert name not in R, ('duplicate row label in the sheet: ' + name)
+        R[name] = {'d': vals[0::2], 'o': vals[1::2]}
 # Every lookup goes through `row()`, including the five that used to index R
 # directly — the group definitions and the Ukupno row. R only holds rows that
 # had a non-zero value: a
