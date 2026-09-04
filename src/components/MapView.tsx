@@ -55,8 +55,23 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
     const ro = new ResizeObserver(es => {
       for (const e of es) {
         const r = e.contentRect;
-        if (e.target === wrapRef.current) setSize(s => (s.w === r.width && s.h === r.height ? s : { w: r.width, h: r.height }));
-        else setStageH(h => (h === r.height ? h : r.height));
+        if (e.target === wrapRef.current) {
+          /* The FIGURE's box, which is not always the box that is observed. On
+             screen they are the same element and the same number — #map is
+             height:100% of .map-box. In print they are not: the map carries its
+             own declared height there so that the released panels can grow the
+             box beneath it, and a projection fitted to the BOX then draws past
+             the svg it is drawn in. Measured in Tokovi on A4 landscape with the
+             corridor chip present: box 550, svg 431, 530 px of content — 109 px
+             of the choropleth clipped under a legend that is complete, which is
+             the failure the print-fit check exists to catch and duly did.
+             Reading the svg is stable rather than circular: its height comes
+             from the flex parent on screen and from a declared 60vh in print,
+             and neither depends on this measurement. */
+          const svg = wrapRef.current.querySelector('#map');
+          const h = svg ? svg.getBoundingClientRect().height : r.height;
+          setSize(s => (s.w === r.width && s.h === h ? s : { w: r.width, h }));
+        } else setStageH(hh => (hh === r.height ? hh : r.height));
       }
     });
     ro.observe(wrapRef.current!);
