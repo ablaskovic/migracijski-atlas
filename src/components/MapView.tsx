@@ -984,10 +984,16 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
            also used to say two different things to two different users. */
         <button className="zoomrst" id="zoomRst"
           onClick={() => { zoom.reset(); focusSoon('#labBtn, #helpBtn'); }}
-          title={L('Vrati zumiranje na početno', 'Reset zoom')}
           /* the title was translated and the accessible name was not, so this one
              control said two things in two languages to two different users; the
-             factor is a number and owes the reader's own decimal separator */
+             factor is a number and owes the reader's own decimal separator.
+             …and the same string in both, because a title that differs from the
+             name becomes the DESCRIPTION: this title was a prefix of the name, so
+             AT announced the reset, then the current factor, then the reset
+             again. The name carries the factor, which is the more useful of the
+             two, and the pointer gets it too. */
+          title={L(`Vrati zumiranje na početno, trenutačno ${fmtR.format(zk)}×`,
+            `Reset zoom, currently ${fmtR.format(zk)}×`)}
           aria-label={L(`Vrati zumiranje na početno, trenutačno ${fmtR.format(zk)}×`,
             `Reset zoom, currently ${fmtR.format(zk)}×`)}>
           ⤢ {fmtR.format(zk)}×

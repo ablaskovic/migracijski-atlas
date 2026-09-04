@@ -81,6 +81,10 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
   S: State; setS: (p: Patch) => void; setView: (v: View) => void;
   setMode: (v: 'yr' | 'cum') => void; applyStory: (i: number) => void; resetAll: () => void;
 }) {
+  /* one string per exporter, used as both the title and the accessible name —
+     see the buttons below */
+  const pngLab = L('Preuzmi trenutačnu kartu kao PNG', 'Download the current map as PNG');
+  const svgLab = L('Preuzmi trenutačnu kartu kao SVG (vektor)', 'Download the current map as SVG (vector)');
   const narrow = useNarrow();
   /* remembered, so the disclosure is one tap per session and not one per visit
      to a control. It is deliberately NOT in S: it is presentation, and the
@@ -276,10 +280,16 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
                 switch: measured 47,7 → 38,1 px on #pngBtn at 1440, 46,7 → 37,1
                 on #svgBtn, moving both. Reserving the wider of the two makes the
                 box the same in HR and EN. Same reasoning as .hd-title[data-alt]. */}
-            <button id="pngBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busy || geoMissing} onClick={onPng} title={L('Preuzmi kartu kao PNG', 'Download the map as PNG')}
-              aria-label={L('Preuzmi trenutačnu kartu kao PNG', 'Download the current map as PNG')}>{err === 'png' ? L('greška', 'error') : busy ? '…' : 'PNG'}</button>
-            <button id="svgBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busySvg || geoMissing} onClick={onSvg} title={L('Preuzmi kartu kao SVG (vektor)', 'Download the map as SVG (vector)')}
-              aria-label={L('Preuzmi trenutačnu kartu kao SVG (vektor)', 'Download the current map as SVG (vector)')}>{err === 'svg' ? L('greška', 'error') : busySvg ? '…' : 'SVG'}</button>
+            {/* One string for the title and the name. A title that is not
+                IDENTICAL to the accessible name becomes the accessible
+                DESCRIPTION, so NVDA read "Preuzmi trenutačnu kartu kao PNG" and
+                then "Preuzmi kartu kao PNG" — the same sentence minus one word.
+                Chrome drops a title that equals the name, which is why #play,
+                whose two are written from one variable, does not do this. */}
+            <button id="pngBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busy || geoMissing} onClick={onPng} title={pngLab}
+              aria-label={pngLab}>{err === 'png' ? L('greška', 'error') : busy ? '…' : 'PNG'}</button>
+            <button id="svgBtn" data-t={L('greška', 'error')} data-t2={L('error', 'greška')} disabled={busySvg || geoMissing} onClick={onSvg} title={svgLab}
+              aria-label={svgLab}>{err === 'svg' ? L('greška', 'error') : busySvg ? '…' : 'SVG'}</button>
           </div>
           {/* An aria-label overrides button text, so the busy and error states
               were invisible to AT — on the only error surface in the app. */}
