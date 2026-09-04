@@ -61,7 +61,13 @@ export interface County {
   pe: (number | null)[];  /* mid-year population estimate, gaps possible */
   nat: number[];          /* natural change per year */
 }
-export interface AtlasRaw { years: number[]; c: Record<string, County> }
+/* natRH is in the payload and in no consumer: parse_nat.py writes the national
+   row "for cross-checks" and the app derives its national figures by summing
+   the 21 counties instead. Declared because this interface is the only
+   description of the file that lives in the repo, and a shape that omits a
+   third of its top-level keys reads as a shape that forbids them — the cast
+   goes through `unknown`, so nothing would have complained. */
+export interface AtlasRaw { years: number[]; c: Record<string, County>; natRH: number[] }
 
 export interface CitSeries { d: number[]; o: number[] }   /* doseljeni / odseljeni */
 export interface CitData { years: number[]; tot: CitSeries; g: Record<string, CitSeries> }
