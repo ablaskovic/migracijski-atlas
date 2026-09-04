@@ -149,8 +149,13 @@ export const paperCaveatLine = (): string =>
 
 /* …and the caveat for a figure the paper CANNOT be compared to, which is a
    different sentence and was missing from the export entirely. Move the Prag
-   slider to 10.000 or scrub the endpoint off 2024 and the image showed 7 / 3 /
-   11 against the paper's 7 / 7 / 7 — because the READER changed the threshold —
+   slider to 2.000 (or switch to Prag u % at 1,5 %) or scrub the endpoint off
+   2024 and the image showed 7 / 3 / 11 against the paper's 7 / 7 / 7 — because
+   the READER changed the threshold —
+   (Computed over the committed payload at the 2024 endpoint: 2.000 gives
+   7 / 3 / 11 and so does 1,5 % relative, 4.500 gives 7 / 5 / 9, and 10.000 —
+   which this example used to name — gives 7 / 7 / 7, i.e. the paper's own split
+   and no discrepancy to caveat at all.)
    under a row blaming CBS revisions for the gap, and named neither the paper's
    threshold nor its window. The on-screen legend has always got this right; it
    reads these two strings from here now, so the image and the screen cannot
