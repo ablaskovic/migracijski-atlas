@@ -8537,9 +8537,19 @@ const evalSafe = async (pg, fn) => {
       uaRing.n++;
       /* the app's own teal ring on a real form control is intended: Chrome reports
          focus-visible for <select>/<input> however they were focused */
-      const formControl = /^(SELECT|INPUT)$/.test(st.tag || '') || st.fv === true;
+      /* By TAG, and not "or the engine says focus-visible". `|| st.fv === true`
+         exempted ANY element Chrome reports as :focus-visible after a pointer
+         click — which is the exact thing this sweep exists to find. It is nearly
+         unreachable in practice, because Chrome does not set focus-visible on a
+         graphic or a <button> after a mouse press, so it never fired; but an
+         escape that says "unless the ring was warranted" cannot catch a ring
+         that was not. The tag test alone says what is meant: a select and an
+         input keep their ring however they were focused, and nothing else does.
+         `fv` stays in the record so a hit can be read together with what the
+         engine thought. */
+      const formControl = /^(SELECT|INPUT)$/.test(st.tag || '');
       if (st.style !== 'none' && parseFloat(st.width) > 0 && !formControl) {
-        uaRing.hits.push(`${hash || 'saldo'}:${t.s}→${st.id || st.cls}=${st.style} ${st.width}`);
+        uaRing.hits.push(`${hash || 'saldo'}:${t.s}→${st.id || st.cls}=${st.style} ${st.width} fv=${st.fv}`);
       }
     }
   }
