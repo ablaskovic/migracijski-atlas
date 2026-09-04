@@ -195,6 +195,16 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
      or a county card — which is the same contract `.cnt` has with the county
      card, and it is now stated for all three rather than for the first two */
   const owns = (d: Row): boolean => canActivate(d);
+  /* …and which one, by id. Both cards render before the control that opens
+     them — #card as the first child of .map-wrap, #pair beside it — so the
+     disclosed content is always behind the cursor. #card is in the DOM in
+     every view (empty when nothing is selected); #pair only exists while a
+     corridor is open, and an IDREF pointing at nothing is not a reference. */
+  const ctrls = (d: Row): string | undefined => {
+    if (!owns(d)) return undefined;
+    if (d.pair || S.view === 'flow') return isOpen(d) ? 'pair' : undefined;
+    return 'card';
+  };
   const name = (d: Row) => {
     if (d.reg) return REG[d.iso].name;
     if (d.nm) return SHORTN[d.nm[0]] + ' → ' + SHORTN[d.nm[1]];
@@ -326,6 +336,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
                English-formatted number to the Croatian voice with it. */
             aria-label={rowAria(d, i)}
             aria-expanded={owns(d) ? isOpen(d) : undefined}
+            aria-controls={ctrls(d)}
             /* the rail is the natural index into the map and the 420-cell grid,
                so hovering a row lights up whatever it names: a region's counties,
                a corridor's matrix cell, a JLS, or a county — and focus does the

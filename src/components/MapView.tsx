@@ -841,6 +841,13 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
                      toggles the detail card, so it owes aria-expanded too. */
                   role="button"
                   aria-expanded={S.view === 'flow' ? undefined : iso === S.sel}
+                  /* …and names what it expands. The card is mounted as the
+                     FIRST child of .map-wrap, before .map-stage, so pressing
+                     Enter on the twelfth county opened a heading, four values
+                     and the mig.+prir. caveat twelve elements BEHIND the
+                     cursor: `read next` went to county thirteen. #helpBtn in
+                     this same file already points at #helpCard this way. */
+                  aria-controls={S.view === 'flow' ? undefined : 'card'}
                   onPointerEnter={() => setHL(iso)} onPointerLeave={() => setHL(null)}
                   onPointerMove={moveTip} onClick={() => selectCounty(iso)}
                   /* the ring is a keyboard affordance: drawn from the focus

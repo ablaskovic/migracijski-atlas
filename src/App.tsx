@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { YEARS, Y0, YEND, IX2011, IX2018, VLAB } from './lib/metrics.ts';
+import { YEARS, Y0, YEND, IX2011, IX2018, VLAB, D } from './lib/metrics.ts';
 import { encodeHash, readHash, HUB_MINT } from './lib/hash.ts';
 import { BASE, LOCK_FD, focusSoon } from './lib/state.ts';
 import { L, NEWTAB, chosenLang, setLang, storeLang, t, yr, yrSpan } from './lib/i18n.ts';
@@ -931,8 +931,21 @@ export default function App() {
      both change without any focus moving (scrub, arrows, autoplay), so without
      this the whole app mutates silently. Held constant while the loop runs so
      it announces once at start and once at the end, not 28 times. */
+  /* …and what the selection opened. Both cards are mounted BEFORE the control
+     that opens them — #card is the first child of .map-wrap and #pair its
+     neighbour — so selecting the twelfth county flipped aria-expanded on the
+     path and left the reader twelve elements in front of the card that
+     appeared, with nothing said. aria-controls (MapView, Rail) offers JAWS a
+     jump; this sentence is the half that works in every reader. Same
+     predicates the two cards render on, so it cannot name a card that is not
+     on screen. */
+  const card = !S.sel ? ''
+    : S.view === 'flow' || S.view === 'mx'
+      ? (S.pair && S.pair !== S.sel ? `${D[S.sel].n} → ${D[S.pair].n}` : '')
+      : S.view === 'yrs' ? '' : D[S.sel].n;
   const live = S.playing ? L('Reprodukcija kroz godine u tijeku.', 'Playback through the years is running.')
-    : `${yr(YEARS[S.yi])} · ${VLAB[S.view]} · ${S.cum || S.view === 'klas' ? L('kumulativno', 'cumulative') : L('godišnje', 'annual')}`;
+    : `${yr(YEARS[S.yi])} · ${VLAB[S.view]} · ${S.cum || S.view === 'klas' ? L('kumulativno', 'cumulative') : L('godišnje', 'annual')}`
+      + (card ? ` · ${L('kartica', 'card')}: ${card}` : '');
 
   return (
     <>
