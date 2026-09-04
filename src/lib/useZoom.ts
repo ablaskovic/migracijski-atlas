@@ -282,8 +282,11 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     /* Only the primary button pans. Without the filter a right-button drag
        moved the map, so the context menu opened over a map that had shifted
-       under it — and a middle-button drag panned instead of autoscrolling. */
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
+       under it — and a middle-button drag panned instead of autoscrolling.
+       `!== 'touch'` rather than `=== 'mouse'`: a stylus has a barrel button and
+       reports it as button 2, and a pen is armed for the drag below on exactly
+       the same terms a mouse is. What both guards mean is `not a finger`. */
+    if (e.pointerType !== 'touch' && e.button !== 0) return;
     panned.current = false;   /* a fresh gesture starts as a click until it moves */
     pts.current.set(e.pointerId, local(e));
     if (pts.current.size === 2) arm();
@@ -305,7 +308,13 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
        gives the same state, since no pointerup arrives on return. `buttons` is
        the authority on whether a button is down, which is the rule Scrubber
        already takes for this exact failure. */
-    if (e.pointerType === 'mouse' && !(e.buttons & 1)) {
+    /* …and a pen, for the same reason and by the same test. drag is armed for
+       every non-touch pointer, so a stylus released outside the box before the
+       capture is taken leaves this exact state — and pen pointerIds survive
+       while the tip stays in range, so the first hovering move over the map
+       panned it with nothing pressed. A finger's pointermove only fires while
+       the contact is down, which is why the widened test is safe for touch. */
+    if (e.pointerType !== 'touch' && !(e.buttons & 1)) {
       pts.current.delete(e.pointerId);
       drag.current = null;
       return;
