@@ -13257,6 +13257,18 @@ const evalSafe = async (pg, fn) => {
         rootRole: d.documentElement.getAttribute('role'),
         mapRole: svgs[1] ? svgs[1].getAttribute('role') : null,
         title: ((d.querySelector('title') || {}).textContent || '').length,
+        /* …and the name is the SENTENCE, not the shout. The drawn title line is
+           upper-cased by design — a typographic choice about that line — and the
+           accessible name was the same string, so a screen reader met
+           "NETO TOKOVI: GRAD ZAGREB ↔ PARTNERI · KUMULATIVNA PROCJENA" and some
+           spell a fully capitalised word letter by letter. Asserted as "not all
+           caps" rather than against a literal: the copy is free to change, the
+           case is not. */
+        titleShouts: (() => {
+          const t = (d.querySelector('title') || {}).textContent || '';
+          const letters = t.replace(/[^\p{L}]/gu, '');
+          return letters.length > 8 && letters === letters.toUpperCase();
+        })(),
         keys: /strelice pomi|Arrow keys move|Enter otvara|Enter opens/.test(svg),
         labels: d.querySelectorAll('[aria-label]').length };
     });
@@ -13264,7 +13276,7 @@ const evalSafe = async (pg, fn) => {
   ck('an exported figure carries no tab stops, no widget roles and no key instructions',
     Object.values(figStatic).every(v => v.tab === 0 && v.expanded === 0 && v.btn === 0
       && v.grid === 0 && !v.keys
-      && v.rootRole === 'img' && v.mapRole === 'img' && v.title > 8
+      && v.rootRole === 'img' && v.mapRole === 'img' && v.title > 8 && !v.titleShouts
       /* …and still names what it draws */
       && v.labels > 5),
     JSON.stringify(figStatic));

@@ -493,6 +493,9 @@ export function wrapText(text: string, font: string, widths: (i: number) => numb
 
 export interface Band {
   top: number; bot: number; titleFs: number; titleLines: string[];
+  /* the same sentence the title draws, in its own case — see the <title> in
+     exportSVG */
+  titleName: string;
   per: string; credits: string[];
   /* the legend's own caveat, wrapped. It sits beside the gradient bar at x=222,
      which leaves 148 px on a 390 px canvas — measured, "Neto parova je
@@ -561,7 +564,11 @@ export function bandLayout(S: State, w: number): Band {
     /* 14 px per credit row, 14 px below the last, and 20 px of head room so the
        top row clears whatever the legend actually ended up occupying */
     bot: CREDIT_LH * credits.length + legendBottom + 20,
-    titleFs, titleLines, per, credits, noteLines, noteX, legendBottom,
+    /* sentence case: exportDesc returns "migracijski saldo" lower-cased because
+       the drawn line upper-cases everything anyway, and a name that opens in
+       lower case reads as a fragment rather than a title. One character. */
+    titleFs, titleLines, titleName: dsc.charAt(0).toUpperCase() + dsc.slice(1),
+    per, credits, noteLines, noteX, legendBottom,
     eyebrow, eyebrowFs,
   };
 }
@@ -852,7 +859,14 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
        meets when the figure is inlined: without them a pasted figure is an
        unnamed graphic whose only accessible name came from the map inside it. */
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h + TOP + BOT}" viewBox="0 0 ${w} ${h + TOP + BOT}" role="img">`
-    + `<title>${esc(B.titleLines.join(' ') + (per ? ' · ' + per : ''))}</title>`
+    /* The figure's accessible name is the sentence, not the SHOUT. It was
+       B.titleLines joined — the upper-cased, wrapped drawing text — so a screen
+       reader met "NET FLOWS: GRAD ZAGREB ↔ PARTNERS · CUMULATIVE ESTIMATE", and
+       some spell a fully capitalised word letter by letter. The caps are a
+       typographic choice about the drawn line; they are not part of the name.
+       The county in it is a Croatian place name, and caps also defeat whatever
+       language inference a host page might apply to it. */
+    + `<title>${esc(B.titleName + (per ? ' · ' + per : ''))}</title>`
     + `<defs>${defs}</defs>`
     + `<rect width="${w}" height="${h + TOP + BOT}" fill="#F4F5F2"/>`
     + txt(20, 26, B.eyebrow, `font-family="${MONO}" font-size="${B.eyebrowFs}" font-weight="500" fill="#5F6A72" letter-spacing="1"`)
