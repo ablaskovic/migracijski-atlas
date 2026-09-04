@@ -355,6 +355,15 @@ const evalSafe = async (pg, fn) => {
     });
     return pg;
   };
+  /* …and the close that has to wait for its own last words. Console and
+     pageerror lines arrive over CDP AFTER the evaluate that caused them — this
+     file settles for exactly that reason before reading the ledger — and every
+     secondary page closed within a line or two of its last evaluate, at which
+     point that target and everything still in flight for it are gone. The pages
+     were given listeners on purpose; this keeps them from being torn down under
+     a message. One tick each, sixteen of them, so about two seconds over a run
+     that takes half an hour. */
+  const closePage = async pg => { await settle(150); await pg.close(); };
   /* URL mode has no local server to stub the two Vercel platform routes, so the
      interceptor does it — and BOTH interceptors, not just the main page's. This
      lived inline in the main handler, so the ~16 secondary pages watch() opens
@@ -1265,7 +1274,7 @@ const evalSafe = async (pg, fn) => {
         return document.activeElement === el;
       });
     }
-    await pg.close();
+    await closePage(pg);
   } finally { await mfsBrowser.close(); }
   ck('the legend stays inside the map box under the reader’s own minimum font size',
     legEscape.root >= 24 && !legEscape.escapes && legEscape.overCtrls === 0
@@ -1387,7 +1396,7 @@ const evalSafe = async (pg, fn) => {
             axis: g('#cardSvg text'), citz: g('#citzSvg text'), rname: g('.rname') };
         });
         await c.detach();
-        await pg.close();
+        await closePage(pg);
       }
     } finally { await bigger.close(); }
   }
@@ -1449,7 +1458,7 @@ const evalSafe = async (pg, fn) => {
           }
         }
         await c.detach();
-        await pg.close();
+        await closePage(pg);
       }
     } finally { await bigger2.close(); }
   }
@@ -3797,7 +3806,7 @@ const evalSafe = async (pg, fn) => {
       out.push({ label, ...env, at, tip, acted: before !== after,
         placed: tip.show && tip.left !== '' && Math.abs(tip.x - at[0]) < 400 && Math.abs(tip.y - at[1]) < 400 });
     }
-    await pg.close();
+    await closePage(pg);
     return out;
   })();
   const hy = Object.fromEntries(hybrid.map(r => [r.label, r]));
@@ -5225,7 +5234,7 @@ const evalSafe = async (pg, fn) => {
       const b = await pg.evaluate(() => { const r = document.querySelector('#spark').getBoundingClientRect();
         return { l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; });
       const out = await fn({ cdp: c, yr, b, y: b.t + b.h / 2 });
-      await c.detach(); await pg.close();
+      await c.detach(); await closePage(pg);
       return out;
     };
     const pinch = await leg(async ({ cdp, yr, b, y }) => {
@@ -5320,7 +5329,7 @@ const evalSafe = async (pg, fn) => {
     await settle(200);
     const survivors = await k();
     await touch('touchEnd', []);
-    await c.detach(); await pg.close();
+    await c.detach(); await closePage(pg);
     return { pinched, dropped, survivors };
   })();
   ck('a pinch that loses one finger to a third contact is re-armed from the two still down',
@@ -7292,7 +7301,7 @@ const evalSafe = async (pg, fn) => {
         retry: !!document.querySelector('#jretry'),
         note: !!document.querySelector('#joffline') }));
     }
-    await pg.close();
+    await closePage(pg);
   }
   } catch (e) { deferred.error = String(e && e.message).slice(0, 120); }
   ck('a deferred reload keeps its promise in the view that armed it and is dropped on the way out',
@@ -7779,7 +7788,7 @@ const evalSafe = async (pg, fn) => {
     await pg.waitForFunction(x => document.querySelectorAll(x).length > 100, { timeout: 25000 }, sel).catch(() => {});
     await settle(1500);
     firstPaint[k] = await pg.evaluate(() => window.__frames);
-    await pg.close();
+    await closePage(pg);
   }
   ck('a grid view paints its cells once, at the geometry it keeps',
     firstPaint.mx.length === 1 && firstPaint.yrs.length === 1,
@@ -7831,7 +7840,7 @@ const evalSafe = async (pg, fn) => {
         bands: document.querySelectorAll('.mxband rect, .yrband rect').length,
         zoomed: g ? g.getAttribute('transform') : null };
     });
-    await c.detach(); await pg.close();
+    await c.detach(); await closePage(pg);
   }
   ck('a two-finger pinch enlarges the grid without parking a readout over it',
     ['mx', 'yrs', 'jmap'].every(k => pinchTip[k].zoomed && !/scale\(1\)$/.test(pinchTip[k].zoomed)
@@ -8825,7 +8834,7 @@ const evalSafe = async (pg, fn) => {
       paintWork[k] = await pg.evaluate(() => ({ fmt: window.__fmt,
         jl: document.querySelectorAll('#map .jl').length }));
     }
-    await pg.close();
+    await closePage(pg);
   }
   ck('a Smjer press in Matrica does not repaint 556 municipalities it never draws',
     paintWork.jmap.jl === 556 && paintWork.jmap.fmt > 1000
@@ -12276,7 +12285,7 @@ const evalSafe = async (pg, fn) => {
       canon: (document.querySelector('link[rel="canonical"]') || {}).getAttribute?.('href') || '',
       ogl: (document.querySelector('meta[property="og:locale"]') || {}).content || '',
     }));
-    await pg.close();
+    await closePage(pg);
     return r;
   };
 
@@ -13777,7 +13786,7 @@ const evalSafe = async (pg, fn) => {
         right: Math.round(r.right), text: (el.textContent || '').replace(/\s+/g, ' ').trim() };
     });
     tapRes.push({ hybrid, media, t, tip });
-    await pg.close();
+    await closePage(pg);
   }
   ck('a real finger tap places the readout above the contact point, on a phone and on a touch laptop alike',
     tapRes.length === 2
@@ -13814,7 +13823,7 @@ const evalSafe = async (pg, fn) => {
     const r = await pg.evaluate(() => ({ lang: document.documentElement.lang,
       stored: localStorage.getItem('atlas-lang'), hash: location.hash,
       pressed: document.querySelector('#segLang button[aria-pressed="true"]').dataset.l }));
-    await pg.close();
+    await closePage(pg);
     return r;
   })();
   ck('Back keeps the language choice the reader has stored',
@@ -13853,7 +13862,7 @@ const evalSafe = async (pg, fn) => {
     let fwd = null, threw = null;
     try { await pg.goForward(); await settle(400); fwd = await pg.evaluate(() => location.hash); }
     catch (e) { threw = String(e.message).slice(0, 60); }
-    await pg.close();
+    await closePage(pg);
     return { from, onNalaz, fwd, threw };
   })();
   ck('Back onto a Nalaz entry keeps the Forward stack instead of pushing over it',
@@ -14079,7 +14088,7 @@ const evalSafe = async (pg, fn) => {
           .filter(a => !a.href.startsWith(location.origin + '/')).map(a => a.href) : ['no boundary'],
         n: f ? f.querySelectorAll('a').length : 0 };
     });
-    await pg.close();
+    await closePage(pg);
     return r;
   })();
   /* the two console lines are delivered over CDP, not by the evaluate that caused
@@ -14880,7 +14889,7 @@ const evalSafe = async (pg, fn) => {
     const r = await pg.evaluate(() => ({ lang: document.documentElement.lang,
       stored: localStorage.getItem('atlas-lang'),
       val: (document.querySelector('#railList .rrow .rval') || {}).textContent || '' }));
-    await pg.close();
+    await closePage(pg);
     return r;
   };
   const linkEn = await linkVsStored('hr', '#l=en&v=saldo&c=1&y=2024');
