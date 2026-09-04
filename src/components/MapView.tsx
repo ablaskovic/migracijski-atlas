@@ -781,9 +781,13 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
               to diff all 556 fibers to move one outline — on a view whose whole
               interaction is crossing municipalities. Same outline, same rule,
               one element. */}
+          {/* `jlhl`, not `jl hl`: it is an outline over the map and not one of
+              the 556 features, and two checks count `.jl` — the export sweep and
+              the non-scaling-stroke sweep — and read 557. Its paint is declared
+              here for the same reason .selring's is. */}
           {drawn && JGEO && jlsHlIx >= 0 && jds[jlsHlIx] && (
-            <path className="jl hl" d={jds[jlsHlIx]} fill="none" pointerEvents="none"
-              vectorEffect="non-scaling-stroke" />
+            <path className="jlhl" d={jds[jlsHlIx]} fill="none" stroke="#20262B"
+              strokeWidth={1.3} pointerEvents="none" vectorEffect="non-scaling-stroke" />
           )}
           <g>
             {drawn && ISOS.map(iso => <path key={iso} className="jbord" d={cds[iso]} vectorEffect="non-scaling-stroke" />)}
@@ -928,10 +932,17 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
               this ring is the only visual answer to "which one is selected".
               Above the fills, so what it is drawn on is white and ink rather
               than whatever the ramp put underneath. */}
+          {/* Paint as ATTRIBUTES, like .mxsel two files over and unlike
+              .focusring: this ring is part of the figure and travels into the
+              export, which carries no stylesheet — a mark whose stroke lives in
+              a rule is a mark the exported document does not have. The suite
+              calls that shape "naked" and duly caught it. */}
           {S.sel && cds[S.sel] && (
-            <g className="selring">
-              <path className="sr-halo" d={cds[S.sel]} vectorEffect="non-scaling-stroke" />
-              <path className="sr-ink" d={cds[S.sel]} vectorEffect="non-scaling-stroke" />
+            <g className="selring" pointerEvents="none">
+              <path className="sr-halo" d={cds[S.sel]} fill="none" stroke="#fff"
+                strokeWidth={4.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              <path className="sr-ink" d={cds[S.sel]} fill="none" stroke="#0F7D8C"
+                strokeWidth={2.2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             </g>
           )}
           {/* Two-tone focus ring, drawn above every fill so it is never the

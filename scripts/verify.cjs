@@ -3971,7 +3971,7 @@ const evalSafe = async (pg, fn) => {
         const mk = document.querySelector('#legend .legend-mark');
         r({ mark: mk ? mk.style.left : null,
           row: (row.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30),
-          lit: !!document.querySelector('.rrow.hl, .cnt.hl, .cnt.rhl, .jl.hl') });
+          lit: !!document.querySelector('.rrow.hl, .cnt.hl, .cnt.rhl, .jl.hl, .jlhl') });
       }, 300));
     });
   }
@@ -8362,10 +8362,10 @@ const evalSafe = async (pg, fn) => {
   await settle(280);
   const jlHl = await page.evaluate(() => {
     const all = [...document.querySelectorAll('#map .jl[data-j]')];
-    const hl = [...document.querySelectorAll('#map .jl.hl')];
+    const hl = [...document.querySelectorAll('#map .jlhl')];
     return { n: all.length, hl: hl.length,
       inList: hl.filter(e => e.hasAttribute('data-j')).length,
-      listHl: all.filter(e => e.classList.contains('hl')).length,
+      listHl: all.filter(e => e.classList.contains('hl') || e.classList.contains('jlhl')).length,
       pe: hl[0] ? getComputedStyle(hl[0]).pointerEvents : null,
       stroke: hl[0] ? getComputedStyle(hl[0]).stroke : null };
   });

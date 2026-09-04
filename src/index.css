@@ -493,9 +493,8 @@ body.stage-collapsed .main{flex:none;height:420px}
    county's own stroke: a single teal line on the ramp measured 1,02–1,99:1
    across the whole gain half, under the 3:1 a state indicator owes. What is
    left here is the fill nudge, which is not the indicator. */
-.selring{pointer-events:none;fill:none}
-.selring .sr-halo{stroke:#fff;stroke-width:4.6;stroke-linejoin:round}
-.selring .sr-ink{stroke:var(--acc);stroke-width:2.2;stroke-linejoin:round}
+/* the ring's paint is on the elements (MapView), because it travels into an
+   export that carries no stylesheet; nothing is left for a rule to say here */
 /* outline on an SVG path draws round its bbox, not its shape — a stray rectangle,
    so focus has to be drawn as the county's own stroke. It used to lean on .hl,
    which onFocus sets — but .hl is *shared with hover*, and a single value at that:
@@ -1223,7 +1222,8 @@ body.stage-collapsed .main{flex:none;height:420px}
 
 /* JLS 2018 map */
 .jl{stroke:#fff;stroke-width:.35;cursor:crosshair}
-.jl.hl{stroke:var(--ink);stroke-width:1.3}
+/* the hover outline is one element above the list rather than a class on one of
+   the 556 (MapView), and paints itself for the same reason .selring does */
 .jbord{fill:none;stroke:var(--ink);stroke-width:1;pointer-events:none;stroke-linejoin:round}
 
 /* Tokovi puts the JLS chip top-left (312 px) and the corridor card top-right
@@ -1789,6 +1789,10 @@ body.stage-collapsed .main{flex:none;height:420px}
      `.jl:focus-visible` half won on equal specificity and later position, so
      the block half-worked and the half that did not was silent. */
   .focusring .fr-ink,.jl:focus-visible{stroke:Highlight}
+  /* …and the selection, which is a state indicator too and whose teal is an SVG
+     stroke — the one thing this block opens by recording that forced colours do
+     not touch. Highlight, like every other "this one" mark here. */
+  .selring .sr-ink{stroke:Highlight}
   /* …and the charts, on the same finding this block opens with: SVG fill is not
      forced. It fixed the two keys, the rail, the pressed states and the focus
      ring for that reason and left the five figures alone. Measured under
