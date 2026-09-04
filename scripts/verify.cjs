@@ -12760,6 +12760,15 @@ const evalSafe = async (pg, fn) => {
      Chrome records a topic only when a script on the page calls the API, and the
      CSP admits no third-party script — but the directive that would do the job
      was missing. The dead token stays: it costs nothing and old builds read it.
+     "Costs nothing" is measured, not assumed. It was put to the question — an
+     unrecognized feature name in a Permissions-Policy header is the kind of
+     thing an engine can complain about, and this site asserts a clean console
+     twice. Serving the page with the header exactly as shipped and again with
+     interest-cohort removed, capturing console messages AND CDP Log entries
+     (a header parse warning is a browser log, not a console message): 6 lines
+     either way, 0 of them mentioning the policy in either run. So the token is
+     inert rather than merely harmless-looking, and removing it would buy
+     nothing. Re-open this only with a log line to point at.
      Asked of the browser rather than of the string, because a policy is what the
      engine grants and this server sends the real header. */
   const featPol = await page.evaluate(() => {
