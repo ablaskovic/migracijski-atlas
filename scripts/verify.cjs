@@ -10574,20 +10574,41 @@ const evalSafe = async (pg, fn) => {
     const js = await (await fetch(new URL(src, u))).text();
     return { advertises: /sourceMappingURL=/.test(js), bytes: js.length };
   }, url);
+  /* …across the maps the build writes, not the entry's alone. The vendor split
+     moved react and the six d3 packages into their own chunk and their sources
+     went with them: the entry map fell from a hundred-odd to 42 while nothing
+     about the property being asserted changed, and a floor of 50 turned that
+     into a failure. Every map is read, the total carries the floor, and the
+     app's own modules are still required BY NAME in the entry's — which is the
+     map a stack trace from this code lands in. */
   const smapDisk = URLMODE ? null : (() => {
     const ad = path.resolve(arg, 'assets');
     const files = fs.existsSync(ad) ? fs.readdirSync(ad) : [];
     const entry = files.find(f => /^index-.*\.js$/.test(f));
     const map = entry && files.find(f => f === entry + '.map');
     if (!map) return { err: 'no map beside ' + entry };
-    let j; try { j = JSON.parse(fs.readFileSync(path.join(ad, map), 'utf8')); } catch (e) { return { err: String(e.message) }; }
+    const read = m => {
+      try { return JSON.parse(fs.readFileSync(path.join(ad, m), 'utf8')); }
+      catch (e) { return { err: String(e.message) }; }
+    };
+    const j = read(map);
+    if (j.err) return { err: j.err };
+    const maps = files.filter(f => /\.js\.map$/.test(f));
+    let total = 0, allMapped = true;
+    for (const m of maps) {
+      const k = read(m);
+      if (k.err) return { err: k.err };
+      total += (k.sources || []).length;
+      allMapped = allMapped && !!k.mappings;
+    }
     return { file: map, kb: Math.round(fs.statSync(path.join(ad, map)).size / 1024),
-      sources: (j.sources || []).length, hasMappings: !!j.mappings,
+      maps: maps.length, sources: (j.sources || []).length, total, hasMappings: allMapped,
       names: (j.sources || []).filter(s => /App\.tsx|metrics\.ts/.test(s)).length };
   })();
   ck('the bundle advertises no source map, and the build still writes one that resolves to real sources',
     !smapServed.err && smapServed.advertises === false && smapServed.bytes > 50000
-    && (URLMODE || (!smapDisk.err && smapDisk.hasMappings && smapDisk.sources > 50 && smapDisk.names >= 2)),
+    && (URLMODE || (!smapDisk.err && smapDisk.hasMappings && smapDisk.maps >= 2
+      && smapDisk.total > 100 && smapDisk.sources > 30 && smapDisk.names >= 2)),
     JSON.stringify({ smapServed, smapDisk }));
 
   /* WCAG 2.5.3, and the reason it failed: the visible label of a row is its text
