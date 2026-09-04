@@ -9578,10 +9578,15 @@ const evalSafe = async (pg, fn) => {
   const eraFrom = eraM ? +eraM[1] : 0, eraTo = eraM ? +eraM[2] : 0;
   const eraIn = era.row.filter(x => x.y >= eraFrom && x.y <= eraTo);
   const eraBefore = era.row.find(x => x.y === eraFrom - 1);
-  const eraAfter = era.row.find(x => x.y === eraTo + 1);
+  /* every year after the era, not just the first. The caption's "a od 2021.
+     gubi" is a run with no end date, and one year was standing in for it — a
+     revision that flips 2023 positive leaves the sentence describing a loss the
+     row denies, with the 2021 cell alone still negative and this green. */
+  const eraAfter = era.row.filter(x => x.y > eraTo);
   ck('Nalaz 13 dates its era claim to the run the grid under it actually shows',
     !!eraM && eraIn.length === eraTo - eraFrom + 1 && eraIn.every(x => x.v > 0)
-    && !!eraBefore && eraBefore.v <= 0 && !!eraAfter && eraAfter.v <= 0,
+    && !!eraBefore && eraBefore.v <= 0
+    && eraAfter.length > 0 && eraAfter.every(x => x.v <= 0),
     JSON.stringify({ claim: eraM && `${eraFrom}–${eraTo}`, n: eraIn.length,
       before: eraBefore, after: eraAfter }));
 
@@ -10121,14 +10126,27 @@ const evalSafe = async (pg, fn) => {
         cap: (document.querySelector('#storyCap') || {}).textContent || '',
         view: document.querySelector('#segView button[aria-pressed="true"]').dataset.v,
         gz22: cell('HR-21', 2022), gz15: cell('HR-21', 2015), zg22: cell('HR-01', 2022),
+        /* The caption cites five figures and three were read. These are the
+           other two, plus the claim that carries no figure at all: "od 2021.
+           gubi" is a run, not a year, and nothing asserted that 2023–2025 stay
+           negative — flip one and the caption describes a loss run the row
+           under it contradicts. stories.ts states the rule these pins exist
+           for: a data refresh that moves them must update the captions too. */
+        gz20: cell('HR-21', 2020), zg19: cell('HR-01', 2019),
+        tailNeg: [...document.querySelectorAll('#map .yrc[data-iso="HR-21"]')]
+          .filter(e => +e.getAttribute('data-y') > 2020)
+          .every(e => !/: \+/.test(e.getAttribute('aria-label'))),
       };
     }, ix);
   };
   const nZg = await yst(12);
-  ck('the Zagreb-reversal Nalaz renders the sign change its caption cites',
+  ck('the Zagreb-reversal Nalaz renders all five figures its caption cites, and the loss run it claims',
     nZg.view === 'yrs' && /−622/.test(nZg.gz22) && /\+4\.420/.test(nZg.gz15)
-    && /\+2\.238/.test(nZg.zg22) && /−622/.test(nZg.cap),
-    JSON.stringify(nZg).slice(0, 220));
+    && /\+2\.238/.test(nZg.zg22) && /−622/.test(nZg.cap)
+    && /\+933/.test(nZg.gz20) && /\+1\.047/.test(nZg.zg19)
+    && /\+933 u 2020\./.test(nZg.cap) && /\+1\.047 \(2019\.\)/.test(nZg.cap)
+    && nZg.tailNeg,
+    JSON.stringify(nZg).slice(0, 300));
   const nNatY = await page.evaluate(async () => {
     const s = document.querySelector('#story');
     s.value = '13'; s.dispatchEvent(new Event('change', { bubbles: true }));
