@@ -135,7 +135,25 @@ export default function Scrubber({ S, setYi, togglePlay }: {
   const DEAD_X = 4;
   const pending = useRef<{ x: number; y: number } | null>(null);
   const onDown = (ev: ReactPointerEvent<SVGSVGElement>) => {
-    if (drag.current !== null) return;   /* a second finger is not a scrub */
+    /* …unless the pointer it belongs to is gone. `drag.current !== null` blocks
+       every later press once a touch or pen drag's pointerup and pointercancel
+       were both lost — reachable when the handlers are detached mid-drag, which
+       is what `inert` does when the glossary opens under a finger. The mouse
+       path self-heals through `buttons` in onMove; touch and pen have no
+       equivalent, so the lock was permanent for the life of the mount.
+       A new press is allowed through when the holder is no longer a live
+       pointer. `hasPointerCapture` is the authority available here — a captured
+       pointer that has genuinely gone releases capture with it — and a drag
+       that never took capture has nothing to hold the lock with either.
+       Loosening this does not let a second finger in: `isPrimary` on the next
+       line is what excludes one, which is what its own note already says. */
+    if (drag.current !== null) {
+      const stale = !(() => {
+        try { return ev.currentTarget.hasPointerCapture(drag.current!); } catch { return false; }
+      })();
+      if (!stale) return;   /* a second finger is not a scrub */
+      drag.current = null;
+    }
     /* …and neither is a right- or middle-click. useZoom filters exactly this for
        the map — "a right-button drag moved the map, so the context menu opened
        over a map that had shifted under it" — and the scrubber, which is the
