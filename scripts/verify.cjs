@@ -4,7 +4,13 @@
    prints the executed check count; every feature addition extends this file.
    Usage:
      node scripts/verify.cjs dist          # serve ./dist and check the production build
-     node scripts/verify.cjs http://...    # check an already-running server (e.g. vite dev)
+     node scripts/verify.cjs http://...    # check an already-running server
+                                           # (vite preview, or the deployed origin —
+                                           #  NOT `vite dev`: its analytics debug
+                                           #  scripts come from va.vercel-scripts.com
+                                           #  and it serves /src/main.tsx, so the
+                                           #  third-party and entry-weight checks
+                                           #  are red by construction there)
    Needs puppeteer: `npm i --no-save puppeteer@25.8.0` (not a default devDep, to spare the
    Chrome download — and --no-save so following this line does not write it back),
    or point PUPPETEER_PATH at an existing install. */
@@ -342,6 +348,22 @@ const evalSafe = async (pg, fn) => {
     });
     return pg;
   };
+  /* URL mode has no local server to stub the two Vercel platform routes, so the
+     interceptor does it — and BOTH interceptors, not just the main page's. This
+     lived inline in the main handler, so the ~16 secondary pages watch() opens
+     each requested the real /_vercel/insights/script.js: against anything but a
+     Vercel origin that is a 404 per page, straight into the shared error ledger
+     that two checks require to be empty. Returns true when it answered. */
+  const stubVercel = r => {
+    const u = r.url();
+    if (!URLMODE || !/^https?:/.test(u)) return false;
+    const p = new URL(u).pathname;
+    if (!VERCEL_STUB.includes(p)) return false;
+    stubHits.add(p);
+    r.respond({ status: 200, contentType: 'text/javascript',
+      body: '/* Vercel platform route, stubbed by scripts/verify.cjs */' });
+    return true;
+  };
   const watch = async (pg, abortIf) => {
     ledger(pg);
     await pg.setCacheEnabled(false);
@@ -353,6 +375,7 @@ const evalSafe = async (pg, fn) => {
     pg.on('request', r => {
       const u = r.url();
       if (/^https?:/.test(u) && new URL(u).origin !== ORIGIN) thirdParty.push(u);
+      if (stubVercel(r)) return undefined;
       if (abortIf && abortIf(u)) return r.abort();
       return r.continue();
     });
@@ -382,13 +405,8 @@ const evalSafe = async (pg, fn) => {
   page.on('request', r => {
     const u = r.url();
     if (/^https?:/.test(u) && new URL(u).origin !== ORIGIN) thirdParty.push(u);
-    /* URL mode has no local server to stub the two Vercel platform routes, so
-       they are stubbed here instead — same effect, same recorded hits */
-    if (URLMODE && VERCEL_STUB.some(v => new URL(u).pathname === v)) {
-      stubHits.add(new URL(u).pathname);
-      return r.respond({ status: 200, contentType: 'text/javascript',
-        body: '/* Vercel platform route, stubbed by scripts/verify.cjs */' });
-    }
+    /* the same stub the secondary pages get — see stubVercel */
+    if (stubVercel(r)) return undefined;
     /* A chunk PARKED rather than answered, which `blockGeoChunk` cannot produce:
        it aborts instantly, so the window in which a speculative warm is still in
        flight is zero and no check could ever open the view that warm is warming
