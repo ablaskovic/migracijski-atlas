@@ -32,20 +32,32 @@ import oswaldLatinExt from '../fonts/oswald-latin-ext.woff2';
 
 import { FONT_NOTICE } from './licences.ts';
 
-type Face = { family: string; weight: number | string; url: string };
+/* The two subsets OVERLAP, which is why each rule has to say which codepoints
+   it answers for. Verbatim from index.css, where the page's own faces carry them
+   — the same files, the same split. Both lists contain U+0304, U+0308 and
+   U+0329, latin covers U+0000-00FF while latin-ext starts at U+0100 but also
+   claims those three combining marks, and Oswald's subsetting puts the space and
+   the capitals in both files. */
+const LATIN = 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,'
+  + 'U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,'
+  + 'U+FEFF,U+FFFD';
+const LATIN_EXT = 'U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,'
+  + 'U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,'
+  + 'U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF';
+type Face = { family: string; weight: number | string; url: string; range: string };
 const FACES: Face[] = [
-  { family: 'IBM Plex Mono', weight: 400, url: monoLatin },
-  { family: 'IBM Plex Mono', weight: 400, url: monoLatinExt },
-  { family: 'IBM Plex Mono', weight: 500, url: mono5Latin },
-  { family: 'IBM Plex Mono', weight: 500, url: mono5LatinExt },
+  { family: 'IBM Plex Mono', weight: 400, url: monoLatin, range: LATIN },
+  { family: 'IBM Plex Mono', weight: 400, url: monoLatinExt, range: LATIN_EXT },
+  { family: 'IBM Plex Mono', weight: 500, url: mono5Latin, range: LATIN },
+  { family: 'IBM Plex Mono', weight: 500, url: mono5LatinExt, range: LATIN_EXT },
   /* One entry per FILE, with the weight range in the descriptor. Oswald was
      listed four times over two files, so every export embedded both Oswald
      subsets twice — the same base64 payload, byte for byte, in two @font-face
      rules that differ only in `font-weight`. CSS Fonts 4 accepts a range there,
      and the atlas uses Oswald at 500 and 600 from a variable file, so one rule
      per subset covers both. */
-  { family: 'Oswald', weight: '500 600', url: oswaldLatin },
-  { family: 'Oswald', weight: '500 600', url: oswaldLatinExt },
+  { family: 'Oswald', weight: '500 600', url: oswaldLatin, range: LATIN },
+  { family: 'Oswald', weight: '500 600', url: oswaldLatinExt, range: LATIN_EXT },
 ];
 
 let css = '';
@@ -85,8 +97,14 @@ export const fontCss = (): string => css;
 /** Fetch once, cache for the session. Safe to call repeatedly. */
 export function ensureFonts(): Promise<string> {
   if (css) return Promise.resolve(css);
-  /* No unicode-range: the exported document is a fixed set of glyphs, and the
-     subsets do not overlap, so the browser can pick per codepoint on its own.
+  /* WITH unicode-range, because the premise of the note this replaces was false:
+     the subsets DO overlap. Both lists claim U+0304, U+0308 and U+0329, and
+     Oswald's split puts the space and the capitals in both files. Without a range
+     an engine consults the LAST declared face for a codepoint, so in an exported
+     SVG every space and every A in an Oswald run came from oswald-latin-ext and
+     the rest from oswald-latin: "ATLAS" is drawn as A | TL | A | S, four shaping
+     runs, and the A-T, L-A and A-S kerning pairs are lost. Same file, opened in
+     a browser or in Inkscape.
      A failed fetch is not worth failing an export over — the figure then names
      the families as it always did, which is the behaviour being improved on. */
   /* Bounded. A rejecting fetch was always handled; a *hanging* one was not, and
@@ -104,7 +122,7 @@ export function ensureFonts(): Promise<string> {
   pending ??= Promise.all(FACES.map(async f => {
     const uri = await dataUri(f.url, ac.signal);
     return `@font-face{font-family:'${f.family}';font-style:normal;font-weight:${f.weight};`
-      + `src:url(${uri}) format('woff2')}`;
+      + `src:url(${uri}) format('woff2');unicode-range:${f.range}}`;
   })).then(parts => { css = `/* ${FONT_NOTICE} */` + parts.join(''); return css; })
     .catch(() => { pending = null; return ''; })
     .finally(() => clearTimeout(timer));

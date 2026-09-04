@@ -182,7 +182,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 629;
+const EXPECTED_CHECKS = 630;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4565,6 +4565,53 @@ const evalSafe = async (pg, fn) => {
       }) });
     }
   }
+  /* ── every embedded face has to say which codepoints it answers for ──
+     The note above the emitter said "the subsets do not overlap, so the browser
+     can pick per codepoint on its own", and that was false: both lists claim
+     U+0304, U+0308 and U+0329, and Oswald's split puts the space and the
+     capitals in both files. With no unicode-range an engine consults the LAST
+     declared face for a codepoint, so in an exported SVG every space and every A
+     in an Oswald run came from oswald-latin-ext and the rest from oswald-latin:
+     "ATLAS" drawn as A | TL | A | S, four shaping runs, with the A-T, L-A and
+     A-S kerning pairs lost. Same file, in a browser and in Inkscape.
+     Compared against the PAGE's own ranges rather than against a literal — same
+     files, same split, and a literal here would be a second copy of the thing it
+     is checking. Both sides through the CSSOM, which canonicalises U+0000-00FF
+     to U+0-FF: raw strings would compare two spellings of one set. */
+  await fresh('#v=saldo&c=1&y=2024');
+  const faceRange = await page.evaluate(async () => {
+    await window.__exportPNG(false).catch(() => {});
+    const doc = String(window.__exportSVG(false));
+    const faces = [...doc.matchAll(/@font-face\{([^}]*)\}/g)].map(x => x[1]);
+    const sh0 = document.createElement('style');
+    document.head.appendChild(sh0);
+    const norm = r => {
+      try {
+        sh0.sheet.insertRule('@font-face{font-family:_n;src:url(data:,);unicode-range:' + r + '}', 0);
+        const v = sh0.sheet.cssRules[0].style.unicodeRange;
+        sh0.sheet.deleteRule(0);
+        return String(v).replace(/\s+/g, '').toUpperCase().split(',').sort().join(',');
+      } catch { return String(r).replace(/\s+/g, '').toUpperCase(); }
+    };
+    const pageRanges = new Set();
+    for (const sh of document.styleSheets) {
+      let rs; try { rs = sh.cssRules; } catch { continue; }
+      for (const r of rs) if (r.style && r.style.unicodeRange) pageRanges.add(norm(r.style.unicodeRange));
+    }
+    const got = faces.map(f => { const r = /unicode-range:([^;}]+)/.exec(f); return r ? norm(r[1]) : null; });
+    sh0.remove();
+    return { faces: faces.length, withRange: got.filter(Boolean).length,
+      distinct: new Set(got.filter(Boolean)).size,
+      fromPage: got.filter(Boolean).length > 0 && got.filter(Boolean).every(r => pageRanges.has(r)),
+      pageSets: pageRanges.size };
+  });
+  ck('every font the export embeds declares the codepoints it answers for',
+    /* six faces embedded, or this is asserting over an empty list */
+    faceRange.faces >= 6 && faceRange.pageSets === 2
+    && faceRange.withRange === faceRange.faces
+    && faceRange.distinct === 2 && faceRange.fromPage,
+    JSON.stringify(faceRange));
+
   /* ── the two twins have to draw the same figure ──
      PNG and SVG are one export in two formats, and the file's own header calls
      them twins. Two places where they were not. The eyebrow: the SVG tracks it
