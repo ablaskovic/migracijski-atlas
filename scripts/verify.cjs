@@ -7989,8 +7989,9 @@ const evalSafe = async (pg, fn) => {
      raised flat, which would have cost English readers a hint they had room for.
      Both languages, across the band where the two tiers meet. */
   const kbdGap = {};
+  const kbdW = [700, 710, 716, 760, 800, 900, 1440];
   for (const l of ['hr', 'en']) {
-    for (const w of [700, 710, 716, 760, 800, 900, 1440]) {
+    for (const w of kbdW) {
       await page.setViewport({ width: w, height: 844 });
       await fresh(l === 'en' ? '#l=en' : '');
       kbdGap[l + w] = await page.evaluate(() => {
@@ -8008,7 +8009,18 @@ const evalSafe = async (pg, fn) => {
   ck('the keyboard hint never closes on the caption beside it, in either language',
     Object.values(kbdGap).every(v => !v.hint || v.gap === null || v.gap >= 12)
     /* and it is still shown where there IS room — a gate that hides it always would pass the line above */
-    && kbdGap.hr1440.hint && kbdGap.en1440.hint && kbdGap.en710.hint && !kbdGap.hr710.hint,
+    && kbdGap.hr1440.hint && kbdGap.en1440.hint
+    /* …and the gate is still derived from the two strings in use rather than
+       raised flat: SOME width fits the shorter English pair and not the longer
+       Croatian one. Asserted as existence, not at a pinned viewport. It was
+       pinned at 710, and 710 is a property of the chart's lane rather than of
+       this gate: widening .big-year by the 6 px it was short of its own widest
+       year took the chart at that viewport from 563 to 557 px, under showKbd's
+       flat 560 floor, so both languages lost the hint there and this went red
+       over a gate that had not changed. The discrimination simply moved to 716
+       — hr false, en true with 45,4 px of clearance — which is the thing worth
+       asserting and the thing that survives the next lane change. */
+    && kbdW.some(w => kbdGap['en' + w].hint && !kbdGap['hr' + w].hint),
     JSON.stringify(kbdGap));
 
   /* ── the wrapper's hard break is reachable from both sides ──
