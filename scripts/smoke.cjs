@@ -262,8 +262,31 @@ function localEntry() {
   ck(`all ${EXPECTED_SMOKE} smoke checks ran`, n + 1 === EXPECTED_SMOKE,
     'ran ' + (n + 1) + ' of ' + EXPECTED_SMOKE);
   const short = n < EXPECTED_SMOKE;
+  /* …and the one thing no origin can answer, printed beside the banner.
+     The check above compares the deployed data-v with package.json's version, so
+     it is green whenever the release NUMBER matches — which it does for every
+     commit between two version bumps. The case this file exists after had that
+     shape twice over: production sat on one commit while the branch grew 241
+     ahead of it, under a banner that said "the deployed build is the current
+     release". Nothing served over HTTP can distinguish the two, because the only
+     record of the difference is local.
+     Printed, never checked: it is not a fact about the deploy, EXPECTED_SMOKE
+     does not move, and the exit code is untouched. Silent unless git says the
+     branch is genuinely ahead, so a CI checkout — detached, no upstream — and a
+     tarball with no .git print nothing at all. */
+  const ahead = (() => {
+    try {
+      const s = require('child_process').execFileSync('git', ['status', '-sb'],
+        { cwd: path.resolve(__dirname, '..'), encoding: 'utf8', timeout: 4000,
+          stdio: ['ignore', 'pipe', 'ignore'] }).split('\n')[0].trim();
+      return /\[[^\]]*ahead \d+/.test(s) ? s : null;
+    } catch { return null; }
+  })();
   console.log(fails === 0 && !short ? `\nALL ${n} SMOKE CHECKS PASS`
     : `\n${fails}/${n} SMOKE CHECKS FAILED`
       + (short ? `, AND ONLY ${n} OF ${EXPECTED_SMOKE} RAN` : ''));
+  if (ahead) {
+    console.log(`  ${ahead}\n  — the origin cannot be newer than what has been pushed, whatever the version says`);
+  }
   process.exitCode = fails || short ? 1 : 0;
 })().catch(e => { console.error('smoke probe could not reach the origin: ' + e.message); process.exit(2); });
