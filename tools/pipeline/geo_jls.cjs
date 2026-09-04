@@ -10,7 +10,10 @@
     -o precision=0.0001`.
 
    Matching: same folding rules as parse_jlsmap.py; OSM "Grad "/"Općina " prefixes
-   stripped; duplicate names (Privlaka, Otok, Sveta Nedelja/Nedjelja) resolved by
+   stripped; duplicate names in the EXTRACT (Novigrad, Privlaka, Otok, Sveta
+   Nedelja/Nedjelja — four, not the three this line used to list; Novigrad
+   duplicates only before folding, because the registry name of the Istrian one
+   is bilingual and the shipped payload keeps them apart) resolved by
    which county polygon contains the JLS centroid. Asserts a perfect 1:1 cover of
    all 556 JLS before writing anything. Rings rewound for d3 (geoArea > π test). */
 const fs = require('fs');
