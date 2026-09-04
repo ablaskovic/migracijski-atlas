@@ -1783,6 +1783,16 @@ body.stage-collapsed .main{flex:none;height:420px}
   /* the key is data, not decoration — it must survive "Background graphics: off" */
   .legend-bar,.legend-sw,.legend-mark,.citz-rows .sw,.zbar span,.legend{
     print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  /* Controls are not data. This block releases every panel into the flow so the
+     sheet carries what the reader was reading, and then printed the affordances
+     too: the map strip (Aa, ?, the zoom reset), the play button, the timeline's
+     collapse toggle, every panel's ×, the Nalazi reset and the skip link — ink
+     spent on things a sheet of paper cannot do.
+     The PRESSED segment groups deliberately stay: which view, which component,
+     which direction is the state the figure is in, and a printed atlas that does
+     not say so is a picture with no caption. Same for the threshold slider,
+     whose position is the classification's own parameter. */
+  .mapstrip,.play,.scrub-tog,.card-x,.rstbtn,.skip{display:none}
 }
 
 /* React mount: #root must not create a box — body keeps the app layout */
