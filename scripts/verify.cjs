@@ -918,8 +918,16 @@ const evalSafe = async (pg, fn) => {
       const c = document.querySelector('.ctrls').getBoundingClientRect();
       const ov = Math.max(0, Math.min(l.right, c.right) - Math.max(l.left, c.left))
         * Math.max(0, Math.min(l.bottom, c.bottom) - Math.max(l.top, c.top));
+      /* …and the cap is DECLARED, which "fits the box" does not establish.
+         Measured at this viewport and this minimum font size: the legend is
+         201 px inside a 420 px box and its content does not overflow at all, so
+         legH <= boxH holds whether max-height is there or not — the MA4M-025
+         shape, where stripping the rule leaves every clause here green. The klas
+         leg below asserts a real overflow, because that state produces one; this
+         leg asserts the rule exists, because this state does not. */
+      const cap = getComputedStyle(document.querySelector('.legend')).maxHeight;
       return { root: parseFloat(getComputedStyle(document.documentElement).fontSize),
-        escapes: l.top < b.top - 1, overCtrls: Math.round(ov),
+        escapes: l.top < b.top - 1, overCtrls: Math.round(ov), cap,
         legH: Math.round(l.height), boxH: Math.round(b.height) };
     });
     /* …and the reader who is in this state can reach what the cap hid. The cap
@@ -965,6 +973,7 @@ const evalSafe = async (pg, fn) => {
   } finally { await mfsBrowser.close(); }
   ck('the legend stays inside the map box under the reader’s own minimum font size',
     legEscape.root >= 24 && !legEscape.escapes && legEscape.overCtrls === 0
+    && !!legEscape.cap && legEscape.cap !== 'none'
     && legEscape.legH <= legEscape.boxH, JSON.stringify(legEscape));
   ck('a legend the cap turned into a scroller can actually be scrolled and reached',
     !!legScroll && legScroll.over && legScroll.pe === 'auto' && legScroll.tab === '0'
