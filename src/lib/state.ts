@@ -84,10 +84,23 @@ export function focusSoon(sel: string, kb = false) {
   const attempt = (again: boolean) => {
     for (const el of document.querySelectorAll<HTMLElement | SVGElement>(sel)) {
       if (!el.getClientRects().length) continue;   /* not rendered — cannot take focus */
+      /* BEFORE the focus(), and re-announced when focus does not move. The
+         two-tone ring the graphics use is not CSS — MapView, MatrixView and
+         YearsView mount a .focusring group from their own onFocus, and that
+         handler reads isKeyFocus(el), i.e. this attribute. Setting it after
+         el.focus() meant the handler had already run and read nothing; and where
+         Escape hands focus back to the element that ALREADY holds it — a rail
+         row after its corridor card closes, a county path after the county card
+         does — focus() fires no event at all, so onFocus never ran and the halo
+         never mounted. What was left was the single-tone [data-kf]:focus dash,
+         which on a selected county is teal on its own teal fill.
+         focusin rather than focus: it bubbles, which is what React delegates. */
+      const had = document.activeElement === el;
+      if (kb) el.setAttribute('data-kf', '');
       el.focus();
-      if (document.activeElement !== el) continue;
+      if (document.activeElement !== el) { if (kb) el.removeAttribute('data-kf'); continue; }
       if (kb) {
-        el.setAttribute('data-kf', '');
+        if (had) el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
         const drop = () => el.removeAttribute('data-kf');
         el.addEventListener('blur', drop, { once: true });
         el.addEventListener('pointerdown', drop, { once: true });
