@@ -12929,22 +12929,43 @@ const evalSafe = async (pg, fn) => {
   /* (1) ctrl/meta-wheel is the browser's page zoom, not the map's. useZoom yields
      it — the map must neither consume the gesture nor move under it. The only two
      WheelEvent dispatches in this file set no ctrlKey. */
+  /* …and the transform is read AFTER React has flushed, which is the whole of
+     the second half. useZoom applies every zoom through setT, a wheel is
+     ContinuousEventPriority, so React schedules the re-render on the Scheduler
+     and the <g transform> attribute is unchanged the instant dispatchEvent()
+     returns. Reading it there made `moved` false whatever the ctrl branch did:
+     revert the guard to zoom-without-preventDefault and the page would zoom with
+     the map zooming under it, while this still printed ok because `prevented`
+     held and `moved` was structurally false. Only the preventDefault half was
+     ever measured; the half the check is named for was a tautology.
+     Three separate evaluates with a settle between them, and the plain gesture
+     is required to MOVE the map — which is what makes "the ctrl one did not"
+     evidence rather than a restatement of the scheduler. */
   await fresh('');
-  const ctrlWheel = await page.evaluate(() => {
+  const tfSrc = () => {
+    const g = document.querySelector('#map g[transform]');
+    return g ? g.getAttribute('transform') : null;
+  };
+  const wheelAt = ctrl => {
     const m = document.querySelector('#map');
-    const tf = () => m.querySelector('g[transform]').getAttribute('transform');
-    const before = tf();
-    const ev = new WheelEvent('wheel', { deltaY: -300, clientX: 400, clientY: 300, bubbles: true, cancelable: true, ctrlKey: true });
+    const ev = new WheelEvent('wheel', { deltaY: -300, clientX: 400, clientY: 300,
+      bubbles: true, cancelable: true, ctrlKey: ctrl });
     m.dispatchEvent(ev);
-    const after = tf();
-    /* the plain gesture must still be taken, or "did not zoom" proves nothing */
-    const plain = new WheelEvent('wheel', { deltaY: -300, clientX: 400, clientY: 300, bubbles: true, cancelable: true });
-    m.dispatchEvent(plain);
-    return { prevented: ev.defaultPrevented, moved: after !== before,
-      plainPrevented: plain.defaultPrevented, before };
-  });
+    return ev.defaultPrevented;
+  };
+  const wheelBefore = await page.evaluate(tfSrc);
+  const ctrlPrevented = await page.evaluate(wheelAt, true);
+  await settle(200);
+  const afterCtrl = await page.evaluate(tfSrc);
+  const plainPrevented = await page.evaluate(wheelAt, false);
+  await settle(200);
+  const afterPlain = await page.evaluate(tfSrc);
+  const ctrlWheel = { prevented: ctrlPrevented, plainPrevented,
+    before: wheelBefore, afterCtrl, afterPlain,
+    moved: afterCtrl !== wheelBefore, plainMoved: afterPlain !== afterCtrl };
   ck('ctrl+wheel stays the browser’s page zoom and the map does not move under it',
-    !ctrlWheel.prevented && !ctrlWheel.moved && ctrlWheel.plainPrevented,
+    !ctrlWheel.prevented && !ctrlWheel.moved
+    && ctrlWheel.plainPrevented && ctrlWheel.plainMoved,
     JSON.stringify(ctrlWheel));
 
   /* (2) Vrijeme is locked in Klasifikacija and in the JLS map, and both locks
