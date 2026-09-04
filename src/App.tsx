@@ -526,7 +526,14 @@ export default function App() {
       write('pushState', u);
       return;
     }
-    const cur = histQ.current ?? (location.pathname + location.search + location.hash);
+    /* …and this one is built the SAME way, or the comparison below stops
+       comparing. It read location.pathname + search + hash while `u` gained an
+       origin, so histShape(cur) !== histShape(u) was true on every render and
+       every write took the immediate branch: the throttle was bypassed
+       completely. Measured by the suite's own scrub — 129 replaceState calls at a
+       21 ms floor, a budget of 1.436 per 30 s against the engine's 100 — where
+       the same drag had been 5 writes at 322 ms. */
+    const cur = histQ.current ?? (location.origin + location.pathname + location.search + location.hash);
     const wait = HIST_MS - (Date.now() - histAt.current);
     if (histShape(cur) !== histShape(u) || wait <= 0) { cancel(); write('replaceState', u); return; }
     histQ.current = u;
