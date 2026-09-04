@@ -71,7 +71,17 @@
      literal fallback when it has not — the two must stay in step, which is why
      each is written next to the token it copies. -->
 <style>
-.boot{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+/* Its own height, not the body flex column's. `flex:1` centres this only where
+   body is a flex container, and the stacked-layout block — every phone, any
+   window under 560 px tall, a coarse pointer under 780 — sets body{display:block},
+   where flex:1 is inert and .boot is ~80 px of content. index.css is
+   render-blocking in <head>, so that applies at FIRST PAINT: the splash shipped
+   for the mobile LCP case painted in the top 80 px of an 844 px blank page for
+   the whole render delay, while the same markup was centred on desktop.
+   svh with a vh fallback, because a phone's vh is the tall viewport and the
+   splash is looked at with the address bar showing. A no-op on the flex body,
+   which already fills. */
+.boot{min-height:100vh;min-height:100svh;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
   background:var(--bg,#F4F5F2);color:var(--ink,#20262B)}
 /* The stacks below name the metric-matched fallback faces the tokens carry, so
    the first paint uses the same metrics as everything after it — they were the
