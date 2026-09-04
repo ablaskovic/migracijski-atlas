@@ -10135,17 +10135,28 @@ const evalSafe = async (pg, fn) => {
     await new Promise(r => setTimeout(r, 320));
     const cells = [...document.querySelectorAll('#map .yrc')];
     const from2017 = cells.filter(c => +c.getAttribute('data-y') >= 2017);
+    /* …and the LAST positive one, derived from the grid rather than looked for
+       as a substring. The caption makes two claims and only one was tested: a
+       revision that turned 2016's single positive cell (HR-20) negative would
+       leave the grid showing 2015 or earlier as the last one, the caption
+       still saying 2016, and this printing ok — 2017+ is still all-negative
+       and the string still contains "2016". The ext-story check two blocks
+       down already derives its lastPlus this way. */
+    const pos = cells.filter(c => /: \+/.test(c.getAttribute('aria-label')))
+      .map(c => +c.getAttribute('data-y'));
     return {
       cap: (document.querySelector('#storyCap') || {}).textContent || '',
       total: from2017.length,
       positive: from2017.filter(c => /: \+/.test(c.getAttribute('aria-label'))).length,
+      lastPos: pos.length ? Math.max(...pos) : null,
     };
   });
   /* 21 counties × 2017–2025 = 189 cells, and the caption says every one of them
      is negative — a claim the grid either shows or does not */
-  ck('the natural-change Nalaz: no county is positive in any year from 2017 on',
-    nNatY.total === 189 && nNatY.positive === 0 && /2016/.test(nNatY.cap),
-    JSON.stringify({ total: nNatY.total, pos: nNatY.positive }));
+  ck('the natural-change Nalaz: no county is positive from 2017 on, and 2016 is the last that is',
+    nNatY.total === 189 && nNatY.positive === 0
+    && nNatY.lastPos === 2016 && new RegExp('je ' + nNatY.lastPos + '\\.').test(nNatY.cap),
+    JSON.stringify({ total: nNatY.total, pos: nNatY.positive, lastPos: nNatY.lastPos }));
 
   /* ── the external Nalaz's two superlatives, against the atlas's own series ──
      It said 2022 was the first year the national external balance was positive
