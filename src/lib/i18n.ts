@@ -30,7 +30,12 @@ export type Lang = 'hr' | 'en';
    the atlas is entirely Latin script, which `sr-Cyrl` readers also read.
    Matched on the *primary subtag* so regional variants (hr-BA, sr-ME, sh-Latn…)
    come along without being enumerated. */
-const HR_LANGS = new Set(['hr', 'bs', 'sr', 'sh', 'me', 'cnr']);
+/* …and `me` is not one of them. Montenegro's ISO 639 language code is `cnr`,
+   which is in the set; `me` is the ISO 3166 REGION code, and a region subtag
+   can never appear where this looks — it is the primary subtag of the tag. So
+   the entry could not match anything, while the region set below (which is
+   where `me` belongs) already carries it. */
+const HR_LANGS = new Set(['hr', 'bs', 'sr', 'sh', 'cnr']);
 
 /* WHERE the reader is, as opposed to what their browser asks for. The countries
    whose official language is one of HR_LANGS above — Croatia, Bosnia and
@@ -87,8 +92,14 @@ export function detectLang(
   tz: string = timeZone(),
 ): Lang {
   const list = (nav.languages && nav.languages.length ? nav.languages : [nav.language]).filter(Boolean);
+  /* BCP 47 separates subtags with a hyphen, and some Android WebViews and older
+     embedders report the POSIX form instead — `hr_HR`. Split on either, or the
+     primary subtag of such a tag reads as the whole string `hr_hr`, matches
+     nothing in HR_LANGS, and a Croatian reader falls through to the timezone
+     guess — which is right in Zagreb and wrong for the same reader abroad. */
+  const subtags = (tag: string): string[] => String(tag).toLowerCase().split(/[-_]/);
   for (const tag of list) {
-    const primary = String(tag).toLowerCase().split('-')[0];
+    const primary = subtags(tag)[0];
     if (HR_LANGS.has(primary)) return 'hr';
     /* decidable, but not final: the region below can still answer for it */
     if (primary === 'en') break;
@@ -99,7 +110,7 @@ export function detectLang(
      a region is two letters (`hr-HR`) or three digits (`es-419`), a script is
      four (`sr-Latn-RS`), which is why `sr-Latn` must not read as region "latn". */
   for (const tag of list) {
-    for (const sub of String(tag).toLowerCase().split('-').slice(1)) {
+    for (const sub of subtags(tag).slice(1)) {
       if (sub.length === 2 && HR_REGIONS.has(sub)) return 'hr';
     }
   }
