@@ -862,7 +862,17 @@ const evalSafe = async (pg, fn) => {
      repeats on every page, and it covered the header by 147.820 px².
      Overlap by area rather than by bottom edge, because these are boxes beside
      each other as well as under: an assertion on `bottom` alone passes for a
-     panel that is merely narrow enough to sit alongside what it covers. */
+     panel that is merely narrow enough to sit alongside what it covers.
+     And the key is asserted by SIZE and by place, not by presence. Chrome's
+     print dialog opens on PORTRAIT, whose A4 content box is 718 px — inside the
+     ≤900 block, where `body.panel-open .legend{display:none}` was written for a
+     phone layout in which the panel covers the map. In print it does not: it is
+     in the flow below it. Measured at 718×1047 before the fix, with each of the
+     three flags that travel in a copied permalink — cz=1, ag=1, jl=1 — the
+     choropleth printed at full colour with display:none on its key, at both the
+     default and the 24 px root; with nothing open the key printed at 76 px. The
+     three portrait legs below are those cases. `legendH` rather than `!!box`
+     because display:none is what this was, and a zero-height box is a box. */
   const printOv = [];
   for (const [w, h, hash, open] of [
     [1123, 794, '#v=saldo&c=1&y=2024', '#helpBtn'],
@@ -870,6 +880,9 @@ const evalSafe = async (pg, fn) => {
     [1123, 794, '#v=klas&c=1&y=2024&s=HR-21', null],
     [1123, 794, '#v=saldo&c=1&y=2024&cz=2', null],
     [1123, 794, '#v=flow&s=HR-21&dir=out&jl=1&y=2018&c=0', null],
+    [718, 1047, '#v=saldo&c=1&y=2024&cz=1', null],
+    [718, 1047, '#v=saldo&c=1&y=2024&ag=1', null],
+    [718, 1047, '#v=flow&s=HR-21&dir=out&jl=1&y=2018&c=0', null],
   ]) {
     await page.setViewport({ width: w, height: h });
     await fresh(hash);
@@ -900,20 +913,25 @@ const evalSafe = async (pg, fn) => {
           if (a > worst) { worst = a; at = p + ' x ' + v; }
         }
       }
-      const m = box('#map');
+      const m = box('#map'), mb = box('.map-box'), lg = box('.legend');
       return { seen, worst, at, floating: fixedOrAbs,
-        mapH: m ? Math.round(m.height) : 0, legend: !!box('.legend') };
+        mapH: m ? Math.round(m.height) : 0,
+        legendH: lg ? Math.round(lg.height) : 0,
+        /* …and beside the map it decodes, not carried off to the bottom edge of
+           a box grown to hold a panel */
+        legendInBox: !!(lg && mb && lg.top >= mb.top - 1 && lg.bottom <= mb.bottom + 1) };
     }) });
     await page.emulateMediaType(null);
   }
   await page.setViewport({ width: 1440, height: 900 });
   ck('printing with a panel open puts it in the flow instead of over the page',
-    printOv.length === 5
+    printOv.length === 8
     /* each case opens exactly one panel, and 0 panels found is not a clean sheet */
-    && printOv.every(r => r.seen >= 1 && r.mapH >= 430 && r.legend)
+    && printOv.every(r => r.seen >= 1 && r.mapH >= 430
+      && r.legendH >= 40 && r.legendInBox)
     && printOv.every(r => r.worst === 0 && r.floating.length === 0),
-    JSON.stringify(printOv.filter(r => r.seen < 1 || r.mapH < 430 || !r.legend
-      || r.worst > 0 || r.floating.length)) + ' n=' + printOv.length);
+    JSON.stringify(printOv.filter(r => r.seen < 1 || r.mapH < 430 || r.legendH < 40
+      || !r.legendInBox || r.worst > 0 || r.floating.length)) + ' n=' + printOv.length);
   await page.setViewport({ width: 1440, height: 900 });
   await fresh('');
   await page.hover('path[data-iso="HR-18"]');
