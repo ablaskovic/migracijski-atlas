@@ -43,7 +43,12 @@ it, and honours `PUPPETEER_PATH` (a puppeteer package directory) and
 `PUPPETEER_EXECUTABLE_PATH` (an existing Chrome) if you would rather not install
 a second copy. It shipped in devDependencies from 2026-07-31 until the audit
 pass; this restores the documented state — so the install above is `--no-save`
-and pinned, the same command [CI runs](.github/workflows/verify.yml). `-D` would
+and pinned. [CI](.github/workflows/verify.yml) does NOT run that command: an
+`npm i puppeteer@25.8.0` pins one package out of the 27 it installs, and the
+other 21 resolve by caret range from the live registry with no integrity at all,
+so CI installs the same version from its own lockfile (`ci/package-lock.json`)
+with `npm ci`, which pins all 27. The one-liner above stays as it is: it is a
+maintainer's local convenience, not a supply chain. `-D` would
 write the devDependency back into `package.json` and `package-lock.json`, which
 is how it shipped the first time. A later `npm ci` removes it; repeat the line.
 

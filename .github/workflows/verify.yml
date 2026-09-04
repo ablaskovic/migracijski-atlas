@@ -93,25 +93,46 @@ jobs:
           node-version: '22.12'
           cache: npm
       - run: npm ci
-      # Chrome for the puppeteer checks; --no-save keeps it out of the manifest.
+      # Chrome for the puppeteer checks, from ITS OWN LOCKFILE.
       #
-      # PINNED, like the two actions above — this is the third and last place the
-      # job executes third-party code, and the only one that runs an install
-      # script. `npm ci` above runs none: of the 117 package-lock
+      # `npm i puppeteer@25.8.0` pinned one package out of the 27 it installs.
+      # Six were exact — puppeteer, puppeteer-core, @puppeteer/browsers,
+      # chromium-bidi, devtools-protocol, webdriver-bidi-protocol — and the tree
+      # they pull declares 29 caret ranges (ws@^8.21.1, zod@^3.24.1,
+      # yargs@^18.0.0, strip-ansi@^7.1.0, ansi-regex@^6.2.2 and the rest), so 21
+      # of the 27 were whatever the registry served as the newest matching patch
+      # at that minute, with no `integrity` anywhere. A compromised patch of any
+      # one of them — the 2025-09 Shai-Hulud pattern, where the new version adds
+      # a postinstall — was installed and executed here, either at install time
+      # or inside the puppeteer process the suite drives.
+      # The comment this replaces cited the 2025-09-08 chalk/debug incident,
+      # which WAS a transitive compromise: an exact top-level pin does not stop
+      # one, it only fixes which puppeteer asks for ws@^8.21.1.
+      # ci/package-lock.json pins all 27 by `resolved` + `integrity`, and
+      # `npm ci` refuses anything the lockfile does not describe. Dependabot
+      # moves it on purpose (.github/dependabot.yml).
+      #
+      # --ignore-scripts, because exactly one of those 27 declares an install
+      # script and it is puppeteer's own Chrome download. It is run on the next
+      # line instead: deliberately, by name, AFTER the tree has been
+      # integrity-checked, rather than as a side effect of resolution.
+      #
+      # `npm ci` at the repo root still runs none: of its 117 package-lock
       # entries exactly one declares an install script (fsevents, os:darwin, so
-      # never on ubuntu-latest) and all 117 carry `resolved` + `integrity`.
-      # puppeteer declares `postinstall: node install.mjs`, so an unpinned
-      # `latest` would run whatever the registry served at that moment as the
-      # runner user — the shape of the 2025-09-08 chalk/debug incident, where
-      # `latest` moved for about two hours. An exact version cannot follow a
-      # compromised tag, and it also stops the OTHER failure mode: puppeteer
-      # raises its Node floor regularly (25.x already wants >=22.12.0) while
-      # setup-node is pinned to exactly 22.12, so an unpinned install turns every
-      # push red with no commit to this repository.
-      # Bump deliberately, alongside the Node line above.
-      - run: npm i --no-save --no-audit --no-fund puppeteer@25.8.0
-      # tsc --noEmit && oxlint --deny-warnings && vite build && verify.cjs dist
+      # never on ubuntu-latest) and 116 carry `resolved` + `integrity` — the
+      # 117th is the root entry `""`, which has neither by construction.
+      #
+      # What this does NOT cover, and should not be read as covering: the Chrome
+      # build itself is an unhashed HTTPS download from storage.googleapis.com,
+      # pinned only by puppeteer's own revisions table.
+      - run: npm ci --prefix ci --ignore-scripts --no-audit --no-fund
+      - run: node ci/node_modules/puppeteer/install.mjs
+      # PUPPETEER_PATH is a puppeteer PACKAGE DIRECTORY (README.md), and
+      # verify.cjs require()s it — so it has to be absolute, or node reads it as
+      # a bare package name and looks in node_modules.
       - run: npm run verify
+        env:
+          PUPPETEER_PATH: ${{ github.workspace }}/ci/node_modules/puppeteer
 
   # The deployed origin, which the job above cannot see: it checks the commit it
   # was handed, and every question smoke asks is about what readers are actually

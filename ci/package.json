@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "name": "migracijski-atlas-ci-tools",
+  "description": "puppeteer for the CI verify job, in its own lockfile so npm can integrity-check the WHOLE tree it pulls — see .github/workflows/verify.yml",
+  "dependencies": {
+    "puppeteer": "25.8.0"
+  }
+}

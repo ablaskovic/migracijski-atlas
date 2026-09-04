@@ -1,0 +1,22 @@
+# The CI-only puppeteer tree has its own lockfile (ci/), so that `npm ci` can
+# integrity-check all 27 packages instead of the 6 an `npm i puppeteer@x` pinned.
+# A lockfile nothing bumps goes stale, and a stale puppeteer is its own failure
+# mode: 25.x already requires Node >=22.12.0 and setup-node is pinned to exactly
+# 22.12, so the floor and the runner have to move together, deliberately.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /ci
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+  # the app's own tree, for the same reason
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
