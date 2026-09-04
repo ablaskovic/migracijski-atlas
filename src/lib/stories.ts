@@ -142,7 +142,11 @@ export const STORIES: Story[] = [
     patch: { view: 'saldo', flow: 'nat', den: 'rel11', cum: true, yi: Y24 },
   },
   {
-    get label() { return L('Osijeku istok ide najmanje loše', 'Osijek fares least badly in the east'); },
+    /* "Na istoku Osijeku ide…", not "Osijeku istok ide…": with the locative
+       first, 'istok' is the place and Osijek the subject, which is what the
+       English half says. As written the nominative 'istok' was the subject and
+       the line read "for Osijek, the east goes least badly". */
+    get label() { return L('Na istoku Osijeku ide najmanje loše', 'Osijek fares least badly in the east'); },
     get cap() { return L('Među pet istočnih županija Osječko-baranjska gubi najmanje unutarnjim migracijama: −2,6 % naspram −6,1 % (Vukovarsko-srijemska) i −5,6 % (Brodsko-posavska). To je argument rada da Osijek ostaje nositelj istoka.', 'Among the five eastern counties Osječko-baranjska loses least to internal migration: −2.6 % against −6.1 % (Vukovarsko-srijemska) and −5.6 % (Brodsko-posavska). This is the paper’s argument that Osijek remains the anchor of the east.'); },
     patch: { view: 'saldo', flow: 'int', den: 'rel11', cum: true, yi: Y24 },
   },
