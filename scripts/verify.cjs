@@ -682,7 +682,14 @@ const evalSafe = async (pg, fn) => {
   const tip = await page.evaluate(() => document.querySelector('#tip').textContent);
   ck('tooltip shows migracije +22.537 (Istarska kum)', NBSP(tip).includes('+22.537'), tip.slice(0, 60));
   ck('tooltip shows prirodni prirast −11.006', NBSP(tip).includes('\u221211.006'));
-  ck('tooltip shows ukupna promjena +11.531', NBSP(tip).includes('+11.531'));
+  /* The row is "mig. + prirodno", and this file has a check one screen down
+     forbidding the words this one's NAME used: "ukupna promjena" is the reading
+     the tooltip, the legend, the card and the glossary all deny, and the log
+     line said the tooltip prints it. The label is one line from the number the
+     assertion already reads, so it is asserted rather than described. */
+  ck('tooltip shows mig. + prirodno +11.531 (Istarska kum)',
+    NBSP(tip).includes('mig. + prirodno') && NBSP(tip).includes('+11.531'),
+    NBSP(tip).slice(0, 120));
   await page.mouse.move(4, 4);
   await settle(60);
 
