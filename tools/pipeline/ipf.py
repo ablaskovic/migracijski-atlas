@@ -93,16 +93,34 @@ for yi,y in enumerate(YRS):
         Mi=seed.astype(int)
     else:
         M=seed*(r.sum()/seed.sum())
+        # The cap is a backstop, and falling out of it was indistinguishable from
+        # converging: the loop just ended and the rounding below fitted whatever
+        # M happened to be. Measured over all 27 fitted years, convergence takes
+        # 16-19 iterations at tol 1e-7, so the cap has never bound — which is
+        # exactly why a run that reached it would be a surprise worth stopping
+        # for. The column asserts further down would catch a badly unconverged
+        # fit, but not one that stalls within 5 people per column.
         for _ in range(1000):
             rs=M.sum(1); rs[rs==0]=1; M*=(r/rs)[:,None]
             cs=M.sum(0); cs[cs==0]=1; M*=(c/cs)[None,:]
             if max(abs(M.sum(1)-r).max(),abs(M.sum(0)-c).max())<1e-7: break
+        else:
+            raise AssertionError((y,'IPF did not converge in 1000 iterations',
+                                  float(max(abs(M.sum(1)-r).max(),abs(M.sum(0)-c).max()))))
         R=np.floor(M).astype(int)
         for i in range(n):
             need=int(round(r[i]))-int(R[i].sum())
             if need>0:
                 idx=np.argsort(-(M[i]-R[i]))
                 for k in idx[:need]: R[i,k]+=1
+        # …and the +1s never land on the diagonal. The row assert below sums all
+        # 21 columns, the writer at the bottom drops i==j — so a remainder that
+        # placed a person on the diagonal would satisfy the assert and ship a row
+        # one short. Unreachable with this seed (its diagonal is zero, so
+        # M[i,i]-R[i,i] is 0 and argsort puts it last, and no row needs more
+        # than 14 of the 20 cells that have a remainder), which is what makes it
+        # worth stating: the guard says what the output relies on.
+        assert (np.diag(R)==0).all(),(y,'largest remainder put a person on the diagonal')
         Mi=R
     assert int(abs(Mi.sum(1)-r).max())==0,(y,'row dev')
     # …and the column bound the docstring states, which nothing enforced. Rows are
