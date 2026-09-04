@@ -1348,10 +1348,20 @@ body.stage-collapsed .main{flex:none;height:420px}
   /* the stage stops being a stage: the dock is in normal flow here, so there is
      no overlay geometry left for it to bound */
   .map-stage{display:block;height:auto;flex:none}
+  /* vh is the LARGE viewport on iOS and Android — the height the page would have
+     if the URL bar were hidden — so on a 393×852 phone with the bar showing, the
+     header (~250 px) plus a 443 px map box already exceeds the ~660 px actually
+     visible, and the legend and the dock start below the fold on arrival. svh is
+     the small viewport, which is what a reader can see before scrolling.
+     The vh line is kept first as the fallback: nothing jumps if svh is
+     unsupported, because vh is the stable one and this is a first-screen budget
+     rather than a layout the page depends on. Same for the rail's own cap. */
   .map-box{height:min(52vh,460px);min-height:288px;flex:none}
+  .map-box{height:min(52svh,460px)}
   .rail{width:100%;border-left:none;border-top:1px solid var(--line);
     max-height:none;height:auto;display:block}
   .rail-list{max-height:34vh;overflow-y:auto}
+  .rail-list{max-height:34svh}
 
   /* detail card above the map, citizenship/age panels below it — in normal flow,
      so nothing covers the map and nothing can overlap anything else */
