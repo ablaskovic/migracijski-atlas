@@ -1729,6 +1729,9 @@ body.stage-collapsed .main{flex:none;height:420px}
 
 /* "Licencije i izvori": one source per row, the link on its own line above the
    note so a long note cannot push the link out of the panel's 330 px. */
+/* the sources are a list of four one-line entries, in a column — the two-column
+   grid they used to inherit from .help-dl belongs to term/definition pairs */
+.help-srcs{list-style:none;margin:2px 0 0;padding:0}
 .help-src{margin-top:5px}
 .help-srcnote{color:var(--mut);font-size:0.625rem}
 

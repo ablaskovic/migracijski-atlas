@@ -433,15 +433,22 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
           because that lane is fixed height above the map — every wrapped line it
           gains the map loses. */}
       <h3 className="help-h">{L('Licencije i izvori', 'Licences and sources')}</h3>
-      <dl className="help-dl">
+      {/* A <ul>, not the glossary's <dl>. These four rows are a source and its
+          terms, not a term and its definition, and they carried no <dt>/<dd> at
+          all — a dl's content model allows <div> only as a wrapper AROUND a
+          dt/dd group, so this was a description list with zero items: NVDA said
+          "list" and then four loose links, VoiceOver "description list, 0
+          items". It also inherited .help-dl's two-column grid, which laid four
+          one-line sources out 2×2 instead of as a column. */}
+      <ul className="help-srcs">
         {sources().map(s => (
-          <div key={s.href} className="help-src">
+          <li key={s.href} className="help-src">
             <a className="paper-link" href={s.href} target="_blank" rel="noopener noreferrer"
               aria-label={`${s.label} — ${s.note} ${NEWTAB()}`}>{s.label}</a>
             <span className="help-srcnote"> — {s.note}</span>
-          </div>
+          </li>
         ))}
-      </dl>
+      </ul>
       <div className="help-p">
         {/* A rendered map is a Produced Work under ODbL §4.3, not a derived
             database, so share-alike does not reach it and the figure can carry
