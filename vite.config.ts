@@ -84,5 +84,18 @@ export default defineConfig({
   // 'hidden' keeps the maps in dist — `node --enable-source-maps`, `npx
   // source-map` and a local server all still resolve a trace against them — and
   // stops the bundle naming a URL that 403s.
-  build: { sourcemap: 'hidden' },
+  // …and the size warning says something. Rollup's default fires at 500 kB, so
+  // every build of this app has printed "(!) Some chunks are larger than 500
+  // kB" about the entry chunk since long before the chunk was a concern — a
+  // line a maintainer learns to scroll past, which is the opposite of a signal.
+  // The number that matters is verify.cjs's, which fails the suite when the
+  // entry exceeds 600 KiB. The two are not in the same unit — Rollup's limit is
+  // kB of 1000, the check divides by 1024 — so 600 KiB is 614 here, and the
+  // entry chunk is 601,5 kB (587 KiB) today. 608 is a few kB below that
+  // ceiling: quiet now, and it warns about 6 KiB before the check goes red
+  // rather than with it. Raise both together, or split a lazy chunk — the
+  // export path is the obvious one, and it is not a free move: App installs
+  // exportPNG/exportSVG as window hooks the suite drives synchronously in about
+  // twenty places.
+  build: { sourcemap: 'hidden', chunkSizeWarningLimit: 608 },
 });
