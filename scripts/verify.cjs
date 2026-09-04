@@ -10200,12 +10200,20 @@ const evalSafe = async (pg, fn) => {
     await click('#helpX');
   }
   {
-    const want = [gaps.all[0], gaps.all[1], gaps.late[0], gaps.late[1]].map(String);
+    /* Each figure INSIDE the range it belongs to, not loose in a ~6 kB card.
+       `includes('27')` is a bare substring test: a DOI, a table number, a licence
+       year or any other three-digit run containing those digits satisfied it, so
+       the check could be green with the sentence saying something else entirely.
+       The two ranges are written differently in the two languages — "27–550
+       osoba" against "from 27 to 550 people" — so the separator is the
+       alternation and the bounds are what is pinned. Digit-boundary lookarounds
+       on both sides, so 550 cannot be matched inside 1.550. */
+    const rng = (s, a, b) => new RegExp('(?<![\\d.,])' + a + '\\s*(?:–|—|-|to)\\s*' + b + '(?![\\d.,])').test(s);
+    const has = k => rng(gapCopy[k], gaps.all[0], gaps.all[1]) && rng(gapCopy[k], gaps.late[0], gaps.late[1]);
     ck('the glossary’s pre-2007 margin figures are the ones the payload carries, in both languages',
       gaps.zero && gaps.all[0] < gaps.late[0]
-      && ['hr', 'en'].every(k => gapCopy[k].length > 1500 && want.every(v => gapCopy[k].includes(v))),
-      JSON.stringify({ ...gaps, has: ['hr', 'en'].map(k =>
-        [k, gapCopy[k].length, want.map(v => [v, gapCopy[k].includes(v)])]) }));
+      && ['hr', 'en'].every(k => gapCopy[k].length > 1500 && has(k)),
+      JSON.stringify({ ...gaps, has: ['hr', 'en'].map(k => [k, gapCopy[k].length, has(k)]) }));
   }
 
   /* clicking a cell is how the grid doubles as a year picker: it drives the same
