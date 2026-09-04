@@ -490,6 +490,16 @@ export function jmapMax(dir: Dir): number {
    emitters that draw it do not have to. */
 export type Ramp = { m: number; scale: (v: number) => string;
   sample?: (n: number) => { off: number; v: number }[] };
+/* The default placement, for every ramp that is linear in value. It lives here
+   rather than in Legend.tsx because all THREE emitters need it — the legend, the
+   canvas export and the SVG export — and a rule that only two of them could
+   reach is how the exported key came to be drawn at the right density in the
+   wrong places. `rampStops` is the one question an emitter asks: where do my
+   stops go? */
+export const evenStops = (m: number, neg: boolean, n: number) =>
+  Array.from({ length: n + 1 }, (_, i) => ({ off: i / n, v: neg ? -m + 2 * m * i / n : m * i / n }));
+export const rampStops = (m: number, neg: boolean, n: number, sample?: Ramp['sample']) =>
+  (sample ? sample(n) : evenStops(m, neg, n));
 export function jmapScale(dir: Dir): Ramp {
   const m = jmapMax(dir);
   const base = dir === 'net' ? divScale(m) : seqScale(m, dir);

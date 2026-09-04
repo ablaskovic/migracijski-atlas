@@ -1,7 +1,7 @@
 import {
   ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
   klasOf, paperKlasComparable, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc, marginFlow,
-  preMargin, preMarginNote,
+  preMargin, preMarginNote, rampStops,
 } from './metrics.ts';
 import { ensureFonts, fontCss } from './exportFonts.ts';
 import { paperCaveatLine, paperExportLine, paperThrLine, regionReadingLine } from './credits.ts';
@@ -276,10 +276,14 @@ function download(blob: Blob, name: string) {
 }
 
 /* which legend the current state needs: klas swatches, sequential bar, or diverging bar */
+/* How a ramp wants its key sampled. The JLS ramp is √, so evenly spaced VALUES
+   are not evenly spaced colours; jmapScale carries the sampler that says where
+   its stops go. */
+type Sample = (n: number) => { off: number; v: number }[];
 type Leg =
   | { kind: 'klas'; counts: Record<Klas, number> }
-  | { kind: 'seq'; m: number; badge: string; scale?: (v: number) => string }
-  | { kind: 'div'; m: number; rel: boolean; badge: string; scale?: (v: number) => string };
+  | { kind: 'seq'; m: number; badge: string; scale?: (v: number) => string; sample?: Sample }
+  | { kind: 'div'; m: number; rel: boolean; badge: string; scale?: (v: number) => string; sample?: Sample };
 function legendSpec(S: State): Leg {
   if (S.view === 'klas') {
     const counts: Record<Klas, number> = { gain: 0, neu: 0, loss: 0 };
@@ -287,13 +291,13 @@ function legendSpec(S: State): Leg {
     return { kind: 'klas', counts };
   }
   if (S.view === 'jmap') {
-    const { m, scale } = jmapScale(S.dir);
+    const { m, scale, sample } = jmapScale(S.dir);
     /* the badge is the honesty label plus the scale note, and both were Croatian
        literals — an English figure carried "· izmjereno · √ skala" under an
        English title */
     const badge = '· ' + t('badge.meas') + L(' · √ skala', ' · √ scale');
-    return S.dir === 'net' ? { kind: 'div', m, rel: false, badge, scale }
-      : { kind: 'seq', m, badge, scale };
+    return S.dir === 'net' ? { kind: 'div', m, rel: false, badge, scale, sample }
+      : { kind: 'seq', m, badge, scale, sample };
   }
   const flowish = S.view === 'flow' || S.view === 'mx';
   /* `flowBadge` never returns the cumulative wording, so a cumulative export
@@ -502,11 +506,23 @@ export function bandLayout(S: State, w: number): Band {
 }
 
 /* see Legend.gradStyle: eleven stops cannot represent the √ ramp the JLS map
-   uses, and the exported figure carried the same eleven */
+   uses, and the exported figure carried the same eleven.
+   Raising the COUNT was only half of it. The stops were still placed at evenly
+   spaced values — offset i/n coloured scale(-m + 2m·i/n) — and the renderer
+   interpolates linearly between them, which understates the whole middle of a √
+   ramp, exactly where most of the 556 municipalities sit. Measured against every
+   municipality's own fill (CIE76 in Lab): net, worst ΔE 4,55 at Sirač and 363 of
+   556 over 3; out, 164 over 3. The on-screen key, which asks the ramp where its
+   stops go, measures 0,95 worst with none over 3. Read the way a reader reads a
+   key — matching a polygon against the bar — Imotski's −79 sat on the exported
+   bar at −109.
+   So the placement is shared too, not just the density: Legend.tsx says
+   JMAP_STOPS exists so a key drawn at one density and an image at another cannot
+   be two keys for one map, and this is the other half of that sentence. */
 function gradBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number,
-  scale: (v: number) => string, m: number, neg: boolean, n = 10) {
+  scale: (v: number) => string, m: number, neg: boolean, n = 10, sample?: Sample) {
   const gr = ctx.createLinearGradient(x, 0, x + w, 0);
-  for (let i = 0; i <= n; i++) gr.addColorStop(i / n, scale(neg ? -m + 2 * m * i / n : m * i / n));
+  for (const p of rampStops(m, neg, n, sample)) gr.addColorStop(p.off, scale(p.v));
   ctx.fillStyle = gr; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = '#D9DDD6'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
@@ -648,12 +664,12 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   } else if (leg.kind === 'seq') {
     /* leg.scale is set only by the JLS branch, which is the √ ramp — see
        Legend.gradStyle for why eleven stops cannot draw it */
-    gradBar(ctx, 20, ly, 190, 10, leg.scale ?? seqScale(leg.m, S.dir), leg.m, false, leg.scale ? JMAP_STOPS : 10);
+    gradBar(ctx, 20, ly, 190, 10, leg.scale ?? seqScale(leg.m, S.dir), leg.m, false, leg.scale ? JMAP_STOPS : 10, leg.sample);
     ctx.fillStyle = '#5F6A72'; ctx.font = '400 9.5px "IBM Plex Mono",monospace';
     ctx.fillText('0', 20, ly + 22); ctx.textAlign = 'right'; ctx.fillText(fmtI.format(leg.m), 210, ly + 22); ctx.textAlign = 'left';
     ctx.fillText(leg.badge, 222, ly + 9);
   } else {
-    gradBar(ctx, 20, ly, 190, 10, leg.scale ?? divScale(leg.m), leg.m, true, leg.scale ? JMAP_STOPS : 10);
+    gradBar(ctx, 20, ly, 190, 10, leg.scale ?? divScale(leg.m), leg.m, true, leg.scale ? JMAP_STOPS : 10, leg.sample);
     const lab = (v: number) => leg.rel ? fmtR.format(v) + ' %' : fmtI.format(Math.round(v));
     ctx.fillStyle = '#5F6A72'; ctx.font = '400 9.5px "IBM Plex Mono",monospace';
     ctx.fillText('−' + lab(leg.m), 20, ly + 22);
@@ -688,10 +704,11 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const MONO = 'IBM Plex Mono,ui-monospace,monospace';
 const DISP = 'Oswald,Arial Narrow,sans-serif';
 
-function svgGrad(id: string, scale: (v: number) => string, m: number, neg: boolean, n = 10): string {
+function svgGrad(id: string, scale: (v: number) => string, m: number, neg: boolean, n = 10,
+  sample?: Sample): string {
   let stops = '';
-  for (let i = 0; i <= n; i++)
-    stops += `<stop offset="${i * 100 / n}%" stop-color="${scale(neg ? -m + 2 * m * i / n : m * i / n)}"/>`;
+  for (const p of rampStops(m, neg, n, sample))
+    stops += `<stop offset="${(p.off * 100).toFixed(3)}%" stop-color="${scale(p.v)}"/>`;
   return `<linearGradient id="${id}">${stops}</linearGradient>`;
 }
 const txt = (x: number, y: number, s: string, attrs: string) => `<text x="${x}" y="${y}" ${attrs}>${esc(s)}</text>`;
@@ -738,7 +755,7 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
   } else {
     const neg = leg.kind === 'div';
     defs = svgGrad(u + 'lg', leg.scale ?? (neg ? divScale(leg.m) : seqScale(leg.m, S.dir)), leg.m, neg,
-      leg.scale ? JMAP_STOPS : 10);
+      leg.scale ? JMAP_STOPS : 10, leg.sample);
     const lab = (v: number) => (leg.kind === 'div' && leg.rel) ? fmtR.format(v) + ' %' : fmtI.format(Math.round(v));
     legSvg = `<rect x="20" y="${ly}" width="190" height="10" fill="url(#${u}lg)" stroke="#D9DDD6"/>`;
     const la = `font-family="${MONO}" font-size="9.5" fill="#5F6A72"`;

@@ -2,7 +2,7 @@ import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, preMargin, preMarginNote, pragText, fmtI, fmtR,
   arcMinNote,
-  ipfMargins,
+  ipfMargins, rampStops,
 } from '../lib/metrics.ts';
 import { PAPER_WINDOW, paperSplit, paperThrLine } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
@@ -31,12 +31,9 @@ import type { Klas, State } from '../lib/types.ts';
    legendSpec — a key drawn at one density and an image at another would be two
    different keys for one map */
 export const JMAP_STOPS = 48;
-function evenStops(m: number, neg: boolean, n: number) {
-  return Array.from({ length: n + 1 }, (_, i) => ({ off: i / n, v: neg ? -m + 2 * m * i / n : m * i / n }));
-}
 function gradStyle(scale: (v: number) => string, m: number, neg: boolean, n = 10,
   sample?: (k: number) => { off: number; v: number }[]): CSSProperties {
-  const pts = sample ? sample(n) : evenStops(m, neg, n);
+  const pts = rampStops(m, neg, n, sample);
   const stops = pts.map(p => scale(p.v) + ' ' + (p.off * 100).toFixed(3) + '%');
   return { background: 'linear-gradient(90deg,' + stops.join(',') + ')' };
 }
