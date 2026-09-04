@@ -7916,8 +7916,14 @@ const evalSafe = async (pg, fn) => {
   /* its own line, not glued onto the source credit: that line already runs
      ~950 px at 8,5 px mono, so an appended disclaimer is the half that gets
      clipped by the canvas edge */
-  const noteRows = [...eKlas.svg.matchAll(/<text x="20" y="(\d+(?:\.\d+)?)"[^>]*font-size="8\.5"/g)]
-    .map(m => +m[1]).sort((a, b) => a - b);
+  /* The rows are read out of the parsed document below, not matched in the
+     serialised string. `/<text x="20" y="…"[^>]*font-size="8\.5"/` matched only
+     because exportPng's txt() happens to emit x, then y, then the rest: give it
+     a class before x, or reorder the two coordinates, and every match
+     disappears, noteRows is empty and `noteRows.length >= 4` fails — loudly, so
+     it was never wrong, but it was asserting the exporter's attribute ORDER
+     under a name about rhythm and clearance. The holder the clearance check
+     already builds parses the same document, so the rows cost nothing there. */
   /* The rows wrap now, so their count depends on the width; what does not
      change is the rhythm and the clearance. Bottom-up: source credit, figure
      licence, study reference, revision caveat — at least four rows for a study
@@ -7946,17 +7952,23 @@ const evalSafe = async (pg, fn) => {
         .filter(o => o.b.y >= inner.y + inner.height - 1);
       const credit = below.filter(o => o.el.getAttribute('font-size') === '8.5');
       const legend = below.filter(o => !credit.includes(o));
-      return +(Math.min(...credit.map(o => o.b.y))
-        - Math.max(...legend.map(o => o.b.y + o.b.height))).toFixed(1);
+      /* the credit rows themselves, by attribute rather than by their place in
+         the serialised tag — the left-aligned 8,5 px runs, in y order */
+      const rows = [...svg.querySelectorAll(':scope > text')]
+        .filter(t => t.getAttribute('font-size') === '8.5' && t.getAttribute('x') === '20')
+        .map(t => +t.getAttribute('y')).sort((p, q) => p - q);
+      return { gap: +(Math.min(...credit.map(o => o.b.y))
+        - Math.max(...legend.map(o => o.b.y + o.b.height))).toFixed(1), rows };
     };
     const r = { klas: of(a), reg: of(b) };
     holder.remove();
     return r;
   }, [eKlas.svg, eReg.svg]);
+  const noteRows = inkGap.klas.rows;
   ck('the exported disclaimer is a line of its own, clear of the legend and the credit',
     noteRows.length >= 4 && noteRows.every((y, i) => i === 0 || y - noteRows[i - 1] === 14)
-    && inkGap.klas >= 6 && inkGap.reg >= 6,
-    JSON.stringify({ noteRows, inkGap }));
+    && inkGap.klas.gap >= 6 && inkGap.reg.gap >= 6,
+    JSON.stringify({ noteRows, klas: inkGap.klas.gap, reg: inkGap.reg.gap }));
 
   /* ══════════ v2.0.7 — a corridor opens where it was picked ══════════
      Activating a matrix cell used to set `{view:'flow', sel:a, pair:b}`, which
@@ -9440,8 +9452,20 @@ const evalSafe = async (pg, fn) => {
     JSON.stringify({ klas: /Slika: CC BY 4\.0/.test(licK.svg), saldo: /Slika: CC BY 4\.0/.test(licS.svg) }));
   /* A non-study export carries the licence and the source and nothing else —
      it must not imply it disagrees with a study it takes nothing from. */
-  const sRows = [...licS.svg.matchAll(/<text x="20" y="(\d+(?:\.\d+)?)"[^>]*font-size="8\.5"/g)]
-    .map(m => +m[1]).sort((a, b) => a - b);
+  /* parsed, not string-matched — see the note on the disclaimer's rows above:
+     the pattern this replaces depended on exportPng's txt() emitting x before y
+     before everything else */
+  const sRows = await page.evaluate(doc => {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:absolute;left:-9999px;top:0';
+    holder.innerHTML = doc;
+    document.body.appendChild(holder);
+    const rows = [...holder.querySelectorAll('svg > text')]
+      .filter(t => t.getAttribute('font-size') === '8.5' && t.getAttribute('x') === '20')
+      .map(t => +t.getAttribute('y')).sort((p, q) => p - q);
+    holder.remove();
+    return rows;
+  }, licS.svg);
   ck('and a non-study export draws only its own two credits',
     sRows.length >= 2 && sRows.every((y, i) => i === 0 || y - sRows[i - 1] === 14)
     && !/revidira serije|Klasifikacija i regije prema/.test(licS.svg),
