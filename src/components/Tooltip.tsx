@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
   D, ISOS, SHORTN, YEARS, IX2011, REG, REGOF,
-  natAt, fsum, klasOf, denom, regVal, KCOL, KLAB, badgeText, flowKind, fmtI, fmtR, sgn,
-} from '../lib/metrics.ts';
+  natAt, fsum, klasOf, denom, regVal, KCOL, KLAB, badgeText, flowKind, fmtI, fmtR, sgn, pct } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 
 import { setTipNode, placeTip, wasTouch } from '../lib/tip.ts';
@@ -171,7 +170,7 @@ function countyBlock(S: State, iso: string, yi: number): string {
   if (S.view === 'reg') {
     const rk = REGOF[iso];
     const rv = regVal(rk, yi, S.flow, S.den, S.cum);
-    const rs = S.den === 'abs' ? sgn(Math.round(rv), fmtI) : sgn(rv, fmtR) + ' %';
+    const rs = S.den === 'abs' ? sgn(Math.round(rv), fmtI) : pct(rv);
     /* …and the colour comes off the same rounded value the text does. Taken from
        the raw one, a region whose share rounds to "0,0 %" still painted red or
        blue — the tint asserting a direction the digits beside it had just

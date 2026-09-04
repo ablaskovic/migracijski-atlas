@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fmtI, fmtR, Y0, YEND } from '../lib/metrics.ts';
+import { fmtI, fmtR, Y0, YEND, pctPlain } from '../lib/metrics.ts';
 import { exportPNG, exportSVG } from '../lib/exportPng.ts';
 import { ensureFonts } from '../lib/exportFonts.ts';
 import { jlsGeo, regGeo } from '../lib/geoAsync.ts';
@@ -339,7 +339,7 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
                 onChange={e => setS({ thr: +e.target.value })} />
             )}
             <span className="thr-val" id="thrVal">
-              {S.thrRel ? '−' + fmtR.format(S.thrPct) + ' %' : '−' + fmtI.format(S.thr)}
+              {S.thrRel ? '−' + pctPlain(S.thrPct) : '−' + fmtI.format(S.thr)}
             </span>
           </div>
         </div>

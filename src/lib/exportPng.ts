@@ -1,7 +1,5 @@
 import {
-  ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
-  klasOf, paperKlasComparable, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc, marginFlow,
-  preMargin, preMarginNote, rampStops, arcMinNote,
+  ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND, klasOf, paperKlasComparable, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, exportDesc, marginFlow, preMargin, preMarginNote, rampStops, arcMinNote, pctPlain,
 } from './metrics.ts';
 import { ensureFonts, fontCss } from './exportFonts.ts';
 import { paperCaveatLine, paperExportLine, paperThrLine, regionReadingLine } from './credits.ts';
@@ -719,7 +717,7 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
     ctx.fillText(leg.badge, 222, ly + 9);
   } else {
     gradBar(ctx, 20, ly, 190, 10, leg.scale ?? divScale(leg.m), leg.m, true, leg.scale ? JMAP_STOPS : 10, leg.sample);
-    const lab = (v: number) => leg.rel ? fmtR.format(v) + ' %' : fmtI.format(Math.round(v));
+    const lab = (v: number) => leg.rel ? pctPlain(v) : fmtI.format(Math.round(v));
     ctx.fillStyle = '#5F6A72'; ctx.font = '400 9.5px "IBM Plex Mono",monospace';
     ctx.fillText('−' + lab(leg.m), 20, ly + 22);
     ctx.textAlign = 'center'; ctx.fillText('0', 115, ly + 22);
@@ -805,7 +803,7 @@ export function exportSVG(node: SVGSVGElement, S: State, dl = true): string {
     const neg = leg.kind === 'div';
     defs = svgGrad(u + 'lg', leg.scale ?? (neg ? divScale(leg.m) : seqScale(leg.m, S.dir)), leg.m, neg,
       leg.scale ? JMAP_STOPS : 10, leg.sample);
-    const lab = (v: number) => (leg.kind === 'div' && leg.rel) ? fmtR.format(v) + ' %' : fmtI.format(Math.round(v));
+    const lab = (v: number) => (leg.kind === 'div' && leg.rel) ? pctPlain(v) : fmtI.format(Math.round(v));
     legSvg = `<rect x="20" y="${ly}" width="190" height="10" fill="url(#${u}lg)" stroke="#D9DDD6"/>`;
     const la = `font-family="${MONO}" font-size="9.5" fill="#5F6A72"`;
     if (neg) legSvg += txt(20, ly + 22, '−' + lab(leg.m), la)

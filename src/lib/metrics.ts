@@ -93,6 +93,20 @@ export const arcMinNote = (): string =>
    sixth. The abs callers round before they get here, so nothing changes for
    them — except that a fractional value rounding to "0" also stops claiming a
    direction, which is the same bug. */
+/* The space before the per-cent sign, in one place. Every relative surface in
+   the app — the rail, the legend axis, the tooltip, the two grids, the
+   threshold readout, both export bands and the county aria-labels — wrote
+   `+ ' %'` itself, so "does English close it up?" was a question with eight
+   answers to change and no single place to decide it.
+   It stays open in both languages, and deliberately: Croatian orthography
+   requires the space, SI/ISO 80000-1 asks for it in any language, and this
+   atlas exports figures that cite a scientific paper. An English half that
+   closed it would make the same figure carry two conventions depending on
+   which language it was exported from. Locale-aware here so that decision can
+   be revisited in one line rather than in eight files. */
+export const pctUnit = (): string => L(' %', ' %');
+export const pct = (v: number): string => sgn(v, fmtR) + pctUnit();
+export const pctPlain = (v: number): string => fmtR.format(v) + pctUnit();
 export const sgn = (v: number, f: Pick<Intl.NumberFormat, 'format'>) => {
   const a = f.format(Math.abs(v));
   return (a === f.format(0) ? '' : v > 0 ? '+' : '−') + a;
@@ -574,7 +588,7 @@ export function countyAria(S: State, iso: string): string {
   /* …and says what the percentage is of. `+0,4 %` is two different figures
      depending on Vrijednosti, and this string was the same in both. */
   const num = (v: number) => (S.den === 'abs' ? sgn(Math.round(v), fmtI)
-    : sgn(v, fmtR) + ' %' + denName(S.den, S.yi));
+    : pct(v) + denName(S.den, S.yi));
   if (S.view === 'flow') {
     if (iso === S.sel) return n + L(' — odabrana županija', ' — selected county');
     /* `fsum(a, b)` is ODM[a][b], i.e. a → b — so `o` is the hub's outflow

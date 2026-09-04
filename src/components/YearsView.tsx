@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  D, SHORTN, YEARS, DOM, IX2007, FLOWN, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, fmtR, sgn, denName,
+  useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  D, SHORTN, YEARS, DOM, IX2007, FLOWN, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, sgn, denName, pct,
 } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
@@ -94,7 +95,7 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   /* memoised because the grid memo calls it — see MatrixView */
   const col = useMemo(() => divScale(m), [m]);
   const rel = S.den !== 'abs';
-  const fmt = useCallback((v: number) => (rel ? sgn(v, fmtR) + ' %' : sgn(Math.round(v), fmtI)), [rel]);
+  const fmt = useCallback((v: number) => (rel ? pct(v) : sgn(Math.round(v), fmtI)), [rel]);
 
   /* In-cell numbers when the cell is big enough for the widest value it holds —
        .mxnum is the class, so the export bakes the same white halo it bakes for

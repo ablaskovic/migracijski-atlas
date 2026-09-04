@@ -1,8 +1,5 @@
 import {
-  ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
-  val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, preMargin, preMarginNote, pragText, fmtI, fmtR,
-  arcMinNote,
-  ipfMargins, rampStops, denName, flowKind,
+  ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable, val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, preMargin, preMarginNote, pragText, fmtI, arcMinNote, ipfMargins, rampStops, denName, flowKind, pctPlain,
 } from '../lib/metrics.ts';
 import { PAPER_WINDOW, paperSplit, paperThrLine } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
@@ -42,7 +39,7 @@ function GradBar({ scale, m, rel, mark, stops = 10, sample }: {
   scale: (v: number) => string; m: number; rel: boolean; mark?: number | null; stops?: number;
   sample?: (k: number) => { off: number; v: number }[];
 }) {
-  const lab = rel ? (v: number) => fmtR.format(v) + ' %' : (v: number) => fmtI.format(Math.round(v));
+  const lab = rel ? (v: number) => pctPlain(v) : (v: number) => fmtI.format(Math.round(v));
   return (
     <>
       <div className="legend-bar" style={gradStyle(scale, m, true, stops, sample)}>

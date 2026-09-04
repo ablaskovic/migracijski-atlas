@@ -1,6 +1,5 @@
 import {
-  ISOS, D, REG, YEARS, DOM, RDOM, SHORTN,
-  val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, fmtI, fmtR, sgn,
+  ISOS, D, REG, YEARS, DOM, RDOM, SHORTN, val, regVal, klasOf, KCOL, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, fmtI, sgn, pct,
 } from '../lib/metrics.ts';
 import { jlsGeo, geoStatus } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
@@ -145,7 +144,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
   }
   const isRel = S.view !== 'flow' && S.view !== 'mx' && S.view !== 'jmap' && S.view !== 'klas' && S.den !== 'abs';
   const fmt = (d: Row) => {
-    if (isRel) return sgn(d.v, fmtR) + ' %';
+    if (isRel) return pct(d.v);
     if (S.view === 'mx' || S.view === 'jmap') return S.dir === 'net' ? sgn(Math.round(d.v), fmtI) : fmtI.format(Math.round(d.v));
     return S.view === 'flow' && S.dir !== 'net' ? fmtI.format(d.v) : sgn(Math.round(d.v), fmtI);
   };
