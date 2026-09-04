@@ -376,6 +376,15 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
           ' opens what is selected — the county card or the corridor; in the Years view they set the selected year. In the matrix, in Years and on the LAU map ')}
         <b> Home</b> / <b>End</b>{L(' i ', ' and ')}<b>PageUp</b> / <b>PageDown</b>
         {L(' skaču kroz mrežu.', ' jump across the grid.')}
+        {/* the rail is one Tab stop now, the way the two grids already were, so
+            the keys that reach its other rows have to be written down — a stop
+            the reader cannot walk is worse than the 21 stops it replaced. Placed
+            after the playback clause on purpose: the timeline sentence is read
+            out of App's own #spark branch and asserted key by key, and it is the
+            text BEFORE that clause. */}
+        <b>{L(' U popisu uz kartu ↑ ↓', ' In the list beside the map ↑ ↓')}</b>
+        {L(' pomiču se po poretku, a ', ' move along the ranking, and ')}<b>Home</b> / <b>End</b>
+        {L(' skaču na njegove krajeve.', ' jump to its ends.')}
         {/* …and the one key that gets a reader OUT. This paragraph named arrows,
             Home/End, PageUp/PageDown, space, +/−/0, Shift+arrows and Enter, and no
             dismissal key at all — while App runs an Escape cascade over the

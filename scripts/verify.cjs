@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 638;
+const EXPECTED_CHECKS = 639;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -865,8 +865,52 @@ const evalSafe = async (pg, fn) => {
   ck('header height <= 145 px at 1440 (v4 budget 138)', hdH <= 145, String(hdH));
 
   /* ── rail a11y + legend hover mark + detail card readout ── */
-  const nFocus = await page.evaluate(() => document.querySelectorAll('#railList .rrow[tabindex="0"]').length);
-  ck('rail rows keyboard-focusable (21)', nFocus === 21, String(nFocus));
+  /* One stop, not 21. The rail used to be 21 Tab presses between the map and
+     the scrubber — every row tabIndex 0 — while the two grids next to it have
+     answered on one roving stop for a long time. The count is asserted from both
+     ends so a rail with NO stop at all (a roving index parked past the end of a
+     shorter list) cannot pass by having nothing at tabindex 0. */
+  const nFocus = await page.evaluate(() => ({
+    zero: document.querySelectorAll('#railList .rrow[tabindex="0"]').length,
+    minus: document.querySelectorAll('#railList .rrow[tabindex="-1"]').length }));
+  ck('the rail is one roving tab stop over its 21 rows',
+    nFocus.zero === 1 && nFocus.minus === 20, JSON.stringify(nFocus));
+  /* …and the keys that replace those 20 presses. A roving stop is only half the
+     pattern: without the arrows the other rows become unreachable, which is a
+     regression and not a fix. Up/Down walk the ranking, Home/End are its ends,
+     and ArrowLeft stays the year step — the rail is where stepping the year is
+     most useful, since it re-ranks the list the reader is standing in. The stop
+     must also survive leaving: Tab out and Shift+Tab back returns to the row the
+     reader was on, which is the whole reason the index is not simply "the
+     focused row". */
+  const railKeys = await page.evaluate(async () => {
+    const rows = () => [...document.querySelectorAll('#railList .rrow')];
+    const nameAt = () => (document.activeElement.getAttribute('aria-label') || '').trim();
+    const key = k => document.activeElement.dispatchEvent(
+      new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+    rows()[0].focus();
+    const seq = [nameAt()];
+    for (const k of ['ArrowDown', 'ArrowDown', 'ArrowUp', 'End', 'Home']) {
+      key(k); await new Promise(r => setTimeout(r, 20)); seq.push(nameAt());
+    }
+    const y0 = document.querySelector('#bigYear').textContent.trim();
+    rows()[3].focus();
+    key('ArrowDown');
+    await new Promise(r => setTimeout(r, 40));
+    const yAfterDown = document.querySelector('#bigYear').textContent.trim();
+    /* the stop sits on the row focus is on, and on no other */
+    const at = rows().findIndex(r => r === document.activeElement);
+    const stop = rows().findIndex(r => r.getAttribute('tabindex') === '0');
+    return { seq, all: rows().map(r => (r.getAttribute('aria-label') || '').trim()),
+      y0, yAfterDown, at, stop, n: rows().length };
+  });
+  ck('the rail’s arrows walk its ranking, its ends are Home/End, and the year keeps ArrowLeft',
+    railKeys.n === 21 && railKeys.seq.length === 6
+    && railKeys.seq[0] === railKeys.all[0] && railKeys.seq[1] === railKeys.all[1]
+    && railKeys.seq[2] === railKeys.all[2] && railKeys.seq[3] === railKeys.all[1]
+    && railKeys.seq[4] === railKeys.all[20] && railKeys.seq[5] === railKeys.all[0]
+    && railKeys.at === 4 && railKeys.stop === 4 && railKeys.y0 === railKeys.yAfterDown,
+    JSON.stringify(railKeys).slice(0, 260));
   /* Ctrl+P is a plausible thing to do with an atlas, and there was no print
      stylesheet at all. The rail is an overflow-y:auto scroller inside a
      viewport-locked column, so at the A4 landscape content box only 11 of the 21

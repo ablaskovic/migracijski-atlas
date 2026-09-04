@@ -3,10 +3,11 @@ import {
 } from '../lib/metrics.ts';
 import { jlsGeo, geoStatus } from '../lib/geoAsync.ts';
 import { moveTip } from '../lib/tip.ts';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isKeyFocus } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import PairCard from './PairCard.tsx';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Patch, State } from '../lib/types.ts';
 
 /* `pair` is the corridor this row *points at* — the cell it highlights, the hub
@@ -86,6 +87,18 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
      was looking, and only when focus actually fell. */
   const listRef = useRef<HTMLDivElement>(null);
   const focusedRow = useRef<number | null>(null);
+  /* One tab stop over the whole list, the way the two grids have one over 420
+     cells and 556 municipalities. Every row was tabIndex 0, so the rail was 21
+     Tab presses (20 in the JLS view) sitting between the map and the scrubber,
+     for a reader who wanted the control after it; the vertical arrows did
+     nothing but scroll the container, since App scopes its own ArrowUp/Down,
+     Home and End to #spark. The list is a ranking, so Up/Down along it is what
+     those keys mean here, and Home/End are its two ends — the same four the
+     matrix cells already answer to.
+     `fr` is the index that carries the stop, not "the focused row": it survives
+     Tab leaving the rail, which is the point — Tab back returns to the row the
+     reader was on rather than to the top. */
+  const [fr, setFr] = useState(0);
   /* …and this list does not depend on the hover that rebuilds this component.
      jlsHl lives in root State, so every pointer crossing over a municipality
      re-rendered Rail, and the render body re-ran 556 jlsVal calls, 556
@@ -269,6 +282,28 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
       ? <>{L('Partneri · ', 'Partners · ')}<span lang="hr">{D[S.sel!]?.n || ''}</span></>
       : L('Poredak županija', 'County ranking');
 
+  /* Clamped on read rather than corrected in an effect: the row count changes
+     with the view (21 counties, 20 JLS, 5 regions, 20 corridors), and a stop
+     parked past the end would leave the list with NO tabIndex 0 at all — a rail
+     Tab cannot reach, which is worse than the 21 stops this replaces. */
+  const fri = rows.length ? Math.min(fr, rows.length - 1) : 0;
+  /* Focus is moved on the node directly, not through an effect on `fr`: all the
+     rows are mounted, so there is nothing to wait for, and the focus handler
+     below writes `fr` back — which keeps the stop and the focus ring on the same
+     row without a second source of truth.
+     stopPropagation as well as preventDefault, for the reason the matrix cells
+     give: without it App's window handler also sees the key. Shift is left
+     alone, because Shift+arrows are the documented pan and useZoom listens for
+     them on the window. */
+  const moveF = (e: ReactKeyboardEvent<HTMLDivElement>, to: number) => {
+    const all = listRef.current?.querySelectorAll<HTMLElement>('.rrow');
+    if (!all || !all.length) return;
+    e.preventDefault(); e.stopPropagation();
+    const want = Math.max(0, Math.min(all.length - 1, to));
+    setFr(want);
+    all[want].focus();
+  };
+
   const rowKeys = rows.map(d => (d.pair ? d.pair.join('') : d.jls != null ? 'j' + d.jls : d.iso)).join('|');
   useEffect(() => {
     const at = focusedRow.current;
@@ -282,6 +317,19 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
        one of its own */
     const want = all[Math.min(at, all.length - 1)];
     requestAnimationFrame(() => { if (want.isConnected && document.activeElement === document.body) want.focus(); });
+  }, [rowKeys]);
+
+  /* …and the other half of the same re-sort: a row that KEEPS its focus moves to
+     a new rank, and the stop has to move with it. Nothing re-fires onFocus for a
+     row that never lost focus, so without this the tabIndex 0 stays on the row
+     that now sits at the old index while the ring is somewhere else — Tab out
+     and back would land on a different row than the one the reader was reading. */
+  useEffect(() => {
+    const list = listRef.current;
+    const el = document.activeElement as HTMLElement | null;
+    if (!list || !el || !list.contains(el)) return;
+    const at = [...list.querySelectorAll<HTMLElement>('.rrow')].indexOf(el);
+    if (at >= 0) setFr(at);
   }, [rowKeys]);
 
   /* …and a row that KEEPS its focus across a re-sort has to take the tooltip
@@ -340,7 +388,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
                guarantee AT will expose. `img` is both valid and apt: name + bar +
                number is one small graphic, and it collapses to exactly the one
                string we want announced. */
-            role={canActivate(d) ? 'button' : 'img'} tabIndex={0}
+            role={canActivate(d) ? 'button' : 'img'} tabIndex={i === fri ? 0 : -1}
             /* .rname below keeps lang="hr" for the visible text, which IS just a
                place name. The row does not: its accessible name is a sentence —
                "Osječko-baranjska −8.7 %" — and marking the row Croatian sent the
@@ -375,6 +423,9 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
             onFocus={e => {
               lightOn(d);
               focusedRow.current = i;
+              /* the stop follows focus however focus arrived — a click, a
+                 restore after a re-sort, or the arrows below */
+              setFr(i);
               /* a click focuses the row too, and the pointer has already placed
                  the tip — the same guard the SVG handlers take */
               if (!isKeyFocus(e.currentTarget)) return;
@@ -385,6 +436,16 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
             onPointerMove={e => { if (!lit(d)) lightOn(d); moveTip(e); }}
             onClick={() => activate(d)}
             onKeyDown={e => {
+              /* the ranking's own axis. ArrowLeft/Right are deliberately NOT
+                 taken: they step the year, which re-ranks the list under the
+                 reader, and that is the one thing a rail row is a good place to
+                 do from. */
+              if (!e.shiftKey) {
+                if (e.key === 'ArrowDown') return moveF(e, i + 1);
+                if (e.key === 'ArrowUp') return moveF(e, i - 1);
+                if (e.key === 'Home') return moveF(e, 0);
+                if (e.key === 'End') return moveF(e, rows.length - 1);
+              }
               if (!canActivate(d)) return;
               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(d); }
             }}>
