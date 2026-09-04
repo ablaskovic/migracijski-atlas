@@ -2123,6 +2123,16 @@ const evalSafe = async (pg, fn) => {
      enters the AX tree already populated, which is exactly the case the
      always-mounted design exists to prevent. */
   await fresh('#v=reg&c=1&y=2024');
+  /* …once the region geometry has landed. `empty` is the whole point of this
+     check and #jstatus is NOT empty while REGGEO is null — geoAsync renders
+     "Učitavanje geometrije regija…" into it — so on a contended runner this
+     read a loading message and failed for a reason that has nothing to do with
+     the property. fresh() waits for #map plus 400 ms, which is not the same
+     wait. Waited on the region outlines the chunk draws, the way the JLS sweep
+     waits for its 556 paths, and left to the assertion if they never arrive. */
+  await page.waitForFunction(() => document.querySelectorAll('#map .regline, #map .reg').length > 0
+    && (document.querySelector('#jstatus') || {}).textContent.trim() === '',
+  { timeout: 20000 }).catch(() => {});
   const liveGeo = await probeLive(['#jstatus']);
   ck('an empty live region stays rendered, so it is registered before it speaks',
     [...liveEmpty, ...liveGeo].length === 3
