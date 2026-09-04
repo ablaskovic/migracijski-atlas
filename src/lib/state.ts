@@ -5,7 +5,7 @@
    survive a link that no longer produced its numbers (see hash.ts). */
 import { useEffect, useState } from 'react';
 import { YEARS } from './metrics.ts';
-import { PAPER_THR } from './credits.ts';
+import { PAPER_THR, PAPER_WINDOW } from './credits.ts';
 import { detectLang, storedLang } from './i18n.ts';
 import type { Den, Flow, State, View } from './types.ts';
 
@@ -18,7 +18,14 @@ import type { Den, Flow, State, View } from './types.ts';
    explicitly shared `l=` still wins over everything. */
 export const BASE: State = {
   lang: storedLang() ?? detectLang(),
-  view: 'saldo', flow: 'tot', den: 'abs', cum: true, yi: YEARS.indexOf(2024),
+  view: 'saldo', flow: 'tot', den: 'abs', cum: true,
+  /* PAPER_WINDOW.to, not 2024, and not YEND. The atlas opens on the last year
+     of the window the study covers, which is why every cumulative Nalaz reads
+     2011.–2024. and why the default is a year short of the series. Written as
+     the literal it looked like an off-by-one against YEND to anyone reading it
+     cold, and a refresh that carried the data to 2026 would have left it
+     silently two years behind the window it is meant to name. */
+  yi: YEARS.indexOf(PAPER_WINDOW.to),
   /* PAPER_THR, not 4500. credits.ts declares that constant with the note that
      it is the paper's threshold and "none of them should own it"; this was one
      of the copies that did. credits imports only i18n, so there is no cycle. */
