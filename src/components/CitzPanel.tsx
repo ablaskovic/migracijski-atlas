@@ -1,6 +1,7 @@
 import { scaleBand, scaleLinear } from 'd3-scale';
 import { max } from 'd3-array';
 import { CIT, cgroups, countryName, DEMO, YEARS, fmtI, sgn } from '../lib/metrics.ts';
+import { useMemo } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react';
 import type { Patch, State } from '../lib/types.ts';
 import { L, yr as yrOf, yrSpan } from '../lib/i18n.ts';
@@ -30,46 +31,59 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
   const zemRem = [DEMO.cTot[0] - DEMO.countries.reduce((a, c) => a + c[1], 0),
     DEMO.cTot[1] - DEMO.countries.reduce((a, c) => a + c[2], 0)];
   const zemMax = Math.max(DEMO.countries[0][1], zemRem[0]);
+  /* plain numbers, and the JSX below uses them too */
   const w = 276, h = 148, mL = 8, mR = 8, mT = 8, mB = 14;
-  const x = scaleBand<number>().domain(yy).range([mL, w - mR]).paddingInner(0.28).paddingOuter(0.06);
-  const mD = max(yy.map((_, i) => CIT.tot.d[i]))!;
-  const mO = max(yy.map((_, i) => CIT.tot.o[i]))!;
-  const y0 = mT + (h - mT - mB) * mD / (mD + mO);
-  const sD = scaleLinear().domain([0, mD]).range([y0, mT]);
-  const sO = scaleLinear().domain([0, mO]).range([y0, h - mB]);
+  /* Built only when the panel is OPEN. Hover state lives in root State, so
+     every pointer crossing in every view re-renders this component — and with
+     the chip collapsed, which is the default, it still constructed a scaleBand
+     and two scaleLinears and pushed up to 60 bar <rect>s and 10 frames before
+     reaching the `{open && …}` that throws them away. The header is what shows
+     when it is closed, and the header needs none of it.
+     A memo rather than a child component, so the JSX below stays where it is
+     and the deps say exactly what the chart depends on. */
+  const chart = useMemo(() => {
+    if (!open) return null;
+    const x = scaleBand<number>().domain(yy).range([mL, w - mR]).paddingInner(0.28).paddingOuter(0.06);
+    const mD = max(yy.map((_, i) => CIT.tot.d[i]))!;
+    const mO = max(yy.map((_, i) => CIT.tot.o[i]))!;
+    const y0 = mT + (h - mT - mB) * mD / (mD + mO);
+    const sD = scaleLinear().domain([0, mD]).range([y0, mT]);
+    const sO = scaleLinear().domain([0, mO]).range([y0, h - mB]);
 
-  const bars: ReactElement[] = [];
-  /* 1.4.11, on the panel's own terms. cgroups() stacks with 'ost' (#C6CCC4)
-     last, so the topmost segment of every arrivals bar and the bottommost of
-     every departures bar was that pale grey: measured against the chip body,
-     1,59:1 selected and 1,22:1 dimmed, so the visible top of the 2024 bar was
-     the teal segment below it and the bar read ~5,8 px shorter than its value.
-     At 0,45 / 0,30 EVERY segment of the four unselected years was under 2:1 —
-     Hrvatska 1,86, EU 1,66, Ukrajina 1,53, Azija 1,50, Susjedstvo 1,35 — so the
-     year-to-year comparison this panel exists for was unreadable. index.css
-     records the same rule for the swatch beside it ("its own edge has to clear
-     3:1") and gives it a --mut border; the bars had no stroke at all.
-     The dimmed years go to 0,7 (ink 4,0:1, gain 3,9:1) and each stack gets its
-     own outline, which is what now carries the total's edge — so the selected
-     year is emphasised by the weight of that outline rather than by an opacity
-     split that cost the other four their legibility. */
-  const frames: ReactElement[] = [];
-  yy.forEach((yr, i) => {
-    let up = 0, dn = 0;
-    for (const [k, , col] of cgroups()) {
-      const dv = CIT.g[k].d[i], ov = CIT.g[k].o[i];
-      if (dv > 0) bars.push(<rect key={`${yr}${k}d`} className={'cg cg-' + k} x={x(yr)} width={x.bandwidth()}
-        y={sD(up + dv)} height={sD(up) - sD(up + dv)} fill={col} opacity={yr === y ? 1 : 0.7} />);
-      if (ov > 0) bars.push(<rect key={`${yr}${k}o`} className={'cg cg-' + k} x={x(yr)} width={x.bandwidth()}
-        y={sO(dn)} height={sO(dn + ov) - sO(dn)} fill={col} opacity={yr === y ? 0.72 : 0.7} />);
-      up += dv; dn += ov;
-    }
-    const sw = yr === y ? 1.4 : 0.6;
-    if (up > 0) frames.push(<rect key={`${yr}fd`} className="citz-frame" x={x(yr)} width={x.bandwidth()}
-      y={sD(up)} height={y0 - sD(up)} strokeWidth={sw} />);
-    if (dn > 0) frames.push(<rect key={`${yr}fo`} className="citz-frame" x={x(yr)} width={x.bandwidth()}
-      y={y0} height={sO(dn) - y0} strokeWidth={sw} />);
-  });
+    const bars: ReactElement[] = [];
+    /* 1.4.11, on the panel's own terms. cgroups() stacks with 'ost' (#C6CCC4)
+       last, so the topmost segment of every arrivals bar and the bottommost of
+       every departures bar was that pale grey: measured against the chip body,
+       1,59:1 selected and 1,22:1 dimmed, so the visible top of the 2024 bar was
+       the teal segment below it and the bar read ~5,8 px shorter than its value.
+       At 0,45 / 0,30 EVERY segment of the four unselected years was under 2:1 —
+       Hrvatska 1,86, EU 1,66, Ukrajina 1,53, Azija 1,50, Susjedstvo 1,35 — so the
+       year-to-year comparison this panel exists for was unreadable. index.css
+       records the same rule for the swatch beside it ("its own edge has to clear
+       3:1") and gives it a --mut border; the bars had no stroke at all.
+       The dimmed years go to 0,7 (ink 4,0:1, gain 3,9:1) and each stack gets its
+       own outline, which is what now carries the total's edge — so the selected
+       year is emphasised by the weight of that outline rather than by an opacity
+       split that cost the other four their legibility. */
+    const frames: ReactElement[] = [];
+    yy.forEach((yr, i) => {
+      let up = 0, dn = 0;
+      for (const [k, , col] of cgroups()) {
+        const dv = CIT.g[k].d[i], ov = CIT.g[k].o[i];
+        if (dv > 0) bars.push(<rect key={`${yr}${k}d`} className={'cg cg-' + k} x={x(yr)} width={x.bandwidth()}
+          y={sD(up + dv)} height={sD(up) - sD(up + dv)} fill={col} opacity={yr === y ? 1 : 0.7} />);
+        if (ov > 0) bars.push(<rect key={`${yr}${k}o`} className={'cg cg-' + k} x={x(yr)} width={x.bandwidth()}
+          y={sO(dn)} height={sO(dn + ov) - sO(dn)} fill={col} opacity={yr === y ? 0.72 : 0.7} />);
+        up += dv; dn += ov;
+      }
+      const sw = yr === y ? 1.4 : 0.6;
+      if (up > 0) frames.push(<rect key={`${yr}fd`} className="citz-frame" x={x(yr)} width={x.bandwidth()}
+        y={sD(up)} height={y0 - sD(up)} strokeWidth={sw} />);
+      if (dn > 0) frames.push(<rect key={`${yr}fo`} className="citz-frame" x={x(yr)} width={x.bandwidth()}
+        y={y0} height={sO(dn) - y0} strokeWidth={sw} />);
+    });
+    return { x, y0, sD, sO, bars, frames };
+  }, [open, y, yy]);
 
   const td = CIT.tot.d[ci], to = CIT.tot.o[ci], ts = td - to;
   const onKey = (e: ReactKeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCitz(); } };
@@ -148,15 +162,15 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
           ) : (
             <>
               <svg id="citzSvg" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={L('Doseljeni i odseljeni prema državljanstvu', 'Arrivals and departures by citizenship')}>
-                {bars}
-                {frames}
+                {chart!.bars}
+                {chart!.frames}
                 {/* through the formatter, not `{yr}.` — the trailing dot is a
                     Croatian ordinal and this axis printed it in both languages.
                     The parameter was shadowing the imported `yr` helper, which is
                     why the literal was reached for in the first place. */}
                 {yy.map(v => (
                   <text key={v} className={'cyr' + (v === y ? ' on' : '')}
-                    x={x(v)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize="0.5625rem"
+                    x={chart!.x(v)! + chart!.x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize="0.5625rem"
                     fontFamily="var(--mono)" fontWeight={v === y ? 600 : 400}
                     /* --ink, not --acc. Teal at 9 px weight 600 is 4,72:1 over
                        the panel at BEST, and this body is 94 % panel plus 6 % of
@@ -170,7 +184,7 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                        .citz-frame already mark which year is selected. */
                     fill={v === y ? 'var(--ink)' : 'var(--mut)'}>{yrOf(v)}</text>
                 ))}
-                <line x1={mL} x2={w - mR} y1={y0} y2={y0} stroke="var(--ink)" strokeWidth={0.8} />
+                <line x1={mL} x2={w - mR} y1={chart!.y0} y2={chart!.y0} stroke="var(--ink)" strokeWidth={0.8} />
               </svg>
               <div className="citz-rows" id="citzRows">
                 {cgroups().map(([k, lab, col]) => (
