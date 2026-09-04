@@ -69,6 +69,18 @@ CNAMES = {atlas['c'][iso]['n']: iso for iso in ISOS}
 
 wb = openpyxl.load_workbook('raw/po-jls.xlsx', read_only=True, data_only=True)
 ws = wb['7.5.18.']
+# The 2018 national margins, read from the sheet instead of retyped. The
+# 'Republika Hrvatska' row of 7.5.18 publishes them — D = from another town in
+# the same county (intra), E = from another county (inter) — and both scripts
+# carried them as literals, one of the two places a fixed vintage can drift
+# from its source without anything noticing. The cross-check keeps its teeth:
+# the left-hand side comes from the Pitoski edge list and the right from the
+# DZS workbook, so it still compares two independent sources — and now the
+# right-hand one is the published row rather than a number someone typed.
+rh = next(r for r in ws.iter_rows(min_row=9, max_row=40, values_only=True)
+          if r[0] is not None and str(r[0]).strip() == 'Republika Hrvatska')
+RH_INTRA, RH_INTER = int(rh[3]), int(rh[4])
+RH_TOT = RH_INTRA + RH_INTER
 reg = []
 cur = None
 for r in ws.iter_rows(min_row=9, values_only=True):
@@ -124,7 +136,7 @@ for r in wsp.iter_rows(min_row=2, values_only=True):
         by_cty_intra[reg[si][0]] += w
     else: inter += w
 
-assert tot == 57465 and inter == 30384 and intra == 27081, (tot, inter, intra)
+assert tot == RH_TOT and inter == RH_INTER and intra == RH_INTRA, (tot, inter, intra, RH_TOT, RH_INTER, RH_INTRA)
 # NOT `sum(IN) == sum(OUT) == tot`: the loop above adds the same `w` to one OUT
 # bucket, one IN bucket and `tot` once per edge, so that identity cannot fail for
 # any input at all - not a mis-join, not a truncated edge list, not a duplicated
