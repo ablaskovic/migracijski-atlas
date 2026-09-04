@@ -137,6 +137,15 @@ export function decodeHash(hash: string): Patch {
   if (at('view') === 'flow' && !at('sel')) o.sel = HUB_MINT;
   if (at('view') === 'flow' || at('view') === 'mx') o.flowSeen = true;
   if (at('view') === 'jmap') { o.yi = YEARS.indexOf(2018); o.cum = false; }
+  /* Klasifikacija is always cumulative — klasOf reads val(…, true) whatever cum
+     says — so the codec has to say so too, exactly as it forces jmap's pair above.
+     The click path was repaired and this was not, so `#v=klas&c=0&y=2024` decoded
+     cum=false and was RE-EMITTED as `c=0`: a klas screen byte-identical to its
+     c=1 twin, with Vrijeme reading Kumulativno over a state that says annual, and
+     a permalink that carries the disagreement to the next reader. Every link the
+     app itself minted before the click-path fix has that shape, and so does any
+     hand-typed one. The next Saldo press is where the two twins part. */
+  if (at('view') === 'klas') o.cum = true;
   /* klas is always cumulative from 2011; so is any cum view */
   const ix2011 = YEARS.indexOf(2011);
   if ((at('view') === 'klas' || at('cum')) && at('yi') < ix2011) o.yi = ix2011;

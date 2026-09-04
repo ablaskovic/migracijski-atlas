@@ -182,7 +182,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 630;
+const EXPECTED_CHECKS = 631;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8173,6 +8173,28 @@ const evalSafe = async (pg, fn) => {
     /v=klas/.test(klasLink.klas) && /c=1/.test(klasLink.klas)
     && /c=0/.test(klasLink.back.hash) && /\+7\.010/.test(klasLink.back.top),
     JSON.stringify(klasLink));
+
+  /* …and the same for a link that ARRIVES that way, which the fix above did not
+     cover: it repaired the click path and left the codec, so `#v=klas&c=0&y=2024`
+     decoded cum=false and was re-emitted `c=0` — every klas link the app minted
+     before that fix has this shape, and so does any hand-typed one. Measured on
+     the pre-fix build: the screen is the cumulative one (Vrijeme pressed on
+     Kumulativno, rail +41.986) under a hash that says annual, and the next Saldo
+     press takes the hash's word for it and paints +7.010. The screen and the
+     permalink disagreeing is the whole defect, so both are read here. */
+  await fresh('#v=klas&c=0&y=2024');
+  const klasBoot = await page.evaluate(() => ({ hash: location.hash,
+    mode: (document.querySelector('#segMode button[aria-pressed="true"]') || {}).dataset?.v || null,
+    top: (document.querySelector('#railList .rrow .rval') || {}).textContent || '' }));
+  await click('#segView button[data-v="saldo"]');
+  await settle(450);
+  klasBoot.saldo = await page.evaluate(() => ({ hash: location.hash,
+    top: (document.querySelector('#railList .rrow .rval') || {}).textContent || '' }));
+  ck('a klas link that arrives annual is repaired by the codec, not just by the click',
+    /c=1/.test(klasBoot.hash) && !/c=0/.test(klasBoot.hash)
+    && klasBoot.mode === 'cum' && /\+41\.986/.test(klasBoot.top)
+    && /\+41\.986/.test(klasBoot.saldo.top) && /c=1/.test(klasBoot.saldo.hash),
+    JSON.stringify(klasBoot));
 
   /* ── the JLS paint is not computed in views that draw no municipality ──
      the three projection memos beside it carry a view term and jlsPaint did not,
