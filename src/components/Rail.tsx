@@ -263,6 +263,25 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     requestAnimationFrame(() => { if (want.isConnected && document.activeElement === document.body) want.focus(); });
   }, [rowKeys]);
 
+  /* …and a row that KEEPS its focus across a re-sort has to take the tooltip
+     with it. The tip is placed once, from the row's rect, by the focus handler
+     below; Tooltip's own layout effect then replays that stored point on every
+     year change, because placeTip() is `if (last) moveTip(last)`. In Matrica a
+     year step re-ranks the list, and a focused corridor row is keyed by its pair
+     — so it stays mounted, keeps focus, moves to a new rank, and the readout for
+     it is drawn beside whatever row now occupies its old position. The reader
+     sees one row ringed and its numbers somewhere else.
+     Re-anchored after the list commits, and only for KEYBOARD focus: a pointer
+     has already placed the tip where the pointer is, and moving it to a row's
+     corner under a resting cursor would be the same defect the other way. */
+  useEffect(() => {
+    const el = document.activeElement as HTMLElement | null;
+    if (!el || !listRef.current || !listRef.current.contains(el) || !isKeyFocus(el)) return;
+    const r = el.getBoundingClientRect();
+    if (!r.width) return;
+    moveTip({ clientX: r.right, clientY: r.bottom });
+  }, [rowKeys, S.yi, S.cum, S.dir, S.view]);
+
   return (
     /* the complementary landmark was unnamed while its whole content changes per
        view — landmark navigation announced "complementary" and nothing else */
