@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 625;
+const EXPECTED_CHECKS = 626;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -12002,6 +12002,11 @@ const evalSafe = async (pg, fn) => {
     for (const [grp, v, hash] of [['segFlow', 'int', ''], ['segDen', 'rel11', ''], ['segMode', 'yr', ''],
       ['segDir', 'out', '#v=flow&s=HR-21']]) {
       await fresh(hash);
+      /* at 390 these three groups are behind the header disclosure, and a click
+         on a node that is not laid out throws rather than fails — it took the
+         run down at 530/623. Opened first, which is also the state a reader
+         presses them in. */
+      await openMore();
       const before = await page.evaluate(CTRL_SNAP);
       await click(`#${grp} button[data-v="${v}"]`);
       const moved = movedBetween(before, await page.evaluate(CTRL_SNAP));
@@ -12014,6 +12019,9 @@ const evalSafe = async (pg, fn) => {
        reached in that shape. */
     for (const v of ['klas', 'reg', 'yrs', 'flow', 'mx', 'jmap']) {
       await fresh('');
+      /* the snapshot has to see the groups a view change adds and removes, and
+         at 390 they are inside the disclosure */
+      await openMore();
       const before = await page.evaluate(CTRL_SNAP);
       await click(`#segView button[data-v="${v}"]`);
       await settle(150);
@@ -12025,6 +12033,66 @@ const evalSafe = async (pg, fn) => {
     pressMoves.length === 0, pressMoves.slice(0, 3).join('  ;  ').slice(0, 300));
   ck('and a view change moves no control that survives it — the optional group only appears',
     viewMoves.length === 0, viewMoves.slice(0, 3).join('  ;  ').slice(0, 300));
+
+  /* ── the touch laptop: coarse chrome, fine pointer ──
+     A 2-in-1 or a touchscreen laptop with a trackpad answers `pointer: fine` and
+     `any-pointer: coarse`, and the two halves of this layout disagreed about
+     which of those to ask. The 44 px chrome is applied under any-pointer — the
+     re-padded segments, --hbw and --chiph doubled to 44 — while the breakpoint
+     that gives the page a scrolling layout to absorb it asked pointer:coarse,
+     which that device answers no. So the class most likely to be standing on
+     this ground got the chrome without the relief. Measured before, corridor
+     open, with Chrome's own pointer types set rather than a matchMedia stub —
+     the stub fools JS and not CSS, which is where this lives:
+       1280×720  paircard  102 px for 252 px of content
+       1280×640            22 px — a heading and nothing else
+       1100×710            92 px      1024×701   83 px
+     which is byte-for-byte the state MA4M-170 measured under touch emulation
+     before its fix; that fix moved the height threshold and left the query.
+     Its own browser, because pointer type is decided at launch. */
+  const hybridLap = [];
+  {
+    const hb = await puppeteer.launch({ args: ['--no-sandbox', '--lang=hr-HR',
+      '--force-device-scale-factor=1',
+      '--blink-settings=primaryPointerType=4,availablePointerTypes=6'] });
+    try {
+      const hp = await watch(await hb.newPage());
+      await pinHr(hp);
+      for (const [w, h] of [[1280, 720], [1280, 640], [1100, 710], [1024, 701]]) {
+        /* `isMobile: false` spelled out, and about:blank between: puppeteer's
+           setViewport re-issues the device-metrics override, and left to infer
+           its arguments it also re-issues touch emulation — which overwrites the
+           pointer types this browser was launched with. Measured: without both,
+           only the FIRST viewport reported any-pointer:coarse and the other
+           three silently became an ordinary laptop. And the URL is the same
+           every time, so without the blank hop the goto is a same-document
+           navigation and the page is never rebuilt at the new size. */
+        await hp.setViewport({ width: w, height: h, isMobile: false });
+        await hp.goto('about:blank').catch(() => {});
+        await hp.goto(url + '#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net',
+          { waitUntil: 'domcontentloaded' });
+        await hp.waitForFunction(() => !!document.querySelector('#map'), { timeout: 20000 }).catch(() => {});
+        await settle(800);
+        hybridLap.push({ w, h, ...await hp.evaluate(() => {
+          const p = document.querySelector('.paircard');
+          return { fine: !matchMedia('(pointer:coarse)').matches,
+            anyCoarse: matchMedia('(any-pointer:coarse)').matches,
+            hbw: getComputedStyle(document.documentElement).getPropertyValue('--hbw').trim(),
+            scrolling: getComputedStyle(document.body).display === 'block',
+            got: p ? Math.round(p.getBoundingClientRect().height) : 0,
+            need: p ? p.scrollHeight : 0 };
+        }) });
+      }
+      await hp.close();
+    } finally { await hb.close(); }
+  }
+  ck('a touch laptop gets the layout that pays for the chrome it is given',
+    hybridLap.length === 4
+    /* the premise: this really is a hybrid, and it really did get the 44 px
+       chrome — without both, the rest of the row is about some other device */
+    && hybridLap.every(r => r.fine && r.anyCoarse && r.hbw === '44px' && r.need > 200)
+    && hybridLap.every(r => r.scrolling && r.got >= r.need * 0.6),
+    JSON.stringify(hybridLap));
 
   /* The switch must not move out from under the pointer that just pressed it.
      Measured against the *other* language's layout, not against a tolerance. */

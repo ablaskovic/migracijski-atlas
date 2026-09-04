@@ -1272,8 +1272,18 @@ body.stage-collapsed .main{flex:none;height:420px}
    measurement at 1024×768, where the card gets 150 px — 701 is a different
    number, and everything between them got the coarse chrome without the
    scrolling layout's relief. 780 covers the whole band up to the height that
-   measurement was taken at. */
-@media (max-width:900px), (max-height:560px), ((pointer:coarse) and (max-height:780px)){
+   measurement was taken at.
+   `any-pointer`, not `pointer`: the 44 px chrome that makes this relief
+   necessary is applied under `any-pointer:coarse` — the re-padded segments, and
+   --hbw/--chiph doubled to 44 — while this leg asked `pointer:coarse`, which a
+   touch laptop with a trackpad answers NO. So exactly the device class that gets
+   the coarse chrome was the one that did not get the layout that pays for it: a
+   Surface Go or a 2-in-1 at 1280×720 kept the pinned one-viewport layout with
+   the doubled tokens, which is byte-for-byte the state measured above — a
+   corridor card given 102 px for 254 px of content, and ~22 px at 1280×640.
+   MapView reads TOKENS_COARSE (any-pointer) for stage-tight for this exact
+   reason; the CSS and the class agree about which pointer this is now. */
+@media (max-width:900px), (max-height:560px), ((any-pointer:coarse) and (max-height:780px)){
   /* Desktop pins the app to one viewport (body is a flex column, height:100%).
      On mobile the content is simply taller than the screen: leaving it flex made
      every child flex-shrink instead of overflow — the rail collapsed to 0 px and
