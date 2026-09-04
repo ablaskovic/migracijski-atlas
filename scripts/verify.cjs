@@ -14551,7 +14551,8 @@ const evalSafe = async (pg, fn) => {
      forced border, so the reader saw an outlined empty box whose fill they could
      not locate the end of: the bar read as 0 whatever its value. Asked of the
      browser under the emulation rather than computed from the declarations. */
-  await forced(true);
+  /* the emulation has been on since the top of this block; re-applying it here
+     read as if the state between the two calls were uncertain, which it is not */
   await fresh('#cz=2');
   await page.waitForFunction(() => document.querySelectorAll('#zemList .zbar span').length > 5,
     { timeout: 15000 }).catch(() => {});
@@ -14569,7 +14570,6 @@ const evalSafe = async (pg, fn) => {
     !zbarHc.none && zbarHc.fc && zbarHc.n > 5 && zbarHc.adjust === 'none'
     && zbarHc.style === 'solid' && zbarHc.w >= 1 && zbarHc.track >= 1,
     JSON.stringify(zbarHc));
-  await forced(false);
 
   /* ── the two grids own rows, and rows own cells ──
      ARIA 1.2 lets a `grid` own only row and rowgroup, and both grids owned their
