@@ -5897,14 +5897,29 @@ const evalSafe = async (pg, fn) => {
     const halo = getComputedStyle(g.querySelector('.fr-halo'));
     const ink = getComputedStyle(g.querySelector('.fr-ink'));
     const svg = window.__exportSVG(false) || '';
+    /* By what the ring IS, not by what MapView happens to call it. This was
+       `svg.includes('focusring')`, a grep for the group's class name, so
+       renaming that group while still baking it into the export passed — and
+       baking classes into attributes is exactly the transform the exporter
+       performs, so the name is the first thing that would go. In a Saldo map the
+       only dashed stroke anywhere is the ring's two: measured, 2 dashed elements
+       live in #map with the county focused, and 0 stroke-dasharray attributes in
+       the whole exported document. Both halves are asserted, so "the export has
+       no dash" cannot pass by the ring not having been drawn either. */
+    const p = new DOMParser().parseFromString(svg, 'image/svg+xml');
     return { has: true, halo: halo.stroke, haloW: parseFloat(halo.strokeWidth),
-      ink: ink.stroke, dash: ink.strokeDasharray, inExport: svg.includes('focusring') };
+      ink: ink.stroke, dash: ink.strokeDasharray,
+      exportRingClass: svg.includes('focusring'),
+      exportDashed: p.querySelectorAll('[stroke-dasharray]').length,
+      liveDashed: [...document.querySelectorAll('#map *')]
+        .filter(e => { const d = getComputedStyle(e).strokeDasharray; return d && d !== 'none'; }).length };
   });
   ck('a focused county draws a two-tone ring (white halo under an ink dash)',
     ring2.has && ring2.halo === 'rgb(255, 255, 255)' && ring2.haloW >= 4
     && ring2.ink === 'rgb(32, 38, 43)' && /\d/.test(ring2.dash), JSON.stringify(ring2));
   ck('the focus ring is UI state and never reaches the exported document',
-    ring2.has && ring2.inExport === false, JSON.stringify(ring2));
+    ring2.has && ring2.exportRingClass === false
+    && ring2.liveDashed >= 2 && ring2.exportDashed === 0, JSON.stringify(ring2));
 
   /* ── P2: the in-cell halo is baked, not left to a stylesheet the export lacks ──
      numbers only render at cell >= 22 px, which 1440 does not reach (19 px) */
