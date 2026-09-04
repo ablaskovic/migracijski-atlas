@@ -957,6 +957,21 @@ export default function App() {
   const live = S.playing ? L('Reprodukcija kroz godine u tijeku.', 'Playback through the years is running.')
     : `${yr(YEARS[S.yi])} · ${VLAB[S.view]} · ${S.cum || S.view === 'klas' ? L('kumulativno', 'cumulative') : L('godišnje', 'annual')}`
       + (card ? ` · ${L('kartica', 'card')}: ${card}` : '');
+  /* …on a trailing debounce, because a HELD arrow key steps the year about
+     thirty times a second and every step rewrote this line. `polite` queues:
+     NVDA reads the backlog after the key is released, so a reader who scrubbed
+     from 1998 to 2025 heard twenty-seven sentences describing years they had
+     already left. Only the last one is news, and 250 ms of quiet is what says
+     the reader has stopped. Playback is already held constant for the same
+     reason, one level up.
+     Seeded with the first value rather than empty: a region that fills in after
+     mount is a mutation, and would announce the opening state on every load. */
+  const [liveTxt, setLiveTxt] = useState(live);
+  useEffect(() => {
+    if (liveTxt === live) return undefined;
+    const t = setTimeout(() => setLiveTxt(live), 250);
+    return () => clearTimeout(t);
+  }, [live, liveTxt]);
 
   return (
     <>
@@ -987,7 +1002,7 @@ export default function App() {
         <Rail S={S} setS={up} selectCounty={selectCounty} setHL={setHL} openPair={openPair} openCorridor={openCorridor} setJlsHl={setJlsHl} />
       </main>
       <Scrubber S={S} setYi={setYi} togglePlay={togglePlay} />
-      <div className="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true">{live}</div>
+      <div className="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true">{liveTxt}</div>
       <footer className="ft">
         {/* ODbL §4.3 wants the licence named, not just the source — the legend
             did it, the footer, the export and the README did not. The names are
