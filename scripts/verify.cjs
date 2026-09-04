@@ -6977,19 +6977,39 @@ const evalSafe = async (pg, fn) => {
   await fresh('');
   const played = await page.evaluate(async () => {
     const sel = document.querySelector('#story');
-    sel.value = '1';
+    /* Nalaz 1, which lands on 2018, and NOT Nalaz 2, which lands on 2024. The
+       loop steps every 650 ms, so from 2024 the 1.500 ms wait below reaches 2025
+       — the end of the window — where the loop releases itself. The second
+       click, the one this block calls "stop", then landed on a stopped film at
+       the last year and RESTARTED it from 2011. Nothing leaked, because the next
+       block does a fresh(), but the probe was measuring the opposite of what it
+       says. From 2018 the same wait is two steps with twenty-three years still
+       to go, so the film is genuinely running when it is asked to stop. */
+    sel.value = '0';
     sel.dispatchEvent(new Event('change', { bubbles: true }));
     await new Promise(r => setTimeout(r, 350));
     const cap = !!document.querySelector('#storyCap');
     const y0 = document.querySelector('#bigYear').textContent;
-    document.querySelector('#play').click();
+    const play = document.querySelector('#play');
+    play.click();
     await new Promise(r => setTimeout(r, 1500));
     const y1 = document.querySelector('#bigYear').textContent;
-    document.querySelector('#play').click();
-    return { cap, y0, y1, capAfter: !!document.querySelector('#storyCap') };
+    /* the state the word "stop" presupposes, read before the press */
+    const running = play.getAttribute('aria-pressed');
+    play.click();
+    await new Promise(r => setTimeout(r, 120));
+    const stopped = play.getAttribute('aria-pressed');
+    const y2 = document.querySelector('#bigYear').textContent;
+    await new Promise(r => setTimeout(r, 900));
+    return { cap, y0, y1, running, stopped, y2,
+      /* and it stays stopped, on the year it stopped at */
+      y3: document.querySelector('#bigYear').textContent,
+      capAfter: !!document.querySelector('#storyCap') };
   });
   ck('the play loop really advances the year and clears the Nalaz caption',
-    played.cap && played.y1 !== played.y0 && !played.capAfter, JSON.stringify(played));
+    played.cap && played.y1 !== played.y0 && !played.capAfter
+    && played.running === 'true' && played.stopped === 'false' && played.y3 === played.y2,
+    JSON.stringify(played));
   /* …and it stops advancing while nobody is looking. Measured with Chrome's own
      background throttling on: hidden at 1998 with playback running, 40 s later
      the year was 2025 and #play released — the loop had run to the end and
