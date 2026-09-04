@@ -342,6 +342,16 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
           ' opens what is selected — the county card or the corridor; in the Years view they set the selected year. In the matrix, in Years and on the LAU map ')}
         <b> Home</b> / <b>End</b>{L(' i ', ' and ')}<b>PageUp</b> / <b>PageDown</b>
         {L(' skaču kroz mrežu.', ' jump across the grid.')}
+        {/* …and the one key that gets a reader OUT. This paragraph named arrows,
+            Home/End, PageUp/PageDown, space, +/−/0, Shift+arrows and Enter, and no
+            dismissal key at all — while App runs an Escape cascade over the
+            glossary, the corridor card, the three chip panels, the Nalaz banner,
+            the detail card and the tooltip, and returns focus to whatever opened
+            each. A keyboard reader who opens a panel and comes here to learn how
+            to close it found every key except that one. */}
+        {' '}<b>Esc</b>
+        {L(' zatvara pojmovnik, karticu, panel, nalaz ili opis ispod pokazivača — jedno po jedno — i vraća fokus na ono što ga je otvorilo.',
+          ' closes the glossary, a card, a panel, a finding or the readout under the pointer — one at a time — and returns focus to whatever opened it.')}
       </div>
 
       {/* The study states these about the very series the atlas paints, and the
