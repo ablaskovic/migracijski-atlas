@@ -237,6 +237,18 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     else if (d.pair) setS({ pairHl: d.pair });
     else setHL(d.iso);
   };
+  /* The pointer re-asserts what it is over whenever it moves. Hover and keyboard
+     focus write the SAME highlight, and only pointerenter set it — so after Tab
+     moved the highlight to the focused feature, a 1 px nudge inside the feature
+     the cursor was already in fired no enter, and onPointerMove replayed the
+     FOCUSED feature's readout under a cursor sitting on a different one, until a
+     border was crossed. That is one feature's numbers anchored over another,
+     which is the failure the focus placement itself was written to avoid.
+     Guarded, because this runs at pointer rate: the common case is a comparison. */
+  const lit = (d: Row): boolean => (d.jls != null ? S.jlsHl === d.jls
+    : d.reg ? S.regHl === d.iso
+      : d.pair ? !!S.pairHl && S.pairHl[0] === d.pair[0] && S.pairHl[1] === d.pair[1]
+        : S.hl === d.iso);
   const lightOff = (d: Row) => {
     if (d.jls != null) setJlsHl(null);
     else if (d.reg) setS({ regHl: null });
@@ -371,7 +383,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
               moveTip({ clientX: r.right, clientY: r.bottom });
             }}
             onBlur={() => { focusedRow.current = null; lightOff(d); }}
-            onPointerMove={moveTip}
+            onPointerMove={e => { if (!lit(d)) lightOn(d); moveTip(e); }}
             onClick={() => activate(d)}
             onKeyDown={e => {
               if (!canActivate(d)) return;

@@ -627,7 +627,12 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
                numbers. Matrica and Godine already position from pointerdown
                through their touch overlays; this is the same signal. */
             onPointerDown={moveTip}
-            onPointerMove={moveTip}
+            /* …and re-asserts which municipality, for the reason the county
+               paths do — with the pinch guard the enter carries. */
+            onPointerMove={e => {
+              if (!live.current.zoom.gesturing.current) live.current.setJlsHl(p.j);
+              moveTip(e);
+            }}
             onFocus={e => {
               /* through the guard, not through setS: clicking a municipality
                  raises pointerenter first, which has already written this
@@ -849,7 +854,16 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
                      this same file already points at #helpCard this way. */
                   aria-controls={S.view === 'flow' ? undefined : 'card'}
                   onPointerEnter={() => setHL(iso)} onPointerLeave={() => setHL(null)}
-                  onPointerMove={moveTip} onClick={() => selectCounty(iso)}
+                  /* The pointer re-asserts what it is over whenever it moves. Hover and keyboard
+                     focus write the SAME highlight, and only pointerenter set it — so after Tab
+                     moved the highlight to the focused feature, a 1 px nudge inside the feature
+                     the cursor was already in fired no enter, and onPointerMove replayed the
+                     FOCUSED feature's readout under a cursor sitting on a different one, until a
+                     border was crossed. That is one feature's numbers anchored over another,
+                     which is the failure the focus placement itself was written to avoid.
+                     Guarded, because this runs at pointer rate: the common case is a comparison. */
+                  onPointerMove={e => { setHL(iso); moveTip(e); }}
+                  onClick={() => selectCounty(iso)}
                   /* the ring is a keyboard affordance: drawn from the focus
                      event alone it also appeared on a plain mouse click */
                   /* …and the tip has to be placed, not merely shown. moveTip

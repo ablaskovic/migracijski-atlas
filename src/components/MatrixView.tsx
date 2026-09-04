@@ -350,8 +350,20 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      per visual state and reused. The handlers are reached through a ref that is
      rewritten every render, so a memoised element never holds a stale closure —
      which is the correctness bug this optimisation would otherwise buy with. */
-  const live = useRef({ setS, onCellFocus, onCellKey, drill });
-  live.current = { setS, onCellFocus, onCellKey, drill };
+  /* The pointer re-asserts what it is over whenever it moves. Hover and keyboard
+     focus write the SAME highlight, and only pointerenter set it — so after Tab
+     moved the highlight to the focused feature, a 1 px nudge inside the feature
+     the cursor was already in fired no enter, and onPointerMove replayed the
+     FOCUSED feature's readout under a cursor sitting on a different one, until a
+     border was crossed. That is one feature's numbers anchored over another,
+     which is the failure the focus placement itself was written to avoid.
+     Guarded, because this runs at pointer rate: the common case is a comparison. */
+  const hlPair = (a: string, b: string) => {
+    const cur = S.pairHl;
+    if (!cur || cur[0] !== a || cur[1] !== b) setS({ pairHl: [a, b] });
+  };
+  const live = useRef({ setS, onCellFocus, onCellKey, drill, hlPair });
+  live.current = { setS, onCellFocus, onCellKey, drill, hlPair };
   const rows = useMemo(() => {
     const rows: ReactElement[] = [];
     for (let r = 0; r < n; r++) {
@@ -378,7 +390,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
               `${D[a].n} — diagonal: moves within the same county are not part of the inter-county matrix`)}
             onPointerEnter={() => live.current.setS({ pairHl: [a, b] })}
             onPointerLeave={e => { if (e.pointerType !== 'touch') live.current.setS({ pairHl: null }); }}
-            onPointerMove={moveTip} />);
+            onPointerMove={e => { live.current.hlPair(a, b); moveTip(e); }} />);
           continue;
         }
         const v = mxCell(a, b, S.dir, S.yi, S.cum);
@@ -408,7 +420,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
                  the readout then painted at (0,0). The JLS paths take the same
                  signal for the same reason. */
               onPointerDown={moveTip}
-              onPointerMove={moveTip}
+              onPointerMove={e => { live.current.hlPair(a, b); moveTip(e); }}
               onFocus={e => live.current.onCellFocus(e, a, b)}
               onBlur={() => { setCellFoc(false); if (!COARSE) live.current.setS({ pairHl: null }); }}
               onKeyDown={e => live.current.onCellKey(e, a, b)}

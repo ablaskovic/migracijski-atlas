@@ -253,8 +253,20 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
      calls per pointermove here against 13,0 for Saldo's county map. The
      handlers go through a ref rewritten every render, so a reused element never
      holds a stale closure. */
-  const live = useRef({ setS, onCellFocus, onCellKey, pickYear });
-  live.current = { setS, onCellFocus, onCellKey, pickYear };
+  /* The pointer re-asserts what it is over whenever it moves. Hover and keyboard
+     focus write the SAME highlight, and only pointerenter set it — so after Tab
+     moved the highlight to the focused feature, a 1 px nudge inside the feature
+     the cursor was already in fired no enter, and onPointerMove replayed the
+     FOCUSED feature's readout under a cursor sitting on a different one, until a
+     border was crossed. That is one feature's numbers anchored over another,
+     which is the failure the focus placement itself was written to avoid.
+     Guarded, because this runs at pointer rate: the common case is a comparison. */
+  const hlCell = (iso: string, yi: number) => {
+    const cur = S.yrHl;
+    if (!cur || cur[0] !== iso || cur[1] !== yi) setS({ yrHl: [iso, yi] });
+  };
+  const live = useRef({ setS, onCellFocus, onCellKey, pickYear, hlCell });
+  live.current = { setS, onCellFocus, onCellKey, pickYear, hlCell };
   const rows = useMemo(() => {
     const rows: ReactElement[] = [];
     for (let r = 0; r < nR; r++) {
@@ -299,7 +311,7 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
                  and the leave question is per pointer, not per session */
               onPointerLeave={e => { if (e.pointerType !== 'touch') live.current.setS({ yrHl: null }); }}
               onPointerDown={moveTip}
-              onPointerMove={moveTip}
+              onPointerMove={e => { live.current.hlCell(iso, yi); moveTip(e); }}
               onFocus={e => live.current.onCellFocus(e, iso, yi)}
               onBlur={() => { setCellFoc(false); if (!COARSE) live.current.setS({ yrHl: null }); }}
               onKeyDown={e => live.current.onCellKey(e, yi)}
