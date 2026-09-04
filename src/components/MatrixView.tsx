@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { D, REG, SHORTN, MXORD, YEARS, mxCell, mxMax, divScale, seqScale, badgeText, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
@@ -403,7 +403,16 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
     if (!cur || cur[0] !== a || cur[1] !== b) setS({ pairHl: [a, b] });
   };
   const live = useRef({ setS, onCellFocus, onCellKey, onDiagKey, drill, hlPair });
-  live.current = { setS, onCellFocus, onCellKey, onDiagKey, drill, hlPair };
+  /* Written in a layout effect, not during render. React's rule is that a ref is
+     not mutated while rendering, and this assignment was: safe under createRoot
+     with no transitions, because nothing here discards a render — but a render
+     that IS discarded (Suspense, a transition) would leave the memoised cells
+     below calling closures over a state that never committed.
+     A layout effect runs after the DOM mutations of the commit and before paint,
+     so it is ordered before any event handler can fire; the handlers therefore
+     never see a stale value. No dependency array, because every commit is a new
+     set of closures. */
+  useLayoutEffect(() => { live.current = { setS, onCellFocus, onCellKey, onDiagKey, drill, hlPair }; });
   const rows = useMemo(() => {
     const rows: ReactElement[] = [];
     for (let r = 0; r < n; r++) {

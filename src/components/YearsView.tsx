@@ -1,5 +1,5 @@
 import {
-  useCallback, useEffect, useMemo, useRef, useState } from 'react';
+  useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   D, SHORTN, YEARS, DOM, IX2007, FLOWN, val, yrsCols, yrsOrder, divScale, marginFlow, fmtI, sgn, denName, pct,
 } from '../lib/metrics.ts';
@@ -280,7 +280,16 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
     if (!cur || cur[0] !== iso || cur[1] !== yi) setS({ yrHl: [iso, yi] });
   };
   const live = useRef({ setS, onCellFocus, onCellKey, pickYear, hlCell });
-  live.current = { setS, onCellFocus, onCellKey, pickYear, hlCell };
+  /* Written in a layout effect, not during render. React's rule is that a ref is
+     not mutated while rendering, and this assignment was: safe under createRoot
+     with no transitions, because nothing here discards a render — but a render
+     that IS discarded (Suspense, a transition) would leave the memoised cells
+     below calling closures over a state that never committed.
+     A layout effect runs after the DOM mutations of the commit and before paint,
+     so it is ordered before any event handler can fire; the handlers therefore
+     never see a stale value. No dependency array, because every commit is a new
+     set of closures. */
+  useLayoutEffect(() => { live.current = { setS, onCellFocus, onCellKey, pickYear, hlCell }; });
   const rows = useMemo(() => {
     const rows: ReactElement[] = [];
     for (let r = 0; r < nR; r++) {
