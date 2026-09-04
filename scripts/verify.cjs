@@ -14093,8 +14093,15 @@ const evalSafe = async (pg, fn) => {
      command, that command is the repo's own, and the repo's own runs tsc and
      oxlint before vite. */
   const gate = (() => {
-    const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
-    const vc = JSON.parse(fs.readFileSync(path.resolve('vercel.json'), 'utf8'));
+    /* __dirname, not cwd. These three were the last cwd-relative reads in the
+       file — the defect MA3-053 removed from the rest of it, back in two more
+       places. Run as `node ../scripts/verify.cjs C:/repo/dist` from anywhere but
+       the repo root, ~590 checks pass and then this readFileSync throws ENOENT,
+       which escapes to the outer handler: harness error, ABORTED, and the ~20
+       checks after it never attempted. The suite's own inputs do not depend on
+       where it was invoked from. */
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'));
+    const vc = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../vercel.json'), 'utf8'));
     return { build: pkg.scripts?.build || '', cmd: vc.buildCommand || '' };
   })();
   ck('the deploy build typechecks and lints before it bundles',
@@ -14157,7 +14164,7 @@ const evalSafe = async (pg, fn) => {
      "older than v2.6.0". The plugin throws now; this is the other half, because
      a build that cannot stamp and a suite that never looks are two failures. */
   const stamp = (() => {
-    const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'));
     const html = URLMODE ? null : fs.readFileSync(path.resolve(arg, 'index.html'), 'utf8');
     const got = (html || '').match(/<html[^>]*\sdata-v="([^"]+)"/);
     return { want: pkg.version, got: got ? got[1] : null };
