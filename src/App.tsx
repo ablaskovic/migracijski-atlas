@@ -319,7 +319,15 @@ export default function App() {
     if (p.sel) chosen.current.add(p.sel);
     if (p.pair) chosen.current.add(p.pair);
     if (p.view) setView(p.view);
-    up({ ...p, story: i, playing: false });
+    /* …and no corridor the preset did not ask for. setView returns early on a
+       same-view pick, so a Tokovi or Matrica preset that names a hub without a
+       partner would inherit whatever pair was open and re-point the corridor
+       card at a county the reader chose in a different question — the shape
+       selectCounty guards against for a plain click. Every shipped preset that
+       names a hub also names a partner, so nothing changes today; the guard is
+       here because the next one need not. */
+    const clearPair = p.sel && !p.pair ? { pair: null } : null;
+    up({ ...p, ...clearPair, story: i, playing: false });
   };
 
   /* chip panels are mutually exclusive */
@@ -606,14 +614,17 @@ export default function App() {
   }, [S, resetSeq]);
   useEffect(() => {
     const onPop = () => {
-      lastView.current = readHash(location.hash).view ?? BASE.view;
+      /* decoded ONCE. The same hash was parsed here and again for the patch
+         ten lines down — two full passes over the codec, including its story guard
+         and its per-field validation, for one event. */
+      const patch = readHash(location.hash);
+      lastView.current = patch.view ?? BASE.view;
       /* `help` and `flowSeen` are deliberately not in the permalink, so folding
          BASE back in would close the glossary and re-arm the first-entry 2018
          jump as a side effect of pressing Back. Carry them across instead. */
       /* the outgoing view's year window, for the same reason every other
          transition records it — Back is a view change like any other */
       vmem.current[ref.current.view] = { yi: ref.current.yi, cum: ref.current.cum };
-      const patch = readHash(location.hash);
       /* the entry being restored names its own county, and that name is as much
          a choice as a click was — see linkSel */
       const ls = linkSel(location.hash);
