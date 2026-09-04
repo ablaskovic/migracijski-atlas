@@ -166,8 +166,12 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
               states where the footer link and the glossary citation already carry it. A
               screen reader on the English UI otherwise voices them with English
               phonemes. */}
+          {/* …and no lang="hr" on the anchor itself any more: its visible text is
+              PAPER.short, which now follows the language. The aria-label still
+              carries the Croatian citation, and that one is quoted rather than
+              composed by the atlas. */}
           {paperPending() ? paperSub() : (
-            <a className="paper-link" lang="hr" href={PAPER.url} target="_blank" rel="noopener noreferrer"
+            <a className="paper-link" href={PAPER.url} target="_blank" rel="noopener noreferrer"
               aria-label={`${PAPER.short} — ${PAPER.citation} ${L('Otvara se u novoj kartici.', 'Opens in a new tab.')}`}>{paperSub()}</a>
           )}</div>
       </div>

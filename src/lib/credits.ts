@@ -32,7 +32,16 @@ export const PAPER = {
   /** Full hr-HR citation. */
   citation: `${AUTHORS} (${YEAR}). ${TITLE}. ${JOURNAL}.`,
   /** Short form for chrome with one line to spend (header subtitle, export). */
-  short: `Maras i Vinovrški (${YEAR})`,
+  /* Language-aware, because the atlas COMPOSED this string — the conjunction and
+     the ordinal dot are the atlas's own Croatian, not the paper's. The English
+     header, footer, glossary and export band all printed "Maras i Vinovrški
+     (2026.)" unchanged, while licences.ts translates the exactly parallel
+     'Pitoski i sur. (2021.)' -> 'Pitoski et al. (2021)' for this same reason.
+     PAPER.citation stays Croatian in both languages: that one is the printed
+     record and is quoted, not composed.
+     A getter, so every existing PAPER.short read follows the toggle without
+     changing. */
+  get short() { return L(`Maras i Vinovrški (${YEAR})`, 'Maras and Vinovrški (2026)'); },
   journal: JOURNAL,
   /** Landing page — Hrčak, open access. */
   url: 'https://hrcak.srce.hr/349820',
@@ -185,9 +194,16 @@ export const paperCheckNote = (): string => paperPending()
    so a screen reader voiced the short citation and the journal name with English
    phonemes — the thing this project annotates everywhere else. The pending
    branch has no citation in it, so it is prose in whichever language is on. */
-export const paperTermCite = (): string => (paperPending() ? '' : `${PAPER.short}, ${PAPER.journal}`);
+/* Only the JOURNAL is Croatian by construction now that the short form follows
+   the language — so the two are handed over separately and the caller tags the
+   half that needs it. Wrapping the whole run in lang="hr", as it was, would put
+   the English "Maras and Vinovrški (2026)" inside a Croatian span and have a
+   screen reader voice it with Croatian phonemes: the same defect one direction
+   over. */
+export const paperTermCite = (): string => (paperPending() ? '' : PAPER.short + ', ');
+export const paperTermJournal = (): string => (paperPending() ? '' : PAPER.journal);
 export const paperTermTail = (): string => (paperPending()
   ? L('znanstveni rad kojemu je atlas nadopuna; još nije javno objavljen — v. „Rad i atribucija” niže',
     'the paper this atlas is a companion to; not yet published — see “The paper and attribution” below')
   : L(' — v. „Rad i atribucija” niže', ' — see “The paper and attribution” below'));
-export const paperTerm = (): string => paperTermCite() + paperTermTail();
+export const paperTerm = (): string => paperTermCite() + paperTermJournal() + paperTermTail();
