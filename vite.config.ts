@@ -36,14 +36,17 @@ const stampVersion = {
 
 const dropDataChunkMaps = {
   name: 'drop-data-chunk-maps',
-  generateBundle(_opts: unknown, bundle: Record<string, { type: string; code?: string }>) {
+  /* Deleting the two .map assets is the whole of it. This also stripped a
+     `//# sourceMappingURL` comment off the data chunks, and with
+     `build.sourcemap: 'hidden'` below there is never one to strip: hidden is
+     precisely 'emit the map, emit no comment'. Verified against the shipped
+     dist — 3 JS chunks, 0 of them carrying a sourceMappingURL comment — so that
+     branch had nothing to match and its removal changes no byte of the output.
+     It read as the thing doing the work, which is worse than doing nothing. */
+  generateBundle(_opts: unknown, bundle: Record<string, { type: string }>) {
     const isData = (n: string) => /geo_(jls|regions5)-[\w-]+\.js$/.test(n);
     for (const name of Object.keys(bundle)) {
-      if (isData(name.replace(/\.map$/, '')) && name.endsWith('.map')) { delete bundle[name]; continue; }
-      const c = bundle[name];
-      if (c.type === 'chunk' && isData(name) && typeof c.code === 'string') {
-        c.code = c.code.replace(/\r?\n?\/\/# sourceMappingURL=[^\r\n]*\r?\n?$/, '\n');
-      }
+      if (name.endsWith('.map') && isData(name.replace(/\.map$/, ''))) delete bundle[name];
     }
   },
 };
