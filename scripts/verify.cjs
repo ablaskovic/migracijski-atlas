@@ -1314,7 +1314,13 @@ const evalSafe = async (pg, fn) => {
   await settle(200);
   const arcSame = (a, b) => Math.abs(a - b) <= 0.6;
   ck('arcs, arrowheads, the hub dot and the dash hold their screen size at KMAX',
-    arcAtMax.k >= 7.9 && arcSame(arcAt1.w, arcAtMax.w) && arcSame(arcAt1.h, arcAtMax.h)
+    /* …and the FIRST measurement was taken at k = 1, which nothing said. The
+       check compares at-1 against at-max and asserted only that the second
+       reached 7.9, so a page that booted pre-zoomed would have compared max
+       against max and found them equal — the strongest possible pass over the
+       weakest possible evidence. */
+    arcAt1.k === 1 && arcAtMax.k >= 7.9
+    && arcSame(arcAt1.w, arcAtMax.w) && arcSame(arcAt1.h, arcAtMax.h)
     && arcSame(arcAt1.hub, arcAtMax.hub) && arcAt1.dash === arcAtMax.dash,
     JSON.stringify({ one: arcAt1, max: arcAtMax }));
 
