@@ -128,7 +128,9 @@ export const NO_AFFIL = (): string => L(
 /* The exported image is the artifact that leaves the app — there is no footnote
    to click through to and no link either, so it carries the DOI as text. Only
    the two views that reproduce the study's method (klasifikacija: the threshold;
-   regije: the grouping) say anything; the other four take nothing from it. */
+   regije: the grouping) say anything; the other five take nothing from it —
+   there are seven, and this said four from before Matrica, JLS karta and
+   Godine existed. */
 export const paperExportLine = (): string => (paperPending()
   ? L('Klasifikacija i regije prema još neobjavljenom znanstvenom radu (referenca po objavi)',
     'Classification and regions after a paper not yet published (reference on publication)')
@@ -141,7 +143,7 @@ export const paperExportLine = (): string => (paperPending()
    the two side by side — so an image that cites it by DOI while showing a
    different class count owes them the reason on the same image. Its own line
    for the same reason `paperExportLine` has one: appended, it is the half the
-   canvas edge clips. Same two-view scoping — the other four take nothing from
+   canvas edge clips. Same two-view scoping — the other five take nothing from
    the study and must not imply they disagree with it either. */
 export const paperCaveatLine = (): string =>
   L('DZS naknadno revidira serije, pa se pojedine vrijednosti i razredi razlikuju od objavljenih u radu',

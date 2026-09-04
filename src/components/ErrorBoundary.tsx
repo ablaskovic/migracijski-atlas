@@ -23,9 +23,11 @@ import type { ErrorInfo, MouseEvent, ReactNode } from 'react';
 
    Deliberately static: bilingual, because a render throw may well have come from
    the i18n path, and built from literals and `location` alone so the fallback
-   cannot itself re-throw. The two affordances are the two #bootFail already
-   offers — reload, and reload without the fragment — because a permalink is the
-   most likely thing to have carried the reader into an unrenderable state. */
+   cannot itself re-throw. The two affordances are the reload #bootFail asks
+   for — as a link here, since by this point a script can run, where #bootFail
+   is an instruction and no anchor at all — and one #bootFail cannot offer: the
+   same address without the fragment, because a permalink is the most likely
+   thing to have carried the reader into an unrenderable state. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
 
