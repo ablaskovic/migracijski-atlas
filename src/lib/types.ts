@@ -93,7 +93,20 @@ export interface DemoData {
   cTot: [d: number, o: number];        /* vanjska ukupno */
 }
 
-export interface CountyProps { shapeISO: string; shapeName: string }
+/* The two the app reads, and the three it does not. geo_counties.json ships
+   geoBoundaries' own shapeID, shapeGroup and shapeType on every feature — 1.553
+   bytes of the file's 92.492, 1,7 % — and nothing here has ever looked at them.
+   Declared for the same reason AtlasRaw declares natRH: this interface is the
+   only description of that file in the repo, and one that omits three of its
+   five keys reads as one that forbids them.
+   Kept rather than stripped in the pipeline: shapeID is geoBoundaries' own
+   identifier for the polygon, which is what makes the ODbL attribution
+   traceable back to a source record, and 1,7 % of a file that is not on the
+   first-paint path is a poor trade for losing that. */
+export interface CountyProps {
+  shapeISO: string; shapeName: string;
+  shapeID?: string; shapeGroup?: string; shapeType?: string;
+}
 export interface RegionProps { reg: string }
 /* geo_jls.json — measured 2018 per-JLS internal-migration totals baked into geometry */
 export interface JlsProps { j: number; n: string; c: number; i: number; o: number }
