@@ -193,22 +193,23 @@ export const paperCheckNote = (): string => paperPending()
   : L('Sve što je ovdje pripisano radu možete provjeriti u izvoru — poveznica je gore.',
     'Everything attributed here to the paper can be checked against the source — the link is above.');
 
-/** The `rad` shorthand the legend and the rail use, defined in one place. */
-/* Split, because half of it is Croatian by construction and half is the
-   glossary's own sentence. On the English UI the whole run resolved to lang=en,
-   so a screen reader voiced the short citation and the journal name with English
-   phonemes — the thing this project annotates everywhere else. The pending
-   branch has no citation in it, so it is prose in whichever language is on. */
-/* Only the JOURNAL is Croatian by construction now that the short form follows
-   the language — so the two are handed over separately and the caller tags the
-   half that needs it. Wrapping the whole run in lang="hr", as it was, would put
-   the English "Maras and Vinovrški (2026)" inside a Croatian span and have a
-   screen reader voice it with Croatian phonemes: the same defect one direction
-   over. */
+/** The `rad` shorthand: three pieces, because they are tagged differently.
+    HelpPanel assembles the glossary entry from them; there is no joined form,
+    and the one that used to sit at the bottom of this block had no callers at
+    all — a "defined in one place" helper that nothing read, so the one place
+    was nowhere. */
+/* Split, because the pieces are not in the same language. On the English UI the
+   whole run resolved to lang=en, so a screen reader voiced the citation and the
+   journal name with English phonemes — the thing this project annotates
+   everywhere else. The pending branch has no citation in it, so it is prose in
+   whichever language is on.
+   Only the JOURNAL is Croatian by construction now that the short form follows
+   the language, so the caller tags that half alone: wrapping the whole run in
+   lang="hr" would put the English "Maras and Vinovrški (2026)" inside a Croatian
+   span, which is the same defect one direction over. */
 export const paperTermCite = (): string => (paperPending() ? '' : PAPER.short + ', ');
 export const paperTermJournal = (): string => (paperPending() ? '' : PAPER.journal);
 export const paperTermTail = (): string => (paperPending()
   ? L('znanstveni rad kojemu je atlas nadopuna; još nije javno objavljen — v. „Rad i atribucija” niže',
     'the paper this atlas is a companion to; not yet published — see “The paper and attribution” below')
   : L(' — v. „Rad i atribucija” niže', ' — see “The paper and attribution” below'));
-export const paperTerm = (): string => paperTermCite() + paperTermJournal() + paperTermTail();
