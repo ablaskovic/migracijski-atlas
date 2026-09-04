@@ -19,23 +19,22 @@
    would not.
 
    Licence: SIL Open Font License 1.1 for both families; the text ships in
-   public/fonts/OFL-*.txt (served at ./fonts/ so the built site carries it, as OFL §2 requires of anything redistributing the font files) and is named in LICENSE. font-display:optional
-   so text paints in the metric-matched fallback immediately, without blocking on
-   169 kB and without ever re-laying out. See the block below for why not swap. */
-@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:optional;src:url('./fonts/ibm-plex-mono-400-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
-@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:optional;src:url('./fonts/ibm-plex-mono-400-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
-@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:optional;src:url('./fonts/ibm-plex-mono-500-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
-@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:optional;src:url('./fonts/ibm-plex-mono-500-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
-@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:optional;src:url('./fonts/ibm-plex-sans-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
-@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:optional;src:url('./fonts/ibm-plex-sans-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
-@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:optional;src:url('./fonts/ibm-plex-sans-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
-@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:optional;src:url('./fonts/ibm-plex-sans-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
-@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:optional;src:url('./fonts/ibm-plex-sans-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
-@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:optional;src:url('./fonts/ibm-plex-sans-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
-@font-face{font-family:'Oswald';font-style:normal;font-weight:500;font-display:optional;src:url('./fonts/oswald-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
-@font-face{font-family:'Oswald';font-style:normal;font-weight:500;font-display:optional;src:url('./fonts/oswald-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
-@font-face{font-family:'Oswald';font-style:normal;font-weight:600;font-display:optional;src:url('./fonts/oswald-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
-@font-face{font-family:'Oswald';font-style:normal;font-weight:600;font-display:optional;src:url('./fonts/oswald-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+   public/fonts/OFL-*.txt (served at ./fonts/ so the built site carries it, as OFL §2 requires of anything redistributing the font files) and is named in LICENSE. font-display:swap so text paints
+   in the fallback immediately rather than blocking on 169 kB. */
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('./fonts/ibm-plex-mono-400-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('./fonts/ibm-plex-mono-400-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/ibm-plex-mono-500-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/ibm-plex-mono-500-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url('./fonts/ibm-plex-sans-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url('./fonts/ibm-plex-sans-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/ibm-plex-sans-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/ibm-plex-sans-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/ibm-plex-sans-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/ibm-plex-sans-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Oswald';font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/oswald-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Oswald';font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/oswald-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Oswald';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/oswald-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Oswald';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/oswald-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 
 /* The UI is built on glyphs the subsets above do not contain: → ← ↔ ⇄ ⟲ ⤢ are
    outside both the latin and latin-ext ranges Google Fonts subsets to, so every
@@ -50,9 +49,8 @@
    if a glyph starts carrying meaning by itself.
 
    ── Metric-matched fallbacks ──────────────────────────────────────────────────
-   font-display:swap, which these faces used to carry, means text paints in a
-   fallback and is re-laid out when the real one arrives. That re-layout was the
-   *entire* measured CLS:
+   font-display:swap above means text paints in a fallback face and is re-laid
+   out when the real one arrives. That re-layout was the *entire* measured CLS:
    one shift, at t=988 ms, worth 0,1038 — Lighthouse desktop scored 0,105 and
    named "Web font loaded" as the cause of all of it. It moved <main>, the fixed
    scrubber, the footer (67 → 75 px, one wrapped line of 9,5 px mono) and the
@@ -82,25 +80,36 @@
    is set by the ::after ghost carrying the ENGLISH title, which the caps-only
    fit does not cover, so the h1 shrank 375,7 → 372,8 px and took the HR/EN
    switch 2,90 px with it.
-   No per-label size-adjust exists, so the swap is closed instead of fitted:
-   font-display:optional means a face that misses the ~100 ms block period is not
-   applied for that page load at all. A first visit on a slow connection keeps the
-   metric-matched Arial, Courier New and Arial Narrow — which is what the rows
-   below are for, and they are load-bearing now rather than transitional — and
-   the next visit gets the real faces from cache, with no shift in either case.
+   No per-label size-adjust exists, so this residue cannot be fitted away. Both
+   exits from it were measured before this paragraph was written, and both were
+   rejected.
 
-   All three families, IBM Plex Mono included. Mono was expected to keep swap,
-   because its advances match the fitted sample to 0,172 px and the corrected
-   vertical overrides below close its line-box gap. Measured, that was not
-   enough: holding all 22 woff2 and releasing them at 1350x940 still re-broke the
-   footer's second line, moving one span 1.184,59 px and three paper links 79,87 /
-   45,80 / 45,64 px, because a per-word error of a fraction of a percent
-   accumulates along a long line until it crosses a wrap point. A ratio fitted on
-   one string cannot promise anything about where another one wraps.
-   With all three optional, the same probe reports ZERO boxes moved by more than
-   0,05 px — 270 elements at 1350x940 and 1440x900, 266 at 390x844, each at
-   device scale 1 and 2. The CLS guarantee is now true by construction rather
-   than by fitting, which is the only form of it a single scalar could keep.
+   font-display:optional removes the shift by construction — a face that misses
+   the ~100 ms block period is not applied for that page load, so nothing
+   re-lays out. Measured with all sixteen faces switched to it: ZERO boxes moved
+   at 1350x940, 1440x900 and 390x844, at device scale 1 and 2. It was tried and
+   REJECTED on what else it measured: the real faces then almost never apply.
+   Reading .hd-title's width, where 372,8 px is Oswald and 375,7 px is Arial
+   Narrow, optional painted the real face only on a first uncached load over
+   unthrottled localhost, and the fallback on a reload, on a warm-cache second
+   visit, and on all three at 1600 kbps; swap paints 372,8 px on every one of the
+   six. Trading the atlas's typography away on nearly every visit, to remove a
+   few pixels of movement, is a worse page and not a better one.
+
+   Preloading the three latin subsets (80 kB) closes the window on a fast
+   connection and not on a slow one, which is the case that actually shifts —
+   and the paragraph above has already rejected that trade for the mobile
+   profile, where it would compete with the entry chunk.
+
+   So the swap stays and the residue is measured rather than claimed. With the
+   corrected vertical overrides below, holding all 22 woff2 and releasing them at
+   1350x940 moves 38 boxes by more than 0,5 px, against 48 before them: the
+   line-box half of the problem is gone and the advance half is not. What remains
+   is the Vrijeme group at 6,86 px and the footer's second line re-breaking when
+   Mono lands — one span 1.184,59 px, three paper links 79,87 / 45,80 / 45,64 —
+   because a per-word error of a fraction of a percent accumulates along a long
+   line until it crosses a wrap point. scripts/verify.cjs pins that list by name
+   and by value, so it can only shrink.
 
    Every number below is measured, not copied: tools/font-metrics.cjs renders
    a Croatian sample string in the real face and in the local one at 100 px, takes
