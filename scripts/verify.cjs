@@ -12113,18 +12113,43 @@ const evalSafe = async (pg, fn) => {
     ['out', '#v=flow&s=HR-09&dir=out&y=2018&c=0'],
     ['enNet', '#l=en&v=flow&s=HR-09&dir=net&y=2018&c=0']]) {
     await fresh(h);
-    arcGap[k] = await page.evaluate(() => ({
-      arcs: document.querySelectorAll('#map .arc').length,
-      rows: document.querySelectorAll('#railList .rrow').length,
-      note: (document.querySelector('#legend .legend-note') || {}).textContent || '' }));
+    arcGap[k] = await page.evaluate(() => {
+      /* the rail's own printed values, so the arc count can be pinned to the
+         corridors that clear the threshold the legend states rather than merely
+         to "fewer than all of them" */
+      const vals = [...document.querySelectorAll('#railList .rrow .rval')].map(e => {
+        const t = (e.textContent || '').replace(/[^0-9]/g, '');
+        return t ? parseInt(t, 10) : 0;
+      });
+      return {
+        arcs: document.querySelectorAll('#map .arc').length,
+        rows: document.querySelectorAll('#railList .rrow').length,
+        ge5: vals.filter(v => v >= 5).length,
+        eq5: vals.filter(v => v === 5).length,
+        note: (document.querySelector('#legend .legend-note') || {}).textContent || '' };
+    });
   }
+  /* …and the count is the threshold's, not merely "fewer". This asserted
+     `arcs < rows` — 10 < 20 and 14 < 20 — plus three literal '5' strings, while
+     its own comment says the number in the legend must come from the same
+     constant the filter uses. Ličko-senjska in the measured year is the case
+     that shows the difference: two of its net corridors and three of its
+     outbound ones are EXACTLY five people, so the classic off-by-one — `>
+     ARC_MIN` instead of `>=` — drops two or three arcs, leaves `arcs < rows`
+     true, leaves the legend still saying "ispod 5", and prints ok. The arcs are
+     pinned to the rail rows that clear the stated threshold, and the
+     exactly-five population is asserted so the case that makes the pin
+     meaningful is present rather than assumed. */
   ck('the flow legend states the corridors the map does not draw',
     arcGap.net.rows === 20 && arcGap.net.arcs < arcGap.net.rows
     && arcGap.out.arcs < arcGap.out.rows
+    && arcGap.net.arcs === arcGap.net.ge5 && arcGap.out.arcs === arcGap.out.ge5
+    && arcGap.net.eq5 >= 1 && arcGap.out.eq5 >= 1
     && /Koridori ispod 5 osoba nisu ucrtani/.test(arcGap.net.note)
     && /Koridori ispod 5 osoba nisu ucrtani/.test(arcGap.out.note)
     && /Corridors under 5 people are not drawn/.test(arcGap.enNet.note),
-    JSON.stringify({ net: arcGap.net.arcs, out: arcGap.out.arcs, rows: arcGap.net.rows,
+    JSON.stringify({ net: arcGap.net.arcs, netGe5: arcGap.net.ge5, netEq5: arcGap.net.eq5,
+      out: arcGap.out.arcs, outGe5: arcGap.out.ge5, outEq5: arcGap.out.eq5, rows: arcGap.net.rows,
       hr: arcGap.net.note.slice(0, 90), en: arcGap.enNet.note.slice(0, 90) }));
 
   /* ── one wording for which margin the IPF fit reproduces ──
