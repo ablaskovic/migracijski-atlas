@@ -2,7 +2,7 @@ import {
   ISOS, D, YEARS, DOM, RDOM, REGOF, FLOWN, KCOL, KLAB, SHORTN, PAPER_KLAS_DIFF, paperKlasComparable,
   val, regVal, klasOf, divScale, seqScale, flowOf, flowMax, mxCell, mxMax, jlsVal, jmapScale, yrsCols, marginFlow, preMargin, preMarginNote, pragText, fmtI, fmtR,
   arcMinNote,
-  ipfMargins, rampStops, denName,
+  ipfMargins, rampStops, denName, flowKind,
 } from '../lib/metrics.ts';
 import { PAPER_WINDOW, paperSplit, paperThrLine } from '../lib/credits.ts';
 import { L, t, yr, yrSpan } from '../lib/i18n.ts';
@@ -308,7 +308,11 @@ export default function Legend({ S }: { S: State }) {
   if (S.view === 'mx') {
     const m = mxMax(S.dir, S.cum);
     const mark = markPct(S, m);
-    const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
+    /* flowKind, not the predicate written out. metrics.ts owns "which years
+       are measured" and every other honesty surface — the badges, the tooltip,
+       the export band — asks it; these two were the copies. Same answer today,
+       one place to keep it true. */
+    const src = flowKind(S.yi, S.cum) === 'meas'
       ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021., CC BY).',
         'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
       : L('Procjena (IPF): ', 'Estimate (IPF): ') + ipfMargins() + '.'
@@ -332,7 +336,11 @@ export default function Legend({ S }: { S: State }) {
   if (S.view === 'flow') {
     const m = flowMax(S.sel!, S.dir, S.cum);
     const mark = markPct(S, m);
-    const src = (S.yi === YEARS.indexOf(2018) && !S.cum)
+    /* flowKind, not the predicate written out. metrics.ts owns "which years
+       are measured" and every other honesty surface — the badges, the tooltip,
+       the export band — asks it; these two were the copies. Same answer today,
+       one place to keep it true. */
+    const src = flowKind(S.yi, S.cum) === 'meas'
       ? L('Izmjereno — DZS 2018., posebna obrada (Pitoski i sur. 2021., CC BY).',
         'Measured — CBS 2018, special processing (Pitoski et al. 2021, CC BY).')
       : L('Procjena (IPF): struktura 2018. skalirana na DZS odseljene razdoblja; doseljeni približno.',
