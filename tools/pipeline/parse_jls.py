@@ -52,7 +52,9 @@ def write_json(path, obj, **kw):
 
 
 def fold(s):
-    s = s.lower().replace('đ','d').replace('Đ','d')
+    # one replace, not two: lower() has already turned every 'D with stroke'
+    # into its lowercase form (verified), so the second could never match.
+    s = s.lower().replace('đ','d')
     s = s.replace('\u2012','-').replace('\u2013','-').replace('\u2014','-').replace('\u2015','-').replace('\u2212','-')
     s = unicodedata.normalize('NFKD', s)
     s = ''.join(ch for ch in s if not unicodedata.combining(ch))
@@ -75,6 +77,13 @@ for r in ws.iter_rows(min_row=9, values_only=True):
     if a in CNAMES: cur = CNAMES[a]; continue
     if cur: reg.append((cur, a))
 reg.append(('HR-21', 'Grad Zagreb'))
+# Asserted, not merely printed. parse_jlsmap.py builds the same registry from
+# the same workbook and asserts 556 on it; this script printed the number and
+# carried on, so a DZS republication that renamed a county header — which sends
+# a run of municipalities to the previous county and can drop or add rows —
+# would have been a line in the log rather than a stop. README.md says every
+# script asserts its own validation.
+assert len(reg) == 556, len(reg)
 print('JLS in registry:', len(reg))
 
 idx0, idx1, idx2 = defaultdict(list), defaultdict(list), defaultdict(list)

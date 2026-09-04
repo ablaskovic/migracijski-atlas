@@ -54,7 +54,9 @@ def write_json(path, obj, **kw):
 
 
 def fold(s):
-    s = s.lower().replace('đ','d').replace('Đ','d')
+    # one replace, not two: lower() has already turned every 'D with stroke'
+    # into its lowercase form (verified), so the second could never match.
+    s = s.lower().replace('đ','d')
     s = s.replace('‒','-').replace('–','-').replace('—','-').replace('―','-').replace('−','-')
     s = unicodedata.normalize('NFKD', s)
     s = ''.join(ch for ch in s if not unicodedata.combining(ch))
