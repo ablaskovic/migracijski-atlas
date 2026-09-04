@@ -2662,7 +2662,8 @@ const evalSafe = async (pg, fn) => {
           const h = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
           return h ? (h.id || h.tagName) : null; };
         const help = box('#helpBtn'), lab = box('#labBtn'), zr2 = box('#zoomRst');
-        return { gapLab: lab && help ? +(lab.left - help.right).toFixed(1) : null,
+        return { root: +parseFloat(getComputedStyle(document.documentElement).fontSize).toFixed(1),
+          gapLab: lab && help ? +(lab.left - help.right).toFixed(1) : null,
           gapZr: zr2 && help ? +(help.left - zr2.right).toFixed(1) : null,
           hits: [hit('#helpBtn'), hit('#labBtn'), hit('#zoomRst')] };
       }) });
@@ -2670,8 +2671,17 @@ const evalSafe = async (pg, fn) => {
   }
   await stripCdp.detach();
   await page.setViewport({ width: 1440, height: 900 });
+  /* …and each row has to have MEASURED the preset it is named for. Page.setFontSizes
+     is an experimental CDP command and nothing here asserted it took, or survived
+     the fresh() that follows it — so six rows all measured at the default 16 px
+     root would satisfy every clause below (gapLab is +15,9 there, and the three
+     hit tests pass) under a name that says "every browser font preset". The root
+     is read from the page and compared with what was asked for, and printed, so
+     a failed row says which preset it really measured. */
   ck('the map top strip keeps its three controls apart at every browser font preset',
-    strip.length === 6 && strip.every(r =>
+    strip.length === 6
+    && strip.every(r => Math.abs(r.root - r.fs) < 0.5)
+    && strip.every(r =>
       (r.gapLab === null || r.gapLab >= 0) && r.gapZr !== null && r.gapZr >= 0
       && r.hits[0] === 'helpBtn' && (r.hits[1] === 'absent' || r.hits[1] === 'labBtn')
       && r.hits[2] === 'zoomRst'),
