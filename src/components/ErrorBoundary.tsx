@@ -31,6 +31,18 @@ import type { ErrorInfo, MouseEvent, ReactNode } from 'react';
 export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
 
+  /* One way out, and it is a reload. There is deliberately no "try again" that
+     just clears the failed flag: what this boundary catches is a render throw,
+     the
+     state that produced it is still in memory and still in the hash, so
+     re-rendering the same tree throws again — and the second failure looks like
+     the button being broken. A reload rebuilds from the address, which is the
+     one thing a reader can also edit, and the second link drops the fragment
+     that is the most likely cause.
+     Worth revisiting only if a transient render throw is ever observed — one
+     that depends on hover or timing rather than on state — where clearing the
+     flag would recover without losing the per-view year memory and the zoom,
+     neither of which is in the hash. */
   static getDerivedStateFromError() { return { failed: true }; }
 
   componentDidCatch(err: Error, info: ErrorInfo) {
