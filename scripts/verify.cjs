@@ -477,9 +477,15 @@ const evalSafe = async (pg, fn) => {
      for exactly that reason, and so had neither the retry nor the record: a
      navigation timeout in any of them unwinds the run from inside the helper,
      which is the class of flake this wrapper exists to absorb. */
-  const goTo = async (u, waits = ['networkidle0', 'domcontentloaded']) => {
+  /* `pg` so a SECONDARY page can use it too. The fifteen language-detection boots
+     each called `pg.goto(url, { waitUntil: 'networkidle0' })` raw, with no
+     try/catch and no weaker fallback — so a 30 s networkidle0 miss under CPU
+     load threw out of a helper and unwound the whole run, which is the abort
+     shape this helper exists to prevent. Defaults to the main page, so every
+     existing call site is unchanged. */
+  const goTo = async (u, waits = ['networkidle0', 'domcontentloaded'], pg = page) => {
     for (const waitUntil of waits) {
-      try { await page.goto(u, { waitUntil, timeout: 30000 }); return true; }
+      try { await pg.goto(u, { waitUntil, timeout: 30000 }); return true; }
       catch { /* fall through to the weaker condition, then give up */ }
     }
     missed.push('goto ' + (u.replace(url, '') || '/'));
@@ -12205,7 +12211,7 @@ const evalSafe = async (pg, fn) => {
       try { if (st) localStorage.setItem('atlas-lang', st); else localStorage.removeItem('atlas-lang'); }
       catch { /* opaque origin on the initial about:blank */ }
     }, tags, stored || '');
-    await pg.goto(url, { waitUntil: 'networkidle0' });
+    await goTo(url, ['networkidle0', 'domcontentloaded'], pg);
     /* The head fields below are written by an effect, so the app has to have
        mounted before they can be read — the same wait the <head> block upstream
        makes, for the same reason. `l` alone survived without it: setLang runs at
