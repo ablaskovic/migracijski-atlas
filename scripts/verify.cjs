@@ -14364,6 +14364,12 @@ const evalSafe = async (pg, fn) => {
      either way, 0 of them mentioning the policy in either run. So the token is
      inert rather than merely harmless-looking, and removing it would buy
      nothing. Re-open this only with a log line to point at.
+     Put again, by a later audit claiming Chrome logs "Unrecognized feature:
+     interest-cohort" on every load. Measured again on Chrome/152.0.7977.42,
+     serving the built app with the header exactly as vercel.json ships it and
+     again with the token removed, capturing console messages and Log.entryAdded
+     together: 2 lines either way, 0 about the policy in either run. The claim
+     is still the log line nobody has produced.
      Asked of the browser rather than of the string, because a policy is what the
      engine grants and this server sends the real header. */
   const featPol = await page.evaluate(() => {
