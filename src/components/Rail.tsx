@@ -42,12 +42,15 @@ function railTitle(S: State): string {
 
 /* top-20 corridors nationally for the matrix view; for net, unordered pairs
    oriented toward the gaining county */
-function mxRows(S: State): Row[] {
+/* the three fields it reads, spelled out rather than taken off State: this is
+   memoised at the call site now, and a dependency list the linter cannot see
+   through is a dependency list nobody can check. */
+function mxRows(dir: State['dir'], yi: number, cum: boolean): Row[] {
   const rows: Row[] = [];
-  if (S.dir === 'net') {
+  if (dir === 'net') {
     for (let i = 0; i < ISOS.length; i++) for (let j = i + 1; j < ISOS.length; j++) {
       const a = ISOS[i], b = ISOS[j];
-      const v = mxCell(a, b, 'net', S.yi, S.cum);   /* a's gain from b */
+      const v = mxCell(a, b, 'net', yi, cum);   /* a's gain from b */
       /* point at the *gainer's* cell: mxCell(gainer, loser, 'net') is +v, so the
          highlighted cell, the tooltip's "neto (…)" line, the legend mark and the
          corridor card all carry the same sign the row shows. Pointing at the
@@ -60,8 +63,8 @@ function mxRows(S: State): Row[] {
       if (a === b) continue;
       /* in Dolasci the hub is the receiving county, so the cell this row lights
          is again the one displaying this row's number under the current Smjer */
-      rows.push({ iso: S.dir === 'in' ? b : a, v: mxCell(a, b, 'out', S.yi, S.cum),
-        pair: S.dir === 'in' ? [b, a] : [a, b], nm: [a, b] });
+      rows.push({ iso: dir === 'in' ? b : a, v: mxCell(a, b, 'out', yi, cum),
+        pair: dir === 'in' ? [b, a] : [a, b], nm: [a, b] });
     }
   }
   return rows.sort((x, y) => y.v - x.v).slice(0, 20);
@@ -96,6 +99,15 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
   const jAll = useMemo(() => (S.view === 'jmap' && JG ? JG.features : [])
     .map(f => ({ iso: ISOS[f.properties.c], v: jlsVal(f.properties, S.dir), jls: f.properties.j }))
     .sort((a, b) => b.v - a.v), [JG, S.dir, S.view]);
+  /* …and the Matrica twin of the same hoist. mxRows(S) ran straight in the
+     render body, so every pairHl change — each cell crossing, each step of a
+     finger drag through pick() — re-evaluated 420 corridors (cumulative: up to
+     15 getOD each, doubled for net) and sorted 420 entries to produce a top-20
+     that depends only on Smjer, the year and Kumulativno. Measured per render:
+     0,115 ms annual, 0,290 ms cumulative out, 0,260 ms cumulative net. Gated
+     inside the memo like jAll, because a hook may not be conditional. */
+  const mxTop = useMemo(() => (S.view === 'mx' ? mxRows(S.dir, S.yi, S.cum) : []),
+    [S.view, S.dir, S.yi, S.cum]);
   let rows: Row[], m: number, fill: (d: Row) => string, big = false;
   if (S.view === 'jmap') {
     /* net: 10 biggest gainers + 10 biggest losers; gross: top 20 */
@@ -109,7 +121,7 @@ export default function Rail({ S, setS, selectCounty, setHL, openPair, openCorri
     const col = divScale(m);
     fill = d => col(d.v); big = true;
   } else if (S.view === 'mx') {
-    rows = mxRows(S);
+    rows = mxTop;
     /* The BAR length stays relative to the top corridor — the rail is a ranking.
        The COLOUR has to come from the grid's own domain, because the grid is what
        the legend beside it describes: normalised to the top-20 instead, the #1 row
