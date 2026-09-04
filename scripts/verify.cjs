@@ -3870,9 +3870,29 @@ const evalSafe = async (pg, fn) => {
           return hit && (hit === e || e.contains(hit));
         }).length;
       }
-      const lb = document.querySelector('#labBtn');
-      const b = (lb || document.querySelector('#helpBtn')).getBoundingClientRect();
+      /* The rect is read AFTER the loop above has scrolled #citzHd into the
+         middle of the viewport, and in the scrolling layout #labBtn is
+         display:none — so the fallback target, #helpBtn, may by then be above
+         the top of the window. A click at a negative y lands nowhere, the hash
+         assertion below is satisfied by the hash the page already had, and the
+         check reports a control taking its own click when nothing was clicked.
+         Scroll the target itself into view, and record what is actually under
+         the point so the click can be asserted to have hit it. */
+      /* VISIBLE, not merely present. `#labBtn` stays in the DOM when the
+         scrolling layout hides it, so `lb || helpBtn` never fell back: in the
+         six coarse states the target was a display:none button whose rect is
+         0×0 at (0,0), and the click below went to the top-left corner of the
+         window. Measured, six of the fourteen states clicked nothing at all and
+         the check reported them green. */
+      const lb0 = document.querySelector('#labBtn');
+      const lb = lb0 && lb0.getClientRects().length ? lb0 : null;
+      const t = lb || document.querySelector('#helpBtn');
+      t.scrollIntoView({ block: 'center' });
+      const b = t.getBoundingClientRect();
       out.at = [b.left + b.width / 2, b.top + b.height / 2];
+      const under = document.elementFromPoint(out.at[0], out.at[1]);
+      out.hits = !!under && (under === t || t.contains(under));
+      out.target = t.id;
       return out;
     });
     await page.mouse.click(reach.at[0], reach.at[1]);
@@ -3887,9 +3907,11 @@ const evalSafe = async (pg, fn) => {
     const hasLab = reach['#labBtn'] !== 'absent';
     if (!mounted('#labBtn') || !mounted('#ageHd') || !mounted('#citzHd')
       || reach['#ageHd'] === 'absent' || reach['#citzHd'] === 'absent'
+      /* the click has to have landed on the control it was aimed at */
+      || !reach.hits
       || (hasLab && (after.lb !== 'true' || !/lb=1/.test(after.hash)))
       || /[&#](ag|cz)=/.test(after.hash)) {
-      labBand.push(`${w}x${h}${touch ? ' touch' : ''} lab${reach['#labBtn']} age${reach['#ageHd']} citz${reach['#citzHd']} → ${after.hash}`);
+      labBand.push(`${w}x${h}${touch ? ' touch' : ''} lab${reach['#labBtn']} age${reach['#ageHd']} citz${reach['#citzHd']} hit:${reach.target}=${reach.hits} → ${after.hash}`);
     }
   }
   ck('the labels toggle and both chip headers each take their own click, fine and coarse',
