@@ -243,8 +243,18 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
             page that assumes nothing. Named by the pair the cell or the county
             actually stands for, which is true in both views and needs no
             direction word that one of them inverts. */}
-        {L(` To vrijedi za ${t('view.saldo')}, ${t('view.reg')}, ${t('view.yrs')} i smjer ${t('dir.net')}. U ${t('dir.out')}ma i ${t('dir.in')}ma (${t('view.flow')}, ${t('view.mx')}) boja pokazuje veličinu jednog smjera između dviju županija — u ${t('view.flow')}ma između odabrane i obojene, u ${t('view.mx').slice(0, -1)}i između retka i stupca — a skala ide od nule prema najvećem toku i ne označava dobitak ni gubitak.`,
-          ` That holds for ${t('view.saldo')}, ${t('view.reg')}, ${t('view.yrs')} and the ${t('dir.net')} direction. In ${t('dir.out')} and ${t('dir.in')} (${t('view.flow')}, ${t('view.mx')}) the colour shows the size of one direction between two counties — in ${t('view.flow')} between the selected county and the coloured one, in ${t('view.mx')} between the row and the column — and the scale runs from zero to the largest flow and marks neither gain nor loss.`)}
+        {/* The button labels are QUOTED and the control named, because bare they
+            read as ordinary words: "That holds for Net, Regions, Years and the Net
+            direction. In Out and In (Flows, Matrix) the colour shows …" — an
+            English sentence in which four of the nouns are secretly buttons, and
+            "In Out and In" is barely parsable. The Croatian had the mirror
+            problem and solved it by declining the interpolations by hand:
+            `${t('dir.out')}ma`, and `${t('view.mx').slice(0, -1)}i`, which slices
+            the last character off a dictionary entry to build a locative. Both go
+            with the quotes: a quoted name does not decline, so nothing has to
+            know how. */}
+        {L(` To vrijedi za prikaze „${t('view.saldo')}”, „${t('view.reg')}” i „${t('view.yrs')}” te smjer „${t('dir.net')}”. U smjerovima „${t('dir.out')}” i „${t('dir.in')}” (prikazi „${t('view.flow')}” i „${t('view.mx')}”) boja pokazuje veličinu jednog smjera između dviju županija — u prikazu „${t('view.flow')}” između odabrane i obojene, u prikazu „${t('view.mx')}” između retka i stupca — a skala ide od nule prema najvećem toku i ne označava dobitak ni gubitak.`,
+          ` That holds for the “${t('view.saldo')}”, “${t('view.reg')}” and “${t('view.yrs')}” views and the “${t('dir.net')}” direction. Under “${t('dir.out')}” and “${t('dir.in')}” (the “${t('view.flow')}” and “${t('view.mx')}” views) the colour shows the size of one direction between two counties — in “${t('view.flow')}” between the selected county and the coloured one, in “${t('view.mx')}” between the row and the column — and the scale runs from zero to the largest flow and marks neither gain nor loss.`)}
       </div>
 
       <h3 className="help-h">{L('Izmjereno ili procjena', 'Measured or estimated')}</h3>
