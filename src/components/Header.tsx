@@ -37,15 +37,19 @@ function Seg<T extends string>({ id, opts, value, onPick, off, title, labId, ari
 }
 
 const OFF_TIP = () => L('Nije primjenjivo u ovom prikazu', 'Not applicable in this view');
-/* …and the same fact where a sighted reader can actually meet it. The reason a
-   group is dead lived in a `title` on a div whose buttons are `disabled`, so it
-   was reachable by hover alone: no keyboard user can focus a disabled button,
-   and no engine shows a title on focus. Screen readers already get it as the
-   group's description. This is the visible half — appended to the group's own
-   label, which is the line already naming what is off. */
-const OffNote = ({ off }: { off: boolean }) => (off
-  ? <span className="ctrl-off"> · {L('nije primjenjivo', 'not applicable')}</span>
-  : null);
+/* The reason a group is dead reaches a screen reader as the group's
+   description and a pointer through the title, and a sighted keyboard-only
+   reader by no route at all: no engine shows a title on focus, and a disabled
+   button cannot take focus to begin with.
+   A visible note beside the label was tried and reverted. It has to appear and
+   disappear with the view, and this header has a stronger invariant than that:
+   four checks in verify.cjs require that a view change move no control which
+   survives it. Measured at 2560 px, saldo → klas, the note widened the Vrijeme
+   group 140,9 → 163,4 px and slid Izvoz and both export buttons 22,5 px to the
+   right — under a reader's pointer, which is the thing those checks exist to
+   prevent. Reserving the lane permanently satisfies them and costs ~110 px of
+   blank header at every width, in a header whose budget is asserted at 145 px.
+   So the gap stands, deliberately, and is written down here. */
 
 /* The phone header is taller than the phone. Measured on a cold load, six
    viewport × view pairs: at 360×740 the header alone is 622 px (saldo), 689
@@ -260,15 +264,15 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
           aria-expanded={moreOpen} aria-controls="hdMore"
           onClick={() => setMoreOpen(o => !o)}>{L('Ostale postavke', 'More settings')}</button>
         <div className={'hd-more' + (narrow && !moreOpen ? ' shut' : '')} id="hdMore">
-        <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">{t('ctrl.flow')}<OffNote off={lockFD} /></span>
+        <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">{t('ctrl.flow')}</span>
           <Seg id="segFlow" labId="segFlowLab" value={eff ? eff.flow : S.flow} off={lockFD} title={OFF_TIP()} onPick={v => setS({ flow: v })}
             opts={[['tot', t('flow.tot')], ['int', t('flow.int')], ['ext', t('flow.ext')], ['nat', t('flow.nat')], ['all', t('flow.all')]]} />
         </div>
-        <div className="ctrl" id="cDen"><span className="ctrl-lab" id="segDenLab">{t('ctrl.den')}<OffNote off={lockFD} /></span>
+        <div className="ctrl" id="cDen"><span className="ctrl-lab" id="segDenLab">{t('ctrl.den')}</span>
           <Seg id="segDen" labId="segDenLab" value={eff ? eff.den : S.den} off={lockFD} title={OFF_TIP()} onPick={v => setS({ den: v })}
             opts={[['abs', t('den.abs')], ['rel11', t('den.rel11')], ['relest', t('den.relest')]]} />
         </div>
-        <div className="ctrl" id="cMode"><span className="ctrl-lab" id="segModeLab">{t('ctrl.time')}<OffNote off={lockT} /></span>
+        <div className="ctrl" id="cMode"><span className="ctrl-lab" id="segModeLab">{t('ctrl.time')}</span>
           {/* Klasifikacija is unconditionally cumulative — klasOf() reads
               val(..., true) whatever S.cum says — and eleven other surfaces
               spell that as `S.cum || S.view === 'klas'`. This was the twelfth,
