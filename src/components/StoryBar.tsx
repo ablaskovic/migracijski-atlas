@@ -70,7 +70,20 @@ export default function StoryBar({ S, setS }: {
   useEffect(() => {
     const was = hadStory.current;
     hadStory.current = S.story;
-    if (was != null && S.story == null && document.activeElement === document.body) focusSoon('#story');
+    /* …and only if focus is STILL orphaned a frame later. This claims focus
+       whenever a caption goes while activeElement is <body>, which is right when
+       the banner's own × unmounted the focused button — and wrong when something
+       else dropped focus and is already handing it back. Escape inside the county
+       card is that case: closing the card retires a caption that asserts `sel`,
+       so both go in one press, and this effect raced the card's own hand-back and
+       won, landing the reader on the Nalazi picker in the header instead of on
+       the county they had open. Re-checking defers to whoever actually has a
+       target; if nothing does, focus is still on <body> and this still runs. */
+    if (was != null && S.story == null && document.activeElement === document.body) {
+      requestAnimationFrame(() => {
+        if (document.activeElement === document.body) focusSoon('#story');
+      });
+    }
   }, [S.story]);
   return (
     <div className="storybar" id="storyBar" role="status" aria-live="polite">

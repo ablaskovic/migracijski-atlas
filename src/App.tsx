@@ -755,16 +755,28 @@ export default function App() {
           focusSoon(s.citz ? '#citzHd' : s.jls ? '#jcardHd' : '#ageHd', true);
           return;
         }
-        /* the Nalazi banner was the one dismissible surface missing from this
-           cascade — it has a × like every other, and focus goes back to the
-           picker that opened it, like every other */
-        if (s.story != null) { up({ story: null }); focusSoon('#story', true); return; }
+        /* The county card goes BEFORE the Nalazi banner, because "the topmost
+           thing" is a question about the stack and these two are not in the same
+           one: the card is a z-index 5 overlay ON the map, the banner is a static
+           in-flow element below it. Three presets open a card and a caption
+           together, and testing story first meant Escape from inside that card
+           dismissed the banner instead — focus jumped to #story in the header,
+           ~600 px away at 1440x900 and off-screen on a phone, while the card the
+           reader was standing in stayed open. A second Escape, now from the
+           header, finally closed it.
+           A caption whose claim depends on `sel` dies with the card anyway
+           through storyHolds; one that does not survives for the next press,
+           which is what one-layer-per-press means. */
         /* in Tokovi `sel` is the hub, not a dismissible selection */
         if (s.sel && s.view !== 'flow') {
           up({ sel: null });
           focusSoon('.cnt[data-iso="' + s.sel + '"], #railList .rrow[data-iso="' + s.sel + '"]', true);
           return;
         }
+        /* the Nalazi banner was the one dismissible surface missing from this
+           cascade — it has a × like every other, and focus goes back to the
+           picker that opened it, like every other */
+        if (s.story != null) { up({ story: null }); focusSoon('#story', true); return; }
         /* Last layer: the tooltip. 1.4.13 wants hover/focus content dismissible
            without moving the pointer or focus, and this one is
            pointer-events:none and cursor-following so it can never be hovered
