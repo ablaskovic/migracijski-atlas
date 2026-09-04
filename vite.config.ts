@@ -7,7 +7,12 @@ import pkg from './package.json' with { type: 'json' };
    JSON duplicated into `sourcesContent` — a second copy of geo_jls.json sitting
    in dist for nobody. A stack trace can never point into them. The entry chunk,
    which one can, keeps its map untouched. */
-/* The one monotonic thing the deployed page can be asked about. scripts/smoke
+/* The one thing about its own age the deployed page can be asked. Monotonic per
+   RELEASE, not per build: every commit between two version bumps stamps the same
+   value, and this repository has had hundreds of them behind a single 2.6.1 —
+   which is precisely the gap a version comparison cannot see. smoke.cjs prints
+   `git status -sb` beside its banner for that half, because it is local
+   knowledge and no origin can supply it. scripts/smoke
    probes production without a local build, and its staleness markers were
    *strings that had entered the bundle at some past release* — 'en-GB' and
    'County Migration Atlas' (v2.2.0), 'ascent-override' (v2.1.1) — against a repo
@@ -24,7 +29,7 @@ const stampVersion = {
        Add any attribute to the root tag — a class, a dir, a reordering — and the
        anchor is gone: `vite build` succeeds, the whole suite passes (it asserted
        canonical, hreflang and the cards, never the stamp), CI goes green and the
-       deploy ships unstamped. The one monotonic staleness signal the README
+       deploy ships unstamped. The one per-release staleness signal the README
        sells is then absent, and the next manual smoke run misdiagnoses a current
        deploy as "older than v2.6.0" — the confusion this stamp was built to
        end. A build that cannot stamp is a build that must not finish. */

@@ -79,8 +79,11 @@ that matters: a deploy that never happened emits no event to react to.
 
 One limit, stated plainly: CI smoke compares the deployed origin against the
 commit CI checked out. Commits that exist only on your machine are invisible to
-it, and a local `npm run smoke` is what reports those — which is what its
-"N commits behind" line is for.
+it, and a local `npm run smoke` is what reports those — which is what the
+`git status -sb` line under its banner is for ("## main...origin/main
+[ahead 277]"). The version comparison beside it moves per RELEASE, not per
+build: every commit between two bumps stamps the same `data-v`, so a deploy
+hundreds of commits behind a single version still answers "current".
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
 are their own chunks: the view that needs one fetches it on entry, and the other is

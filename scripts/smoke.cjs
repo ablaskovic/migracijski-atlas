@@ -259,7 +259,10 @@ function localEntry() {
     }
   }
 
-  /* Staleness, asked monotonically. This used to be marker analysis: three
+  /* Staleness, asked of the release number — which moves monotonically between
+     bumps and not at all within one, so this answers "is the deploy on an older
+     RELEASE" and the ahead-count printed under the banner answers the other
+     half. This used to be marker analysis: three
      strings that had entered the bundle at some past release — 'en-GB' and
      'County Migration Atlas' (v2.2.0) and 'ascent-override' (v2.1.1) — against a
      repo at v2.5.1. A production alias pinned to the v2.2.0 build, which is
