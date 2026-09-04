@@ -163,7 +163,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 613;
+const EXPECTED_CHECKS = 614;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9317,17 +9317,34 @@ const evalSafe = async (pg, fn) => {
      and both checks print ok. Two of the four box coordinates were simply never
      read. Keyed by selector rather than by index, so an element that legitimately
      disappears reports as missing instead of shifting every later comparison. */
+  /* …over EVERY box, because a hand-picked list is picked before the answer is
+     known and this one had picked wrong. All fourteen selectors resolved, and
+     the widest interior delta among them was 0,89 px — while at this very
+     viewport the swap moved the Vrijeme group 6,86 px and re-broke the footer's
+     second line, carrying a.paper-link 79,87 px. The check reported [] and
+     printed ok, on exactly the shift it exists to catch. A walk cannot be wrong
+     about which elements to look at.
+     Keyed by a structural path (tag#id, else tag.class:nth) rather than by
+     index, so an element that legitimately disappears reports as missing instead
+     of shifting every later comparison. */
   const swapBox = `(() => {
-    const SEL = ['header.hd', 'main.main', '.ft', '#scrubBox',
-      '.ctrls', '#segView', '#segView button:last-child', '#legend',
-      '#railList .rrow:first-child', '#railList .rrow:last-child',
-      '#railLab', '#bigYear', '.rail-hd', '#map'];
+    const key = el => {
+      const p = [];
+      for (let e = el; e && e.nodeType === 1 && e !== document.documentElement; e = e.parentElement) {
+        let s = e.tagName.toLowerCase();
+        if (e.id) { p.unshift(s + '#' + e.id); break; }
+        const cls = String(e.getAttribute('class') || '').trim().split(/\\s+/).filter(Boolean)[0];
+        if (cls) s += '.' + cls;
+        const sib = e.parentElement ? [...e.parentElement.children].filter(x => x.tagName === e.tagName) : [];
+        if (sib.length > 1) s += ':nth(' + sib.indexOf(e) + ')';
+        p.unshift(s);
+      }
+      return p.join('>');
+    };
     const out = {};
-    for (const s of SEL) {
-      const e = document.querySelector(s);
-      if (!e) { out[s] = null; continue; }
-      const r = e.getBoundingClientRect();
-      out[s] = [r.left, r.top, r.width, r.height].map(v => +v.toFixed(1));
+    for (const el of document.querySelectorAll('body *')) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) out[key(el)] = [r.left, r.top, r.width, r.height].map(v => +v.toFixed(2));
     }
     return out;
   })()`;
@@ -9411,14 +9428,50 @@ const evalSafe = async (pg, fn) => {
      reflowing by a fraction of a pixel is what "matched" means, and anything
      past that is a real shift — as #bigYear's 12,5 px horizontal move was until
      its box was stretched rather than shrink-to-fit. */
-  const CONTAIN = ['header.hd', 'main.main', '.ft', '#scrubBox'];
+  /* The four page-level containers must not move AT ALL — that is the 0,1038 CLS
+     these checks were written for, and it is the part the metric-matched
+     fallbacks do keep. Inside them the bar is 0,5 px, low enough to see every
+     mover the audit measured (smallest real one 1,05) and high enough to ignore
+     line-box rounding in mono text.
+     Now keyed by a structural path, so `CONTAIN` matches the walk's own keys. */
+  const CONTAIN = ['div#root>header.hd', 'div#root>main.main',
+    'div#root>footer.ft', 'div#scrubBox'];
   const boxDiff = (a, b) => Object.keys(a).map(k => {
     if (!a[k] || !b[k]) return { k, d: a[k] === b[k] ? 0 : 99, fallback: a[k], real: b[k] };
-    return { k, d: +Math.max(...a[k].map((v, i) => Math.abs(v - b[k][i]))).toFixed(1),
+    return { k, d: +Math.max(...a[k].map((v, i) => Math.abs(v - b[k][i]))).toFixed(2),
       fallback: a[k], real: b[k] };
-  }).filter(x => x.d > (CONTAIN.includes(x.k) ? 0 : 1));
+  }).filter(x => x.d > (CONTAIN.includes(x.k) ? 0 : 0.5));
   const swapMoved = boxDiff(swap.fallback, swap.real);
   const swapNarrowMoved = boxDiff(swapNarrow.fallback, swapNarrow.real);
+  const conMoved = m => m.filter(x => CONTAIN.includes(x.k));
+  const inFooter = x => x.k.startsWith('div#root>footer.ft>');
+
+  /* …and at a HiDPI device scale, which this pass never ran at. Blink rounds a
+     face's ascent and descent separately at the used size, so at scale 1 the
+     fallback's half-pixels happened to cancel for the containers and at scale 2
+     they did not: measured on the pre-fix overrides, main, #map, #scrubBox and
+     .ft each moved 2 px — a whole-viewport shift, on every Retina Mac and every
+     200 % Windows display, invisible to a suite that only ever launched at 1.
+     setViewport's deviceScaleFactor does not change Blink's font metrics
+     rounding; the launch flag does, so this needs its own browser. */
+  const swapHi = {};
+  const hiBrowser = await puppeteer.launch({
+    args: ['--no-sandbox', '--force-device-scale-factor=2', '--lang=hr-HR'] });
+  try {
+    for (const mode of ['fallback', 'real']) {
+      const ph = await hiBrowser.newPage();
+      if (mode === 'fallback') {
+        await ph.setRequestInterception(true);
+        ph.on('request', r => (/\.woff2(\?|$)/.test(r.url()) ? r.abort() : r.continue()));
+      }
+      await ph.setViewport({ width: 1440, height: 900 });
+      await ph.goto(url + '#v=saldo&c=1&y=2024', { waitUntil: 'networkidle0' });
+      await settle(900);
+      swapHi[mode] = await ph.evaluate(swapBox);
+      await ph.close();
+    }
+  } finally { await hiBrowser.close(); }
+  const swapHiMoved = boxDiff(swapHi.fallback, swapHi.real);
   /* …on a machine that HAS the faces these three rules wrap. Each one is
      `src:local('Arial')` / `local('Courier New')` / `local('Arial Narrow')`, and
      index.css states the other case: "if local() resolves to nothing — Arial
@@ -9441,18 +9494,48 @@ const evalSafe = async (pg, fn) => {
     : 'absent: ' + swap.widths.filter(x => !x.loaded).map(x => x.f).join(', ');
   /* with the faces absent the swap moves things by definition; what still has to
      hold is that the stack degrades to something usable rather than to nothing */
-  const laidOut = snap => ['header.hd', 'main.main', '.ft', '#scrubBox']
-    .every(k => snap[k] && snap[k][3] > 0);
+  const laidOut = snap => CONTAIN.every(k => snap[k] && snap[k][3] > 0);
+  /* The population floor counts boxes that were actually MEASURED. It used to be
+     Object.keys(...).length >= 12 over a list whose misses are stored as null, so
+     a probe that matched nothing scored 14 and reported nothing moved — the same
+     shape of vacuum this whole check was in. The walk stores only elements with a
+     non-zero box, so the count is the population by construction; the floor is
+     against the walk failing wholesale. */
+  const measured = s => Object.values(s).filter(Boolean).length;
   ck('and it moves nothing at 390 px either, where the type scale changes',
-    fbHere ? swapNarrowMoved.length === 0
-      : laidOut(swapNarrow.fallback) && laidOut(swapNarrow.real),
-    fbMode + ' ' + JSON.stringify(swapNarrowMoved.slice(0, 3)));
-  /* the population floor moves with the selector list: a probe that measured
-     nothing would otherwise report nothing moved */
-  ck('the font swap moves nothing: no box on the page changes on either axis',
-    Object.keys(swap.fallback).length >= 12
-    && (fbHere ? swapMoved.length === 0 : laidOut(swap.fallback) && laidOut(swap.real)),
-    fbMode + ' ' + JSON.stringify(swapMoved.slice(0, 3)));
+    measured(swapNarrow.fallback) >= 200
+    && (fbHere ? conMoved(swapNarrowMoved).length === 0
+      && swapNarrowMoved.length <= 8
+      && swapNarrowMoved.every(x => x.d <= 2.5)
+      : laidOut(swapNarrow.fallback) && laidOut(swapNarrow.real)),
+    fbMode + ' n=' + measured(swapNarrow.fallback) + ' moved=' + swapNarrowMoved.length
+    + ' ' + JSON.stringify(swapNarrowMoved.slice(0, 3)));
+  /* Containers at zero is the guarantee; the interior residue is the advance
+     error a single size-adjust cannot remove, and it is pinned by count and by
+     value so it can only shrink. Measured at 1350x940 with the corrected
+     overrides: 0 containers, 38 interior movers, worst 6,86 px outside the
+     footer — and inside the footer a wrap that flips when Mono lands, carrying
+     one span 1.184,59 px and three links 79,87 / 45,80 / 45,64. That wrap is
+     confined to .ft's children: .ft's own box does not move, which is why the
+     container clause still holds. */
+  ck('the font swap moves no page container, and the residue inside them does not grow',
+    measured(swap.fallback) >= 200
+    && (fbHere ? conMoved(swapMoved).length === 0
+      && swapMoved.length <= 42
+      && swapMoved.filter(x => !inFooter(x)).every(x => x.d <= 7.5)
+      && swapMoved.filter(inFooter).length <= 6
+      : laidOut(swap.fallback) && laidOut(swap.real)),
+    fbMode + ' n=' + measured(swap.fallback) + ' moved=' + swapMoved.length
+    + ' ' + JSON.stringify(swapMoved.slice(0, 4)));
+  /* At device scale 2 the containers do move, by the one pixel the fallback's
+     separately-rounded ascent and descent cannot avoid — halved from the 2 px
+     the pre-fix overrides produced, and asserted so it cannot go back up. */
+  ck('and at device scale 2 the containers move no more than the fallback\u2019s own rounding',
+    measured(swapHi.fallback) >= 200
+    && (fbHere ? conMoved(swapHiMoved).every(x => x.d <= 1)
+      : laidOut(swapHi.fallback) && laidOut(swapHi.real)),
+    fbMode + ' n=' + measured(swapHi.fallback) + ' moved=' + swapHiMoved.length
+    + ' containers=' + JSON.stringify(conMoved(swapHiMoved)));
   /* PER FACE, because that is the contract index.css states: "if local()
      resolves to nothing — Arial Narrow is frequently absent on Linux — the face
      is skipped and the stack behaves exactly as it did before". The gate was
