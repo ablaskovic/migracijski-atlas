@@ -168,8 +168,18 @@ geoBoundaries ADM1, and `atlas_data2.json`’s leaf series (`ii`/`ie`/`oi`/`oe`,
 `p`, `pe`) has no committed rebuild script — `parse_nat.py` only *patches* the
 `nat` arrays into the existing file. So a DZS revision does not reach those
 numbers by running the pipeline, and the atlas would paint the old series under
-the new vintage in the footer. [`tools/pipeline/README.md`](tools/pipeline/README.md)
-is the authority on exactly what regenerates and what does not.
+the new vintage in the footer.
+
+“Not reproduced” here means **no committed script rebuilds it**, which is the
+question a maintainer absorbing a data revision is asking.
+[`tools/pipeline/README.md`](tools/pipeline/README.md) answers a second one —
+whether the *values* can be re-derived from committed inputs — and gives a
+different list for it: the leaf series above **is** re-derivable, from the
+committed `raw/pregled-zupanije.xlsx` (an audit matched all 2.352 values),
+only the parser is missing; while `jls_drill.json` and `geo_jls.json` have their
+scripts and need the uncommitted 31 MB figshare download instead. Neither list
+is wrong; they answer different questions, and that file is the authority on
+both.
 
 ## Attribution & licence
 
