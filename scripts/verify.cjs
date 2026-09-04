@@ -7635,10 +7635,18 @@ const evalSafe = async (pg, fn) => {
      permalink, with the reader having selected nothing at any point — and
      Klasifikacija → Tokovi → Regije the same, carrying the first-entry 2018 pair
      along. Through Matrica, which imposes no hub, the round trip leaves no card.
-     Four legs, because the rule is a distinction and not a blanket: the imposed
-     hub dies on the way out, a county the reader picked before Tokovi survives
+     Legs, because the rule is a distinction and not a blanket: the imposed hub
+     dies on the way out, a county the reader picked before Tokovi survives
      (which is what the exit rule was written for), and a re-hub inside Tokovi
-     survives too. */
+     survives too.
+     None of them crossed a HISTORY TRAVERSAL, and that is where the rule was
+     kept by a boolean that no traversal could reconcile: Saldo → Tokovi → Saldo
+     → Back restores Tokovi from its own hash, `s=HR-21` and all, with the flag
+     already spent — so the next Saldo press opened the card the first four legs
+     prove it must not. A hand-typed `#v=flow&c=0&y=2018` boots to the same
+     place, which is every shared Tokovi link without an `s=`. Both are legs now,
+     and so is their mirror: a shared link that NAMES a hub keeps it, because a
+     link that names a county names it deliberately. */
   const hubLeak = {};
   const hubPress = async v => { await click(`#segView button[data-v="${v}"]`); await settle(300); };
   const hubSnap = () => page.evaluate(() => ({ card: !!document.querySelector('#card.show'),
@@ -7661,11 +7669,28 @@ const evalSafe = async (pg, fn) => {
   await settle(400);
   await hubPress('saldo');
   hubLeak.rehub = await hubSnap();
+  /* …across a Back, which is where the boolean could not follow */
+  await fresh('#v=saldo&c=1&y=2024');
+  await hubPress('flow'); await hubPress('saldo');
+  await page.goBack(); await settle(450);
+  await hubPress('saldo');
+  hubLeak.afterBack = await hubSnap();
+  /* …and on the boot every shared Tokovi link without an `s=` produces */
+  await fresh('#v=flow&c=0&y=2018');
+  await hubPress('saldo');
+  hubLeak.fromLink = await hubSnap();
+  /* …while a link that names a hub keeps it, mint or no mint */
+  await fresh('#v=flow&c=0&y=2018&s=HR-05');
+  await hubPress('saldo');
+  hubLeak.namedHub = await hubSnap();
   ck('the hub Tokovi imposes does not follow the reader out as a county card',
     !hubLeak.boot.card && !hubLeak.back.card && !/s=HR/.test(hubLeak.back.hash)
     && !hubLeak.viaReg.card && !/s=HR/.test(hubLeak.viaReg.hash)
     && hubLeak.picked.card && hubLeak.pickedBack.card && /s=HR-18/.test(hubLeak.pickedBack.hash)
-    && hubLeak.rehub.card && /s=HR-13/.test(hubLeak.rehub.hash),
+    && hubLeak.rehub.card && /s=HR-13/.test(hubLeak.rehub.hash)
+    && !hubLeak.afterBack.card && !/s=HR/.test(hubLeak.afterBack.hash)
+    && !hubLeak.fromLink.card && !/s=HR/.test(hubLeak.fromLink.hash)
+    && hubLeak.namedHub.card && /s=HR-05/.test(hubLeak.namedHub.hash),
     JSON.stringify(hubLeak));
 
   /* half a corridor is not a corridor: each of these used to be a mark or an

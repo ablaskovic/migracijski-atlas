@@ -134,7 +134,7 @@ export function decodeHash(hash: string): Patch {
      shareable link to that blank state. Same lesson as the story guard below. */
   const at = <K extends keyof State>(k: K): State[K] => (k in o ? o[k] as State[K] : BASE[k]);
   /* flow-ish views need a hub and must not re-trigger the first-entry jump */
-  if (at('view') === 'flow' && !at('sel')) o.sel = 'HR-21';
+  if (at('view') === 'flow' && !at('sel')) o.sel = HUB_MINT;
   if (at('view') === 'flow' || at('view') === 'mx') o.flowSeen = true;
   if (at('view') === 'jmap') { o.yi = YEARS.indexOf(2018); o.cum = false; }
   /* klas is always cumulative from 2011; so is any cum view */
@@ -261,6 +261,11 @@ export function readSearch(search: string): Patch {
    The query is read first and the hash second, so an explicit `#l=hr` still
    wins over a `?l=en` the reader arrived on — the permalink is the more
    specific statement, and it is the one a person pasted. */
+/* The hub Tokovi mints when a flow link arrives without one. Exported because
+ App has to be able to tell that value apart from a hub the reader chose — in
+ the URL the two are the same five characters. */
+export const HUB_MINT = 'HR-21';
+
 export function readHash(hash: string, search = ''): Patch {
   try { return { ...readSearch(search), ...decodeHash(hash) }; } catch { return readSearch(search); }
 }

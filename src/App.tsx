@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { YEARS, Y0, YEND, IX2011, IX2018, VLAB } from './lib/metrics.ts';
-import { encodeHash, readHash } from './lib/hash.ts';
+import { encodeHash, readHash, HUB_MINT } from './lib/hash.ts';
 import { BASE, LOCK_FD, focusSoon } from './lib/state.ts';
 import { L, NEWTAB, chosenLang, setLang, storeLang, t, yr, yrSpan } from './lib/i18n.ts';
 import { STORIES, storyHolds } from './lib/stories.ts';
@@ -95,7 +95,47 @@ export default function App() {
      leaves no card — which is the behaviour the whole trip should have had.
      Remembered, so the imposed hub dies on the way out and a chosen one does
      not. */
-  const autoHub = useRef(false);
+/* …but a boolean cannot survive the two routes that do not go through setView.
+   `autoHub` was set where the hub is MINTED and cleared where it is chosen, and
+   nothing reconciles it with a history traversal or with a link. Measured:
+     Saldo → Tokovi → Saldo → Back → Saldo
+   restores Tokovi from its own hash — sel=HR-21 from `s=` — while the flag stays
+   false, because onPop cannot tell an imposed hub from a chosen one. The next
+   Saldo press therefore KEEPS it: a Grad Zagreb card opens over Saldo, its path
+   reports aria-expanded, and `s=HR-21` is minted into the permalink the reader
+   would copy, with the reader having selected nothing. A hand-typed
+   `#v=flow&c=0&y=2018` boots the same way — decodeHash mints HR-21 with no
+   marker — so every shared Tokovi link without an `s=` does this on its first
+   press of Saldo. And it fails in the other direction too: a county picked
+   AFTER a Back is dropped on the next Tokovi → Saldo, because the flag is still
+   whatever the mint left it.
+   The question is not "was the last hub imposed" but "did the reader ever
+   choose THIS county", so that is what is remembered. A Set survives popstate
+   and links by construction: neither can add to it, because neither is a
+   choice. */
+  const chosen = useRef(new Set<string>());
+  /* A hash that NAMES a county names it deliberately: a permalink someone
+     shared, or one this app wrote when the reader picked that county. So a link
+     counts as a choice — which is what the rule's own check has always said,
+     with `#v=saldo&s=HR-18` expected to survive the round trip.
+     One exception, and it is the reason a boolean could not do this job:
+     decodeHash MINTS s=HR-21 when a flow link arrives without a hub, so in that
+     one view that one value is indistinguishable in the URL from a hub someone
+     chose. Any other value, in flow or out of it, is the reader's. */
+  const linkSel = (h: string) => {
+    const m = /[#&]s=([^&]*)/.exec(h);
+    if (!m) return null;
+    const iso = decodeURIComponent(m[1]);
+    const v = /[#&]v=([^&]*)/.exec(h);
+    return (v && v[1] === 'flow' && iso === HUB_MINT) ? null : iso;
+  };
+  /* the boot is the other arrival, and it is the commonest one: a permalink
+     someone opened. Read once, after mount — the hash-sync effect may have
+     normalised the string by then, and it keeps s= either way. */
+  useEffect(() => {
+    const ls = linkSel(location.hash);
+    if (ls) chosen.current.add(ls);
+  }, []);
 
   /* The last pair the reader actually saw offered, for the jmap fallback below.
      That fallback used BASE and called it "the last one the reader actually saw
@@ -161,7 +201,7 @@ export default function App() {
     const carried = s.view === 'jmap' ? preJmap.current : null;
     const restore = mem ?? carried;
     if (v === 'flow' || v === 'mx') {
-      if (v === 'flow' && !s.sel) { p.sel = 'HR-21'; autoHub.current = true; }
+      if (v === 'flow' && !s.sel) p.sel = 'HR-21';
       if (!s.flowSeen) { p.flowSeen = true; p.cum = false; p.yi = IX2018; }
       else if (restore) { p.yi = restore.yi; p.cum = restore.cum; }
     } else if (v !== 'jmap' && restore) { p.yi = restore.yi; p.cum = restore.cum; }
@@ -193,9 +233,8 @@ export default function App() {
        and the card was gone though nothing about it had become unrenderable. The
        `pair` half goes either way — no other view can describe it. */
     if (corr(s.view) && !corr(v)) {
-      if (s.pair || autoHub.current) p.sel = null;
+      if (s.pair || !chosen.current.has(s.sel!)) p.sel = null;
       p.pair = null;
-      autoHub.current = false;
     }
     /* `sel` alone is a hub in Tokovi and a detail-card selection in Saldo /
        Klasifikacija / Regije. Matrica and the JLS map have neither: a county
@@ -234,8 +273,9 @@ export default function App() {
        whose numbers had all changed. Partner-preservation is defensible when
        the partner is what you picked; here the *hub* is, so the pair is stale
        by construction. (Carried open as finding 27 through two passes.) */
-    /* re-hubbing IS a choice, so the imposed-hub flag is spent */
-    if (s.view === 'flow') { autoHub.current = false; up({ sel: iso, ...(s.sel !== iso ? { pair: null } : {}) }); }
+    /* re-hubbing IS a choice, and so is picking a county anywhere else */
+    chosen.current.add(iso);
+    if (s.view === 'flow') up({ sel: iso, ...(s.sel !== iso ? { pair: null } : {}) });
     else up({ sel: s.sel === iso ? null : iso });
   };
   const openPair = (iso: string) => {
@@ -251,6 +291,9 @@ export default function App() {
   const openCorridor = (a: string, b: string) => {
     const s = ref.current;
     const open = s.sel === a && s.pair === b;
+    /* both halves: opening a corridor is a choice of both counties, and the hub
+       half is exactly what the exit rule asks about */
+    chosen.current.add(a); chosen.current.add(b);
     up(open ? { sel: null, pair: null } : { sel: a, pair: b, playing: false });
   };
   /* `stop` is the pointer scrub saying the reader has taken the year: see
@@ -271,6 +314,10 @@ export default function App() {
      the clamp table, the preset's own patch lands on top of it. */
   const applyStory = (i: number) => {
     const p = STORIES[i].patch;
+    /* a Nalaz the reader picked names its own county, so that county is chosen:
+       the next view change must not read it as an imposed hub and drop it */
+    if (p.sel) chosen.current.add(p.sel);
+    if (p.pair) chosen.current.add(p.pair);
     if (p.view) setView(p.view);
     up({ ...p, story: i, playing: false });
   };
@@ -556,6 +603,10 @@ export default function App() {
          transition records it — Back is a view change like any other */
       vmem.current[ref.current.view] = { yi: ref.current.yi, cum: ref.current.cum };
       const patch = readHash(location.hash);
+      /* the entry being restored names its own county, and that name is as much
+         a choice as a click was — see linkSel */
+      const ls = linkSel(location.hash);
+      if (ls) chosen.current.add(ls);
       const back: State = { ...ref.current, ...BASE, help: ref.current.help, flowSeen: ref.current.flowSeen, ...patch };
       /* BASE.lang was resolved once, at module init. A choice made *since* then
          outranks it — the same precedence BASE itself applies at boot — or Back
