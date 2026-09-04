@@ -442,6 +442,20 @@ const evalSafe = async (pg, fn) => {
     missed.push('goto ' + (u.replace(url, '') || '/'));
     return false;
   };
+  /* Below 560 px wide OR 560 tall, the header's groups after Prikaz live behind
+     a disclosure that is closed on first load — the header is otherwise taller
+     than the phone, and its last rows sit under the pinned timeline. Checks that
+     DRIVE those controls press it open first, which is what a reader does, once
+     per session. Not folded into fresh(): the closed state is the product's
+     first screen, and the check that measures that screen needs it closed.
+     A no-op wherever the disclosure is not a disclosure. */
+  const openMore = async () => {
+    await page.evaluate(() => {
+      const b = document.querySelector('#hdMoreBtn');
+      if (b && b.getClientRects().length && b.getAttribute('aria-expanded') !== 'true') b.click();
+    });
+    await settle(150);
+  };
   const click = async sel => {
     const el = await page.waitForSelector(sel, { timeout: 10000 }).catch(() => null);
     if (!el) { missed.push('click ' + sel); return false; }
@@ -4197,6 +4211,9 @@ const evalSafe = async (pg, fn) => {
   /* ══════════ 390 px pass (house rule 1: geometry at 1440 AND 390) ══════════ */
   await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
   await fresh('');
+  /* the whole pass is about the header's controls, and here they live behind the
+     disclosure until a reader opens it */
+  await openMore();
   const m390 = await page.evaluate(() => {
     const de = document.documentElement;
     const segBad = [];
@@ -5154,6 +5171,11 @@ const evalSafe = async (pg, fn) => {
     barH: Math.ceil(document.querySelector('#scrubBox').getBoundingClientRect().height),
   }));
   await fresh('#v=saldo&c=1&y=2024');
+  /* the walk counts every stop the header offers, and here the groups after
+     Prikaz are behind the disclosure until it is opened — 69 stops closed
+     against 79 open, which is the difference between this floor holding and
+     failing over a layout change rather than over a covered row */
+  await openMore();
   const barOpen = await barWalk();
   Object.assign(barOpen, await barLane());
   ck('390: Tab never lands on a row the fixed scrubber covers',
