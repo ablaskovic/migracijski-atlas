@@ -117,6 +117,9 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
   const pts = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<{ ids: [number, number]; d: number; cx: number; cy: number; t: ZoomT } | null>(null);
   const drag = useRef<{ x: number; y: number; t: ZoomT; moved: boolean } | null>(null);
+  /* which of the live pointer ids are fingers — `pts` holds positions only, and
+     the pointerType is not recoverable from a pointerId after the fact */
+  const touchIds = useRef<Set<number>>(new Set());
   /* a pan ends with a click on whatever path was under the cursor — swallow it,
      otherwise dragging the map also selects a county */
   const panned = useRef(false);
@@ -321,6 +324,31 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
        the same terms a mouse is. What both guards mean is `not a finger`. */
     if (e.pointerType !== 'touch' && e.button !== 0) return;
     panned.current = false;   /* a fresh gesture starts as a click until it moves */
+    /* A finger arriving next to a dead mouse point is not a pinch. The
+       pointermove guard drops a non-touch pointer whose button is no longer
+       down, but it only fires on a MOVE over this svg — so after a mouse is
+       released outside the box before the capture is taken, its id sits in
+       `pts` until the pointer comes back. On a hybrid (a touch laptop, a
+       Surface) the next contact may be a finger instead, and then pts.size
+       becomes 2 and arm() forms a gesture between the stale mouse point and the
+       one real finger: a single finger zooms the map, about a centre halfway to
+       wherever the mouse was last seen.
+       A touch press clears every non-touch entry first. Nothing is lost — a
+       genuine mouse-plus-finger gesture is not a thing this app has ever
+       supported, and the mouse's own press would re-add it. */
+    if (e.pointerType === 'touch') {
+      /* the ids first, because deleting from a Map while iterating its own
+         key view is what the lint rule's spread was guarding against — this
+         states the reason instead of the spread */
+      const stale = [];
+      for (const id of pts.current.keys()) {
+        if (id !== e.pointerId && !touchIds.current.has(id)) stale.push(id);
+      }
+      for (const id of stale) pts.current.delete(id);
+      touchIds.current.add(e.pointerId);
+    } else {
+      touchIds.current.delete(e.pointerId);
+    }
     pts.current.set(e.pointerId, local(e));
     if (pts.current.size === 2) arm();
     else if (pts.current.size === 1 && e.pointerType !== 'touch') {
@@ -350,6 +378,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
        the contact is down, which is why the widened test is safe for touch. */
     if (e.pointerType !== 'touch' && !(e.buttons & 1)) {
       pts.current.delete(e.pointerId);
+      touchIds.current.delete(e.pointerId);
       drag.current = null;
       setPanning(false);
       return;
@@ -400,6 +429,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
       try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
     }
     pts.current.delete(e.pointerId);
+    touchIds.current.delete(e.pointerId);
     /* the gesture ends when either of ITS OWN pointers goes, not when the count
        happens to drop below two */
     if (gesture.current && !gesture.current.ids.every(id => pts.current.has(id))) gesture.current = null;
