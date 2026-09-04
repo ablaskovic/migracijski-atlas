@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { D, REG, SHORTN, MXORD, YEARS, mxCell, mxMax, divScale, seqScale, badgeText, flowBadge, fmtI, sgn } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
-import { isKeyFocus } from '../lib/state.ts';
+import { isKeyFocus, useRootRem } from '../lib/state.ts';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactElement } from 'react';
@@ -33,7 +33,17 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      dock now lives in lib/gridfit.ts, because Godine needs exactly the same
      search over a differently-shaped grid — its objective is the resulting cell,
      which for a square grid is the same ordering this used to compute. */
-  const LBL = 108, TOPL = 90, PADR = 14, PADB = 40;
+  /* The lanes hold labels, so they scale with the labels: 108 is the measured
+     lane for a 9,5 px "Virovitičko-podr." — 17 glyphs at the mono face's 0,6 em
+     plus the gap to the grid — and a 1,5× name needs 1,5× of it, or it is drawn
+     into the grid it names.
+     Sizing the lane from the cap the cell actually allows was tried instead, on
+     the theory that a lane reserved for type this grid cannot draw would take
+     width the cell needs. It changes nothing measurable: the grid is square and
+     HEIGHT-bound at ordinary desktop sizes, so returning 51 px of width to it
+     left the cell where it was. Flat, then, and simple. */
+  const rem = useRootRem();
+  const LBL = 108 * rem, TOPL = 90, PADR = 14, PADB = 40;
   /* 12, not 8. The floor is a documented invariant and the suite asserts it —
      but never at ≤980 px with a chip panel open, which is where the placement
      search runs out of box and the cell measured 11,52 px. The grid overflows
@@ -81,7 +91,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      both export formats with the same geometry, so the figure carried the
      collision too. YearsView already solves exactly this per cell; this is its
      test, with the same 0,6 em advance for the mono face. */
-  const numFs = Math.min(8.5, cell / 3);
+  const numFs = Math.min(8.5 * rem, cell / 3);
   const showNum = cell >= 22;
   const fitsNum = useCallback((str: string) => str.length * numFs * 0.6 <= cell - 3, [numFs, cell]);
   /* What the cell prints, once, so the fit test measures the string that is
@@ -109,8 +119,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
   const selC = S.sel && S.pair ? MXORD.indexOf(S.pair) : -1;
   /* label floor: cell*0.42 bottoms out near 5 px on a phone, which is not a
      label. Row pitch is `cell`, so 6.5 px still clears its own line. */
-  const rowFs = Math.max(6.5, Math.min(9.5, cell * 0.42));
-  const colFs = Math.max(6.5, Math.min(9, cell * 0.4));
+  const rowFs = Math.max(6.5 * rem, Math.min(9.5 * rem, cell * 0.42));
+  const colFs = Math.max(6.5 * rem, Math.min(9 * rem, cell * 0.4));
 
   /* Roving tabindex: 420 tab stops would be hostile, so one cell is tabbable and
      the arrows walk the grid (the standard grid pattern). Arrow keys must stop

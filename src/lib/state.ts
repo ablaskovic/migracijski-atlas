@@ -3,6 +3,7 @@
    so decodeHash can only tell "absent" from "explicitly set" by comparing against
    the same object App boots from. Keeping two copies is what let a Nalaz caption
    survive a link that no longer produced its numbers (see hash.ts). */
+import { useEffect, useState } from 'react';
 import { YEARS } from './metrics.ts';
 import { PAPER_THR } from './credits.ts';
 import { detectLang, storedLang } from './i18n.ts';
@@ -37,6 +38,34 @@ export const BASE: State = {
    and `jlsVal` take neither argument. Both controls are disabled in all four,
    which is exactly why a lens must not be able to sit behind them — see the
    repair in hash.ts and the clamp in App.setView. */
+/* The reader's own type size, as a multiplier on the 16 px default — for the
+   labels that are drawn rather than styled. index.css converted 74 declarations
+   to rem so everything the CSS sizes follows Chrome's font-size preference, and
+   the SVG families that size themselves in JavaScript were left behind: the
+   Matrica and Godine county names, the rotated year labels, the in-cell numbers
+   and the map's county labels. Measured at a 24 px root: .rname goes 11 → 16,5
+   px while Matrica's row labels go 8,94 → 6,75 — they get SMALLER, because the
+   grid gives its lanes to the bigger HTML labels around it and the px floors do
+   not move. On two views whose entire content is small numbers, the smallest
+   type on the page was the one family that did not grow.
+   Re-read on resize and on a root-box change: a font-size preference is not a
+   media query, so there is no event for it — but it reflows the document, and
+   the root's own box is what that reflow moves. */
+export function useRootRem() {
+  const read = () => (typeof getComputedStyle === 'function'
+    ? parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1 : 1);
+  const [rem, setRem] = useState(read);
+  useEffect(() => {
+    const on = () => setRem(r => { const v = read(); return v === r ? r : v; });
+    on();
+    window.addEventListener('resize', on);
+    const ro = new ResizeObserver(on);
+    ro.observe(document.documentElement);
+    return () => { window.removeEventListener('resize', on); ro.disconnect(); };
+  }, []);
+  return rem;
+}
+
 export const LOCK_FD = new Set<View>(['klas', 'flow', 'mx', 'jmap']);
 
 /* …and what those disabled groups should report while they are locked, which is

@@ -20,7 +20,7 @@ import HelpPanel from './HelpPanel.tsx';
 import StoryBar from './StoryBar.tsx';
 import { moveTip, COARSE, TOKENS_COARSE } from '../lib/tip.ts';
 import { L } from '../lib/i18n.ts';
-import { focusSoon, isKeyFocus } from '../lib/state.ts';
+import { focusSoon, isKeyFocus, useRootRem } from '../lib/state.ts';
 import { offCentre } from '../lib/anchors.ts';
 import { useSuspendMapStops } from '../lib/suspendMap.ts';
 import { useZoom } from '../lib/useZoom.ts';
@@ -517,6 +517,7 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
      branches below, and Godine renders YearsView instead — which never reads
      S.labels — so in that view the toggle flipped to .on, announced "pressed",
      appended `lb=1` to the shared permalink, and changed nothing on screen. */
+  const rem = useRootRem();
   const hasLabels = S.view !== 'mx' && S.view !== 'yrs';
   /* Measure the name that is actually drawn. The gate used to be a constant 70,
      while the text is `SHORTN[iso].length * 9 * 0.6` px wide — IBM Plex Mono
@@ -530,7 +531,10 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
      height — and nothing dropped either, because the filter's survivors were
      all drawn unconditionally.
      Halo included: the 2,4 px stroke is painted under the fill on both sides. */
-  const nameW = (iso: string) => SHORTN[iso].length * 9 * 0.6 + 4.8;
+  /* 9 px was the drawn size; it follows the reader's root now, and so does the
+     gate that decides whether the name fits — a predicate measuring 9 px type
+     while 13,5 px is drawn would place labels that do not fit. */
+  const nameW = (iso: string) => SHORTN[iso].length * 9 * rem * 0.6 + 4.8;
   const placed: number[][] = [];
   const labels = S.labels && drawn && hasLabels
     ? ISOS.filter(iso => box[iso][0] * k > nameW(iso) && box[iso][1] * k > 20)
@@ -539,7 +543,7 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
          the county with more room to hold it. */
       .sort((a, b) => box[b][0] * box[b][1] - box[a][0] * box[a][1])
       .filter(iso => {
-        const w = nameW(iso) / k / 2, h = 11 / k / 2, [cx, cy] = cent[iso];
+        const w = nameW(iso) / k / 2, h = 11 * rem / k / 2, [cx, cy] = cent[iso];
         const r = [cx - w, cy - h, cx + w, cy + h];
         if (placed.some(q => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1])) return false;
         placed.push(r); return true;
@@ -548,8 +552,8 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
   const labelG = (
     <g>
       {labels.map(iso => (
-        <text key={iso} className="clab" x={cent[iso][0]} y={cent[iso][1] + 3 / k}
-          textAnchor="middle" fontSize={9 / k} fontFamily="IBM Plex Mono,ui-monospace,monospace"
+        <text key={iso} className="clab" x={cent[iso][0]} y={cent[iso][1] + 3 * rem / k}
+          textAnchor="middle" fontSize={9 * rem / k} fontFamily="IBM Plex Mono,ui-monospace,monospace"
           fill="#20262B" stroke="#FFFFFF" strokeWidth={2.4 / k} paintOrder="stroke"
           pointerEvents="none">{SHORTN[iso]}</text>
       ))}

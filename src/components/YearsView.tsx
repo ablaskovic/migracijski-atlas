@@ -4,7 +4,7 @@ import {
 } from '../lib/metrics.ts';
 import { fitGrid } from '../lib/gridfit.ts';
 import { moveTip, COARSE, wasTouch } from '../lib/tip.ts';
-import { isKeyFocus } from '../lib/state.ts';
+import { isKeyFocus, useRootRem } from '../lib/state.ts';
 import type { useZoom } from '../lib/useZoom.ts';
 import type { FocusEvent as ReactFocusEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactElement } from 'react';
 import { L, yr, yrSpan } from '../lib/i18n.ts';
@@ -62,7 +62,9 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
      a coarse pointer gets. The cost is 36 px over 21 rows: measured, the cell
      loses 1,7 px at 1440×900 and 1680×1050, and the viewports that already
      scrolled still scroll. */
-  const LBL = 108, TOPL = 90, PADR = 14, PADB = 40;
+  /* the lanes hold labels, so they scale with the labels — see MatrixView */
+  const rem = useRootRem();
+  const LBL = 108 * rem, TOPL = 90, PADR = 14, PADB = 40;
   const box = fitGrid({ size, legend, panel, cols: nC, rows: nR, lbl: LBL, top: TOPL, padR: PADR, padB: PADB, min: 12 });
   /* Floors, like the matrix's: below these the grid overflows the box and the
      shared zoom/pan is what recovers it, which is better than cells too small to
@@ -100,7 +102,7 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
        the design tokens at the top of index.css). Measured per cell rather than
        assumed: a
        cumulative −28.292 is nine glyphs where an annual −87 is three. */
-  const numFs = Math.min(8.5, ch * 0.5, cw * 0.26);
+  const numFs = Math.min(8.5 * rem, ch * 0.5, cw * 0.26);
   const showNum = cw >= 30 && ch >= 14 && numFs >= 6;
   const fitsNum = useCallback((s: string) => s.length * numFs * 0.6 <= cw - 3, [numFs, cw]);
 
@@ -117,8 +119,8 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
      stroke that could be read as data. Teal, like the corridor mark in Matrica. */
   const selC = cols.indexOf(S.yi);
 
-  const rowFs = Math.max(6.5, Math.min(9.5, ch * 0.62));
-  const colFs = Math.max(6.5, Math.min(9, cw * 0.34));
+  const rowFs = Math.max(6.5 * rem, Math.min(9.5 * rem, ch * 0.62));
+  const colFs = Math.max(6.5 * rem, Math.min(9 * rem, cw * 0.34));
 
   /* Roving tabindex — 588 tab stops would be hostile. Same grid pattern as the
      matrix, including the stopPropagation, without which App's window handler

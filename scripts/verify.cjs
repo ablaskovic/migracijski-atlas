@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 623;
+const EXPECTED_CHECKS = 624;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1195,6 +1195,93 @@ const evalSafe = async (pg, fn) => {
     && ['tick', 'axis', 'citz', 'rname'].every(f =>
       svgType.base[f] > 0 && Math.abs(svgType.big[f] / svgType.base[f] - 1.5) < 0.02),
     JSON.stringify(svgType));
+
+  /* …and the four families that check could not see, because it samples one
+     spark tick, one card axis label, one citizenship label and .rname. The
+     conversion that made 74 CSS declarations follow the reader's font stopped at
+     the labels that size THEMSELVES in JavaScript: Matrica's and Godine's county
+     names, their rotated year labels, the in-cell numbers, and the map's county
+     labels. Those did not merely stand still. Measured at a 24 px root, 1920×
+     1080: .rname 9,5 → 14,25 while Matrica's row label went 9,5 → 9,38 and its
+     in-cell number 8,5 → 7,45 — SMALLER, because the lanes and the header around
+     the grid grow with the root and the cell is what gives way. On the two views
+     whose entire content is small numbers, the smallest type on the page was the
+     one family that shrank.
+     Two claims, because the grid is a fit problem and a scale problem at once.
+     Nothing may shrink, at either viewport — that is the defect, and it holds
+     wherever the grid is cramped. And where there IS room (1920×1600, a grid not
+     bound by its own height) every family scales by the root exactly as the prose
+     does, which is what proves the caps were converted and not just floored. */
+  const drawnFs = {};
+  {
+    const bigger2 = await puppeteer.launch({
+      args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR'],
+    });
+    try {
+      for (const [k, br] of [['base', browser], ['big', bigger2]]) {
+        const pg = await watch(await br.newPage());
+        await pinHr(pg);
+        const c = await pg.createCDPSession();
+        if (k === 'big') await c.send('Page.setFontSizes', { fontSizes: { standard: 24, fixed: 24 } });
+        for (const [vw, vh] of [[1920, 1080], [1920, 1600]]) {
+          await pg.setViewport({ width: vw, height: vh });
+          const at = k + vw + 'x' + vh;
+          drawnFs[at] = {};
+          for (const [h, sel, name] of [
+            ['#v=mx&c=0&y=2018&dir=out', '#map .gaxl', 'mxLab'],
+            ['#v=mx&c=0&y=2018&dir=out', '#map .mxnum', 'mxNum'],
+            ['#v=yrs&c=1&y=2024', '#map .gaxl', 'yrLab'],
+            ['#v=yrs&c=1&y=2024', '#map .mxnum', 'yrNum'],
+            ['#v=saldo&c=1&y=2024&lb=1', '#map .clab', 'clab'],
+          ]) {
+            await pg.goto(url + h, { waitUntil: 'domcontentloaded' });
+            await pg.waitForFunction(() => !!document.querySelector('#map'), { timeout: 20000 }).catch(() => {});
+            await settle(700);
+            drawnFs[at][name] = await pg.evaluate(s => {
+              const e = document.querySelector(s);
+              return e ? +parseFloat(getComputedStyle(e).fontSize).toFixed(2) : 0;
+            }, sel);
+            if (name === 'mxNum') drawnFs[at].mxCell = await pg.evaluate(() => {
+              const c = document.querySelector('#map .mxc');
+              return c ? +c.getBoundingClientRect().width.toFixed(2) : 0;
+            });
+          }
+        }
+        await c.detach();
+        await pg.close();
+      }
+    } finally { await bigger2.close(); }
+  }
+  const FAMS = ['mxLab', 'mxNum', 'yrLab', 'yrNum', 'clab'];
+  const grew = FAMS.map(f => ({ f,
+    /* every family must be drawn at both roots, or a ratio of 0/0 passes */
+    seen: drawnFs.base1920x1080[f] > 0 && drawnFs.big1920x1080[f] > 0
+      && drawnFs.base1920x1600[f] > 0 && drawnFs.big1920x1600[f] > 0,
+    tight: +(drawnFs.big1920x1080[f] / drawnFs.base1920x1080[f]).toFixed(3),
+    roomy: +(drawnFs.big1920x1600[f] / drawnFs.base1920x1600[f]).toFixed(3) }));
+  /* The one family that is allowed to be smaller at the bigger root, and only
+     for the reason its own fit predicate gives. Matrica is a SQUARE grid bound
+     by its own height at 1920×1080, and at a 24 px root the header above it is
+     taller, so the stage — and with it the cell — is smaller. numFs is
+     min(8.5 × rem, cell / 3) and the second term binds: 7,45 px in a 22,4 px
+     cell. That is the number fitting the cell it is drawn in, which is the whole
+     point of the predicate; it is not a px literal standing still, and it read
+     exactly the same before this change. So it is asserted against the predicate
+     rather than exempted by name — a build that reverted the cap to a literal 8.5
+     would fail here, because 8.5 is not min(12.75, cell/3). */
+  const mxBound = (() => {
+    const d = drawnFs.big1920x1080, cell = d.mxCell || 0;
+    return cell > 0 && Math.abs(d.mxNum - Math.min(8.5 * 1.5, cell / 3)) < 0.06;
+  })();
+  ck('the labels the views draw themselves follow the reader’s font too',
+    grew.every(g => g.seen)
+    /* never smaller than at the default root, even where the grid is cramped… */
+    && grew.every(g => g.f === 'mxNum' || g.tight >= 0.999)
+    /* …except the one the cell binds, which must equal what the cell allows */
+    && (grew.find(g => g.f === 'mxNum').tight >= 0.999 || mxBound)
+    /* and a full 1.5× where the grid is not bound by its own height */
+    && grew.every(g => Math.abs(g.roomy - 1.5) < 0.02),
+    JSON.stringify(grew) + ' mxBound=' + mxBound + ' ' + JSON.stringify(drawnFs));
   await click('path[data-iso="HR-18"]');
   const cardRow = await page.evaluate(() => ({
     row: document.querySelector('#cardRow')?.textContent || '',
