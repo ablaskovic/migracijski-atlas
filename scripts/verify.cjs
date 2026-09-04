@@ -182,7 +182,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 628;
+const EXPECTED_CHECKS = 629;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4565,6 +4565,54 @@ const evalSafe = async (pg, fn) => {
       }) });
     }
   }
+  /* ── the two twins have to draw the same figure ──
+     PNG and SVG are one export in two formats, and the file's own header calls
+     them twins. Two places where they were not. The eyebrow: the SVG tracks it
+     1 px per glyph, matching the page's .hd-eyebrow, and the canvas set no
+     letter-spacing at all — while its own fit budgets `eyebrow.length` px for
+     exactly that tracking, so the PNG was shrunk to fit a width it then did not
+     occupy. And the Klasifikacija swatch labels: 10 px IBM Plex Sans on the
+     canvas against 9,5 px IBM Plex Mono in the SVG — a proportional face at a
+     different size — so every swatch after the first sat somewhere else.
+     Measured before: swatches at 20/118/209 in the PNG against 20/134/242 in the
+     SVG, 33 px apart by the third.
+     Read from the canvas the exporter actually draws on, by intercepting
+     fillText — the PNG is a bitmap, so there is nothing else to read, and a
+     check that re-derived the layout would be testing its own arithmetic. */
+  await page.setViewport({ width: 1440, height: 900 });
+  await fresh('#v=klas&c=1&y=2024');
+  const twinDraw = await page.evaluate(async () => {
+    const calls = [];
+    const C = CanvasRenderingContext2D.prototype;
+    const ft = C.fillText;
+    C.fillText = function (t, x, y) {
+      calls.push({ t: String(t), x: Math.round(x), font: this.font, ls: this.letterSpacing });
+      return ft.call(this, t, x, y);
+    };
+    try { await window.__exportPNG(false); } catch { /* the assertion reads what was drawn */ }
+    C.fillText = ft;
+    const doc = String(window.__exportSVG(false));
+    const KL = /^(pobjednice|neutralne|gubitnice|gaining|neutral|losing)/i;
+    const kl = calls.filter(c => KL.test(c.t));
+    const eye = calls.find(c => /MIGRACIJSKI ATLAS/.test(c.t));
+    return {
+      eyeLs: eye ? String(eye.ls) : null,
+      svgEyeTracked: /letter-spacing="1"/.test(doc),
+      pngFonts: [...new Set(kl.map(c => c.font))],
+      pngX: kl.map(c => c.x - 16),
+      svgX: [...doc.matchAll(/<rect x="(\d+(?:\.\d+)?)" y="\d+(?:\.\d+)?" width="11" height="11"/g)]
+        .map(m2 => Math.round(+m2[1])).slice(0, 3),
+    };
+  });
+  ck('the PNG and the SVG draw the same eyebrow and the same swatch row',
+    /* three swatches drawn, or this compares two empty lists */
+    twinDraw.pngX.length === 3 && twinDraw.svgX.length === 3
+    && twinDraw.svgEyeTracked && /1px/.test(String(twinDraw.eyeLs))
+    && twinDraw.pngFonts.length === 1 && /9\.5px/.test(twinDraw.pngFonts[0])
+    && /Plex Mono/.test(twinDraw.pngFonts[0])
+    && JSON.stringify(twinDraw.pngX) === JSON.stringify(twinDraw.svgX),
+    JSON.stringify(twinDraw));
+
   ck('a Tokovi export carries the same two caveats its own legend prints',
     arcNote.length === 6
     /* the screen note has to be there to compare against, or this compares

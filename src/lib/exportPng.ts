@@ -660,8 +660,20 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
   cv.width = Math.floor(w * SC); cv.height = Math.floor((h + TOP + BOT) * SC);
   const ctx = cv.getContext('2d')!; ctx.scale(SC, SC);
   ctx.fillStyle = '#F4F5F2'; ctx.fillRect(0, 0, w, h + TOP + BOT);
+  /* …tracked, like the SVG twin and like the page's own .hd-eyebrow. The fit
+     above already budgets `eyebrow.length` px for 1 px per glyph, and the canvas
+     never applied any: measured on the Klasifikacija export, the SVG eyebrow is
+     46 px wider than the PNG's over its 46 characters, at the same font size —
+     so the PNG was shrunk to fit a width it then did not occupy, and the two
+     twins printed the same string at different sizes.
+     Feature-tested because ctx.letterSpacing is not universal; where it is
+     absent the drawing is exactly what it was. Reset afterwards, because the
+     context is shared with every band drawn below it. */
   ctx.fillStyle = '#5F6A72'; ctx.font = '500 ' + B.eyebrowFs + 'px ' + MONO_CSS;
+  const trackable = 'letterSpacing' in ctx;
+  if (trackable) ctx.letterSpacing = '1px';
   ctx.fillText(B.eyebrow, 20, 26);
+  if (trackable) ctx.letterSpacing = '0px';
   const per = B.per;
   ctx.fillStyle = '#20262B';
   ctx.font = '600 ' + B.titleFs + 'px ' + DISP_CSS;
@@ -679,6 +691,13 @@ export async function exportPNG(node: SVGSVGElement, S: State, dl = true): Promi
     for (const k of ['gain', 'neu', 'loss'] as const) {
       ctx.fillStyle = KCOL[k]; ctx.fillRect(lx, ly, 11, 11);
       ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.strokeRect(lx + 0.5, ly + 0.5, 10, 10);
+      /* 9,5 px mono, which is what the SVG twin draws and what the other legend
+         labels below already use. This drew them in 10 px IBM Plex Sans — a
+         proportional face at a different size — so the label widths differed and
+         with them every swatch x after the first: the same figure, two layouts.
+         Set per label rather than once, because the band's own font is restored
+         for the branches that follow. */
+      ctx.font = `400 9.5px ${MONO_CSS}`;
       ctx.fillStyle = '#20262B'; const t = KLAB[k] + ' · ' + leg.counts[k]; ctx.fillText(t, lx + 16, ly + 9);
       lx += 16 + ctx.measureText(t).width + 18;
     }
