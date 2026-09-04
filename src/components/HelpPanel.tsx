@@ -191,6 +191,32 @@ function useModalWhenNarrow(open: boolean, view: State['view']): boolean {
        reader can switch views with it open, and the sibling set the walk marks
        is view-dependent. */
   }, [open, narrow, view]);
+  /* …and where `inert` is not implemented, the walk above sets an attribute
+     nothing enforces. Safari got it in 15.5 and Firefox in 112, so a reader on
+     an older one has an aria-modal="true" dialog whose first Shift+Tab lands on
+     the header it is covering — the state the walk exists to prevent, with the
+     app believing it is prevented. A Tab wrap inside the card is the fallback,
+     installed only where the attribute does nothing: on engines that honour it
+     the wrap would be a second mechanism competing with the first. */
+  useEffect(() => {
+    if (!open || !narrow || 'inert' in HTMLElement.prototype) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const card = document.getElementById('helpCard');
+      if (!card) return;
+      const f = [...card.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),select,input,[tabindex]:not([tabindex="-1"])')]
+        .filter(el => el.getClientRects().length);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      const act = document.activeElement;
+      if (!card.contains(act)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); return; }
+      if (!e.shiftKey && act === last) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && act === first) { e.preventDefault(); last.focus(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [open, narrow]);
   return narrow;
 }
 
