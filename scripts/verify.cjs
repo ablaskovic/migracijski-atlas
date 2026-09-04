@@ -3955,6 +3955,9 @@ const evalSafe = async (pg, fn) => {
     history.replaceState = (...a) => { R++; ts.push(performance.now()); return r0(...a); };
     history.pushState = (...a) => { P++; ts.push(performance.now()); return p0(...a); };
     const sp = document.querySelector('#spark');
+    /* the year the page booted at, read before anything is dragged — see the
+       note by the release below */
+    const boot = sp.getAttribute('aria-valuetext');
     const b = sp.getBoundingClientRect();
     const at = x => {
       const o = { clientX: b.x + x, clientY: b.y + b.height / 2, bubbles: true, pointerId: 1, isPrimary: true, buttons: 1 };
@@ -3970,6 +3973,16 @@ const evalSafe = async (pg, fn) => {
       at(x);
       await new Promise(r => setTimeout(r, 8));
     }
+    /* Ends somewhere KNOWN, and not where it started. The oscillation stopped
+       wherever 4 s of it happened to land, and near x = 10 that is 1998 — the
+       year this state booted at — so the URL clause below could be satisfied by
+       the hash the page arrived with, with no write having landed at all. One
+       deterministic move to 70 % of the track before the release fixes the
+       ending year, and the assertion then requires it to differ from the boot
+       year, which only a landed write can produce. */
+    x = Math.round(b.width * 0.7);
+    at(x);
+    await new Promise(r => setTimeout(r, 40));
     sp.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x + x, clientY: b.y + b.height / 2, bubbles: true, pointerId: 1, isPrimary: true }));
     void t0;
     /* past the trailing timer, so the last state of the burst has landed */
@@ -4002,7 +4015,7 @@ const evalSafe = async (pg, fn) => {
     const minGap = gaps.length ? Math.min(...gaps) : 0;
     return { R, P, gaps: gaps.length, minGap: Math.round(minGap),
       perWindow: gaps.length ? Math.ceil(30000 / Math.max(minGap, 0.001)) : Infinity,
-      year: sp.getAttribute('aria-valuetext'), hash: location.hash };
+      boot, year: sp.getAttribute('aria-valuetext'), hash: location.hash };
   });
   /* `P` was collected and never read. A scrub must write NO pushState at all —
      a drag is one navigation, not forty — and counting them is the only thing
@@ -4013,7 +4026,8 @@ const evalSafe = async (pg, fn) => {
   ck('scrubbing spaces its history writes under the engine’s 100-per-30 s budget, and the URL still catches up',
     histRate.R >= 5 && histRate.perWindow <= 100
     && histRate.P === 0 && histRate.minGap >= 300
-    && histRate.hash.includes('y=' + String(histRate.year).replace('.', '')),
+    && histRate.hash.includes('y=' + String(histRate.year).replace('.', ''))
+    && histRate.year !== histRate.boot,
     JSON.stringify(histRate));
 
   /* Escape reaches every dismissible surface, not just two of six */
