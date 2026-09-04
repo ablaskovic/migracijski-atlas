@@ -182,7 +182,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 632;
+const EXPECTED_CHECKS = 633;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10935,6 +10935,34 @@ const evalSafe = async (pg, fn) => {
     && cropOut.mx1440.cells === 420 && cropOut.mx1024.cells === 420
     && cropOut.yrs1440.cells === 588 && cropOut.saldo.cells === 21,
     JSON.stringify(cropOut));
+
+  /* …and it stops cropping the moment the reader chooses the frame. Every
+     export check above runs at 1×, or explicitly "back at 1×", so the guard
+     that suspends the crop above 1× had no coverage at all — and it had lost
+     its backslashes (`/scale(([d.]+))/`), which cannot match a transform: k
+     came back 1 from every zoom and a magnified grid was cropped to the ink of
+     its magnified content. One notch, because it is the smallest zoom that
+     shows it: at 1.6× the shipped build wrote width 837 and viewBox
+     "211 0 837 516" of a 1148 px frame, and above about 4× the ink fills the
+     frame and the crop declines on its own, which is why a bigger zoom would
+     have proved nothing. */
+  await fresh('#v=mx&y=2018&c=0&dir=out');
+  await page.evaluate(() => document.querySelector('#map').focus());
+  await page.keyboard.press('Equal');
+  await settle(400);
+  const zoomCrop = await page.evaluate(() => {
+    const live = document.querySelector('#map');
+    const d = new DOMParser().parseFromString(String(window.__exportSVG(false)), 'image/svg+xml');
+    const inner = [...d.querySelectorAll('svg')].find(e => e !== d.documentElement);
+    return { k: (/scale\(([\d.]+)\)/.exec(live.querySelector('g[transform]')?.getAttribute('transform') || '') || [])[1],
+      mapW: inner ? +inner.getAttribute('width') : null,
+      liveW: live.clientWidth, viewBox: inner ? inner.getAttribute('viewBox') : null,
+      cells: d.querySelectorAll('.mxc').length };
+  });
+  ck('a zoomed grid exports the frame the reader chose, uncropped',
+    Number(zoomCrop.k) > 1.01 && zoomCrop.viewBox === null
+    && zoomCrop.mapW === zoomCrop.liveW && zoomCrop.cells === 420,
+    JSON.stringify(zoomCrop));
 
   /* …and a Regije figure says whose reading the grouping is. The study proposes
      five regions and their centres in prose and prints no county list, so the
