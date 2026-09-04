@@ -117,14 +117,22 @@ export function ensureFonts(): Promise<string> {
      reload recovered. The abort makes the wait fail like any other failure, which
      the catch below already knows how to degrade — the figure names the families,
      which is the documented fallback. */
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), FONT_TIMEOUT);
-  pending ??= Promise.all(FACES.map(async f => {
-    const uri = await dataUri(f.url, ac.signal);
-    return `@font-face{font-family:'${f.family}';font-style:normal;font-weight:${f.weight};`
-      + `src:url(${uri}) format('woff2');unicode-range:${f.range}}`;
-  })).then(parts => { css = `/* ${FONT_NOTICE} */` + parts.join(''); return css; })
-    .catch(() => { pending = null; return ''; })
-    .finally(() => clearTimeout(timer));
+  /* …and the controller belongs to the fetch it aborts. Built outside the
+     assignment, both were constructed on every call while only the first
+     call's pair was ever wired to a request: a second caller — App's warm plus
+     a click, or two clicks — armed an 8 s timer that aborted a controller
+     nothing was listening to, and its own wait was bounded by the first
+     caller's timer instead. Inside, one controller and one timer per flight. */
+  pending ??= (() => {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), FONT_TIMEOUT);
+    return Promise.all(FACES.map(async f => {
+      const uri = await dataUri(f.url, ac.signal);
+      return `@font-face{font-family:'${f.family}';font-style:normal;font-weight:${f.weight};`
+        + `src:url(${uri}) format('woff2');unicode-range:${f.range}}`;
+    })).then(parts => { css = `/* ${FONT_NOTICE} */` + parts.join(''); return css; })
+      .catch(() => { pending = null; return ''; })
+      .finally(() => clearTimeout(timer));
+  })();
   return pending;
 }
