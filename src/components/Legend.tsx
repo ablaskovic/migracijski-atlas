@@ -226,6 +226,17 @@ export default function Legend({ S }: { S: State }) {
         <div className="legend-note">
           {L('Redak je županija, stupac godina; redci su poredani po zbroju razdoblja. Tirkizni stupac je odabrana godina — klik na ćeliju je postavlja.',
             'A row is a county, a column a year; rows are ordered by the period total. The teal column is the selected year — clicking a cell sets it.')}
+          {/* …and in annual % of the current estimate, that order is not the
+              order of the cells. Each cell divides its own year by that year's
+              estimate; the row total divides Σ(years) by the LAST year's, so the
+              two rankings part company — measured, 2 rows out of place in tot,
+              6 in ext (HR-15 and HR-21 swap at rows 4 and 5), 5 in nat and 2 in
+              all. Identical under % popisa 2011., whose denominator is constant,
+              and in cumulative mode, where the row total IS the last cell.
+              Nobody sees it without adding up 28 percentages, but the sentence
+              above promises an order, so this one says of what. */}
+          {!S.cum && S.den === 'relest' && L(' Zbroj razdoblja je izražen u % procjene za posljednju godinu, pa nije zbroj prikazanih postotaka.',
+            ' The period total is expressed as a % of the last year’s estimate, so it is not the sum of the percentages shown.')}
           {S.flow === 'all' && L(' Zbroj dviju objavljenih sastavnica — nije ukupna promjena broja stanovnika.',
             ' The sum of two published components — not total population change.')}
           {!S.cum && marginFlow(S.flow) && L(' Šrafirano do 2007.: prije toga se međužupanijske margine ne zatvaraju — v. „Kako čitati”.',
