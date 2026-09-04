@@ -76,10 +76,18 @@ const k2 = s => fold(s).replace(/[\s-]/g, '');
      fallback answer HR-21, empties byCty for an ambiguous name, and stops the
      run with "need a perfect 1:1 cover before emitting" over a JLS whose polygon
      is sitting in the extract.
-     The feature's own outline votes instead. A shared border cannot confuse it,
-     and it needs no distance metric at all. Measured: 12 of 12 correct — the ten
-     fallback cases and both Sveta Nedeljas — and the full run still reproduces
-     the committed geo_jls.json byte for byte. */
+     The feature's own outline votes instead — no distance metric, and a shared
+     border stops being the thing that decides. Measured: 12 of 12 correct on
+     the cases that actually reach it — the ten fallback cases and both Sveta
+     Nedeljas — and the full run still reproduces the committed geo_jls.json byte
+     for byte.
+     Not infallible, and the comment used to imply it was: run over all 556
+     features the vote disagrees with the registry twice, for Strizivojna (votes
+     HR-12, registry HR-14) and Donja Dubrava (votes HR-06, registry HR-20) —
+     border municipalities whose simplified outline sits mostly across the
+     simplified county line. Neither reaches the fallback today, because both
+     centroids are in-county; the block at the join below says what happens if a
+     re-simplification ever routes them here. */
   const countyOf = f => {
     const pt = geoCentroid(f);
     for (const cf of counties.features) if (geoContains(cf, pt)) return cf.properties.shapeISO;
@@ -147,6 +155,13 @@ const k2 = s => fold(s).replace(/[\s-]/g, '');
      level-7 pull can't contain it — its JLS boundary IS the county boundary,
      which the repo already carries as HR-21 in geo_counties.json */
   const gzIx = stats.findIndex(s => s[0] === 'Grad Zagreb');
+  /* …and it has to BE there. findIndex returns -1 when the registry spells the
+     name differently, and -1 is a perfectly good Map key: taken.set(-1, …)
+     counts toward the 556 cover, the real Grad Zagreb row stays unmatched, and
+     the run dies four lines down inside the writer with "stats[i] is not
+     iterable" — one line after printing the "JLS without geometry" diagnostic
+     that would have named it. Fail where the fact is known. */
+  if (gzIx < 0) throw new Error('Grad Zagreb missing from ext/jls_stats.json — the substitution below has nothing to key on');
   if (!taken.has(gzIx)) {
     const gz = counties.features.find(f => f.properties.shapeISO === 'HR-21');
     taken.set(gzIx, { type: 'Feature', properties: { name: 'Grad Zagreb' }, geometry: gz.geometry });
