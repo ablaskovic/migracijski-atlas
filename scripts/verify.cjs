@@ -8606,17 +8606,29 @@ const evalSafe = async (pg, fn) => {
       kbdGap[l + w] = await page.evaluate(() => {
         const hint = document.querySelector('#kbdHint');
         if (!hint) return { hint: false };
-        const cap = [...document.querySelectorAll('#spark text')]
-          .find(t => /saldo|Croatia/.test(t.textContent || ''));
         const h = hint.getBoundingClientRect();
-        return { hint: true,
+        /* Found by POSITION, not by wording. `/saldo|Croatia/` is a copy of the
+           caption's current text, and the caption is exactly the thing most
+           likely to be reworded — a rename to "RH · neto vanjske migracije" (or
+           its English twin) would have left `cap` undefined and `gap` null in all
+           fourteen states, and the clearance clause skips a null. The whole
+           measurement would have gone silently vacuous on a copy edit.
+           The caption is the text on the hint's own baseline that is neither the
+           hint nor a year tick — which is what "the caption beside it" means. */
+        const cap = [...document.querySelectorAll('#spark text')].find(t =>
+          t !== hint && !/^\d{4}\.?$/.test((t.textContent || '').trim())
+          && Math.abs(t.getBoundingClientRect().top - h.top) < 2);
+        return { hint: true, cap: cap ? (cap.textContent || '').slice(0, 18) : null,
           gap: cap ? +(h.left - cap.getBoundingClientRect().right).toFixed(1) : null };
       });
     }
   }
   await page.setViewport({ width: 1440, height: 900 });
   ck('the keyboard hint never closes on the caption beside it, in either language',
-    Object.values(kbdGap).every(v => !v.hint || v.gap === null || v.gap >= 12)
+    /* …and a hint with no caption found is a FAILURE, not a skip. `gap === null`
+       used to satisfy this clause, so the fourteen states could all report
+       "nothing to measure" and print ok. */
+    Object.values(kbdGap).every(v => !v.hint || (v.gap !== null && v.gap >= 12))
     /* and it is still shown where there IS room — a gate that hides it always would pass the line above */
     && kbdGap.hr1440.hint && kbdGap.en1440.hint
     /* …and the gate is still derived from the two strings in use rather than
