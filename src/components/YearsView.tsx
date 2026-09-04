@@ -104,6 +104,9 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
        cumulative −28.292 is nine glyphs where an annual −87 is three. */
   const numFs = Math.min(8.5 * rem, ch * 0.5, cw * 0.26);
   const showNum = cw >= 30 && ch >= 14 && numFs >= 6;
+  /* …and it prints a biased subset: the test is on the string, so the long
+     values are the dropped ones. Measured, and the alternatives weighed, where
+     the matrix states the same test — see MatrixView. */
   const fitsNum = useCallback((s: string) => s.length * numFs * 0.6 <= cw - 3, [numFs, cw]);
 
   const hl = S.yrHl;

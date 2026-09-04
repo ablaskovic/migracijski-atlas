@@ -93,6 +93,21 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
      test, with the same 0,6 em advance for the mono face. */
   const numFs = Math.min(8.5 * rem, cell / 3);
   const showNum = cell >= 22;
+  /* …and the set it prints is biased toward small values, deliberately and
+     measurably. The test is on the STRING, so a 7-glyph −28.292 is dropped
+     where a 3-glyph +87 is drawn: measured at 1680×1050 in Neto + Kumulativno,
+     cell 28,1 px, the printed cells have a median |neto| of 119 and the dropped
+     ones 1.542, and nothing above ~941 is printed at all. So the cells a reader
+     most wants a number on are the ones without one.
+     Left as it is, and the two alternatives are why. Abbreviating does not fit
+     in Croatian — the conventional "tis." makes "−28,3 tis." (10 glyphs)
+     LONGER than the −28.292 it replaces, and the only form that fits the 5-glyph
+     budget at this cell size is a "k" suffix, an informal unit this atlas uses
+     nowhere and would bake into a publication figure. Going back to one
+     all-or-nothing test over the widest value in the grid would unbias it by
+     printing far less: that is the rule YearsView deliberately replaced with
+     this one. Colour carries the magnitude for every cell, and the exact figure
+     is in the tooltip, the aria-label and the rail row. */
   const fitsNum = useCallback((str: string) => str.length * numFs * 0.6 <= cell - 3, [numFs, cell]);
   /* What the cell prints, once, so the fit test measures the string that is
      drawn. Neto is a signed quantity and every other rendering of the same cell
