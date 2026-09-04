@@ -25,7 +25,9 @@ export default function JlsCard({ S, setS, toggleJls }: {
     else { rows = dd.out.concat(dd.in).slice().sort((a, b) => b[2] - a[2]).slice(0, 12); cap = L('najveći bruto koridori (JLS neto nije objavljen)', 'largest gross corridors (LAU net is not published)'); }
   }
   /* …and not when the municipality IS the county. Grad Zagreb is both — a
-     municipality at drill index 274 and SHORTN['HR-21'] — and it is the single
+     municipality in JLS.names (index 1 in the shipped payload, though the
+     indices are first-use order and move on regeneration, so the name is the
+     identity here and not the number) and SHORTN['HR-21'] — and it is the single
      most frequent corridor endpoint in the payload, so rows read "Velika Gorica
      → Grad Zagreb Grad Zagreb". Swept over all 21 counties × all three Smjer
      values: 423 of 756 rendered rows carried the doubling, in 20 of the 21
