@@ -3942,12 +3942,18 @@ const evalSafe = async (pg, fn) => {
        describe is dropped by the codec's own story guard, so the banner would
        never have been there to dismiss */
     ['story', '', '#storyCap', '#storyCap', 'story'],
-    ['help', '', null, '#helpCard', 'helpBtn'],
+    /* …with the same floor as the other three. It was `null`, which made
+       `before` true by definition: if toggleHelp ever stopped opening the
+       dialog, the click would still focus #helpBtn, Escape would find nothing
+       to close, `still` would be false and activeElement would be helpBtn — the
+       leg passing on a dialog that never appeared, which is precisely the case
+       the floor below exists to fail. */
+    ['help', '', '#helpCard', '#helpCard', 'helpBtn'],
   ]) {
     await fresh(h);
     if (label === 'help') await click('#helpBtn');
     if (label === 'story') { await page.select('#story', '1'); await settle(400); }
-    const before = open === null || await page.evaluate(s => !!document.querySelector(s), open);
+    const before = await page.evaluate(s => !!document.querySelector(s), open);
     await page.keyboard.press('Escape');
     await settle(200);
     const after = await page.evaluate(s => ({ still: !!document.querySelector(s),
