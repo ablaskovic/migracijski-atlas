@@ -882,7 +882,20 @@ body.stage-collapsed .main{flex:none;height:420px}
 .jtabs button:last-child{border-right:none}
 .jtabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .jrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2px 0;font-size:0.65625rem}
-.jrow .jn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The rail's remedy, applied to the two lists that never got it. These lanes are
+   px-fixed (312 px card body, 118 px name column) while their text is in rem, so
+   raising the browser font grows the string and not the lane: at Chrome's Very
+   large preset (24 px root, .jrow 15,75 px) 74 of the 956 corridor strings the
+   JLS card can render overflow — "Kloštar Podravski → Pitomača Virovitičko-podr."
+   wants ~345 px in 266 and painted as "Kloštar Podravski → Pitom…", losing the
+   destination, which is the row's one datum. #zemList clipped at the *default*
+   size too: "Ukupno — sve zemlje 2025." is ~130 px in 118, so the year the
+   caption exists to state read as "2…".
+   Ellipsis is loss of content under 1.4.4, and there is no second surface here
+   carrying the full string — a title attribute would not be one, being reachable
+   by neither touch nor keyboard. So the text wraps, exactly as .rname does
+   (line 669), and the rows grow into a body that already scrolls. */
+.jrow .jn{overflow-wrap:anywhere;min-width:0}
 .jrow .jc{font-family:var(--mono);font-size:0.5rem;color:var(--mut);letter-spacing:.03em}
 .jrow .jv{font-family:var(--mono);font-size:0.625rem;color:var(--mut)}
 .jls-note{font-size:0.5625rem;color:var(--mut);margin-top:5px;line-height:1.35;border-top:1px solid var(--line);padding-top:4px}

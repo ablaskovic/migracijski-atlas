@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 616;
+const EXPECTED_CHECKS = 617;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -12460,6 +12460,53 @@ const evalSafe = async (pg, fn) => {
       clipped.seen >= 40 && clipped.bad.length === 0, JSON.stringify(clipped));
   }
   await page.setViewport({ width: 1440, height: 900 });
+
+  /* ── …and the same question of the two lists the sweep above never reached ──
+     #railList is not the only place a name is an identifier. The JLS corridor
+     card and the Zemlje column carry one too, and both lay it out in a px-fixed
+     lane (312 px body, 118 px column) around text sized in rem. So they read
+     clean at the default root and lose content as soon as the reader raises the
+     browser font — which is the one setting the rem conversion exists for.
+     Measured before the fix, at 24 px root: 74 of the 956 corridor strings the
+     card can render overflowed their lane and were ellipsised, taking the
+     destination municipality with them; #zemList lost "Bosna i Hercegovina" and
+     "Sjeverna Makedonija" in both locales, and the total row's year at the
+     default size. Swept at 20 and 24 px because 20 already clipped five rows —
+     a check that only visits the extreme would call the Large preset clean.
+     Floored on population for the reason cf1922b gives: a clipped count of 0
+     over an empty selector is not a pass. */
+  const bigCdp = await page.createCDPSession();
+  const bigClip = [];
+  for (const fs of [20, 24]) {
+    await bigCdp.send('Page.setFontSizes', { fontSizes: { standard: fs, fixed: fs } });
+    for (const [iso, dir] of [['HR-01', 'net'], ['HR-06', 'out'], ['HR-02', 'in']]) {
+      await fresh(`#v=flow&s=${iso}&dir=${dir}&jl=1&y=2018&c=0`);
+      await page.waitForSelector('#jcardList .jn', { timeout: 15000 }).catch(() => {});
+      bigClip.push({ fs, at: iso + '/' + dir, ...await page.evaluate(() => {
+        const q = [...document.querySelectorAll('#jcardList .jn')];
+        return { seen: q.length,
+          bad: q.filter(e => e.scrollWidth > e.clientWidth + 1)
+            .map(e => (e.textContent || '').replace(/\s+/g, ' ').trim()).slice(0, 2) };
+      }) });
+    }
+    for (const lg of ['hr', 'en']) {
+      await fresh(`#cz=2&l=${lg}`);
+      await page.waitForSelector('#zemList .jn', { timeout: 20000 }).catch(() => {});
+      bigClip.push({ fs, at: 'zem/' + lg, ...await page.evaluate(() => {
+        const q = [...document.querySelectorAll('#zemList .jn')];
+        return { seen: q.length,
+          bad: q.filter(e => e.scrollWidth > e.clientWidth + 1)
+            .map(e => (e.textContent || '').trim()).slice(0, 2) };
+      }) });
+    }
+  }
+  await bigCdp.detach();
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('no corridor or country name is clipped at the browser’s large font presets',
+    bigClip.length === 10
+    && bigClip.every(r => r.seen >= (r.at.startsWith('zem') ? 12 : 10))
+    && bigClip.every(r => r.bad.length === 0),
+    JSON.stringify(bigClip.filter(r => r.bad.length || r.seen < 10)) + ' n=' + bigClip.length);
 
   /* ── M-17: Windows High Contrast blanks whatever decodes the map ── */
   /* puppeteer's own emulateMediaFeatures whitelist does not carry forced-colors,
