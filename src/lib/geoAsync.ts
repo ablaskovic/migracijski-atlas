@@ -157,7 +157,11 @@ export function retryGeo(): 'reloading' | 'offline' {
 }
 /** Drop a deferred reload that is no longer wanted. Safe to call when none is armed. */
 export const cancelRetry = (): void => { disarmOnline?.(); };
-/** Whether one is armed — for the suite, and for the notice that explains it. */
+/** Whether one is armed. MapView renders the "it will resume by itself" notice
+ *  from this rather than from a flag of its own, so the notice cannot outlive
+ *  the arming — see the note at its useState. The suite asserts that notice,
+ *  #joffline, not this accessor: the comment used to promise a check that reads
+ *  `retryArmed` by name, and there is none. */
 export const retryArmed = (): boolean => disarmOnline !== null;
 
 /* Called once from App. Loads what the current view needs immediately, and warms
