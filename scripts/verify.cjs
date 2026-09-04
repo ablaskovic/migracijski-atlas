@@ -5647,8 +5647,14 @@ const evalSafe = async (pg, fn) => {
   await openMore();
   const barOpen = await barWalk();
   Object.assign(barOpen, await barLane());
+  /* 55, not 75. The floor is here so a truncated cycle fails rather than passing
+     for having nothing left to walk, and it was set against a cycle that spent
+     21 of its stops inside the rail — one per row. The rail is one roving stop
+     now, like the two grids, so the honest cycle is 61 stops open and 60 shut;
+     a floor of 75 asserts a rail that no longer exists. 55 keeps the same margin
+     under the real number that 75 had under 79. */
   ck('390: Tab never lands on a row the fixed scrubber covers',
-    barOpen.hidden === 0 && barOpen.moved >= 10 && barOpen.n >= 75, JSON.stringify(barOpen));
+    barOpen.hidden === 0 && barOpen.moved >= 10 && barOpen.n >= 55, JSON.stringify(barOpen));
   await page.evaluate(() => document.querySelector('.scrub-tog').click());
   await settle(300);
   const barShut = await barWalk();
@@ -5663,7 +5669,7 @@ const evalSafe = async (pg, fn) => {
      clears the bar, does not over-reserve, and SHRINKS when the bar is folded
      away — which is the whole of "its own, not the open bar's". */
   ck('390: and the collapsed bar reserves its own measured height, not the open bar’s',
-    barShut.hidden === 0 && barShut.moved >= 10 && barShut.n >= 75
+    barShut.hidden === 0 && barShut.moved >= 10 && barShut.n >= 55
     && barShut.barH < barOpen.barH
     && barShut.pad < barOpen.pad
     && [barOpen, barShut].every(b => b.pad >= b.barH && b.pad <= b.barH + 16),
