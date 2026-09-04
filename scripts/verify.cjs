@@ -5493,7 +5493,11 @@ const evalSafe = async (pg, fn) => {
   ck('+ zooms the map from the keyboard and 0 returns it to 1×',
     kbZoom.zoomed !== kbZoom.before && kbZoom.rst && kbZoom.after === kbZoom.before,
     JSON.stringify(kbZoom));
-  const gloss = await page.evaluate(async () => {
+  /* Both languages. The two clauses below are read off the Croatian card, and
+     the English half of the same L() call drifts independently — the timeline
+     sweep two blocks down exists because it did. Same evaluate, run twice, with
+     the words each language actually uses. */
+  const readGloss = () => page.evaluate(async () => {
     document.querySelector('#helpBtn').click();
     await new Promise(r => setTimeout(r, 250));
     const t = document.querySelector('#helpCard').textContent;
@@ -5507,13 +5511,19 @@ const evalSafe = async (pg, fn) => {
        paragraph could un-document the only keyboard route back to 1× while this
        stayed green, which is the failure the note above claims to have fixed.
        The key and its verb, then, in either language. */
-    return { zoom: t.includes('zumiraju'), zero: /0\s*(vraća|resets)/.test(t),
+    return { zoom: /zumiraju|zoom the map/.test(t), zero: /0\s*(vraća|resets)/.test(t),
       pan: t.includes('Shift'), grid: t.includes('PageUp') };
   });
-  ck('the glossary documents the zoom keys it now has',
-    gloss.zoom && gloss.zero, JSON.stringify(gloss));
-  ck('the glossary documents the pan and grid-jump keys too',
-    gloss.pan && gloss.grid, JSON.stringify(gloss));
+  const gloss = await readGloss();
+  await fresh('#l=en&v=saldo&c=1&y=2024');
+  const glossEn = await readGloss();
+  await fresh('');
+  ck('the glossary documents the zoom keys it now has, in both languages',
+    gloss.zoom && gloss.zero && glossEn.zoom && glossEn.zero,
+    JSON.stringify({ hr: gloss, en: glossEn }));
+  ck('the glossary documents the pan and grid-jump keys too, in both languages',
+    gloss.pan && gloss.grid && glossEn.pan && glossEn.grid,
+    JSON.stringify({ hr: gloss, en: glossEn }));
   /* ── …and every key the timeline itself implements ──
      The two checks above ask whether four particular clauses are still in the
      Controls paragraph. Neither could see the paragraph fall behind App: the
