@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 640;
+const EXPECTED_CHECKS = 641;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -15254,6 +15254,28 @@ const evalSafe = async (pg, fn) => {
      documented check count below stays a constant. */
   ck('every control this run pressed was present, and every boot mounted the app',
     missed.length === 0, missed.slice(0, 4).join(' | '));
+
+  /* ── and no regex in the tree lost a backslash ──
+     Twice a working regex reached HEAD meaning something else, because the shell
+     ate one level of escaping while the fix was being spliced in: exportPng's
+     `/scale\(([\d.]+)\)/` became `/scale(([d.]+))/`, which matches `scale`
+     followed by the letter d or a dot and never `scale(2.56)`; verify.cjs's
+     `/\s+/` became `/s+/`, the letter s, so a viewBox never split and the
+     fallback branch ran every time. Both are syntactically valid, so tsc and
+     oxlint see nothing, and `no-useless-escape` is the opposite rule — it flags
+     escapes that are not needed, not ones that are missing.
+     tools/regex-hunt.cjs reads the literals themselves and looks for the shape
+     the loss leaves. Run here rather than only as a pre-commit step, because a
+     pre-commit hook is a file on one machine and this is the gate CI enforces;
+     it is also runnable on its own (`node tools/regex-hunt.cjs`).
+     Proven on the two real defects, re-spliced into a fixture tree: it reports
+     both, and not the decoys beside them — /[Dd]nevne migracije/ and /[a-z.]+/
+     are ordinary classes and must not cry wolf. */
+  const regexHunt = require(path.resolve(__dirname, '../tools/regex-hunt.cjs')).scan(path.resolve(__dirname, '..'));
+  ck('no regex literal in src, scripts or tools has lost a backslash',
+    regexHunt.length === 0 && regexHunt.scanned > 800,
+    regexHunt.length ? regexHunt.slice(0, 3).map(h => `${h.file}:${h.line} ${h.src}`).join(' | `')
+      : `${regexHunt.scanned} literals scanned`);
   /* …and the README's copy of that number, which drifted by 147 — it advertised
      a 463-check suite against an EXPECTED_CHECKS of 610. It had been repaired
      once already and re-drifted, because nothing read it: the pin below guards
