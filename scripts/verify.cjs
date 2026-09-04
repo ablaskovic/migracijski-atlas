@@ -8370,9 +8370,20 @@ const evalSafe = async (pg, fn) => {
     paleClaim[k] = await page.evaluate(() => {
       const bar = document.querySelector('#legend .legend-lbls');
       const ends = bar ? [...bar.children].map(s => s.textContent) : [];
-      /* the deepest county this year against the domain the key states */
+      /* the deepest county this year against the domain the key states — as a
+         COLOUR, not as variety. `distinct > 10` was the old clause and it is
+         true of every annual year in every flow: 21 counties on a continuous
+         ramp always give more than ten fills, so the sentence's premise (1998
+         holds the deepest county on the scale) was never tested. The ramp's own
+         end is read off the legend gradient and looked for among the fills;
+         measured, 1998 tot and ext paint it and 2010 does not. */
+      const grad = getComputedStyle(document.querySelector('#legend .legend-bar')).backgroundImage;
+      const norm = s => s.replace(/rgba\(([^,]+),\s*([^,]+),\s*([^,]+),\s*1\)/, 'rgb($1, $2, $3)');
+      const stops = [...grad.matchAll(/rgba?\([^)]*\)/g)].map(s => norm(s[0]));
       const fills = [...document.querySelectorAll('#map .cnt')].map(p => getComputedStyle(p).fill);
-      return { ends, n: fills.length, distinct: new Set(fills).size };
+      const first = stops[0] || null, last = stops[stops.length - 1] || null;
+      return { ends, n: fills.length, distinct: new Set(fills).size,
+        first, last, deep: !!stops.length && (fills.includes(first) || fills.includes(last)) };
     });
   }
   const glPale = {};
@@ -8390,10 +8401,11 @@ const evalSafe = async (pg, fn) => {
     /u kumulativnom prikazu rane godine izgledaju blijedo jer se zbroj tek gradi/.test(glPale.hr)
     && /in cumulative mode, early years look pale: the sum is still building/.test(glPale.en)
     && !/jer su vrijednosti male|their values are small/.test(glPale.hr + glPale.en)
-    /* and 1998 really does render at full depth in annual tot/ext */
-    && paleClaim.t1998.n === 21 && paleClaim.t1998.distinct > 10
-    && paleClaim.e1998.n === 21 && paleClaim.e1998.distinct > 10,
-    JSON.stringify({ hr: glPale.hr.slice(-110), ends: paleClaim.t1998.ends }));
+    /* and 1998 really does render at full depth in annual tot/ext: a county is
+       painted the end of the ramp, and the key names the domain it reaches */
+    && paleClaim.t1998.n === 21 && paleClaim.t1998.deep && paleClaim.t1998.ends.length === 3
+    && paleClaim.e1998.n === 21 && paleClaim.e1998.deep && paleClaim.e1998.ends.length === 3,
+    JSON.stringify({ hr: glPale.hr.slice(-110), t: paleClaim.t1998, e: paleClaim.e1998 }));
 
   /* ── a press that changes nothing changes nothing ──
      setView had no `v === s.view` guard and Seg calls onPick for every click,
