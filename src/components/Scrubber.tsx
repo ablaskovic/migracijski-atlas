@@ -59,8 +59,20 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      class as well, so the layout could switch between two sets of px reserves;
      --scrubh above measures the bar in both states, so nothing read that class any
      more — not one rule in index.css and not one check in verify.cjs — and a body
-     class nobody reads is a state signal that only looks load-bearing. */
-  const [collapsed, setCollapsed] = useState(false);
+     class nobody reads is a state signal that only looks load-bearing.
+     It STARTS folded where the screen cannot hold it and the map at once. The
+     bar is 123 px expanded, which is 22 % of a 568 px screen and 32 % of a 390 px
+     one — and with the header shortened to fit above it, what was left over on
+     those two was 18 px of map, with the "?" button's own centre still under the
+     bar (elementFromPoint returned #scrubBox, i.e. a 44 px target that does
+     nothing). Folded it is 86 px, which clears it. Nothing is taken away: the
+     year and the play button stay visible folded — that is what the folded state
+     is for — and the handle unfolds the chart. An initial value only, so a
+     reader who unfolds it keeps it unfolded.
+     620 rather than the 560 the CSS uses: 568 is a real phone (the small iPhone
+     in portrait) and it needs this as much as the 390 px landscape one does. */
+  const [collapsed, setCollapsed] = useState(
+    () => typeof matchMedia === 'function' && matchMedia('(max-height:620px)').matches);
 
   const sh = 96, mL = 6, mR = 6, mT = 14, mB = 16;
   const { x, sy, dExt, dVol } = useMemo<{

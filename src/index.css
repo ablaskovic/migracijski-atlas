@@ -330,6 +330,17 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    monitors wide enough to have had it; .map-wrap is flex:1 and takes the
    difference. The ≤560 block says `width:100%` for the same reason. */
 .ctrls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;flex-basis:100%}
+/* Where the header fits, the phone disclosure is not a box at all:
+   `display:contents` takes the wrapper out of layout, so the groups inside are
+   direct children of .ctrls exactly as they were and this layout is unchanged
+   rather than re-derived — verified box for box at 1440, 1024, 844×390 and 700.
+   A plain div and a button, not <details>/<summary>, which was tried first and
+   does not survive display:contents: Chrome puts a details' children in a
+   ::details-content box that the host's display:contents does not flatten, so
+   the four groups stopped being flex items and stacked in a 333 px column —
+   measured, the header went 272 → 378 px at 700 and 322 → 438 at 844×390. */
+.hd-more{display:contents}
+.hd-more-btn{display:none}
 .ctrl{display:flex;flex-direction:column;gap:4px}
 /* Explicit line-height, not `normal`. `normal` derives the line box from the
    font's own metrics, and the metric-matched fallback only guarantees the
@@ -1397,6 +1408,27 @@ body.stage-collapsed .main{flex:none;height:420px}
   .storysel select{width:100%}
 }
 
+/* ── the header is taller than the phone ──────────────────────────────────
+   Measured on a cold load. At 360×740 the header alone is 622 px (Saldo), 689
+   (Klasifikacija) and 734 (Tokovi) while the fixed timeline bar starts at 617:
+   no map on the first screen at all, and 5 / 72 / 117 px of controls behind the
+   bar. At 320×568, 712–824 px against a bar at 445 — 267 to 379 px of controls
+   hidden, the whole Izvoz row among them. At 844×390 landscape, 322–395 px in a
+   390 px viewport, 55–128 px behind. And at 390×844 in klas/flow/mx/jmap the
+   "?" button's own CENTRE is under the bar: elementFromPoint there returns
+   #scrubBox, so the 44 px target this project sizes for is a tap that does
+   nothing.
+   The header is what has to give. Everything after Prikaz goes behind one tap;
+   the masthead, Nalazi and the view switcher stay, so the primary control keeps
+   its labels and its pressed states. Header remembers the open state for the
+   session, which is what makes one tap the whole cost. */
+.hd-more-btn{align-items:center;gap:8px;min-height:44px;padding:0 10px;
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;
+  cursor:pointer;font-family:var(--mono);font-size:0.5625rem;
+  line-height:0.6875rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+.hd-more-btn::after{content:'▾';margin-left:auto;font-size:0.75rem;line-height:1}
+.hd-more-btn[aria-expanded="true"]::after{content:'▴'}
+
 @media (max-width:560px){
   /* one thumb-sized row per control group; header scrolls with the page */
   .hd{padding:10px 12px 8px;gap:8px}
@@ -1416,6 +1448,15 @@ body.stage-collapsed .main{flex:none;height:420px}
     grid-auto-flow:row dense;align-items:start;width:100%}
   .ctrl{grid-column:span 2;min-width:0;gap:3px}
   #cMode,#dirBox,#cExp{grid-column:span 1}
+  /* the region carries the same grid as .ctrls, so #cMode/#cExp/#dirBox still
+     pair into single columns by the rule above — they are descendants rather
+     than children, and both rules select on id and class, not on position */
+  .hd-more-btn{display:flex;width:100%;grid-column:span 2}
+  .hd-more{display:grid;grid-column:span 2;min-width:0;grid-template-columns:1fr 1fr;
+    gap:7px 8px;grid-auto-flow:row dense;align-items:start}
+  /* after the rule above, so it wins on order: display:grid would otherwise
+     override the closed state and the region could never shut */
+  .hd-more.shut{display:none}
   /* .seg is overflow:hidden, so buttons that do not fit were clipped away
      rather than scrolled — at 360 px the seven-button Prikaz group needs ~470 px
      and "JLS 2018." became unreachable. Wrap instead of clip: every button
@@ -1492,6 +1533,20 @@ body.stage-collapsed .main{flex:none;height:420px}
   .card,.citz,.agec,.paircard{margin:8px 8px 0}
   /* the JLS card still floats over the map — drop it below the Nalazi row */
   .jcard{left:8px;top:50px}
+}
+/* A short viewport is the same problem in the other orientation, and it cannot
+   reach the block above, which is a width. 844x390 is the worst case measured:
+   322-395 px of header in a 390 px viewport against a bar starting at 267, so
+   55-128 px of controls sat behind it and the map was entirely below the fold.
+   Here .ctrls is still the wide flex layout, so the region mirrors THAT rather
+   than the phone grid — the groups keep the boxes they have at this width, they
+   just live behind one tap. min-width:561px, so a viewport that is both narrow
+   and short takes the grid above and not this. */
+@media (max-height:560px) and (min-width:561px){
+  .hd-more-btn{display:flex}
+  .hd-more{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;
+    flex-basis:100%;min-width:0}
+  .hd-more.shut{display:none}
 }
 
 /* Touch: min-height 44 px, the iOS/Material convention. The previous rule aimed

@@ -38,10 +38,54 @@ function Seg<T extends string>({ id, opts, value, onPick, off, title, labId, ari
 
 const OFF_TIP = () => L('Nije primjenjivo u ovom prikazu', 'Not applicable in this view');
 
+/* The phone header is taller than the phone. Measured on a cold load, six
+   viewport × view pairs: at 360×740 the header alone is 622 px (saldo), 689
+   (klas) and 734 (flow) while the fixed timeline bar starts at 617 — so the
+   first screen held NO map at all, and 5 / 72 / 117 px of the header sat under
+   the bar. At 320×568 it is 712 / 779 / 824 against a bar at 445: 267 to 379 px
+   of controls behind it, including the whole Izvoz row. At 844×390 landscape,
+   55 to 128 px. And at 390×844 in klas, flow, mx and jmap the "?" button's own
+   centre is under the bar — elementFromPoint there returns #scrubBox, so the
+   44 px target this project sizes for is a tap that does nothing.
+   The header is what has to give. Everything after Prikaz goes behind a
+   disclosure below 560 px, which is the standard control for exactly this and
+   costs one tap; the masthead, Nalazi and the view switcher stay as they are,
+   so the primary control keeps its labels and its pressed states. Once opened it
+   STAYS open for the session — the cost of the pattern is the repeated tap, and
+   remembering removes it.
+   A media query rather than a width, and live rather than read once: this is a
+   rotation as much as a resize, and a phone that turns must not keep a layout
+   fitted to the other orientation. tip.ts reads its two at module scope because
+   pointer type does not change under a running page; a viewport does.
+   Height as well as width, for the same reason the ≤900 block already carries
+   `(max-height:560px)`: the worst case measured is a LANDSCAPE phone, 844×390,
+   where the header is 322–395 px in a 390 px viewport and the bar starts at 267,
+   so 55–128 px of controls are behind it and there is no map at all. A width-only
+   query leaves the orientation the atlas is least usable in exactly as it was. */
+const NARROW = '(max-width:560px),(max-height:560px)';
+function useNarrow() {
+  const [narrow, setNarrow] = useState(
+    () => typeof matchMedia === 'function' && matchMedia(NARROW).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const mq = matchMedia(NARROW);
+    const on = () => setNarrow(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return narrow;
+}
+
 export default function Header({ S, setS, setView, setMode, applyStory, resetAll }: {
   S: State; setS: (p: Patch) => void; setView: (v: View) => void;
   setMode: (v: 'yr' | 'cum') => void; applyStory: (i: number) => void; resetAll: () => void;
 }) {
+  const narrow = useNarrow();
+  /* remembered, so the disclosure is one tap per session and not one per visit
+     to a control. It is deliberately NOT in S: it is presentation, and the
+     permalink must not carry it. */
+  const [moreOpen, setMoreOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   /* Its own flag, not PNG's. Header already learned that lesson for `err` — one
      shared flag reported a failure against the control that did not fail — and
@@ -184,6 +228,19 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
                views, which answer a different question entirely. */
             opts={[['saldo', t('view.saldo')], ['klas', t('view.klas')], ['reg', t('view.reg')], ['yrs', t('view.yrs')], ['flow', t('view.flow')], ['mx', t('view.mx')], ['jmap', t('view.jmap')]]} />
         </div>
+        {/* A button and a region rather than <details>/<summary>, which was tried
+            first and does not survive `display:contents`: Chrome puts a details'
+            children in a ::details-content box that the host's display:contents
+            does not flatten, so above 560 px the four groups stopped being flex
+            items of .ctrls and stacked in a 333 px column — measured, the header
+            went 272 → 378 px at 700 and 322 → 438 at 844×390. A plain div flattens,
+            so the desktop layout is the same boxes it always was.
+            The button is display:none above 560 px, which also takes it out of the
+            tab order there, and aria-expanded carries the state the ▾ draws. */}
+        <button type="button" className="hd-more-btn" id="hdMoreBtn"
+          aria-expanded={moreOpen} aria-controls="hdMore"
+          onClick={() => setMoreOpen(o => !o)}>{L('Ostale postavke', 'More settings')}</button>
+        <div className={'hd-more' + (narrow && !moreOpen ? ' shut' : '')} id="hdMore">
         <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">{t('ctrl.flow')}</span>
           <Seg id="segFlow" labId="segFlowLab" value={eff ? eff.flow : S.flow} off={lockFD} title={OFF_TIP()} onPick={v => setS({ flow: v })}
             opts={[['tot', t('flow.tot')], ['int', t('flow.int')], ['ext', t('flow.ext')], ['nat', t('flow.nat')], ['all', t('flow.all')]]} />
@@ -271,6 +328,7 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
           <span className="ctrl-lab" id="segDirLab">{t('ctrl.dir')}</span>
           <Seg id="segDir" labId="segDirLab" value={S.dir} onPick={v => setS({ dir: v })}
             opts={[['out', t('dir.out')], ['in', t('dir.in')], ['net', t('dir.net')]]} />
+        </div>
         </div>
       </div>
     </header>

@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 621;
+const EXPECTED_CHECKS = 622;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2493,11 +2493,19 @@ const evalSafe = async (pg, fn) => {
       await page.setViewport({ width: w, height: h, isMobile: w < 500, hasTouch: w < 500 });
       for (const shut of [false, true]) {
         await fresh('#v=flow&s=HR-21&c=1&y=2024');
-        if (shut) {
+        /* Toggle TO the state, rather than assume the boot state is expanded.
+           Scrubber starts folded where the screen cannot hold the bar and the map
+           at once (max-height:620px), which is exactly 844×390 — one of the two
+           viewports this loop visits — so an unconditional press swapped the two
+           legs there and each measured the state the other one is named for. */
+        const wantOpen = !shut;
+        const isOpen = () => page.evaluate(() =>
+          document.querySelector('#scrubTog').getAttribute('aria-expanded') === 'true');
+        if (await isOpen() !== wantOpen) {
           await click('#scrubTog');
-          await page.waitForFunction(
-            () => document.querySelector('#scrubTog').getAttribute('aria-expanded') === 'false',
-            { timeout: 8000 }).catch(() => {});
+          await page.waitForFunction(w => document.querySelector('#scrubTog')
+            .getAttribute('aria-expanded') === (w ? 'true' : 'false'),
+          { timeout: 8000 }, wantOpen).catch(() => {});
           await settle(200);
         }
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -5018,6 +5026,65 @@ const evalSafe = async (pg, fn) => {
     && barShut.pad < barOpen.pad
     && [barOpen, barShut].every(b => b.pad >= b.barH && b.pad <= b.barH + 16),
     JSON.stringify({ shut: barShut, open: { pad: barOpen.pad, barH: barOpen.barH } }));
+
+  /* ── and what the first screen of a phone actually holds ──
+     Nothing here read that. The overlay sweeps ask whether boxes collide; the
+     tab walks ask whether focus lands behind the bar. Neither asks the question
+     a reader asks, which is whether the atlas shows a map when it opens.
+     Measured cold, three views × five viewports: the header alone was 622 px at
+     360×740 (Saldo), 689 (Klasifikacija) and 734 (Tokovi) against a fixed bar
+     starting at 617 — so on the two commonest Android portrait sizes the first
+     screen was chrome and nothing else, with 5 to 379 px of CONTROLS behind the
+     bar. At 390×844 in klas/flow/mx/jmap the "?" button's own centre was under
+     it: elementFromPoint returned #scrubBox, so the 44 px target this project
+     sizes for was a tap that did nothing, in 11 of the 15 pairs.
+     Three things asserted, because the cheap way to pass the first two is to
+     delete controls: the header ends above the bar, the first screen holds a
+     strip of map, the "?" hit-tests to itself — and every group that moved
+     behind the disclosure is still there and still reachable, one press away.
+     844×390 is in the list because landscape was the worst case of all and the
+     media query that fixes it is a height, which a width-only sweep cannot see. */
+  const firstScreen = [];
+  for (const [w, h] of [[320, 568], [360, 740], [390, 844], [412, 915], [844, 390]]) {
+    for (const hash of ['#v=saldo&c=1&y=2024', '#v=klas&c=1&y=2024', '#v=flow&s=HR-21&c=0&y=2018']) {
+      await page.setViewport({ width: w, height: h, isMobile: true, hasTouch: true });
+      await fresh(hash);
+      firstScreen.push({ w, h, v: hash.slice(3, 8), ...await page.evaluate(() => {
+        const R = s => { const e = document.querySelector(s); if (!e) return null;
+          const r = e.getBoundingClientRect(); return r.width ? r : null; };
+        const hd = R('header.hd'), mb = R('.map-box'), sb = R('#scrubBox'), hb = R('#helpBtn');
+        let hit = null;
+        if (hb) { const el = document.elementFromPoint(hb.left + hb.width / 2, hb.top + hb.height / 2);
+          hit = el ? (el.id || String(el.className || '').split(' ')[0] || el.tagName) : null; }
+        const more = document.querySelector('#hdMoreBtn');
+        return {
+          hdUnderBar: hd && sb ? Math.round(Math.max(0, hd.bottom - sb.top)) : null,
+          visibleMap: mb && sb ? Math.round(Math.max(0, Math.min(sb.top,
+            document.documentElement.clientHeight) - mb.top)) : null,
+          hit,
+          moreShown: !!(more && more.getClientRects().length),
+        };
+      }) });
+      /* …and the groups behind it are one press away, not gone */
+      await page.evaluate(() => {
+        const btn = document.querySelector('#hdMoreBtn');
+        if (btn && btn.getClientRects().length) btn.click();
+      });
+      await settle(200);
+      firstScreen[firstScreen.length - 1].groups = await page.evaluate(() =>
+        ['cFlow', 'cDen', 'cMode', 'cExp'].filter(id => {
+          const e = document.getElementById(id);
+          return e && e.getClientRects().length;
+        }).length);
+    }
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('a phone opens on the atlas, with every control clear of the pinned timeline',
+    firstScreen.length === 15
+    && firstScreen.every(r => r.hdUnderBar === 0 && r.visibleMap >= 40
+      && r.hit === 'helpBtn' && r.moreShown && r.groups === 4),
+    JSON.stringify(firstScreen.filter(r => r.hdUnderBar !== 0 || r.visibleMap < 40
+      || r.hit !== 'helpBtn' || !r.moreShown || r.groups !== 4)) + ' n=' + firstScreen.length);
   await page.setViewport({ width: 1440, height: 900 });
 
   /* ── errors ── */
