@@ -8327,7 +8327,24 @@ const evalSafe = async (pg, fn) => {
     const num = t => parseFloat(String(t).replace(/[+−\s]/g, '').replace(/\./g, ''));
     const r = rows.map(x => {
       const inner = x.querySelector('.zbar span');
-      return { nm: (x.querySelector('.jn') || {}).textContent || '',
+      /* the composited edge, against the track it is drawn on: opacity alone
+         does not say what a reader sees, and it is the edge that carries the
+         value. Composited by hand because getComputedStyle reports the declared
+         colour, not the blend. */
+      const rgb = c => { const q = String(c).match(/[0-9.]+/g); return q ? q.slice(0, 3).map(Number) : [0, 0, 0]; };
+      const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const lum = c => { const q = rgb(c); return 0.2126 * lin(q[0]) + 0.7152 * lin(q[1]) + 0.0722 * lin(q[2]); };
+      const track = x.querySelector('.zbar');
+      let cr = null, dash = false;
+      if (inner && track) {
+        const cs = getComputedStyle(inner), tb = rgb(getComputedStyle(track).backgroundColor);
+        const op = parseFloat(cs.opacity), fg = rgb(cs.backgroundColor);
+        const mixed = fg.map((v, i) => v * op + tb[i] * (1 - op));
+        const A = lum('rgb(' + mixed.join(',') + ')'), B = lum(getComputedStyle(track).backgroundColor);
+        cr = +((Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)).toFixed(2);
+        dash = cs.outlineStyle === 'dashed' && parseFloat(cs.outlineWidth) >= 1;
+      }
+      return { nm: (x.querySelector('.jn') || {}).textContent || '', cr, dash,
         d: num((x.querySelectorAll('.jv')[0] || {}).textContent || '0'),
         w: inner ? +inner.getBoundingClientRect().width.toFixed(1) : 0,
         op: inner ? parseFloat(getComputedStyle(inner).opacity) : null };
@@ -8344,7 +8361,14 @@ const evalSafe = async (pg, fn) => {
     && zemBars.widest.nm === zemBars.biggest.nm
     && !!zemBars.rem && zemBars.rem.d > zemBars.top.d && zemBars.rem.w > zemBars.top.w
     /* dimmed, because it is a residual and not a country */
-    && zemBars.rem.op < zemBars.top.op,
+    /* Marked as a residual, and readable while it is. This asserted the DIMMING
+       — `rem.op < top.op` — so the low-contrast state was the thing the suite
+       enforced: at .5 over the track the bar composited to 2,37:1, under the 3:1
+       this panel already applies to its stacks and its swatches, on the widest
+       bar on screen. The distinction is drawn now rather than faded, so what is
+       asserted is that it IS distinguished and that its edge clears the floor. */
+    && zemBars.rem.dash && zemBars.rem.op >= 0.7
+    && zemBars.rem.cr >= 3,
     JSON.stringify(zemBars));
 
   /* ── the keyboard hint and the caption stay two strings ──

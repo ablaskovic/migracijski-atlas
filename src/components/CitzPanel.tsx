@@ -120,7 +120,18 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                     cannot leave it asserting a stale difference. */}
                 <div className="jrow">
                   <span className="jn">{L('Ostale zemlje', 'Other countries')}</span>
-                  <span className="zbar"><span style={{ width: Math.max(1, zemRem[0] / zemMax * 100) + '%', opacity: 0.5 }} /></span>
+                  {/* Marked as a residual by SHAPE, not by fading. At opacity .5
+                      over the #EDEFE9 track this composited to rgb(133,159,185):
+                      2,37:1 against the track and 2,67:1 against the body, which
+                      made its right edge — the datum — the faintest edge in the
+                      panel, on what its own note calls the widest bar on screen.
+                      The twelve country bars beside it measure 4,07:1, and this
+                      same panel already applied the 3:1 floor to its stacks
+                      ("the visible top of the bar was invisible and the value
+                      read short") and to its swatches. It keeps the country
+                      bars' .75 and takes a dashed edge instead, which says
+                      "not one of the twelve" without saying it in contrast. */}
+                  <span className="zbar"><span className="zrem" style={{ width: Math.max(1, zemRem[0] / zemMax * 100) + '%' }} /></span>
                   <span className="jv">{'+' + fmtI.format(zemRem[0])}</span>
                   <span className="jv">{'−' + fmtI.format(zemRem[1])}</span>
                 </div>

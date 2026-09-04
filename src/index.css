@@ -923,6 +923,11 @@ body.stage-collapsed .main{flex:none;height:420px}
 #zemList .jv{min-width:44px;text-align:right}
 .zbar{flex:1;height:7px;background:#EDEFE9;border:1px solid var(--line);margin:0 6px;min-width:40px;align-self:center}
 .zbar span{display:block;height:100%;background:#1D4E89;opacity:.75}
+/* the remainder row: same ink and same opacity as the twelve countries, so its
+   edge is as readable as theirs, and a dashed inset edge to say it is a residual
+   rather than a country. Inset like .zbar span's forced-colors outline, for the
+   same reason: the fill's WIDTH is the datum and a border would take 2 px off. */
+.zbar span.zrem{outline:1px dashed var(--panel);outline-offset:-2px}
 .jrow.zt{border-top:1px solid var(--line);margin-top:3px;padding-top:3px;font-weight:600}
 .citz svg{display:block;width:100%;height:148px}
 .citz-rows{display:grid;grid-template-columns:11px 1fr auto auto;gap:2px 7px;align-items:center;
