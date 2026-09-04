@@ -4464,8 +4464,13 @@ const evalSafe = async (pg, fn) => {
   await page.setViewport({ width: 390, height: 844, hasTouch: true, isMobile: true });
 
   await click('#citzHd');
+  /* `#citz .card-x` does not exist — the chip panels close by pressing their own
+     header — so the list always fell through to .chip-hd and the "close control"
+     the comment below claims to measure was never measured. The header is what
+     this state has, and it is named directly; the real close control is
+     measured a few lines down, on a panel that has one. */
   const x390 = await page.evaluate(() => {
-    const x = document.querySelector('#citz .card-x, #citz .chip-hd');
+    const x = document.querySelector('#citzHd');
     const de = document.documentElement;
     return { overflow: de.scrollWidth - de.clientWidth, h: Math.round(x.getBoundingClientRect().height) };
   });
@@ -4475,8 +4480,20 @@ const evalSafe = async (pg, fn) => {
      have had the number proving it computed, returned and thrown away — the
      collect-and-ignore shape MA3-005 was about. Two facts, two assertions. */
   ck('390: opening a panel does not create horizontal overflow', x390.overflow <= 0, String(x390.overflow));
-  ck('390: and the open panel’s own header keeps a 44 px target',
-    x390.h >= 44, JSON.stringify(x390));
+  /* …and a real close control, since the chip panels have none: the county card
+     does, and it is the ✕ a touch reader actually aims at. */
+  await fresh('#v=saldo&c=1&y=2024&s=HR-18');
+  const cardX390 = await page.evaluate(() => {
+    const e = document.querySelector('#card .card-x');
+    if (!e) return { absent: true };
+    const r = e.getBoundingClientRect();
+    return { shown: !!document.querySelector('#card.show'),
+      w: Math.round(r.width), h: Math.round(r.height) };
+  });
+  ck('390: and the open panel’s own header and the card’s close ✕ keep a 44 px target',
+    x390.h >= 44 && !cardX390.absent && cardX390.shown
+    && cardX390.w >= 44 && cardX390.h >= 44,
+    JSON.stringify({ ...x390, cardX390 }));
 
   /* the matrix is the densest surface — check it fits and stays legible */
   await fresh('#v=mx&c=0&y=2018&dir=out');
