@@ -144,14 +144,50 @@ export function loadRegGeo(speculative = false): Promise<void> {
    longer the view on screen. Pressing retry again is one click; an unannounced
    reload is not recoverable at all. */
 let disarmOnline: (() => void) | null = null;
-export function retryGeo(): 'reloading' | 'offline' {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    disarmOnline?.();
+/* Arm the deferral. Split out because two paths reach it now: the OS flag saying
+   there is no network, and a reachability probe saying the origin cannot be
+   reached anyway. */
+function armOnline(): 'offline' {
+  disarmOnline?.();
+  const ac = new AbortController();
+  window.addEventListener('online', () => location.reload(), { once: true, signal: ac.signal });
+  disarmOnline = () => { ac.abort(); disarmOnline = null; };
+  return 'offline';
+}
+/* REACHABILITY, not the OS flag.
+
+   `navigator.onLine === false` is a reliable "no", and its `true` is worth
+   almost nothing: it means an interface is up. Behind a captive portal, with
+   DNS down, or on a network that answers the handshake and drops the request,
+   the flag reads true and the reload this function then performs replaces a
+   working app — every view but this one renders and exports from the entry
+   bundle — with the browser's network-error page. That session loss is the
+   exact thing the offline branch exists to prevent, arriving through the branch
+   that is supposed to be the safe one.
+
+   So the flag is asked first, because a false is free and certain, and then the
+   origin is asked whether it is actually reachable: a HEAD for a file that is
+   already in the document, no-store so nothing answers it from cache, and a
+   3 s cap because this runs under a finger on a button. Any failure — a reject,
+   a non-ok status, or the timeout — takes the same deferral the offline flag
+   takes, which is the outcome that keeps the session.
+
+   /favicon.svg rather than a hashed asset: it is 2 kB, it exists at a stable
+   path the rewrite excludes, and a redeploy cannot make its name stale. */
+const REACH_MS = 3000;
+async function reachable(): Promise<boolean> {
+  try {
     const ac = new AbortController();
-    window.addEventListener('online', () => location.reload(), { once: true, signal: ac.signal });
-    disarmOnline = () => { ac.abort(); disarmOnline = null; };
-    return 'offline';
-  }
+    const t = setTimeout(() => ac.abort(), REACH_MS);
+    try {
+      const r = await fetch('/favicon.svg', { cache: 'no-store', method: 'HEAD', signal: ac.signal });
+      return r.ok;
+    } finally { clearTimeout(t); }
+  } catch { return false; }
+}
+export async function retryGeo(): Promise<'reloading' | 'offline'> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return armOnline();
+  if (!(await reachable())) return armOnline();
   location.reload();
   return 'reloading';
 }

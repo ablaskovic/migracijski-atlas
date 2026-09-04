@@ -1082,7 +1082,9 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
                     network-error page. retryGeo says which happened; here we
                     only have to render the answer, and the listener it armed
                     reloads by itself when the connection comes back. */}
-                <button id="jretry" onClick={() => { retryGeo(); bumpRetry(n => n + 1); }}>
+                {/* retryGeo probes the origin before reloading, so it is async;
+                    the bump is what re-renders the notice once it has decided. */}
+                <button id="jretry" onClick={() => { void retryGeo().then(() => bumpRetry(n => n + 1)); }}>
                   {L('Pokušaj ponovno', 'Try again')}</button>
                 {retryArmed() && <span id="joffline">{L('Nema mreže — nastavit će se automatski kad se veza vrati.',
                   'No connection — this will resume by itself when the network is back.')}</span>}
