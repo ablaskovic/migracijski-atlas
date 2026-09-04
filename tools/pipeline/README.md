@@ -12,7 +12,9 @@ pip install numpy openpyxl
 python parse_nat.py     # raw/pregled-zupanije.xlsx 7.4.1 -> nat arrays in atlas_data2.json
 python parse_cit.py     # raw/stan-2026-2-1_tablice-hr.xlsx I T2 -> citizen.json
 python parse_demo.py    # raw/stan-2026-2-1_tablice-hr.xlsx I T3 / II T2 / I T4 -> demo.json
-python parse_jls.py     # ext/pitoski.xlsx GRAVITY + raw/po-jls.xlsx 7.5.18 -> jls_drill.json
+python parse_jls.py     # ext/pitoski.xlsx GRAVITY + raw/po-jls.xlsx 7.5.18
+                         #   + ../../src/data/atlas_data2.json (county ISO list, line 64)
+                         #   + ref/od2018.json (the exact 21x21 check, line 145) -> jls_drill.json
 python parse_jlsmap.py  # ext/pitoski.xlsx GRAVITY + raw/po-jls.xlsx + ref/od2018.json
                          #   + atlas_data2.json -> ext/jls_stats.json (per-JLS in/out)
 node   geo_jls.cjs       # ext/jls_stats.json + raw/jls_geo_osm.geojson
