@@ -5756,20 +5756,30 @@ const evalSafe = async (pg, fn) => {
 
   /* ── P2: the JLS export attributes OSM/ODbL, not geoBoundaries ── */
   await fresh('#v=jmap&dir=net');
+  /* The credit and its licence on ONE line. `includes('ODbL')` is satisfied by
+     exportLicenceLine, which every figure carries unconditionally — so with the
+     boundary credit reverted to "OpenStreetMap suradnici" and "geoBoundaries/
+     OSM", licence-free, both of these printed ok while the line they are named
+     for named no licence at all. The character class keeps it to one text
+     run, so a credit split across two <text> elements cannot be read as one.
+     …and the whole ~200 kB document is no longer carried back out of the page:
+     only the booleans were ever read. */
   const attrib = await page.evaluate(() => {
     const j = window.__exportSVG(false) || '';
-    return { jls: j, hasOdbl: j.includes('ODbL'), hasOsm: j.includes('OpenStreetMap'),
-      wrongGeoB: j.includes('geoBoundaries') };
+    return { osmOdbl: /OpenStreetMap[^\n<]{0,40}\(ODbL\)/.test(j),
+      wrongGeoB: j.includes('geoBoundaries'),
+      credit: (j.match(/[^<>]*OpenStreetMap[^<>]*/) || [''])[0].slice(-60) };
   });
   ck('a JLS export credits OpenStreetMap under ODbL and not geoBoundaries',
-    attrib.hasOdbl && attrib.hasOsm && !attrib.wrongGeoB,
-    JSON.stringify({ odbl: attrib.hasOdbl, osm: attrib.hasOsm, geoB: attrib.wrongGeoB }));
+    attrib.osmOdbl && !attrib.wrongGeoB, JSON.stringify(attrib));
   await fresh('');
-  ck('a county export still credits geoBoundaries, and now names ODbL',
-    await page.evaluate(() => {
-      const s = window.__exportSVG(false) || '';
-      return s.includes('geoBoundaries') && s.includes('ODbL');
-    }));
+  const attribC = await page.evaluate(() => {
+    const s = window.__exportSVG(false) || '';
+    return { geoBOdbl: /geoBoundaries\/OSM \(ODbL\)/.test(s),
+      credit: (s.match(/[^<>]*geoBoundaries[^<>]*/) || [''])[0].slice(-60) };
+  });
+  ck('a county export still credits geoBoundaries, and names ODbL on that line',
+    attribC.geoBOdbl, JSON.stringify(attribC));
 
   /* ── P2: and the OFL notice travels with the faces it covers ──
      the export embeds six complete woff2 files — measured, 129.418 base64
