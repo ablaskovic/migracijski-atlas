@@ -10299,7 +10299,16 @@ const evalSafe = async (pg, fn) => {
      reader checks against a DZS table. Everything the atlas *says about* them
      has to move. One sweep per feature class, so the next surface that forgets
      is caught by the check rather than by a reader. */
-  const CRO = /\b(doseljeno|odseljeno|neto|doseljeni|odseljeni|dijagonala|selidbe|županij\w*|godišnj\w*|vremensk\w*|prikaz\w*|zumiranj\w*|zatvori|reprodukcij\w*|koridor|nalaz)\b/i;
+  /* Unicode boundaries, because \\b is ASCII-only and half this list starts or
+     ends in a Croatian letter. `\\bžupanij` cannot fire after a space — the boundary
+     is evaluated between " " and "ž", both non-word to \\b — so the term most likely
+     to leak went undetected wherever it was not sentence-initial: "Poredak
+     županija" and "the županija column" both read clean. \\w had the same hole
+     inside the alternatives: it excludes the accented letters these very words
+     end in.
+       /\\bžupanij\\w*\\b/i.test("Poredak županija")        -> false
+       /(?<!\\p{L})županij\\p{L}*(?!\\p{L})/iu.test(same)    -> true */
+  const CRO = /(?<!\p{L})(doseljeno|odseljeno|neto|doseljeni|odseljeni|dijagonala|selidbe|županij\p{L}*|godišnj\p{L}*|vremensk\p{L}*|prikaz\p{L}*|zumiranj\p{L}*|zatvori|reprodukcij\p{L}*|koridor|nalaz)(?!\p{L})/iu;
   await fresh('#l=en&v=jmap');
   const enJl = await page.evaluate(() => [...document.querySelectorAll('.jl')].map(p => p.getAttribute('aria-label') || ''));
   const jlBad = enJl.filter(s => CRO.test(s));
@@ -10422,7 +10431,9 @@ const evalSafe = async (pg, fn) => {
      their only source for the Odlasci/Dolasci case.
      CRO is widened with the view and direction labels, which is what makes the
      glossary sweep able to see this class at all. */
-  const CROCTL = /\b(saldo|klasifikacij\w*|regije|godine|tokovi|matrica|odlasc\w*|dolasc\w*)\b/i;
+  /* the same boundary, for the same reason: klasifikacij\\p{L}* ends in an accented
+     letter as readily as an ASCII one, and the words around it are Croatian */
+  const CROCTL = /(?<!\p{L})(saldo|klasifikacij\p{L}*|regije|godine|tokovi|matrica|odlasc\p{L}*|dolasc\p{L}*)(?!\p{L})/iu;
   await fresh('#l=en&v=saldo&c=1&y=2024');
   await click('#helpBtn');
   const enHelp = await page.evaluate(async () => {
