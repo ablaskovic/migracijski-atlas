@@ -848,9 +848,24 @@ export default function App() {
         /* Below 900 px the body scrolls (index.css) and Space / Shift+Space are
            the primary keyboard scroll keys — a 1440 px window at 200 % zoom is
            in that band too. Claim Space only when there is nothing to scroll,
-           which is the ≥900 px layout the shortcut was designed for. */
+           which is the ≥900 px layout the shortcut was designed for.
+           …except on the timeline itself, where Space cannot be a scroll
+           request: it is the control the key belongs to, it is focused, and the
+           chart beside the focus ring prints "← → godina · razmaknica
+           reprodukcija" while the glossary states the same thing unconditionally.
+           The guard is a document-scroll test, and every scrolling layout is the
+           one this promise is made in — so the promise was false on every phone,
+           in any window under 560 px tall, and at 1440×900 with the browser at
+           200 % (720×450 CSS px), where the hint still fits and still prints.
+           Measured there: focus #spark, press Space, playing stays false and the
+           page scrolls 274 px instead. The document-wide shortcut keeps the
+           guard exactly as it was; only the slider is exempt — and only from the
+           scroll test. Shift+Space stays a scroll request everywhere, on the
+           slider too: it is a different chord, and the hint promises the bare
+           key. */
+        const onTimeline = el.id === 'spark';
         if (ev.shiftKey) return;
-        if (document.documentElement.scrollHeight > window.innerHeight + 1) return;
+        if (!onTimeline && document.documentElement.scrollHeight > window.innerHeight + 1) return;
         ev.preventDefault();
         togglePlay();
       }

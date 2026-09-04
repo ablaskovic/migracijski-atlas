@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 622;
+const EXPECTED_CHECKS = 623;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -1852,6 +1852,70 @@ const evalSafe = async (pg, fn) => {
   ck('Space on the page body still toggles playback', playOn === 'true', String(playOn));
   await page.keyboard.press(' ');
   await settle(120);
+
+  /* …and on the control the key is promised to. Both checks above run at 1440×900,
+     where the document does not scroll — and the Space handler's guard is exactly
+     `does the document scroll`. So every layout where it DOES scroll went
+     untested, which is every phone, any window under 560 px tall, and a 1440×900
+     window at 200 % browser zoom (720×450 CSS px). In all of them the timeline
+     printed "← → godina · razmaknica reprodukcija" beside the focus ring, the
+     glossary said the same thing without qualification, and Space page-downed
+     instead: measured at 720×450, playing stayed false and the page moved 279 px.
+     Space on the focused slider cannot be a scroll request — it is the control
+     the key belongs to — so it is exempt from that guard, and this is where that
+     is asserted. The bar boots folded on a short screen, so the chart is unfolded
+     first, which is also what a reader does before using it.
+     Shift+Space is checked too, and must still scroll: it is a different chord,
+     the hint promises the bare key, and an exemption that swallowed both would
+     take the scroll-up key away from the one control most likely to hold focus. */
+  const spaceScroll = [];
+  for (const [w, h, hash] of [[720, 450, '#l=en'], [900, 500, '#l=en'], [390, 844, '']]) {
+    await page.setViewport({ width: w, height: h });
+    await fresh(hash);
+    await page.evaluate(() => {
+      const t = document.querySelector('#scrubTog');
+      if (t && t.getAttribute('aria-expanded') === 'false') t.click();
+    });
+    await settle(400);
+    const pre = await page.evaluate(() => {
+      const s = document.querySelector('#spark'); if (s) s.focus();
+      return { scrolls: document.documentElement.scrollHeight > window.innerHeight + 1,
+        focused: document.activeElement.id,
+        playing: document.querySelector('#play').getAttribute('aria-pressed'),
+        y: Math.round(window.scrollY) };
+    });
+    await page.keyboard.press(' ');
+    await settle(300);
+    const post = await page.evaluate(() => ({
+      playing: document.querySelector('#play').getAttribute('aria-pressed'),
+      y: Math.round(window.scrollY) }));
+    /* stop the loop before the next leg, and before Shift+Space */
+    await page.evaluate(() => {
+      const p = document.querySelector('#play');
+      if (p.getAttribute('aria-pressed') === 'true') p.click();
+    });
+    await settle(150);
+    await page.evaluate(() => { window.scrollTo(0, 300); document.querySelector('#spark').focus(); });
+    await settle(150);
+    const sh0 = await page.evaluate(() => Math.round(window.scrollY));
+    await page.keyboard.down('Shift');
+    await page.keyboard.press(' ');
+    await page.keyboard.up('Shift');
+    await settle(300);
+    const sh1 = await page.evaluate(() => ({ y: Math.round(window.scrollY),
+      playing: document.querySelector('#play').getAttribute('aria-pressed') }));
+    spaceScroll.push({ w, h, ...pre, after: post, shift: { from: sh0, ...sh1 } });
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('Space on the focused timeline plays it, in the layouts where the page scrolls',
+    spaceScroll.length === 3
+    /* the premise: these are the scrolling layouts, and the slider really is
+       focused — Space "working" on an unfocusable chart is not the claim */
+    && spaceScroll.every(r => r.scrolls && r.focused === 'spark' && r.playing === 'false')
+    && spaceScroll.every(r => r.after.playing === 'true' && r.after.y === r.y)
+    /* …and Shift+Space is still the scroll key it was */
+    && spaceScroll.every(r => r.shift.playing === 'false' && r.shift.y < r.shift.from),
+    JSON.stringify(spaceScroll));
 
   /* ── off segments are truly disabled, and say why ── */
   await fresh('#v=klas');
@@ -13050,9 +13114,22 @@ const evalSafe = async (pg, fn) => {
      of citz/jls/age), so each series gets its own boot rather than one hash
      claiming to open all three — a hash that silently drops two panels would
      leave this measuring only the card. `want` is asserted present for that
-     reason: a series that is not on screen is not a passing series. */
+     reason: a series that is not on screen is not a passing series.
+     Its own CDP session and its own viewport, neither inherited. The block
+     above leaves the page at 1920×1080 for the AX tree, and this one measured
+     whatever that left behind; and reusing `cdp` — created ~600 checks earlier —
+     took the whole run down once, `Session closed. Most likely the page has been
+     closed.` at exactly this line, 587/621 with 34 checks never evaluated. A
+     failed check costs one line; an abort costs the tail of the file. So the
+     session is local, and a case that throws is RECORDED rather than raised:
+     the record cannot satisfy the assertion, so the check goes red and the run
+     continues, which is the trade goTo's own retry comment states. */
   const fcChart = [];
-  await forced(true);
+  await page.setViewport({ width: 1440, height: 900 });
+  const fcCdp = await page.createCDPSession().catch(() => null);
+  const fcForced = async on => { if (fcCdp) await fcCdp.send('Emulation.setEmulatedMedia',
+    { features: on ? [{ name: 'forced-colors', value: 'active' }] : [] }); };
+  await fcForced(true).catch(() => {});
   for (const [hash, want] of [
     ['#v=saldo&c=1&y=2024&s=HR-21', ['#cardSvg .ints']],
     ['#v=saldo&c=1&y=2024&cz=1', ['#citzSvg .cg-hr']],
@@ -13060,6 +13137,7 @@ const evalSafe = async (pg, fn) => {
     ['#v=yrs&c=1&y=2024', []],
     ['#v=mx&c=0&y=2018&dir=out', []],
   ]) {
+    try {
     await fresh(hash);
     /* point at a cell, so the highlighted row and column labels — the ones the
      app draws in ink to mean "this one" — are rendered and measured too */
@@ -13103,8 +13181,12 @@ const evalSafe = async (pg, fn) => {
         }
         return { bg, seen, missing, bad: bad.slice(0, 4), nBad: bad.length };
       })})(${JSON.stringify(want)})`) });
+    } catch (e) {
+      fcChart.push({ h: hash.slice(0, 26), err: String(e && e.message).slice(0, 90) });
+    }
   }
-  await forced(false);
+  await fcForced(false).catch(() => {});
+  if (fcCdp) await fcCdp.detach().catch(() => {});
   await page.setViewport({ width: 1440, height: 900 });
   ck('forced colors leaves no chart series or axis label below its contrast floor',
     fcChart.length === 5
