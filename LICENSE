@@ -26,8 +26,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Applies to: `src/**` (except `src/data/` and `src/fonts/`), `scripts/**`,
-`tools/**` (except `tools/pipeline/raw/` and `tools/pipeline/ref/`), and the
-configuration files at the repository root.
+`tools/**` (except `tools/pipeline/raw/` and `tools/pipeline/ref/`),
+`index.html`, `public/**` (except `public/fonts/`, whose two files are §4's
+licence texts), `.github/**`, `reference/*.md`, and the configuration and
+documentation files at the repository root.
+
+The four additions are not new work — they were simply never named. `index.html`
+is the application's own document, `public/` carries the icons, robots.txt and
+sitemap it ships, `.github/` is the CI that gates it and `reference/*.md` is the
+handoff record. A grant that omits them says the repository's entry point and
+its build pipeline are under no licence at all.
 
 `src/fonts/` is excepted because §4 below licenses those same files under the
 SIL Open Font License 1.1, and one document must not grant two incompatible
@@ -45,14 +53,20 @@ pipeline's own code — stays MIT.
 ## 2. Boundary geometry — ODbL 1.0
 
 `src/data/geo_jls.json`, `src/data/geo_counties.json`,
-`src/data/geo_regions5.json` and `tools/pipeline/raw/jls_geo_osm.geojson` are
-**derived databases** under the Open Database License 1.0
-(https://opendatacommons.org/licenses/odbl/1-0/).
+`src/data/geo_regions5.json`, `tools/pipeline/raw/jls_geo_osm.geojson` and
+`reference/migracijski-atlas-offline.html` are **derived databases** under the
+Open Database License 1.0 (https://opendatacommons.org/licenses/odbl/1-0/).
 
 - `geo_jls.json` and `jls_geo_osm.geojson` derive from an Overpass
   `admin_level=7` extract of **OpenStreetMap**. © OpenStreetMap contributors.
 - `geo_counties.json` and `geo_regions5.json` derive from **geoBoundaries**
   (ADM1, itself OSM-derived). © OpenStreetMap contributors.
+- `reference/migracijski-atlas-offline.html` is the frozen single-file v4, and
+  it EMBEDS that same county and region geometry rather than fetching it: 12
+  MultiPolygon features across 4 FeatureCollections, attributed to geoBoundaries
+  in the file itself. A single-file copy is still a copy, so §1's grant over
+  `reference/*.md` deliberately stops at the markdown and this one is listed
+  here instead — it travels under ODbL like the payloads it contains.
 
 Per ODbL §4.3 the source is attributed wherever these are displayed (the map
 legend, the application footer, and both the PNG and SVG exports). Per §4.4,
