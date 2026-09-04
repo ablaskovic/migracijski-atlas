@@ -29,6 +29,8 @@ import mono5Latin from '../fonts/ibm-plex-mono-500-latin.woff2';
 import mono5LatinExt from '../fonts/ibm-plex-mono-500-latin-ext.woff2';
 import oswaldLatin from '../fonts/oswald-latin.woff2';
 import oswaldLatinExt from '../fonts/oswald-latin-ext.woff2';
+import monoSym from '../fonts/ibm-plex-mono-400-symbols.woff2';
+import mono5Sym from '../fonts/ibm-plex-mono-500-symbols.woff2';
 
 import { FONT_NOTICE } from './licences.ts';
 
@@ -44,12 +46,37 @@ const LATIN = 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,'
 const LATIN_EXT = 'U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,'
   + 'U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,'
   + 'U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF';
+/* A third range, and the only one that is not a Google subset. Measured on the
+   exported SVG rather than assumed: across sixteen figures in both languages,
+   the drawn text uses fourteen codepoints above U+00FF and three of them are in
+   none of the six files above — U+2192 →, U+2194 ↔ and U+221A √. (U+21C4 ⇄ is
+   not among them; it lives only in aria-labels, which nothing draws.)
+   Two of the three fall in Oswald and cannot be helped: the FULL upstream
+   Oswald has 850 codepoints and not one of U+2190-U+21FF, so the title's
+   "… → OSTALE ŽUPANIJE" / "… ↔ PARTNERI" substitutes from Arial Narrow in every
+   figure this project can produce. index.css records that class of substitution
+   as measured and accepted — and names the condition to revisit it, "a glyph
+   carrying meaning by itself".
+   The third meets it. √ in the mono captions IS the notation: "Debljina luka po
+   korijenskoj (√) skali" and the badge's "√ skala" say which scale the figure
+   is drawn on, and in a journal's toolchain "ui-monospace" resolves to whatever
+   that toolchain has, or to nothing. Upstream IBM Plex Mono carries all three,
+   so they travel in a 1,2 kB subset per weight, cut from the same upstream
+   Regular and Medium the Google files are cut from:
+     pyftsubset IBMPlexMono-{Regular,Medium}.ttf
+       --unicodes=U+2192,U+2194,U+221A --flavor=woff2
+   Same 1000 upem, same 1025/-275 vertical metrics and the same 600-unit
+   advance as the latin files, so a caption lays out identically whether the
+   glyph came from this file or from a fallback of the same width. */
+const SYMBOLS = 'U+2192,U+2194,U+221A';
 type Face = { family: string; weight: number | string; url: string; range: string };
 const FACES: Face[] = [
   { family: 'IBM Plex Mono', weight: 400, url: monoLatin, range: LATIN },
   { family: 'IBM Plex Mono', weight: 400, url: monoLatinExt, range: LATIN_EXT },
   { family: 'IBM Plex Mono', weight: 500, url: mono5Latin, range: LATIN },
   { family: 'IBM Plex Mono', weight: 500, url: mono5LatinExt, range: LATIN_EXT },
+  { family: 'IBM Plex Mono', weight: 400, url: monoSym, range: SYMBOLS },
+  { family: 'IBM Plex Mono', weight: 500, url: mono5Sym, range: SYMBOLS },
   /* One entry per FILE, with the weight range in the descriptor. Oswald was
      listed four times over two files, so every export embedded both Oswald
      subsets twice — the same base64 payload, byte for byte, in two @font-face
@@ -74,7 +101,7 @@ async function dataUri(url: string, signal?: AbortSignal): Promise<string> {
      to index.html — so after a redeploy an open tab's filenames are gone and the
      fetch really does 404. Without this check the six template strings below
      still build, `css` is assigned a non-empty string, and from then on
-     `fontCss()` is truthy, every export embeds six broken faces, and the
+     `fontCss()` is truthy, every export embeds eight broken faces, and the
      short-circuit at the top of ensureFonts means the retry in its own `.catch`
      can never fire again for the life of the tab. Rejecting restores the
      documented degradation: '' , the families named, and a retry next time. */

@@ -425,7 +425,8 @@ const evalSafe = async (pg, fn) => {
        at boot are untouched", and all three call sites armed it BEFORE the boot
        they said it spared. Measured at 1440×900: a boot makes 22 woff2 requests,
        16 of them resourceType 'font' — index.css's @font-face rules — and 6
-       'fetch', which are exportFonts' warm. The unqualified test caught all 22,
+       'fetch', which are exportFonts' warm (8 since the symbol subsets landed).
+       The unqualified test caught all of them,
        so the '404' arm rendered the page under test in the metric fallbacks
        rather than in the faces it ships.
        'fetch' is also exactly what these checks want: the same measurement shows
@@ -4796,16 +4797,24 @@ const evalSafe = async (pg, fn) => {
     }
     const got = faces.map(f => { const r = /unicode-range:([^;}]+)/.exec(f); return r ? norm(r[1]) : null; });
     sh0.remove();
-    return { faces: faces.length, withRange: got.filter(Boolean).length,
-      distinct: new Set(got.filter(Boolean)).size,
-      fromPage: got.filter(Boolean).length > 0 && got.filter(Boolean).every(r => pageRanges.has(r)),
+    /* The export carries one range the page does not: the symbols subset, which
+       exists precisely because no Google subset answers for U+221A. So the rule
+       is "the page's own split, PLUS that one", not "the page's split" — and the
+       exception is named here rather than left as a loosened count, so a face
+       that quietly grew a fourth range still fails. */
+    const SYM = norm('U+2192,U+2194,U+221A');
+    const ranges = got.filter(Boolean);
+    return { faces: faces.length, withRange: ranges.length,
+      distinct: new Set(ranges).size,
+      symbols: ranges.filter(r => r === SYM).length,
+      fromPage: ranges.length > 0 && ranges.every(r => pageRanges.has(r) || r === SYM),
       pageSets: pageRanges.size };
   });
   ck('every font the export embeds declares the codepoints it answers for',
-    /* six faces embedded, or this is asserting over an empty list */
-    faceRange.faces >= 6 && faceRange.pageSets === 2
+    /* eight faces embedded, or this is asserting over an empty list */
+    faceRange.faces >= 8 && faceRange.pageSets === 2
     && faceRange.withRange === faceRange.faces
-    && faceRange.distinct === 2 && faceRange.fromPage,
+    && faceRange.distinct === 3 && faceRange.symbols === 2 && faceRange.fromPage,
     JSON.stringify(faceRange));
 
   /* ── the two twins have to draw the same figure ──
@@ -5846,8 +5855,8 @@ const evalSafe = async (pg, fn) => {
     attribC.geoBOdbl, JSON.stringify(attribC));
 
   /* ── P2: and the OFL notice travels with the faces it covers ──
-     the export embeds six complete woff2 files — measured, 129.418 base64
-     characters, ~97 KB of Font Software in a 214 KB document — and is meant to
+     the export embeds eight complete woff2 files — six Google subsets and the
+     two symbol subsets cut for the √ the mono captions draw — and is meant to
      be dropped into a paper under the atlas's own CC BY grant, which makes it a
      redistributed copy. It named both families in font-family attributes and
      credited the figure, the code and the data, and never named the font licence
@@ -5867,7 +5876,7 @@ const evalSafe = async (pg, fn) => {
         && bare.indexOf('SIL Open Font License') < bare.indexOf('@font-face') };
   });
   ck('the embedded font software carries its OFL notice, ahead of the faces',
-    oflN.faces === 6 && oflN.ofl && oflN.ibm && oflN.osw && oflN.href && oflN.leads,
+    oflN.faces === 8 && oflN.ofl && oflN.ibm && oflN.osw && oflN.href && oflN.leads,
     JSON.stringify(oflN));
 
   /* ── P2: the glossary no longer covers live tab stops ── */
@@ -14897,7 +14906,7 @@ const evalSafe = async (pg, fn) => {
      and they are the only ones this scrub may remove. The blanket
      `|| /Failed to load resource/` matched anything, so a genuine failure inside
      this window was deleted and `errors.length === errs0` below still held.
-     By URL, and counted: six faces are held, so at least one line must go. */
+     By URL, and counted: eight faces are held, so at least one line must go. */
   const fontDropped = (() => {
     const before = errors.length;
     for (let i = errors.length - 1; i >= errs0; i--) {
