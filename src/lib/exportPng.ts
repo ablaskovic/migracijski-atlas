@@ -371,8 +371,17 @@ function legendNote(S: State): string {
         'Arc width on a square-root (√) scale, relative to the selected county (not comparable between counties). ');
     return (arcMinNote() + sqrt + (S.dir === 'net' ? t('note.pairEst') : '') + pre).trim();
   }
-  /* flow returns above, so this is Matrica's half of the pair-estimate note */
-  if (S.view === 'mx' && S.dir === 'net') return t('note.pairEst') + pre;
+  /* flow returns above, so this is Matrica — the diagonal sentence first, which
+     the screen legend leads with in all three directions and the export printed
+     in none. The hatched band is the most conspicuous thing in the picture and
+     the figure never said what it was; a reader with no glossary behind the
+     image is left to guess whether the grid is missing its own diagonal or
+     hiding it. Same words as the screen. */
+  if (S.view === 'mx') {
+    const diag = L('Dijagonala (selidbe unutar županije) nije dio međužupanijske matrice.',
+      'The diagonal (moves within a county) is not part of the inter-county matrix.');
+    return (diag + (S.dir === 'net' ? ' ' + t('note.pairEst') : '') + pre).trim();
+  }
   /* Godine is the only view that renders 1998–2006 beside the rest, so it is the
      only one whose *image* can carry those columns off into a slide — the hatch
      that marks them on screen has no caption of its own, so the words go here. */
