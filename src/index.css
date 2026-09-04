@@ -193,7 +193,16 @@
      monotonic in lightness and matches the map at no point across its loss half.
      The flat .legend-sw swatches are not inverted at all, so the app's two
      legends answered the same condition differently.
-     Verified: with this declaration every sampled pixel is restored exactly. */
+     Verified: with this declaration every sampled pixel is restored exactly.
+     `only light` is also the whole answer to "which themes does this atlas
+     have": one palette, plus the forced-colors block at the end of the file,
+     which is a system contract rather than a second theme. So the contrast
+     work in this file — and the suite's sweeps of it — covers the light
+     palette and forced-colors, and nothing else exists to cover. If a dark
+     scheme is ever added, the translucent surfaces here (the 90/92/94 %
+     color-mix panels, the 0,35 disabled groups, the .55 spark fills) are all
+     measured against #F4F5F2 and every one of those ratios has to be derived
+     again — they are not palette swaps. */
   color-scheme: only light;
   --bg:#F4F5F2; --panel:#FCFCFA; --ink:#20262B; --mut:#5F6A72;
   --line:#D9DDD6; --acc:#0F7D8C; --loss:#B5341F; --gain:#1D4E89; --neu:#C6CCC4;
