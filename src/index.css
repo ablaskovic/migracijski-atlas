@@ -1569,13 +1569,64 @@ body.stage-collapsed .main{flex:none;height:420px}
      A declared height gives the percentage something to resolve against and the
      grids the room to draw: 21 rows at the 12 px floor plus the 90 px label band
      and the bottom margin need ~382 px, and 430 clears it with a cell the
-     reader can actually read. */
-  .map-box{flex:none;height:60vh;min-height:430px}
+     reader can actually read.
+     Declared on the MAP, not on its box. It sat on .map-box so that
+     `.map-box svg{height:100%}` had a definite percentage to resolve against —
+     but a box with a declared height is a box that cannot grow, and the overlays
+     released below live inside it. On #map itself the SVG still gets its 430 px
+     and the box is free to be as tall as what it contains. */
+  .map-box{flex:none;height:auto;min-height:430px}
+  #map{height:60vh;min-height:430px}
   .rail{width:100%;max-height:none;height:auto;display:block;border-left:none}
   .rail-list{max-height:none;height:auto;overflow:visible;flex:none}
   .scrub{position:static}
-  .helpcard,.jcard .chip-body,.paircard,.card,.chipdock .chipcard.open .chip-body{
+  .helpcard,.jcard,.jcard .chip-body,.paircard,.card,.chipdock .chipcard.open .chip-body{
     max-height:none;overflow:visible}
+  /* …and released INTO FLOW, not merely released. Every one of these is an
+     overlay — position:absolute, or fixed on a phone — so its height pushes
+     nothing, and lifting the cap did not make room for it: it only let it paint
+     outside its box, over whatever the page had put there.
+     Measured on A4 landscape (1123×794) with the glossary open, which is the
+     natural thing to print with a reference atlas: #helpCard ran 2.522 px past
+     the map box, across five pages, over all 21 rail rows (185.460 px²), the
+     timeline (37.950) and the footer's sources and non-affiliation sentence
+     (29.040); at a 24 px root, nine pages and 5.978 px. In portrait the ≤900
+     block makes it position:fixed, and a fixed box repeats on every page
+     (CSS 2.1 §9.6.1) — measured, both pages of the PDF carried it over the
+     header, 147.820 px². The released .card covered up to 28.280 px² of the
+     Klasifikacija legend and the released citizenship body climbed 174 px into
+     the header's last control row.
+     In flow they print where they sit in the document and push what follows,
+     which lengthens the sheet — and lengthening the sheet is what printing a
+     panel means. `inset:auto` as well as position:static: the offsets are what
+     make an absolute box ignore its siblings, and they outlive the position.
+     The key follows only when the box it is anchored to actually grows. Measured
+     rather than assumed: of the five overlays, #helpCard and #jcard are children
+     of .map-box, while #card and #pair hang off .map-wrap and .chipdock off
+     .map-stage — so those three grow a box the key is not anchored to. Left
+     absolute in the two that do, the key rides the grown box down to bottom:12px
+     OF IT: 2.500 px below the map it decodes with the glossary open, and 38.316
+     px² on top of the corridor card with that one open. Scoped to those two,
+     every other printout keeps the floating key it has today. */
+  .helpcard,.card,.paircard,.jcard,.chipdock,
+  .chipdock .chipcard.open .chip-body{
+    position:static;inset:auto;width:auto;max-width:none;margin:8px 0;box-shadow:none}
+  .map-box:has(#helpCard,#jcard.show) .legend{
+    position:static;inset:auto;width:auto;max-width:none;margin:8px 0;box-shadow:none}
+  /* Two screen rules hide the key when a panel is open, and both are about a
+     COLLISION that print no longer has. stage-short is computed by MapView from
+     the screen stage and does not know the sheet is 430 px tall, so a window
+     short enough to earn the class printed without the key to its own map —
+     measured, absent from 2 of 9 printouts with a card open, and present in the
+     rest only because the observer happened to re-measure the taller print box
+     first. body.panel-open does the same below 900 px, which is A4 PORTRAIT: that
+     sheet carried the glossary and not the key the glossary explains.
+     With the panels in the flow there is nothing left for the key to collide
+     with, and this block already states the principle — the key is data, not
+     decoration. Same selectors, so these win on order rather than on !important,
+     and neither depends on that re-measure race. */
+  .map-wrap.stage-short:has(#card.show,#jcard.show,#helpCard) .legend{display:block}
+  body.panel-open .legend{display:block}
   /* the key is data, not decoration — it must survive "Background graphics: off" */
   .legend-bar,.legend-sw,.legend-mark,.citz-rows .sw,.zbar span,.legend{
     print-color-adjust:exact;-webkit-print-color-adjust:exact}

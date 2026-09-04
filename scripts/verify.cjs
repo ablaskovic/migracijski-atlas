@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 619;
+const EXPECTED_CHECKS = 620;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -837,6 +837,70 @@ const evalSafe = async (pg, fn) => {
     printFit.length === 7
     && printFit.every(p => p.over === 0 && p.drawn > 100 && p.drawn >= p.svgH * 0.6),
     JSON.stringify(printFit.filter(p => p.over > 0 || p.drawn < p.svgH * 0.6).slice(0, 3)));
+
+  /* …and with a panel open, which is the state a reader prints FROM. Both
+     blocks above run on a bare view, so neither could see what the print rules
+     do to the five overlays. Those rules lifted their max-height and left them
+     absolutely positioned — fixed, on a phone — inside a .map-box pinned to
+     60vh: a released box that cannot push anything paints over what is under it.
+     Measured before: A4 landscape with the glossary open put #helpCard 2.537 px
+     past the map box, over the whole 21-row rail (167.640 px²), the timeline
+     (37.950) and the footer (29.040); A4 portrait made it position:fixed, which
+     repeats on every page, and it covered the header by 147.820 px².
+     Overlap by area rather than by bottom edge, because these are boxes beside
+     each other as well as under: an assertion on `bottom` alone passes for a
+     panel that is merely narrow enough to sit alongside what it covers. */
+  const printOv = [];
+  for (const [w, h, hash, open] of [
+    [1123, 794, '#v=saldo&c=1&y=2024', '#helpBtn'],
+    [794, 1123, '#v=saldo&c=1&y=2024', '#helpBtn'],
+    [1123, 794, '#v=klas&c=1&y=2024&s=HR-21', null],
+    [1123, 794, '#v=saldo&c=1&y=2024&cz=2', null],
+    [1123, 794, '#v=flow&s=HR-21&dir=out&jl=1&y=2018&c=0', null],
+  ]) {
+    await page.setViewport({ width: w, height: h });
+    await fresh(hash);
+    if (open) { await click(open); await settle(300); }
+    await page.emulateMediaType('print');
+    await settle(350);
+    printOv.push({ w, h, ...await page.evaluate(() => {
+      const box = s => { const e = document.querySelector(s); if (!e) return null;
+        const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; };
+      const area = (a, b) => { if (!a || !b) return 0;
+        const x = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        return x > 0 && y > 0 ? Math.round(x * y) : 0; };
+      const panels = ['#helpCard', '#card.show', '#pair', '#jcard.show',
+        '.chipdock .chipcard.open .chip-body'];
+      /* .legend among them: it is a child of .map-box and positioned against it,
+         so a box grown to hold a panel carries the key to its new bottom edge —
+         a panel can bury the key without going anywhere near the rail. */
+      const victims = ['.rail-list', '#scrubBox', '.ft', 'header.hd', '.legend'];
+      let worst = 0, at = '', seen = 0, fixedOrAbs = [];
+      for (const p of panels) {
+        const pb = box(p); if (!pb) continue;
+        seen++;
+        const pos = getComputedStyle(document.querySelector(p)).position;
+        if (pos !== 'static') fixedOrAbs.push(p + ':' + pos);
+        for (const v of victims) {
+          const a = area(pb, box(v));
+          if (a > worst) { worst = a; at = p + ' x ' + v; }
+        }
+      }
+      const m = box('#map');
+      return { seen, worst, at, floating: fixedOrAbs,
+        mapH: m ? Math.round(m.height) : 0, legend: !!box('.legend') };
+    }) });
+    await page.emulateMediaType(null);
+  }
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('printing with a panel open puts it in the flow instead of over the page',
+    printOv.length === 5
+    /* each case opens exactly one panel, and 0 panels found is not a clean sheet */
+    && printOv.every(r => r.seen >= 1 && r.mapH >= 430 && r.legend)
+    && printOv.every(r => r.worst === 0 && r.floating.length === 0),
+    JSON.stringify(printOv.filter(r => r.seen < 1 || r.mapH < 430 || !r.legend
+      || r.worst > 0 || r.floating.length)) + ' n=' + printOv.length);
   await page.setViewport({ width: 1440, height: 900 });
   await fresh('');
   await page.hover('path[data-iso="HR-18"]');
