@@ -137,9 +137,11 @@ talks to a third-party origin — a CDN snippet, a Google-Fonts `<link>` or an
 inline `<script>` is blocked in production, not merely discouraged. The rest is
 `default-src 'self'`, `style-src 'self' 'unsafe-inline'` (Vite’s injected
 styles), `img-src 'self' data: blob:` (the PNG export goes through a blob URL),
+`font-src 'self' data:` (the faces are self-hosted, and the SVG export embeds
+its own copies as data URLs),
 `object-src`/`base-uri`/`form-action`/`frame-ancestors` set to none, plus
-nosniff, a referrer policy, a permissions policy, COOP and `Vary:
-Accept-Encoding`. Caching is two rules: `/fonts/` for a week, and the document
+nosniff, a referrer policy, a permissions policy, COOP, HSTS (two years) and
+`Vary: Accept-Encoding`. Caching is two rules: `/fonts/` for a week, and the document
 `must-revalidate`. There is deliberately no `/assets/` rule — a Vercel headers
 source matches the request path rather than the response, so one declared there
 stamped a year of `immutable` onto 404s as well. `verify.cjs`’s own server
