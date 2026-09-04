@@ -358,6 +358,16 @@ export default function Scrubber({ S, setYi, togglePlay }: {
                   stroke="#8d968f" strokeWidth={1} />
               )}
               <line x1={x(2013)} x2={x(2013)} y1={mT} y2={sh - mB} stroke="#8d968f" strokeWidth={0.7} strokeDasharray="1 3" />
+              {/* The THIRD deliberate px in this file, and now named as one.
+                  1b61eb9 converted thirteen SVG labels to rem and documented
+                  two exceptions — the caption and the keyboard hint — as chrome
+                  laid out against the chart's own geometry rather than values
+                  to read. This marker is the same kind and was simply missed.
+                  Measured as 0.5rem: at a 24 px root it grows 8 → 12 px, 9,8 →
+                  14,4 px wide, and overlaps the caption above it at 320, 390
+                  and 560 px — the collision class the exception exists for. It
+                  is two letters pinned to the 2013 rule, not a number anyone
+                  reads off the scale. */}
               <text x={x(2013) + 3} y={mT + 7} fontSize={8} fontFamily="var(--mono)" fill="var(--mut)">EU</text>
               {/* Matrica is anchored on the same measured 2018 matrix as Tokovi,
                   so it gets the same "this is the measured year" marker. */}
