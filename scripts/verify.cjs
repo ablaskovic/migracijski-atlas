@@ -173,6 +173,14 @@ let fails = 0, n = 0;
    went to the outer .catch and called process.exit(2) without closing either,
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
+/* …and the ledger of controls that never arrived. click() and fresh() record a
+   miss and carry on so one slow mount costs one red line rather than the tail of
+   the file — but the check that PRINTS that ledger is the second-to-last in the
+   run, i.e. among the ones an abort is guaranteed to skip. So on exactly the run
+   where the record was written, nothing read it: the operator saw
+   `Cannot read properties of null` with no indication of WHICH control had not
+   come up. Module scope, and printed by finish() on the abort path. */
+let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
 const EXPECTED_CHECKS = 626;
 async function finish(code) {
@@ -195,6 +203,13 @@ async function finish(code) {
     + ((code || short) ? `, AND ABORTED after ${n}/${EXPECTED_CHECKS} CHECKS` : '')
     : (code || short) ? `\nABORTED after ${n}/${EXPECTED_CHECKS} CHECKS`
       : `\nALL ${n} CHECKS PASS`);
+  /* …and what the run had already recorded, on the path where the check that
+     reports it is one of the skipped ones. A miss is the likeliest cause of the
+     throw that got us here, and the name of the control is the whole diagnosis. */
+  if ((code || short) && missed.length) {
+    console.log(`  recorded before the abort: ${missed.length} missing control(s)`);
+    for (const m of missed.slice(0, 8)) console.log('    ' + m);
+  }
   /* exitCode rather than exit(): with 190+ log lines, process.exit truncates a
      pending stdout flush when the output is redirected to a file or a pipe */
   process.exitCode = code !== undefined ? code : (fails ? 1 : 0);
@@ -418,7 +433,7 @@ const evalSafe = async (pg, fn) => {
      A missing control is now recorded and the run continues, so one slow mount
      costs one red line at the end instead of the last tenth of the coverage.
      All 58 call sites and the four raw page.click sites go through here. */
-  const missed = [];
+  missed = [];
   /* A navigation that times out is the same class of flake as a slow mount and
      it lands one frame earlier: `networkidle0` can miss its 30 s budget on a
      contended runner while the page itself is perfectly healthy, and the throw
@@ -13001,7 +13016,10 @@ const evalSafe = async (pg, fn) => {
      "Reload the page" link pointed back into the same dead path. Drive a real
      navigation to a two-segment path and require the map. */
   await page.goto('about:blank');
-  await page.goto(base + '/en/saldo', { waitUntil: 'networkidle0' });
+  /* through the ladder, like every other navigation in this file: a raw goto
+     throws on a 30 s timeout and unwinds the run from inside the call, which is
+     the flake goTo exists to absorb */
+  await goTo(base + '/en/saldo');
   await settle(400);
   const deepBoot = await page.evaluate(() => ({
     map: !!document.querySelector('#map'),
@@ -13618,13 +13636,22 @@ const evalSafe = async (pg, fn) => {
   /* raw, and deliberately: this one needs the RESPONSE, not goTo's boolean —
      the check below reads the deployed headers off it. Its sibling on the next
      line is raw for the same reason. */
-  const docHdr = (await page.goto(url, { waitUntil: 'domcontentloaded' })).headers();
+  /* these two need the RESPONSE, so they cannot go through goTo — but they can
+     stop being the last navigations in the file that abort the run on a timeout.
+     A miss is recorded and the headers read empty, which fails the checks below
+     on their own terms instead of taking the tail of the file with them. */
+  const hdrOf = async u => {
+    try { return (await page.goto(u, { waitUntil: 'domcontentloaded' })).headers(); }
+    catch (e) { missed.push('headers ' + String(u).replace(url, '') + ': '
+      + String(e && e.message).slice(0, 40)); return {}; }
+  };
+  const docHdr = await hdrOf(url);
   await fresh('');
   const entryUrl = await page.evaluate(() => {
     const e = performance.getEntriesByType('resource').find(r => /\/assets\/index-.*\.js$/.test(r.name));
     return e ? e.name : null;
   });
-  const assetHdr = entryUrl ? (await page.goto(entryUrl, { waitUntil: 'domcontentloaded' })).headers() : {};
+  const assetHdr = entryUrl ? await hdrOf(entryUrl) : {};
   await fresh('');
   const csp = docHdr['content-security-policy'] || '';
   /* Every directive, at its exact source list — not three of the ten, and not by
