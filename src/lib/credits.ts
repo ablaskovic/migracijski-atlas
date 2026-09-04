@@ -94,7 +94,7 @@ export const paperSub = (): string =>
   paperPending() ? L('još neobjavljen znanstveni rad', 'a paper not yet published') : PAPER.short;
 
 /* Footer: what came from the study, and enough of the reference to find it. The
-   footer is a fixed-height lane above the map and every wrapped line it gains
+   footer is a fixed-height lane under the map and every wrapped line it gains
    the map loses (measured: +13 px per line at 1440), so the title stays in the
    glossary and this carries authors, year, journal and a link. The phrase
    "nije javno objavljen" is the pending marker the <noscript> is checked
@@ -113,7 +113,7 @@ export const paperRefTail = (): string => paperPending() ? '' : ', ' + PAPER.jou
    glossary adds the review/endorsement sentence after it rather than keeping a
    second, longer copy that could drift from this one. */
 /* "nekomercijalan" is one word rather than its own sentence on purpose: the
-   footer is a fixed lane above the map and a separate clause would cost it a
+   footer is a fixed-height lane under the map and a separate clause would cost it a
    wrapped line (~13 px at 1440, measured). It belongs on the always-visible
    surface because the study is CC BY-NC — nothing the atlas displays is derived
    from the study's expression, so the NC clause is not engaged either way (see

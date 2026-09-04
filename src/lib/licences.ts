@@ -20,8 +20,8 @@ import { L } from './i18n.ts';
    band already does. So the figures are CC BY 4.0: useful to the next
    researcher, and honest about what it is built from.
 
-   The links are here rather than inline because the footer is a fixed lane
-   above the map (every wrapped line costs the map ~13 px at 1440) and the
+   The links are here rather than inline because the footer is a fixed-height
+   lane under the map (every wrapped line costs the map ~13 px at 1440) and the
    glossary is where the same facts get room. One list, two renderings. */
 
 export interface SourceLink { label: string; href: string; note: string }
