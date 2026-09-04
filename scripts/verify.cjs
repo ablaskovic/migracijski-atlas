@@ -3258,14 +3258,31 @@ const evalSafe = async (pg, fn) => {
        Both ends of HIST_MS are pinned from here: below ~300 ms this floor fails,
        and above ~800 ms the trailing flush misses the settle two lines down and
        the URL assertion fails instead. */
+    /* …and the two degenerate cases are FAILURES, not perfect scores. `minGap ?`
+       is false for the one gap that matters most: a 0 ms pair, two writes in the
+       same millisecond, is the worst spacing there is and it scored perWindow 0,
+       comfortably inside the budget of 100. No gaps at all — a drag that wrote
+       no history — scored 0 as well, so a build that stopped writing history
+       during a scrub passed the check that exists to measure how it writes it.
+       App.tsx's view-change branch makes a 0 ms pair by construction
+       (replaceState then pushState, synchronously), so this is a shape the code
+       already produces elsewhere. Infinity for no data, and a floored divisor
+       for a zero gap, so both read as over budget. */
     const gaps = ts.slice(1).map((t, i) => t - ts[i]);
     const minGap = gaps.length ? Math.min(...gaps) : 0;
     return { R, P, gaps: gaps.length, minGap: Math.round(minGap),
-      perWindow: minGap ? Math.ceil(30000 / minGap) : 0,
+      perWindow: gaps.length ? Math.ceil(30000 / Math.max(minGap, 0.001)) : Infinity,
       year: sp.getAttribute('aria-valuetext'), hash: location.hash };
   });
+  /* `P` was collected and never read. A scrub must write NO pushState at all —
+     a drag is one navigation, not forty — and counting them is the only thing
+     that says so; the rate clause cannot, because a burst of pushStates spaced
+     320 ms apart satisfies it perfectly. The gap floor is asserted directly too,
+     rather than only through the division that hid a zero: HEAD measures 321 ms
+     against HIST_MS, and below ~300 ms this is the check that goes red. */
   ck('scrubbing spaces its history writes under the engine’s 100-per-30 s budget, and the URL still catches up',
     histRate.R >= 5 && histRate.perWindow <= 100
+    && histRate.P === 0 && histRate.minGap >= 300
     && histRate.hash.includes('y=' + String(histRate.year).replace('.', '')),
     JSON.stringify(histRate));
 
