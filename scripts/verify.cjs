@@ -508,10 +508,22 @@ const evalSafe = async (pg, fn) => {
   const citz = await page.evaluate(() => ({
     open: document.querySelector('#citz').classList.contains('open'),
     rects: document.querySelectorAll('#citzSvg rect').length,
+    /* the two populations SEPARATELY: one rect per non-zero group value, and two
+       framing rects per year */
+    bars: document.querySelectorAll('#citzSvg rect:not(.citz-frame)').length,
+    frames: document.querySelectorAll('#citzSvg rect.citz-frame').length,
     rows: document.querySelector('#citzRows').textContent,
     note: document.querySelector('#citzNote').textContent }));
   ck('citz panel opens', citz.open);
-  ck('citz has stacked bars for 5 years x groups (>=40 rects)', citz.rects >= 40, String(citz.rects));
+  /* A floor of 40 against a panel that draws 70. Thirty of the bars could stop
+     rendering — six of the twelve groups in every year, or every value in two
+     whole years — and the check would still print ok; the ten frames it also
+     counted are drawn per YEAR and would have carried it further still. Both
+     populations are pinned exactly: 5 years x 6 groups x 2 directions is 60 bars
+     with every value non-zero, and 2 frames per year is 10. */
+  ck('citz draws every stacked bar for 5 years x 6 groups x 2 directions, plus a frame per year',
+    citz.bars === 60 && citz.frames === 10 && citz.rects === 70,
+    JSON.stringify({ bars: citz.bars, frames: citz.frames, rects: citz.rects }));
   ck('citz 2024 totals +70.391 / −38.997 / saldo +31.394',
     citz.rows.includes('+70.391') && citz.rows.includes('\u221238.997') && citz.rows.includes('+31.394'));
   /* +26.601 is Asia's DOSELJENI, not its net — the net is +21.675. The three
