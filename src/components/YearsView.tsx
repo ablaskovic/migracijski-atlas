@@ -364,13 +364,15 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
             announcements the cell names already make. */}
         <g aria-hidden="true">
         {order.map((iso, r) => (
-          <text key={iso} x={x0 - 6} y={y0 + r * ch + ch / 2 + 3} textAnchor="end"
+          <text key={iso} className={'gaxl' + (hlRow === r ? ' on' : '')}
+            x={x0 - 6} y={y0 + r * ch + ch / 2 + 3} textAnchor="end"
             lang="hr" fontSize={rowFs} fontFamily={MONO}
             fontWeight={hlRow === r ? 600 : 400}
             fill={hlRow === r ? '#20262B' : '#5F6A72'}>{SHORTN[iso]}</text>
         ))}
         {cols.map((yi, c) => (
-          <text key={yi} textAnchor="start"
+          <text key={yi} className={'gaxl' + (cols[c] === S.yi || hlC === c ? ' on' : '')}
+            textAnchor="start"
             fontSize={colFs} fontFamily={MONO}
             fontWeight={hlC === c || cols[c] === S.yi ? 600 : 400}
             /* The selected column's label used to be teal at 9 px, which the

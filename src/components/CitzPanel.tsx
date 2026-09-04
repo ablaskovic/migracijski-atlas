@@ -58,9 +58,9 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
     let up = 0, dn = 0;
     for (const [k, , col] of cgroups()) {
       const dv = CIT.g[k].d[i], ov = CIT.g[k].o[i];
-      if (dv > 0) bars.push(<rect key={`${yr}${k}d`} x={x(yr)} width={x.bandwidth()}
+      if (dv > 0) bars.push(<rect key={`${yr}${k}d`} className={'cg cg-' + k} x={x(yr)} width={x.bandwidth()}
         y={sD(up + dv)} height={sD(up) - sD(up + dv)} fill={col} opacity={yr === y ? 1 : 0.7} />);
-      if (ov > 0) bars.push(<rect key={`${yr}${k}o`} x={x(yr)} width={x.bandwidth()}
+      if (ov > 0) bars.push(<rect key={`${yr}${k}o`} className={'cg cg-' + k} x={x(yr)} width={x.bandwidth()}
         y={sO(dn)} height={sO(dn + ov) - sO(dn)} fill={col} opacity={yr === y ? 0.72 : 0.7} />);
       up += dv; dn += ov;
     }
@@ -144,7 +144,8 @@ export default function CitzPanel({ S, setS, toggleCitz }: {
                     The parameter was shadowing the imported `yr` helper, which is
                     why the literal was reached for in the first place. */}
                 {yy.map(v => (
-                  <text key={v} x={x(v)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize="0.5625rem"
+                  <text key={v} className={'cyr' + (v === y ? ' on' : '')}
+                    x={x(v)! + x.bandwidth() / 2} y={h - 3} textAnchor="middle" fontSize="0.5625rem"
                     fontFamily="var(--mono)" fontWeight={v === y ? 600 : 400}
                     fill={v === y ? 'var(--acc)' : 'var(--mut)'}>{yrOf(v)}</text>
                 ))}

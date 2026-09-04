@@ -1697,4 +1697,34 @@ body.stage-collapsed .main{flex:none;height:420px}
      `.jl:focus-visible` half won on equal specificity and later position, so
      the block half-worked and the half that did not was silent. */
   .focusring .fr-ink,.jl:focus-visible{stroke:Highlight}
+  /* …and the charts, on the same finding this block opens with: SVG fill is not
+     forced. It fixed the two keys, the rail, the pressed states and the focus
+     ring for that reason and left the five figures alone. Measured under
+     forced-colors:active on the default High Contrast black palette (Canvas
+     #000, CanvasText #fff — the palette Chrome's emulation renders):
+       #cardSvg  the "unutarnje (crta)" line   #20262B on #000   1,37:1
+       #citzSvg  the Hrvatska group's 10 stacks #20262B           1,37:1
+       #ageSvg   the internal-move bars, and "25–29"              1,37:1
+       #map/yrs  the selected year label "2024."                  1,37:1
+       every axis and grid label                #5F6A72           3,79:1
+     — a series drawn at 1,37:1 is a series that is not drawn, while the caption
+     beside it still promises a line, and 3,79:1 is under the 4,5:1 that 1.4.3
+     asks of text this size.
+     TEXT ONLY where the text sits on the panel, which is why this names the five
+     chart roots and .gaxl rather than `svg text`. The numbers inside the Godine
+     and Matrica cells are drawn ON the ramp — an unforced fill — so CanvasText
+     would put white figures on a pale cell, breaking the one surface forced
+     colours had left correct. Same for the county labels on the choropleth.
+     Highlight for what the app draws in ink to mean "this one": the selected
+     year, the pointed-at row and column, the peak age band. Ink is how those
+     read against --mut on the ordinary palette, and ink is exactly what vanishes
+     here, so the distinction would have been lost twice over. */
+  #cardSvg text,#citzSvg text,#ageSvg text,#pairSvg text,#spark text,
+  #map .gaxl{fill:CanvasText}
+  #map .gaxl.on,#ageSvg .ageband.on,#citzSvg .cyr.on{fill:Highlight}
+  /* the three ink-coloured series themselves. They keep their dash pattern,
+     their frame and their position, which is what still tells them apart once
+     they share the one foreground colour the palette offers. */
+  #cardSvg .ints{stroke:CanvasText}
+  #ageSvg .age-int,#citzSvg .cg-hr{fill:CanvasText}
 }

@@ -76,7 +76,7 @@ export default function DetailCard({ S, setS }: { S: State; setS: (p: Patch) => 
             token this file already uses for secondary ink and reads at 5,39:1;
             the dash still separates it from the two solid series. */}
         <path d={lineG(nats)!} fill="none" stroke="var(--mut)" strokeWidth={1.2} strokeDasharray="3 3" />
-        <path d={lineG(ints)!} fill="none" stroke="#20262B" strokeWidth={1.6} />
+        <path className="ints" d={lineG(ints)!} fill="none" stroke="#20262B" strokeWidth={1.6} />
         {[2000, 2010, 2020].map(t => (
           <text key={t} x={x(t)} y={h - 3} textAnchor="middle" fontSize="0.53125rem"
             fontFamily="var(--mono)" fill="var(--mut)">{yr(t)}</text>

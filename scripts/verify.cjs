@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 620;
+const EXPECTED_CHECKS = 621;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -12946,6 +12946,88 @@ const evalSafe = async (pg, fn) => {
     fcRail.n === 21 && fcRail.adjust === 'none' && fcRail.sameAsPage === 0
     && fcRail.distinct >= 10 && fcRail.zero !== null && fcRail.zero !== fcRail.body,
     JSON.stringify(fcRail));
+
+  /* …and the five charts, which the block and these checks both skipped. They
+     read the two keys, the rail, the pressed states and the focus ring — every
+     one of them HTML or a class this file already knew — and none of the SVG the
+     figures are drawn in, on the same finding the block opens with: fill is not
+     forced. Measured on the black palette before the fix, 79 marks under floor,
+     among them a whole series each:
+       #cardSvg .ints  the internal-migration line   1,37:1
+       #citzSvg .cg-hr the Hrvatska stacks           1,37:1
+       #ageSvg .age-int the internal-move bars       1,37:1
+       and every axis and grid label at #5F6A72      3,79:1
+     Contrast computed against the body's own forced background rather than
+     against an assumed black, so this reads whatever palette the emulation
+     renders. 4,5:1 for text and 3:1 for the series, which is what 1.4.3 and
+     1.4.11 ask of each.
+     The panels are mutually exclusive by construction (hash.ts keeps at most one
+     of citz/jls/age), so each series gets its own boot rather than one hash
+     claiming to open all three — a hash that silently drops two panels would
+     leave this measuring only the card. `want` is asserted present for that
+     reason: a series that is not on screen is not a passing series. */
+  const fcChart = [];
+  await forced(true);
+  for (const [hash, want] of [
+    ['#v=saldo&c=1&y=2024&s=HR-21', ['#cardSvg .ints']],
+    ['#v=saldo&c=1&y=2024&cz=1', ['#citzSvg .cg-hr']],
+    ['#v=saldo&c=1&y=2024&ag=2', ['#ageSvg .age-int']],
+    ['#v=yrs&c=1&y=2024', []],
+    ['#v=mx&c=0&y=2018&dir=out', []],
+  ]) {
+    await fresh(hash);
+    /* point at a cell, so the highlighted row and column labels — the ones the
+     app draws in ink to mean "this one" — are rendered and measured too */
+    await page.evaluate(() => {
+      const c = document.querySelector('#map .yrc, #map .mxc');
+      if (c) c.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    await settle(250);
+    fcChart.push({ h: hash.slice(0, 26), ...await page.evaluate(`(${String(
+      want => {
+        const num = c => { const m = String(c).match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : null; };
+        const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        const lum = c => { const p = num(c); if (!p) return null;
+          return 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2]); };
+        const ratio = (a, b) => { const A = lum(a), B = lum(b); if (A === null || B === null) return null;
+          return +((Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)).toFixed(2); };
+        const bg = getComputedStyle(document.body).backgroundColor;
+        const bad = []; let seen = 0;
+        const put = (at, txt, col, floor) => {
+          seen++;
+          const c = ratio(col, bg);
+          if (c !== null && c < floor) bad.push({ at, txt, col, c });
+        };
+        for (const root of ['#cardSvg', '#citzSvg', '#ageSvg', '#pairSvg', '#spark']) {
+          const r = document.querySelector(root); if (!r) continue;
+          for (const t of r.querySelectorAll('text')) {
+            if (!t.getClientRects().length) continue;
+            put(root, (t.textContent || '').trim().slice(0, 12), getComputedStyle(t).fill, 4.5);
+          }
+        }
+        for (const t of document.querySelectorAll('#map .gaxl')) {
+          if (!t.getClientRects().length) continue;
+          put('.gaxl', (t.textContent || '').trim().slice(0, 12), getComputedStyle(t).fill, 4.5);
+        }
+        const missing = [];
+        for (const sel of want) {
+          const prop = sel.indexOf('.ints') > 0 ? 'stroke' : 'fill';
+          const els = [...document.querySelectorAll(sel)].filter(e => e.getClientRects().length);
+          if (!els.length) { missing.push(sel); continue; }
+          for (const e of els.slice(0, 3)) put(sel, '', getComputedStyle(e)[prop], 3);
+        }
+        return { bg, seen, missing, bad: bad.slice(0, 4), nBad: bad.length };
+      })})(${JSON.stringify(want)})`) });
+  }
+  await forced(false);
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('forced colors leaves no chart series or axis label below its contrast floor',
+    fcChart.length === 5
+    /* a palette that did not take, or a boot with no marks in it, is not a pass */
+    && fcChart.every(r => r.bg === 'rgb(0, 0, 0)' && r.seen >= 10 && r.missing.length === 0)
+    && fcChart.every(r => r.nBad === 0),
+    JSON.stringify(fcChart.filter(r => r.bg !== 'rgb(0, 0, 0)' || r.seen < 10
+      || r.missing.length || r.nBad)) + ' n=' + fcChart.length);
 
   /* ── M-18: the differential stroke test exercised 2 of 9 documented selectors ──
      The strong measurement — it rasterises rather than reading attributes — ran

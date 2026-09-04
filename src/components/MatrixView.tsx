@@ -474,13 +474,15 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
           announcements the cell names already make. */}
       <g aria-hidden="true">
       {MXORD.map((iso, r) => (
-        <text key={'r' + iso} x={x0 - 6} y={y0 + r * cell + cell / 2 + 3} textAnchor="end"
+        <text key={'r' + iso} className={'gaxl' + (hl && hl[0] === iso ? ' on' : '')}
+          x={x0 - 6} y={y0 + r * cell + cell / 2 + 3} textAnchor="end"
           lang="hr" fontSize={rowFs} fontFamily={MONO}
           fontWeight={hl && hl[0] === iso ? 600 : 400}
           fill={hl && hl[0] === iso ? '#20262B' : '#5F6A72'}>{SHORTN[iso]}</text>
       ))}
       {MXORD.map((iso, c) => (
-        <text key={'c' + iso} textAnchor="start"
+        <text key={'c' + iso} className={'gaxl' + (hl && hl[1] === iso ? ' on' : '')}
+          textAnchor="start"
           lang="hr" fontSize={colFs} fontFamily={MONO}
           fontWeight={hl && hl[1] === iso ? 600 : 400}
           fill={hl && hl[1] === iso ? '#20262B' : '#5F6A72'}

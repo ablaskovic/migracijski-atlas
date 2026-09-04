@@ -60,7 +60,8 @@ export default function AgePanel({ S, setS, toggleAge }: {
               const hl = i === peakIx;
               return (
                 <g key={a}>
-                  <text x={cx} y={y + rowH - 2.5} textAnchor="middle" fontSize="0.46875rem"
+                  <text className={'ageband' + (hl ? ' on' : '')}
+                    x={cx} y={y + rowH - 2.5} textAnchor="middle" fontSize="0.46875rem"
                     fontFamily="var(--mono)" fontWeight={hl ? 700 : 400}
                     fill={hl ? 'var(--ink)' : 'var(--mut)'}>{a}</text>
                   {ext ? (
@@ -71,7 +72,7 @@ export default function AgePanel({ S, setS, toggleAge }: {
                         width={DEMO.ext.d[i] / mExt * span} height={rowH - 2.5} fill="#1D4E89" opacity={0.75} />
                     </>
                   ) : (
-                    <rect x={cx + gap} y={y + 1}
+                    <rect className="age-int" x={cx + gap} y={y + 1}
                       width={DEMO.intm[i] / mInt * span} height={rowH - 2.5} fill="#20262B" opacity={0.68} />
                   )}
                 </g>
