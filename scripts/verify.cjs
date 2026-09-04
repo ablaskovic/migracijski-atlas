@@ -4771,12 +4771,23 @@ const evalSafe = async (pg, fn) => {
       const doc = window.__exportSVG(false);
       const p = new DOMParser().parseFromString(doc, 'image/svg+xml');
       const ts = [...p.querySelectorAll('svg > text')].map(t => t.textContent);
-      return { badge: ts.find(t => /^·\s/.test(t)) || '', structural: /strukturna procjena/.test(doc) };
+      /* Joined, because the note is WRAPPED. It was tested against the raw
+         document, which is the rows already broken into their own <text>
+         elements — so the assertion held only while the two words happened to
+         land on one row, and the Matrica figure is crop-narrowed (539 px at
+         1440×900, a 297 px note column) where they do not: measured, the rows
+         are "…Neto parova je strukturna" / "procjena." and the note is
+         complete. A line break is not a missing caveat, and a check that reads
+         it as one fails on a width change while the property it names holds.
+         Joined with a space, which is what the wrapper removed. */
+      return { badge: ts.find(t => /^·\s/.test(t)) || '',
+        structural: /strukturna procjena/.test(ts.join(' ')),
+        rows: ts.length };
     });
     ck('export badge says "kumulativna procjena", matching its own title  ' + h,
       ex.badge.includes('kumulativna procjena'), ex.badge);
     ck('export carries the structural-estimate note the screen carries  ' + h,
-      ex.structural, String(ex.structural));
+      ex.structural && ex.rows > 3, JSON.stringify(ex));
   }
 
   /* …and Tokovi's two, which reached neither format in any direction. The arcs
