@@ -220,9 +220,16 @@ export default function Tooltip({ S }: { S: State }) {
      of the viewport kept its old placement — and its new width — until the
      pointer moved, which is the overflow the clamp in moveTip exists to
      prevent. */
+  /* …and S.sel, which rewrites the tip in Tokovi. A focused county's readout
+     there is the pair table when it is a partner of the hub and the one-line
+     "odabrana županija" when it IS the hub, so pressing Enter on a focused
+     county swaps the content from ~130 px of panel to ~50 px. A tip that had
+     been flipped ABOVE its anchor keeps the top it was placed at, and the
+     shrink leaves it floating that difference away from the county it
+     describes, until the next pointer move or focus change re-places it. */
   useLayoutEffect(() => { if (show) placeTip(); },
     [show, S.yi, S.hl, S.pairHl, S.yrHl, S.jlsHl, S.cum, S.dir, S.flow, S.den, S.view,
-      S.lang, S.thr, S.thrRel, S.thrPct]);
+      S.lang, S.thr, S.thrRel, S.thrPct, S.sel]);
   return (
     /* aria-hidden: the same numbers now live in each feature's own aria-label
        (metrics.countyAria / the .jl labels), so exposing this cursor-follower
