@@ -842,21 +842,26 @@ body.stage-collapsed .main{flex:none;height:420px}
      reported 55.363 px² of #pair × .chipdock at 1100–1600 px that no reader
      could ever see.
      --stageh is the map stage's measured height, set by MapView from the
-     ResizeObserver it already runs. 56 = the 12 px bottom offset plus the 44 px
-     the "Aa oznake" / "?" pair occupies, which is the reserve this box carried
-     as its own max-height before; the rest is the header stack the body is
-     anchored above. Written once because the cap and the reserves below have to
-     be the same number — a reserve taller than the cap would push the panel up
-     through the map's button strip. */
-  /* The floor is 64, not 120. This expression's own `56` IS the top strip's lane
-     — 12 px of bottom offset plus the 44 px the "Aa oznake" / "?" pair occupies —
-     so a floor large enough to override it puts the panel back through the strip,
+     ResizeObserver it already runs. The first term is the strip's own lane,
+     written as what it is: .mapstrip's 14 px top offset, one button side, and
+     8 px of clearance. It used to be a flat 56, derived from the dock's bottom
+     offset instead of the strip's top one — right by coincidence for a fine
+     pointer (14 + 22 + 8 = 44 < 56) and two short for a coarse one, where the
+     strip runs 14 → 58 and the body's top edge landed at 56. Two pixels of the
+     Aa / ? / zoom buttons under a panel that also has z-index 6 and comes later
+     in the box — so the band took the tap and scrolled the panel instead.
+     The rest is the dock's bottom offset, the header stack the body is anchored
+     above, and the gaps. Written once because the cap and the reserves below
+     have to be the same number — a reserve taller than the cap would push the
+     panel up through the map's button strip. */
+  /* The floor is 64, not 120. This expression's first term IS the top strip's
+     lane, so a floor large enough to override it puts the panel back through it,
      which is the collision the overlay sweep caught at 960×700 and 1000×700 with
      the citizenship panel and a Nalaz banner open: stage 230, calc 96, floored to
      120, and 5 px of #labBtn × the dock. 64 clears the reserve at every stage the
      sweeps measure while still turning the empty-sliver case into two rows that
      scroll, which is all the floor was ever for. */
-  --chipfree:max(64px,calc(var(--stageh,600px) - 56px - 12px - var(--chiph) * 2 - 16px))}
+  --chipfree:max(64px,calc(var(--stageh,600px) - (14px + var(--hbw) + 8px) - 12px - var(--chiph) * 2 - 16px))}
 .chipdock .chipcard{display:flex;flex-direction:column;min-height:0}
 /* pinned rather than left to the padding, so the offsets below and the box they
    clear are one measurement — the same reason .helpbtn's side is --hbw */
