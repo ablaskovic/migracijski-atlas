@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 617;
+const EXPECTED_CHECKS = 618;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -2350,6 +2350,77 @@ const evalSafe = async (pg, fn) => {
       && r.hits[0] === 'helpBtn' && (r.hits[1] === 'absent' || r.hits[1] === 'labBtn')
       && r.hits[2] === 'zoomRst'),
     JSON.stringify(strip));
+
+  /* ── and the boxes reserved in px for type sized in rem ──
+     Same preset, different failure: a reserve that cannot follow the type it
+     holds. Three of them, each measured against the string it is actually asked
+     to carry rather than against a nominal width.
+     The year box is measured against every year the atlas can show, not against
+     the one on screen. Oswald's figures are not tabular: the widest is "2000." at
+     2,4671 em of its own font-size and the narrowest "2011." at 2,1491, a 15 %
+     spread — so a check that renders only the current year reads wherever in that
+     spread it happens to land and calls an undersized box clean. It did: the
+     122 px desktop box holds 2,3913 em, and ELEVEN of the twenty-eight years
+     overflowed it with the browser untouched. All 28 are written into the element
+     and measured, which is the requirement stated exactly — the box holds any
+     year — rather than sampled.
+     The ink is measured with a Range over the text node, not from the element's
+     own rect: the element IS the box, so its width is the reserve and never the
+     content, and comparing the box with itself is how this went unseen.
+     .rail-list is overflow-y:auto, which makes it overflow-x:auto too, so an
+     over-wide value column shows up as a scrollbar under all 21 rows; that is
+     asserted directly rather than inferred. And .ctrl-lab pinned its line box in
+     px under a rem font-size, so the caps grew out of the line at 20 px and up. */
+  const boxCdp = await page.createCDPSession();
+  const boxes = [];
+  for (const [w, h] of [[1440, 900], [800, 900], [390, 844]]) {
+    for (const fs of [16, 20, 24]) {
+      await boxCdp.send('Page.setFontSizes', { fontSizes: { standard: fs, fixed: fs } });
+      await page.setViewport({ width: w, height: h, isMobile: w < 500, hasTouch: w < 500 });
+      /* cumulative, because that is where the rail's values are longest:
+         "+41.986" is 4,2 em of .rval and the widest string this column carries */
+      await fresh('#v=saldo&c=1&y=2024');
+      await page.waitForSelector('#railList .rval', { timeout: 15000 }).catch(() => {});
+      boxes.push({ w, fs, ...await page.evaluate(() => {
+        const ink = e => { const r = document.createRange(); r.selectNodeContents(e);
+          return r.getBoundingClientRect().width; };
+        const yn = document.querySelector('.big-year-n');
+        const rv = [...document.querySelectorAll('#railList .rval')];
+        const rl = document.querySelector('.rail-list');
+        const cl = document.querySelector('.ctrl-lab');
+        const worst = rv.map(e => +(ink(e) - e.getBoundingClientRect().width).toFixed(2))
+          .sort((a, b) => b - a)[0];
+        const keep = yn.textContent;
+        const box = yn.getBoundingClientRect().width;
+        let yrOver = -Infinity, yrWorst = '';
+        for (let y = 1998; y <= 2025; y++) {
+          yn.textContent = y + '.';
+          const o = +(ink(yn) - box).toFixed(2);
+          if (o > yrOver) { yrOver = o; yrWorst = y + '.'; }
+        }
+        yn.textContent = keep;
+        return {
+          yr: yrWorst, yrBox: +box.toFixed(2),
+          yrOver,
+          rvN: rv.length, rvOver: rv.length ? worst : null,
+          railX: rl ? rl.scrollWidth - rl.clientWidth : null,
+          labFs: cl ? +parseFloat(getComputedStyle(cl).fontSize).toFixed(2) : null,
+          labH: cl ? +cl.getBoundingClientRect().height.toFixed(2) : null,
+        };
+      }) });
+    }
+  }
+  await boxCdp.detach();
+  await page.setViewport({ width: 1440, height: 900 });
+  ck('the year, the rail value and the control captions stay inside their boxes at every browser font preset',
+    boxes.length === 9
+    /* Floors, because every leg here is an ABSENCE assertion and absence is what
+       an empty selector also reports. The rail is 21 counties; the year box must
+       have measured a width, or `ink - box` is a comparison against nothing. */
+    && boxes.every(r => r.yrBox > 0 && /^[0-9]{4}[.]$/.test(r.yr) && r.rvN >= 21)
+    && boxes.every(r => r.yrOver < 0 && r.rvOver < 0 && r.railX === 0 && r.labH >= r.labFs),
+    JSON.stringify(boxes.filter(r => !(r.yrBox > 0) || !/^[0-9]{4}[.]$/.test(r.yr) || r.rvN < 21 || r.yrOver >= 0
+      || r.rvOver >= 0 || r.railX !== 0 || r.labH < r.labFs)) + ' n=' + boxes.length);
 
   /* …and Tab has to walk it left to right. The strip has a FOURTH member: .jcard
      sits at top:14 left:16, the same row as the three buttons, and it was

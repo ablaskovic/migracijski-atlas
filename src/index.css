@@ -338,7 +338,13 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    labels shrank by one pixel when the webfont arrived and the header lost 5 px
    under the reader. Pinned to what the real face already produces at each size,
    so nothing moves at the swap and nothing moves today. */
-.ctrl-lab{font-family:var(--mono);font-size:0.59375rem;line-height:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+/* 0.8125rem is the 13 px this pinned, in rem: identical at the default root, and
+   it grows with the type instead of holding a 19 px cap in a 13 px line box at
+   Chrome's largest preset. Still a pinned length rather than `normal`, which is
+   what keeps the box off the font's own metrics — the metric-matched fallbacks
+   guarantee the advance, not the line box, and `normal` here cost a pixel per
+   caption across the webfont swap. */
+.ctrl-lab{font-family:var(--mono);font-size:0.59375rem;line-height:0.8125rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
 .seg{display:flex;border:1px solid var(--line);background:var(--panel);border-radius:3px;overflow:hidden}
 /* 5px horizontal, not 7: the seventh view button (Godine) pushed .ctrls from
    three rows to four at 1440, taking the header 138 → 192 px and the map box
@@ -652,7 +658,21 @@ body.stage-collapsed .main{flex:none;height:420px}
    The 140 px column the project documents as the fix lived only in the ≤560 px
    block; wrapping is what covers the corridor rows, whose names run 154–211 px
    into a 150 px column and cannot be widened into a 292 px rail. */
-.rrow{display:grid;grid-template-columns:140px 1fr 60px;align-items:center;gap:8px;
+/* The value column, likewise, in the unit .rval is sized in. "+41.986" is 4,2 em
+   of .rval at every size (Plex Mono, seven figures) and the column stood still at
+   60 px, so it fitted at a 16 px root and stopped fitting at 24 — 6,2 px over,
+   and .rail-list is overflow-y:auto and therefore overflow-x:auto, so at 32 all
+   21 rows sat above a horizontal scrollbar.
+   2.9rem is 4,42 em of .rval: the string plus ~5 %, not the 5,71 em the 60 px
+   happened to be. That distinction is the bar's. Reserving today's proportion
+   instead was measured and is worse — the name column is a fixed 140 px, so
+   every rem the value takes comes out of the 1fr the magnitude bar lives in, and
+   the generous reserve shrank it to 14 px at root 24 and collapsed it to 0 at 28,
+   which is the empty sliver this file has a rule against: the rail's one visual
+   encoding, gone. Cut to the string it must hold, the bar keeps 34 px at root 24
+   and 11 at 32, and .rail-list grows no scrollbar at any root. Below 16 px the
+   60 px floor holds the column at today's width. */
+.rrow{display:grid;grid-template-columns:140px 1fr max(60px,2.9rem);align-items:center;gap:8px;
   min-height:24px;padding:2.5px 14px;cursor:pointer;border-left:3px solid transparent}
 .rrow:hover,.rrow.hl{background:#EEF0EA;border-left-color:var(--acc)}
 /* Inside the ring, not outside it. .rail-list is overflow-y:auto with 2px 0
@@ -672,7 +692,7 @@ body.stage-collapsed .main{flex:none;height:420px}
 .rbar{position:absolute;top:0;height:9px;transition:width .25s,left .25s,background-color .25s}
 .reduced .rbar{transition:none}
 .rval{font-family:var(--mono);font-size:0.65625rem;text-align:right;color:var(--mut)}
-.rrow.pairrow{grid-template-columns:150px 1fr 52px}
+.rrow.pairrow{grid-template-columns:150px 1fr max(52px,2.9rem)}
 .rrow.pairrow .rname{font-family:var(--mono);font-size:0.59375rem}
 .rail-hint{padding:6px 14px;border-top:1px solid var(--line);font-family:var(--mono);
   font-size:0.53125rem;color:var(--mut);letter-spacing:.04em;line-height:1.4}
@@ -708,7 +728,25 @@ body.stage-collapsed .main{flex:none;height:420px}
    else. */
 .scrub-chart svg{display:block;width:100%;height:96px;cursor:ew-resize;touch-action:pan-y pinch-zoom}
 #spark:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
-.big-year{width:122px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding-left:12px}
+/* Sized in the unit its type is in, with the px as a floor. This box held a
+   number in rem and reserved for it in px, so it could not follow the reader's
+   font — but it was also too small for its own content at the default size,
+   because Oswald's figures are not tabular and the reserve was cut against a
+   narrow year. Measured in the shipped box, each year as a fraction of its own
+   font-size: "2011." is 2,1491 em and "2000." 2,4671 — a 15 % spread across the
+   28 years the atlas can show. The 122 px box holds 2,3913 em, so ELEVEN of
+   those years overflowed it at 1440×900 with the browser untouched (2000, 2002
+   –2006, 2008, 2009, 2020, 2022, 2023); the ≤900 box holds 2,25 em and lost
+   twenty-six of the twenty-eight. Overflowing inline content spills over the end
+   edge whatever text-align says (CSS Text 3 §7.1) and .big-year is the last item
+   in the bar, so the ink ran into the bar's right margin — and off the viewport,
+   where body{overflow:hidden} cuts it, from Chrome's Large preset on: 7,3 px of
+   the last digit gone at root 20, 34,7 px at 24, 89,6 px at 32.
+   2,52 is the widest year plus ~2 %. The webfont's own fallback is narrower
+   (Arial Narrow tops out at 2,1141 em) so the real face is what binds, and the
+   px floor keeps the box from shrinking below today's design if a reader sets a
+   root under 16. */
+.big-year{width:max(122px,calc(2.875rem * 2.52 + 12px));display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding-left:12px}
 /* Stretched and right-aligned rather than shrink-to-fit. `align-items:flex-end`
    made this box exactly as wide as its glyphs, so it MOVED when the face swapped:
    measured across the webfont swap at 1350 px, left 1.232,8 → 1.220,2 and width
@@ -717,7 +755,11 @@ body.stage-collapsed .main{flex:none;height:420px}
    checks could not see it. The ink still shifts within the box, which is the
    irreducible part of a different advance width; the box no longer does. */
 .big-year-n{font-family:var(--disp);font-weight:600;font-size:2.875rem;line-height:1;letter-spacing:.02em;align-self:stretch;text-align:right}
-.big-year-s{font-family:var(--mono);font-size:0.5625rem;color:var(--mut);letter-spacing:.06em;text-transform:uppercase;text-align:right;max-width:120px}
+/* 7.5rem is the 120 px this carried, in the unit the box above now grows in.
+   As px it was inert — 120 was wider than the 110 px content box it sat in — and
+   would have stopped being inert the moment that box grew, wrapping the honesty
+   line at exactly the font sizes this change exists to serve. */
+.big-year-s{font-family:var(--mono);font-size:0.5625rem;color:var(--mut);letter-spacing:.06em;text-transform:uppercase;text-align:right;max-width:7.5rem}
 
 .ft{padding:5px 20px;font-family:var(--mono);font-size:0.59375rem;color:var(--mut);
   border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -1259,7 +1301,7 @@ body.stage-collapsed .main{flex:none;height:420px}
   body.panel-open .legend{display:none}
   .chip-more{display:none}
   .hd-title{font-size:1.125rem}
-  .big-year{width:84px}.big-year-n{font-size:2rem}
+  .big-year{width:max(84px,calc(2rem * 2.52 + 12px))}.big-year-n{font-size:2rem}
   /* corridor card joins the detail card in normal flow above the map — see the
      960 px block above, which is where it actually stops floating */
   .storybar{margin:8px 8px 0;max-width:none}
@@ -1267,7 +1309,7 @@ body.stage-collapsed .main{flex:none;height:420px}
      — the rail is the way through. Hiding the hint that says so removed exactly
      the affordance the mobile user needs. */
   .rail-hint{font-size:0.5625rem;padding:7px 14px}
-  .rrow.pairrow{grid-template-columns:132px 1fr 52px}
+  .rrow.pairrow{grid-template-columns:132px 1fr max(52px,2.9rem)}
   /* The glossary is taller than the map box on a phone, and anchoring it inside
      .map-box let it run past the viewport (measured at 390×844: bottom 1152) and
      over the fixed scrubber, which sits 1 z-index below it — elementFromPoint on
@@ -1348,7 +1390,7 @@ body.stage-collapsed .main{flex:none;height:420px}
   /* one thumb-sized row per control group; header scrolls with the page */
   .hd{padding:10px 12px 8px;gap:8px}
   .hd-sub{font-size:0.65625rem;line-height:1.35}
-  .ctrl-lab{font-size:0.5625rem;line-height:11px}
+  .ctrl-lab{font-size:0.5625rem;line-height:0.6875rem}
   /* 2-col grid: wide groups span both columns, the 2–3 button ones take one.
      `dense` backfills a leftover cell with a later narrow group — which is what
      made Izvoz *relocate* on a view change here, because which group was
@@ -1407,6 +1449,12 @@ body.stage-collapsed .main{flex:none;height:420px}
      this changes what fits in it, not what it covers. */
   .rname{font-size:0.75rem}
   .rval{font-size:0.75rem}
+  /* …and the value column with it. Not the no-op override the note below
+     records removing: the reserve is 4,4 em of .rval, and .rval is bigger here,
+     so the base rule's 2.9rem would be 0,4 em short of the string at every root
+     above 16 px. 3.3rem is still under the 60 px floor at the default, so this
+     changes nothing at 16 px either. */
+  .rrow{grid-template-columns:140px 1fr max(60px,3.3rem)}
   /* No .rrow columns here any more. This block used to widen the name column to
      140 px for the 12 px phone type, and the base rule now declares exactly
      that — its own comment records the move: "the 140 px column the project
@@ -1421,7 +1469,7 @@ body.stage-collapsed .main{flex:none;height:420px}
   .scrub{padding:18px 8px 8px}
   /* no height override here: Scrubber lays out in user units against sh=96,
      so shrinking the SVG box clips the year-tick axis off the bottom */
-  .big-year{width:70px;padding-left:8px}
+  .big-year{width:max(70px,calc(1.625rem * 2.52 + 8px));padding-left:8px}
   .big-year-n{font-size:1.625rem}
   /* honesty labels are load-bearing, and 8–9 px is where they stop being read —
      on the devices most likely to misread the data */
