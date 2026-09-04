@@ -91,8 +91,21 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
   const kmin = h > 0 && ch > h ? h / ch : KMIN;
   /* the wheel listener is bound imperatively and its effect does not re-run on
      every transform, so it reads the current k from here rather than closing
-     over a stale one */
+     over a stale one.
+     Written on every WRITE as well as on every render, which is the difference
+     between "the transform of the last render" and "the transform". A wheel
+     tick and a pointerdown can land in the same task — wheel to zoom, then
+     press to drag, inside one frame — and a ref assigned during render alone is
+     then exactly as stale as the closure it exists to replace: measured, the
+     press armed the drag from the pre-zoom transform and the first 100 px of
+     drag moved the map 1.049 px. Assigning inside the updater is idempotent, so
+     it survives React calling an updater twice (see main.tsx on StrictMode). */
   const tRef = useRef(t); tRef.current = t;
+  const setTT = (v: ZoomT | ((p: ZoomT) => ZoomT)) => setT(prev => {
+    const n = typeof v === 'function' ? v(prev) : v;
+    tRef.current = n;
+    return n;
+  });
   /* callback ref, not useRef: switching view (map ⇄ matrix) mounts a *new* svg,
      and a plain ref would leave the wheel/click listeners bound to the old one —
      which is why the matrix had no wheel zoom. State makes the effects re-run. */
@@ -122,7 +135,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
     try { el.setPointerCapture(id); } catch { /* pointer already gone — still pans */ }
   };
 
-  const reset = useCallback(() => setT(IDENT), []);
+  const reset = useCallback(() => setTT(IDENT), []);
   /* a resize changes the clamp bounds — re-fit so content cannot end up adrift.
      Returning the PREVIOUS object when nothing moved, because fit() builds a
      fresh one either way: at identity it hands back a `{k:1,x:0,y:0}` that is
@@ -133,7 +146,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
      Matrica and Godine it is the grid. The guarded-updater shape the rest of
      this app already uses for exactly this. */
   useEffect(() => {
-    setT(p => {
+    setTT(p => {
       const n = fit(p, w, h, ch, kmin);
       return n.k === p.k && n.x === p.x && n.y === p.y ? p : n;
     });
@@ -141,7 +154,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
 
   /* zoom about the centre of the box by a factor — the keyboard's shape */
   const zoomBy = useCallback((f: number) => {
-    setT(cur => zoomTo(cur, cur.k * f, w / 2, h / 2, w, h, ch, kmin));
+    setTT(cur => zoomTo(cur, cur.k * f, w / 2, h / 2, w, h, ch, kmin));
   }, [w, h, ch, kmin]);
   /* Pan by a fraction of the viewport. Zoom alone only ever magnifies the centre
      of the box, so from the keyboard Istria, Dubrovnik and Vukovar — and the
@@ -149,7 +162,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
      unreachable at k > 1. `fit` still clamps, so this cannot drag content off
      screen and is a no-op at k = 1. */
   const panBy = useCallback((fx: number, fy: number) => {
-    setT(cur => (cur.k <= kmin && ch <= h ? cur : fit({ ...cur, x: cur.x + fx * w * 0.25, y: cur.y + fy * h * 0.25 }, w, h, ch, kmin)));
+    setTT(cur => (cur.k <= kmin && ch <= h ? cur : fit({ ...cur, x: cur.x + fx * w * 0.25, y: cur.y + fy * h * 0.25 }, w, h, ch, kmin)));
   }, [w, h, ch, kmin]);
 
   /* Keyboard equivalent of the wheel. Bound to the window rather than the svg:
@@ -166,7 +179,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1.6); }
       else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomBy(1 / 1.6); }
-      else if (e.key === '0') { e.preventDefault(); setT(IDENT); }
+      else if (e.key === '0') { e.preventDefault(); setTT(IDENT); }
       /* Shift+arrows pan. Bare arrows belong to the year scrubber, so the pan
          keys have to be a chord; App's year handler skips shifted arrows. */
       else if (e.shiftKey && e.key === 'ArrowLeft') { e.preventDefault(); panBy(1, 0); }
@@ -240,7 +253,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
       if (canScroll && (d > 0 ? tRef.current.k <= kmin : tRef.current.k >= KMAX)) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      setT(cur => zoomTo(cur, cur.k * Math.pow(2, -d / 400), e.clientX - r.left, e.clientY - r.top, w, h, ch, kmin));
+      setTT(cur => zoomTo(cur, cur.k * Math.pow(2, -d / 400), e.clientX - r.left, e.clientY - r.top, w, h, ch, kmin));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     /* capture phase: stop the click before it reaches any county/cell handler */
@@ -283,8 +296,15 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
   const arm = () => {
     const [ia, ib] = [...pts.current.keys()];
     const [a, b] = [...pts.current.values()];
+    /* tRef.current, not the render closure. The captured transform belongs to
+       the render that built this handler, and a press can land between a setT —
+       a wheel tick, the re-fit effect, the keyboard zoom — and the render it
+       schedules: the gesture then measures from a transform already one frame
+       stale, and the pinch or drag jumps by that difference on its first move.
+       tRef exists for exactly this and is what the wheel handler already
+       reads. */
     gesture.current = { ids: [ia, ib], d: Math.hypot(a.x - b.x, a.y - b.y),
-      cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, t };
+      cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, t: tRef.current };
     drag.current = null;
   };
 
@@ -301,7 +321,8 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
     if (pts.current.size === 2) arm();
     else if (pts.current.size === 1 && e.pointerType !== 'touch') {
       const p = local(e);
-      drag.current = { x: p.x, y: p.y, t, moved: false };
+      /* tRef.current here too — see arm() */
+      drag.current = { x: p.x, y: p.y, t: tRef.current, moved: false };
     }
   };
 
@@ -353,7 +374,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
       grab(e.currentTarget, e.pointerId);
       /* zoom about the pinch centre and follow it as the fingers travel — not
          zoomTo(), whose anchor is fixed: here cx/cy drift away from g.cx/g.cy */
-      setT(fit({ k, x: cx - (g.cx - g.t.x) * r, y: cy - (g.cy - g.t.y) * r }, w, h, ch, kmin));
+      setTT(fit({ k, x: cx - (g.cx - g.t.x) * r, y: cy - (g.cy - g.t.y) * r }, w, h, ch, kmin));
       return;
     }
     const dr = drag.current;
@@ -364,7 +385,7 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
       dr.moved = true;
       panned.current = true;
       grab(e.currentTarget, e.pointerId);
-      setT(fit({ k: dr.t.k, x: dr.t.x + dx, y: dr.t.y + dy }, w, h, ch, kmin));
+      setTT(fit({ k: dr.t.k, x: dr.t.x + dx, y: dr.t.y + dy }, w, h, ch, kmin));
     }
   };
 

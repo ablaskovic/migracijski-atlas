@@ -213,8 +213,16 @@ export default function Tooltip({ S }: { S: State }) {
      Content also changes with the pointer standing still (autoplay, arrow-key
      scrubbing, focus moves), and the edge clamp lives in moveTip — so re-place
      on the inputs that rewrite the markup, not only when visibility flips. */
+  /* …the language and the threshold among them. Both rewrite the markup and so
+     the box: a Croatian tip and its English twin are different widths, and in
+     Klasifikacija the class line and the percentage move with the threshold
+     slider. Neither was a dependency, so a tip already against the right edge
+     of the viewport kept its old placement — and its new width — until the
+     pointer moved, which is the overflow the clamp in moveTip exists to
+     prevent. */
   useLayoutEffect(() => { if (show) placeTip(); },
-    [show, S.yi, S.hl, S.pairHl, S.yrHl, S.jlsHl, S.cum, S.dir, S.flow, S.den, S.view]);
+    [show, S.yi, S.hl, S.pairHl, S.yrHl, S.jlsHl, S.cum, S.dir, S.flow, S.den, S.view,
+      S.lang, S.thr, S.thrRel, S.thrPct]);
   return (
     /* aria-hidden: the same numbers now live in each feature's own aria-label
        (metrics.countyAria / the .jl labels), so exposing this cursor-follower
