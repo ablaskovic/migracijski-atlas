@@ -10953,10 +10953,15 @@ const evalSafe = async (pg, fn) => {
       .map(e => e.textContent || '')
       .find(t => /jednog smjera|one direction between/.test(t)) || '');
   }
+  /* The Croatian names the views in quotes now rather than declining them —
+     "u prikazu „Tokovi”" where it used to build "u Tokovima" by interpolating a
+     dictionary entry and appending a case ending, and "u Matrici" by slicing the
+     last character off one. The property is unchanged and is what these clauses
+     are for: each view is named beside the pair it colours. */
   ck('the colour exception names the pair each view colours, in both languages',
     !/prema odabranoj županiji/.test(colExc.hr)
-    && /u Tokovima između odabrane i obojene/.test(colExc.hr)
-    && /u Matrici između retka i stupca/.test(colExc.hr)
+    && /u prikazu „Tokovi” između odabrane i obojene/.test(colExc.hr)
+    && /u prikazu „Matrica” između retka i stupca/.test(colExc.hr)
     && !/to or from the selected county/.test(colExc.en)
     && /between the selected county and the coloured one/.test(colExc.en)
     && /between the row and the column/.test(colExc.en),
