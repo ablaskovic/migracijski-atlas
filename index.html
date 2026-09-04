@@ -14,7 +14,12 @@
 <meta name="author" content="Ante Blašković">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Migracijski atlas županija · 1998.–2025.">
-<meta property="og:description" content="Saldo, klasifikacija, regije, godine, tokovi, matrica 21×21 i izmjerena JLS karta 2018. Svaka je vrijednost označena kao izmjerena ili procjena. Izvor: DZS.">
+<!-- The same sentence as the meta description above, and as the one App writes
+     over both of them from the dictionary on every language change. These two
+     static tags used to say different things, so a crawler that does not run JS
+     read one description in the head and a different one on the card, and only
+     the JS path ever made them agree. -->
+<meta property="og:description" content="Interaktivni atlas migracija hrvatskih županija 1998.–2025.: saldo, klasifikacija, regije, godine, međužupanijski tokovi, matrica 21×21 i izmjerena JLS karta 2018. Izvor: DZS.">
 <!-- These enumerated six views and there are seven: Godine, the small-multiples
      grid, was missing from both while the sitemap and the README list it. The
      locale pair is the other half: scrapers never run JavaScript, so an English
