@@ -11596,7 +11596,13 @@ const evalSafe = async (pg, fn) => {
   const cropped = k => cropOut[k].mapW !== null && cropOut[k].mapW < cropOut[k].liveW && !!cropOut[k].viewBox;
   ck('an exported grid is cropped to its own ink, and an exported map is not',
     cropped('mx1440') && cropped('yrs1440') && cropped('mx1024')
+    /* The negative half, positively. `!cropped('saldo')` and `viewBox === null`
+       are both satisfied when `inner` is undefined — i.e. when the map figure
+       has no nested <svg> at all — so "an exported map is not cropped" was also
+       true of an export that had lost its map. The width says which: uncropped
+       means the map svg is present and exactly as wide as the live one. */
     && !cropped('saldo') && cropOut.saldo.viewBox === null
+    && cropOut.saldo.mapW === cropOut.saldo.liveW
     && cropOut.mx1440.cells === 420 && cropOut.mx1024.cells === 420
     && cropOut.yrs1440.cells === 588 && cropOut.saldo.cells === 21,
     JSON.stringify(cropOut));
