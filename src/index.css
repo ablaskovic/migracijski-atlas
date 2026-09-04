@@ -411,6 +411,10 @@ svg#map:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
    cannot be Enter-activated while looking dead), and this overlay takes the
    hover the disabled buttons no longer emit — otherwise the title explaining
    *why* the group is off can never surface. */
+/* the reason, beside the label rather than only in a title the keyboard cannot
+   reach. Never the label's own weight: it is an aside about the group, and the
+   label is what names it. */
+.ctrl-off{opacity:.7;font-weight:400;text-transform:none;letter-spacing:.04em}
 .seg.off{opacity:.35;position:relative}
 .seg.off::after{content:'';position:absolute;inset:0;cursor:not-allowed}
 /* Nalazi select — a header control, sitting left of Prikaz. Kept narrow on

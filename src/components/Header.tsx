@@ -37,6 +37,15 @@ function Seg<T extends string>({ id, opts, value, onPick, off, title, labId, ari
 }
 
 const OFF_TIP = () => L('Nije primjenjivo u ovom prikazu', 'Not applicable in this view');
+/* …and the same fact where a sighted reader can actually meet it. The reason a
+   group is dead lived in a `title` on a div whose buttons are `disabled`, so it
+   was reachable by hover alone: no keyboard user can focus a disabled button,
+   and no engine shows a title on focus. Screen readers already get it as the
+   group's description. This is the visible half — appended to the group's own
+   label, which is the line already naming what is off. */
+const OffNote = ({ off }: { off: boolean }) => (off
+  ? <span className="ctrl-off"> · {L('nije primjenjivo', 'not applicable')}</span>
+  : null);
 
 /* The phone header is taller than the phone. Measured on a cold load, six
    viewport × view pairs: at 360×740 the header alone is 622 px (saldo), 689
@@ -245,15 +254,15 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
           aria-expanded={moreOpen} aria-controls="hdMore"
           onClick={() => setMoreOpen(o => !o)}>{L('Ostale postavke', 'More settings')}</button>
         <div className={'hd-more' + (narrow && !moreOpen ? ' shut' : '')} id="hdMore">
-        <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">{t('ctrl.flow')}</span>
+        <div className="ctrl" id="cFlow"><span className="ctrl-lab" id="segFlowLab">{t('ctrl.flow')}<OffNote off={lockFD} /></span>
           <Seg id="segFlow" labId="segFlowLab" value={eff ? eff.flow : S.flow} off={lockFD} title={OFF_TIP()} onPick={v => setS({ flow: v })}
             opts={[['tot', t('flow.tot')], ['int', t('flow.int')], ['ext', t('flow.ext')], ['nat', t('flow.nat')], ['all', t('flow.all')]]} />
         </div>
-        <div className="ctrl" id="cDen"><span className="ctrl-lab" id="segDenLab">{t('ctrl.den')}</span>
+        <div className="ctrl" id="cDen"><span className="ctrl-lab" id="segDenLab">{t('ctrl.den')}<OffNote off={lockFD} /></span>
           <Seg id="segDen" labId="segDenLab" value={eff ? eff.den : S.den} off={lockFD} title={OFF_TIP()} onPick={v => setS({ den: v })}
             opts={[['abs', t('den.abs')], ['rel11', t('den.rel11')], ['relest', t('den.relest')]]} />
         </div>
-        <div className="ctrl" id="cMode"><span className="ctrl-lab" id="segModeLab">{t('ctrl.time')}</span>
+        <div className="ctrl" id="cMode"><span className="ctrl-lab" id="segModeLab">{t('ctrl.time')}<OffNote off={lockT} /></span>
           {/* Klasifikacija is unconditionally cumulative — klasOf() reads
               val(..., true) whatever S.cum says — and eleven other surfaces
               spell that as `S.cum || S.view === 'klas'`. This was the twelfth,
