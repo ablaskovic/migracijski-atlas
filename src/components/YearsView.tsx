@@ -30,8 +30,21 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
   S: State; setS: (p: Patch) => void; size: { w: number; h: number };
   legend: { w: number; h: number }; panel: { w: number; h: number }; zoom: ReturnType<typeof useZoom>;
 }) {
-  const cols = yrsCols(S.cum);
-  const order = yrsOrder(S.flow, S.den, cols);
+  /* Both memoised, because both are FRESH ARRAYS and both are dependencies of
+     the 588-cell `rows` memo below. yrsCols pushes into a new `out`, yrsOrder
+     returns [...ISOS].sort(...), so Object.is never matched and that memo
+     recomputed on every render — a pinch pointermove, a cell hover, an arrowed
+     year, a rail hover. The memo's own comment says it removed the 297,9
+     Intl.NumberFormat.format calls per pinch move measured at 390x844; it did
+     not, that cost was still paid on every event, along with 588 val() and 588
+     col() calls and ~1.200 React elements. Measured pure part on this machine:
+     1,92 ms per render annual, 1,14 ms cumulative, before reconciliation.
+     This file already knew the two arrays were unstable — focusSel at :117 is
+     built as a string precisely 'because order and cols are rebuilt on every
+     render and would otherwise drag the effect along with them'. The same fact,
+     applied to the memo it was actually costing. */
+  const cols = useMemo(() => yrsCols(S.cum), [S.cum]);
+  const order = useMemo(() => yrsOrder(S.flow, S.den, cols), [S.flow, S.den, cols]);
   const nR = order.length, nC = cols.length;
 
   /* Year labels are short and rotated, so this needs far less head room than the
