@@ -4560,8 +4560,13 @@ const evalSafe = async (pg, fn) => {
     await click('#helpX');
     keyDoc[l] = sparkKeys.filter(k => !sent.includes(GLYPH[k] || k));
   }
+  /* >= 6, not === 6. The count is a FLOOR against a regex that matched nothing —
+     an empty key list would otherwise satisfy "every key is named" — and it was
+     written as an equality, so documenting a seventh key on #spark turns this
+     red while every key IS named. The property under test is that the sentence
+     names them all; the number is only there to prove the list was populated. */
   ck('the timeline sentence names every key the timeline answers to, in both languages',
-    sparkKeys.length === 6 && keyDoc.hr.length === 0 && keyDoc.en.length === 0,
+    sparkKeys.length >= 6 && keyDoc.hr.length === 0 && keyDoc.en.length === 0,
     JSON.stringify(keyDoc));
 
   /* ── the two big geometry payloads are no longer on the critical path ── */
