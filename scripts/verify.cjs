@@ -5677,6 +5677,14 @@ const evalSafe = async (pg, fn) => {
           * Math.max(0, Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top));
         const area = r.width * r.height;
         /* the bar's own play button and timeline are inside it by construction */
+        /* ENTIRELY hidden, which is the SC this block cites. WCAG 2.4.11 Focus
+           Not Obscured (Minimum, AA) is failed only when no part of the focused
+           control is visible; 2.4.12 (Enhanced, AAA) is the one that forbids any
+           obscuring at all. So 0,999 is the threshold the named criterion asks
+           for, and a row 95 % under the bar passes here on purpose. If this is
+           ever raised to the Enhanced bar the threshold becomes `> 0` and the
+           check's name has to say Enhanced, because the two are different
+           promises and the number alone does not distinguish them. */
         return { hidden: !bar.contains(a) && area > 0 && ov / area >= 0.999,
           who: a.id || a.getAttribute('data-iso') || String(a.getAttribute('class') || a.tagName) };
       }));
