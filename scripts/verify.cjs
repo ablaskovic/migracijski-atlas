@@ -6211,7 +6211,16 @@ const evalSafe = async (pg, fn) => {
     ['#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net&jl=1', '.cnt'],
     ['#v=jmap&dir=net&cz=1', '.jl'], ['#v=reg&cz=1', '.cnt']]) {
     await fresh(h);
-    await page.waitForFunction(s => document.querySelectorAll(s).length > 0, { timeout: 10000 }, sel).catch(() => {});
+    /* Wait for the SUSPENSION, not merely for the features. useSuspendMapStops
+       runs in a passive effect after the paint that mounts the paths, so the
+       read below was racing an effect that had not run yet — a race that can
+       only produce a false red, never a false green, but a false red all the
+       same. fresh()'s settle and the 556-feature wait make the window small; the
+       wait is what closes it, and the assertion still does the failing when the
+       stops genuinely stay live, because it times out and reads them anyway. */
+    await page.waitForFunction(s => document.querySelectorAll(s).length > 0
+      && document.querySelectorAll(s + '[tabindex="-1"]').length === document.querySelectorAll(s).length,
+    { timeout: 10000 }, sel).catch(() => {});
     bootSuspend.push({ h: h.slice(0, 22), ...await page.evaluate(s => {
       const f = [...document.querySelectorAll(s)];
       return { feats: f.length, live: f.filter(e => e.getAttribute('tabindex') !== '-1').length };
