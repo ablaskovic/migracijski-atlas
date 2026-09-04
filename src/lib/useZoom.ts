@@ -46,7 +46,23 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
    `kmin` is 1. */
 function fit(t: ZoomT, w: number, h: number, ch: number, kmin: number): ZoomT {
   const k = clamp(t.k, kmin, KMAX);
-  return { k, x: clamp(t.x, w - k * w, 0), y: clamp(t.y, Math.min(0, h - k * ch), 0) };
+  /* Math.min(0, …) on BOTH axes. The y bound already had it; x did not, and
+     below k = 1 — which the two grid views reach, because setContentH gives them
+     a kmin under 1 — its lower bound w − k·w is POSITIVE while the upper bound is
+     0. clamp is Math.max(lo, Math.min(hi, v)), so an inverted pair returns lo:
+     the shrunken grid was pinned to the RIGHT edge of the box instead of
+     shrinking in place.
+     Measured in the box this file's own note uses, 1366×657 giving a ~1000×260
+     map box: kmin 0,681, one press of − put x at 319,4 instead of 159,7, the
+     grid's right edge at 795,5 against the chip dock's left edge at 737 and its
+     bottom at 232,8 against the dock's top at 186 — 8 columns × 6 rows of cells
+     under the opaque dock that fitGrid steers clear of at k = 1. Shift+arrows
+     could not move it either, because fit re-clamped x to the same 319,4 on
+     every call; only '0' escaped.
+     With the guard, k < 1 gives x = 0 and the grid shrinks toward its own left
+     edge, which is the side the dock is not on. At k >= 1 the bound is w − k·w
+     as before, so nothing changes for the map. */
+  return { k, x: clamp(t.x, Math.min(0, w - k * w), 0), y: clamp(t.y, Math.min(0, h - k * ch), 0) };
 }
 /* zoom about a point: that point must stay put under the cursor/fingers/centre.
    One definition, shared by the wheel, the pinch, and the keyboard. */
