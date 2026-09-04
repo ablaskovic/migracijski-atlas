@@ -4564,7 +4564,18 @@ const evalSafe = async (pg, fn) => {
   /* same overlay geometry, narrow: labels toggle drops out and the rest shift in */
   await fresh('#v=flow&s=HR-21&pp=HR-01&c=0&y=2018&dir=net');
   const ov390 = await overlaps();
-  ck('390: map overlays do not overlap each other', ov390.bad.length === 0, ov390.bad.join(' | '));
+  /* …over a named set, which is what its 1440 px sibling learned two blocks up.
+     An empty failure list is also what an empty comparison returns: hide #jcard
+     or #legend below 900 px in this state — which body.panel-open already does
+     to the legend for panels — and the element leaves the sweep with the pair it
+     collided with, `bad` stays empty, and nothing in the run says the set shrank.
+     Measured here: #labBtn and #card are display:none and #zoomRst unmounted, so
+     these four ARE the overlays this width has. */
+  const OV390_IDS = ['#helpBtn', '#pair', '#jcard', '#legend'];
+  ck('390: map overlays do not overlap each other',
+    ov390.bad.length === 0 && ov390.n === OV390_IDS.length
+    && OV390_IDS.every(i => ov390.ids.includes(i)),
+    JSON.stringify({ bad: ov390.bad, ids: ov390.ids }));
 
   await page.setViewport({ width: 1440, height: 900 });
 
