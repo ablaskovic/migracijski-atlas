@@ -14362,12 +14362,20 @@ const evalSafe = async (pg, fn) => {
      Accept-Encoding, which is why this was invisible from inside the platform.
      Declared in the block that reaches every path, so it is asserted here on
      the document and the asset alike; smoke.cjs asks the live origin. */
+  /* …and the immutable half is asserted only where it can be false. vercel.json
+     deliberately leaves the asset cache-control to the platform default, so
+     serve() stamps ASSET_IMMUTABLE on every /assets/ 200 itself — in dist mode,
+     the only mode `npm run verify` and CI run, that conjunct compared a string
+     this file had just written to itself. Nothing in the repo or the deploy
+     could have made it false. URL mode reads a real origin, and smoke.cjs asks
+     the live one; the three conjuncts that stay unconditional are the ones
+     vercel.json actually declares. */
   ck('content-hashed assets are immutable, the document revalidates, and both declare their Vary',
-    /immutable/.test(assetHdr['cache-control'] || '')
+    (!URLMODE || /immutable/.test(assetHdr['cache-control'] || ''))
     && /must-revalidate/.test(docHdr['cache-control'] || '')
     && /accept-encoding/i.test(docHdr.vary || '') && /accept-encoding/i.test(assetHdr.vary || ''),
-    JSON.stringify({ asset: assetHdr['cache-control'], doc: docHdr['cache-control'],
-      vary: [docHdr.vary, assetHdr.vary] }));
+    JSON.stringify({ mode: URLMODE ? 'url' : 'dist', asset: assetHdr['cache-control'],
+      doc: docHdr['cache-control'], vary: [docHdr.vary, assetHdr.vary] }));
 
   /* …and the deploy runs the cheap gates before it ships. The CI workflow is
      DETECTION and it loses the race it is in: Vercel promotes the deploy while
