@@ -107,7 +107,16 @@ jobs:
           # matches engines.node in package.json
           node-version: '22.12'
           cache: npm
-      - run: npm ci
+      # --ignore-scripts here too, for the reason spelled out for the ci/ tree
+      # below: the root install has no script it needs. Of package-lock.json's
+      # 117 entries exactly one declares an install script — fsevents, os:darwin,
+      # so never on ubuntu-latest — and the root package.json has no prepare or
+      # postinstall. So this flag changes nothing that runs today and closes the
+      # same class for the 116 locked dependencies that the ci/ line closes for
+      # its 27: a compromised patch whose whole payload is a postinstall.
+      # Deliberately NOT applied to the puppeteer install two lines down, which
+      # is run by name on its own line precisely so it stays deliberate.
+      - run: npm ci --ignore-scripts
       # Chrome for the puppeteer checks, from ITS OWN LOCKFILE.
       #
       # `npm i puppeteer@25.8.0` pinned one package out of the 27 it installs.
