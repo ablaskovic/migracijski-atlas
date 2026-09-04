@@ -145,8 +145,12 @@ styles), `img-src 'self' data: blob:` (the PNG export goes through a blob URL),
 `font-src 'self' data:` (the faces are self-hosted, and the SVG export embeds
 its own copies as data URLs),
 `object-src`/`base-uri`/`form-action`/`frame-ancestors` set to none, plus
-nosniff, a referrer policy, a permissions policy, COOP, HSTS (two years, all
-subdomains) and `Vary: Accept-Encoding`. HSTS carries no `preload` token: the
+nosniff, a referrer policy, a permissions policy, COOP, `X-Frame-Options: DENY`,
+HSTS (two years, all subdomains) and `Vary: Accept-Encoding`. The frame header
+is redundant with `frame-ancestors 'none'` for anything that reads CSP, and
+costs one line for anything that does not. There is no CSP `report-uri`: a
+report needs a collector, and every collector is a third party — which the
+page's own "reaches no third-party origin" guarantee forbids. HSTS carries no `preload` token: the
 token does nothing until the apex is submitted to hstspreload.org, which this
 repository cannot do, and leaving that list takes months.
 
