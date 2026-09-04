@@ -955,6 +955,11 @@ export default function App() {
      jump; this sentence is the half that works in every reader. Same
      predicates the two cards render on, so it cannot name a card that is not
      on screen. */
+  /* Once per render, not eight times. The footer reads src[0], [1], [2]
+     and [3] twice each — for the href and again for the aria-label — and every
+     call rebuilds licences.ts's SRC array with its four L() lookups. The
+     footer re-renders on every hover, like the rest of App. */
+  const src = sources();
   const card = !S.sel ? ''
     : S.view === 'flow' || S.view === 'mx'
       ? (S.pair && S.pair !== S.sel ? `${D[S.sel].n} → ${D[S.pair].n}` : '')
@@ -1017,12 +1022,12 @@ export default function App() {
             to it, so the lane costs the map exactly what it did before — the
             legend keeps the plain-text wording because `.legend` is
             `pointer-events:none` and a link in it could never be clicked. */}
-        <span>{L('Izvori: ', 'Sources: ')}<a className="paper-link" href={sources()[0].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`${L('DZS', 'CBS')} — ${sources()[0].note}. ${NEWTAB()}`}>{L('DZS', 'CBS')}</a>{' '}
+        <span>{L('Izvori: ', 'Sources: ')}<a className="paper-link" href={src[0].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`${L('DZS', 'CBS')} — ${src[0].note}. ${NEWTAB()}`}>{L('DZS', 'CBS')}</a>{' '}
           {L('tab. 7.4.1.–7.4.3. (srpanj 2026.) · državljanstvo, dob, zemlje: DZS STAN-2026-2-1 · tokovi 2018.: DZS posebna obrada, županije i JLS (',
             'tab. 7.4.1.–7.4.3. (July 2026) · citizenship, age, countries: CBS STAN-2026-2-1 · 2018 flows: CBS special processing, counties and LAUs (')}
-          <a className="paper-link" href={sources()[1].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`${L('Pitoski i sur. 2021.', 'Pitoski et al. 2021')} — ${sources()[1].note}. ${NEWTAB()}`}>{L('Pitoski i sur. 2021.', 'Pitoski et al. 2021')}</a>, CC BY) ·
+          <a className="paper-link" href={src[1].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`${L('Pitoski i sur. 2021.', 'Pitoski et al. 2021')} — ${src[1].note}. ${NEWTAB()}`}>{L('Pitoski i sur. 2021.', 'Pitoski et al. 2021')}</a>, CC BY) ·
           {/* "na DZS marginama" claimed both margins are reproduced, and only the
               out-margin is exact — the columns drift ±4 from 2007 and by up to
               +146 per county in 1998–2006 after the rescale. MA3-021 replaced
@@ -1035,10 +1040,10 @@ export default function App() {
               the legends and on the card, which have the room for it. */}
           {L('ostale godine: IPF procjena na DZS odseljene · granice županija:',
             'other years: IPF estimate on CBS out-margins · county boundaries:')}{' '}
-          <a className="paper-link" href={sources()[3].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`geoBoundaries — ${sources()[3].note}. ${NEWTAB()}`}>geoBoundaries</a>{L('/OSM, granice JLS:', '/OSM, LAU boundaries:')}{' '}
-          <a className="paper-link" href={sources()[2].href} target="_blank" rel="noopener noreferrer"
-            aria-label={`OpenStreetMap — ${sources()[2].note}. ${NEWTAB()}`}>OpenStreetMap</a>{L(' suradnici — oboje ODbL.', ' contributors — both ODbL.')}</span>
+          <a className="paper-link" href={src[3].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`geoBoundaries — ${src[3].note}. ${NEWTAB()}`}>geoBoundaries</a>{L('/OSM, granice JLS:', '/OSM, LAU boundaries:')}{' '}
+          <a className="paper-link" href={src[2].href} target="_blank" rel="noopener noreferrer"
+            aria-label={`OpenStreetMap — ${src[2].note}. ${NEWTAB()}`}>OpenStreetMap</a>{L(' suradnici — oboje ODbL.', ' contributors — both ODbL.')}</span>
         {/* The study the atlas is a companion to is unpublished: the reference is
             pending, not missing, and the atlas is not affiliated with it. Both
             sentences come from lib/credits.ts, which is also what the header,
