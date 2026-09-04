@@ -12767,14 +12767,28 @@ const evalSafe = async (pg, fn) => {
     const r = await fetch(new URL('/assets/verify-missing-cache.js', u));
     return { status: r.status, cc: r.headers.get('cache-control') || '' };
   }, url);
-  /* the deliberate 404 logs a resource failure of its own; it is ours */
+  /* the deliberate 404 logs a resource failure of its own; it is ours — and ONLY
+     it. The ledger stamps every network line with its URL precisely so a scrub
+     can drop the one it caused and nothing else, and the six URL-qualified
+     scrubs in this file do exactly that. This one added
+     `|| /Failed to load resource/`, which matches every resource failure Chrome
+     logs: a warm chunk 404 from a stale interceptor flag, or in URL mode any
+     missing asset on the live origin. Such a line was removed silently and the
+     zero-error checks downstream stayed green over a window holding three boots
+     and two exports. Match by URL, and assert that the drop happened, so the
+     scrub cannot pass by removing nothing either. */
   await settle(200);
-  for (let i = errors.length - 1; i >= errsMiss; i--) {
-    if (/verify-missing-cache/.test(errors[i]) || /Failed to load resource/.test(errors[i])) errors.splice(i, 1);
-  }
+  const missDropped = (() => {
+    const before = errors.length;
+    for (let i = errors.length - 1; i >= errsMiss; i--) {
+      if (/verify-missing-cache/.test(errors[i])) errors.splice(i, 1);
+    }
+    return before - errors.length;
+  })();
   ck('a missing hashed asset is not cached for a year',
-    missAsset.status === 404 && !/immutable/.test(missAsset.cc),
-    JSON.stringify(missAsset));
+    missAsset.status === 404 && !/immutable/.test(missAsset.cc)
+    && missDropped >= 1 && errors.length === errsMiss,
+    JSON.stringify({ ...missAsset, dropped: missDropped, left: errors.slice(errsMiss, errsMiss + 2) }));
 
   /* …and the release stamp, which nothing here asserted at all. The plugin that
      writes it is an exact-string replace on `<html lang="hr">` and returned the
@@ -12988,18 +13002,25 @@ const evalSafe = async (pg, fn) => {
      net::ERR_FAILED lines for the two Oswald subsets survived the scrub and
      failed both this check and the pass-3 error bracket. */
   await settle(400);
-  /* the deliberate 404 and the abort each log a resource failure of their own,
-     and inside this window they are the only ones that can arrive */
-  for (let i = errors.length - 1; i >= errs0; i--) {
-    if (/woff2/.test(errors[i]) || /Failed to load resource/.test(errors[i])) errors.splice(i, 1);
-  }
+  /* the deliberate 404 and the abort each log a resource failure of their own —
+     and they are the only ones this scrub may remove. The blanket
+     `|| /Failed to load resource/` matched anything, so a genuine failure inside
+     this window was deleted and `errors.length === errs0` below still held.
+     By URL, and counted: six faces are held, so at least one line must go. */
+  const fontDropped = (() => {
+    const before = errors.length;
+    for (let i = errors.length - 1; i >= errs0; i--) {
+      if (/woff2/.test(errors[i])) errors.splice(i, 1);
+    }
+    return before - errors.length;
+  })();
   await fresh('');
   ck('a failed or wedged font fetch degrades the export instead of holding the button for the session',
     font404.faces === 0 && font404.names && font404.n > 5000
     && !png404.disabled && png404.label !== '…'
     && !pngHang.disabled && pngHang.label !== '…' && pngHang.ms < 15000
-    && errors.length === errs0,
-    JSON.stringify({ font404, png404, pngHang, errs: errors.length - errs0 }));
+    && fontDropped >= 1 && errors.length === errs0,
+    JSON.stringify({ font404, png404, pngHang, dropped: fontDropped, errs: errors.length - errs0 }));
 
   /* …and the figure describes ONE instant. exportPNG awaited ensureFonts first
      and cloned the map after it: the band was drawn from the state captured at
@@ -13044,14 +13065,21 @@ const evalSafe = async (pg, fn) => {
   blockFonts = false;
   for (const r of heldFonts.splice(0)) { try { await r.abort(); } catch { /* cancelled */ } }
   await settle(400);
-  for (let i = errors.length - 1; i >= raceErrs; i--) {
-    if (/woff2/.test(errors[i]) || /Failed to load resource/.test(errors[i])) errors.splice(i, 1);
-  }
+  /* by URL and counted, like its two siblings above: the aborted faces are the
+     only lines this window may lose */
+  const raceDropped = (() => {
+    const before = errors.length;
+    for (let i = errors.length - 1; i >= raceErrs; i--) {
+      if (/woff2/.test(errors[i])) errors.splice(i, 1);
+    }
+    return before - errors.length;
+  })();
   await fresh('');
   ck('a PNG pressed during a slow font fetch ships the map the reader pressed on',
-    raceBefore !== raceAfter && raceClone === raceBefore && errors.length === raceErrs,
+    raceBefore !== raceAfter && raceClone === raceBefore
+    && raceDropped >= 1 && errors.length === raceErrs,
     JSON.stringify({ changed: raceBefore !== raceAfter, cloneIsBefore: raceClone === raceBefore,
-      cloneIsAfter: raceClone === raceAfter, n: raceClone.split('|').length }));
+      cloneIsAfter: raceClone === raceAfter, dropped: raceDropped, n: raceClone.split('|').length }));
 
   /* (5) the corridor arcs are painted from the same scale the counties are, in
      both directions — `dv(v)` for neto and `sq(|v|)` for the one-way pair, the
