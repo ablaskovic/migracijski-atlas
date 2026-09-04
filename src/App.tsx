@@ -75,6 +75,18 @@ export default function App() {
        were one. `storyHolds` against the *resulting* state is the question
        actually being asked: does this caption still describe the screen? */
     if (n.story != null && patch.story === undefined && !storyHolds(n, n.story)) n.story = null;
+    /* …and a patch that changes nothing returns the state it was given. setView
+       guards its own no-op press, and the six other segments did not: pressing
+       the Sastavnica button that is already pressed built a fresh State, which
+       is never Object.is the old one, so the whole tree re-rendered — 556 paths
+       in the JLS view — for a press with no effect. Seg calls onPick for every
+       click, including the one already aria-pressed.
+       Compared field by field against the patch, not deep: every field in State
+       is a primitive or a small tuple, and the tuples (hl, pairHl, yrHl) are
+       written through the same-value guards in setHL and the two grids, which
+       is where identity is already handled. */
+    const keys = Object.keys(patch) as (keyof State)[];
+    if (n.story === s.story && keys.every(k => Object.is(n[k], s[k]))) return s;
     return n;
   });
 
