@@ -221,9 +221,20 @@ export default function Scrubber({ S, setYi, togglePlay }: {
      slider's description now, in a visually-hidden copy beside it, and always
      the long form: the hidden one is not competing for pixels with the
      keyboard hint the way the drawn one is. */
-  const capFull = L('RH · vanjski saldo (površina) · preseljeni među županijama (crtkano)',
-    'Croatia · net external migration (area) · moves between counties (dashed)');
-  const cap = sw >= 380 ? capFull
+  /* "vlastita skala" is the fact the caption was missing. The area is the
+     external balance on a ±44.192 domain and the dashed line the inter-county
+     volume on 0…41.947 — they share pixels and share no zero, so the dashed
+     line's height cannot be read against the area's baseline, and the caption
+     named the two series as though it could. Three words, in the long form
+     only: the short one below is already down to two nouns. */
+  const capFull = L('RH · vanjski saldo (površina) · preseljeni među županijama (crtkano, vlastita skala)',
+    'Croatia · net external migration (area) · moves between counties (dashed, own scale)');
+  /* …and the switch to the short form is measured off the string rather than
+     pinned at 380. That literal was tuned for the 68-character caption (68 ×
+     5,4 + 16 = 383) and did not move when the caption grew: measured at a 560 px
+     viewport, the longer one ran 11,7 px past the right edge of its own chart.
+     Same 0,6 em advance the keyboard hint is gated on, one line down. */
+  const cap = sw >= capFull.length * 5.4 + 16 ? capFull
     : L('RH · vanjski saldo · preseljeni', 'Croatia · net external · moves');
   /* The hint and the caption share one line, so the room one needs is the room
      the other does not have. A flat 560 was set against the SHORT caption: the
