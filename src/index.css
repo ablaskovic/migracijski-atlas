@@ -970,7 +970,13 @@ body.stage-collapsed .main{flex:none;height:420px}
 .jrow .jc{font-family:var(--mono);font-size:0.5rem;color:var(--mut);letter-spacing:.03em}
 .jrow .jv{font-family:var(--mono);font-size:0.625rem;color:var(--mut)}
 .jls-note{font-size:0.5625rem;color:var(--mut);margin-top:5px;line-height:1.35;border-top:1px solid var(--line);padding-top:4px}
-#pngBtn:disabled{opacity:.4;cursor:default}
+/* Both of them. The pair is built as twins — the width ghosts in Header keep
+   them the same box in both languages — and the disabled state was the one
+   place they diverged: with geo_jls missing, Header disables both, PNG dimmed
+   to 40 % and read as unavailable while SVG kept full ink and full contrast,
+   so the cue for a sighted reader was a default cursor and an sr-only live
+   region they never see. */
+#pngBtn:disabled,#svgBtn:disabled{opacity:.4;cursor:default}
 
 /* corridor pair card — top-right of the map (jcard owns top-left) */
 /* Bounded by the dock's own reserve, not just by its content. The card and the

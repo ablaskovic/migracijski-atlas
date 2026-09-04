@@ -6750,13 +6750,21 @@ const evalSafe = async (pg, fn) => {
      MIGRACIJA (IZMJERENO)" holding 21 unfilled county outlines and none of the
      556 municipalities its title names — while the app two hundred pixels away
      read "Geometrija JLS nije učitana." */
+  /* …and LOOK held. `disabled` is a property a sighted reader cannot see: the
+     dim was written for #pngBtn alone, so SVG sat beside it at full ink and
+     full contrast, and the only cue that it would do nothing was a default
+     cursor. Both opacities, because the pair is twins everywhere else. */
   const expLocked = await page.evaluate(() => ({
     png: document.querySelector('#pngBtn').disabled,
     svg: document.querySelector('#svgBtn').disabled,
+    pngOp: +getComputedStyle(document.querySelector('#pngBtn')).opacity,
+    svgOp: +getComputedStyle(document.querySelector('#svgBtn')).opacity,
     said: (document.querySelector('#expLive') || {}).textContent || '',
   }));
   ck('both exporters are held while the geometry the figure claims is absent',
-    expLocked.png && expLocked.svg && /geometrija/i.test(expLocked.said),
+    expLocked.png && expLocked.svg && /geometrija/i.test(expLocked.said)
+    && expLocked.pngOp < 1 && expLocked.svgOp < 1
+    && Math.abs(expLocked.pngOp - expLocked.svgOp) < 0.001,
     JSON.stringify(expLocked));
   ck('and it says so through a live region, not silent SVG text',
     geoFail.live === 'status', String(geoFail.live));
