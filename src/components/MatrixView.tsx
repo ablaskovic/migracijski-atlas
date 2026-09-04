@@ -253,6 +253,26 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
   const drill = openCorridor;
   /* keyboard focus must place the tip itself — moveTip otherwise replays the
      last pointer position, which has nothing to do with the focused cell */
+  /* Arrows pressed ON the diagonal. It is tabIndex -1 and the roving stop steps
+     over it, but a pointer click focuses it — and with no handler of its own the
+     arrows fell through to App and stepped the YEAR, from inside a grid whose
+     arrows move the cell. It moves from the diagonal's own [r, c] rather than
+     from the roving `fc`, which by construction is somewhere else, and skips the
+     next diagonal exactly the way moveF does. */
+  const onDiagKey = (e: ReactKeyboardEvent<SVGRectElement>, r: number, c: number) => {
+    if (e.shiftKey) return;
+    const d: Record<string, [number, number]> = {
+      ArrowRight: [0, 1], ArrowLeft: [0, -1], ArrowDown: [1, 0], ArrowUp: [-1, 0],
+    };
+    const m = d[e.key];
+    if (!m) return;
+    e.preventDefault(); e.stopPropagation();
+    let nr = r + m[0], nc = c + m[1];
+    if (nr === nc) { nr += m[0]; nc += m[1]; }
+    if (nr < 0 || nr >= n || nc < 0 || nc >= n) return;
+    navRef.current = true;
+    setFc([nr, nc]);
+  };
   const onCellFocus = (e: ReactFocusEvent<SVGRectElement>, a: string, b: string) => {
     setS({ pairHl: [a, b] });
     /* same rule as the map: a click focuses the cell, and neither the ring nor
@@ -362,8 +382,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
     const cur = S.pairHl;
     if (!cur || cur[0] !== a || cur[1] !== b) setS({ pairHl: [a, b] });
   };
-  const live = useRef({ setS, onCellFocus, onCellKey, drill, hlPair });
-  live.current = { setS, onCellFocus, onCellKey, drill, hlPair };
+  const live = useRef({ setS, onCellFocus, onCellKey, onDiagKey, drill, hlPair });
+  live.current = { setS, onCellFocus, onCellKey, onDiagKey, drill, hlPair };
   const rows = useMemo(() => {
     const rows: ReactElement[] = [];
     for (let r = 0; r < n; r++) {
@@ -390,7 +410,8 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
               `${D[a].n} — diagonal: moves within the same county are not part of the inter-county matrix`)}
             onPointerEnter={() => live.current.setS({ pairHl: [a, b] })}
             onPointerLeave={e => { if (e.pointerType !== 'touch') live.current.setS({ pairHl: null }); }}
-            onPointerMove={e => { live.current.hlPair(a, b); moveTip(e); }} />);
+            onPointerMove={e => { live.current.hlPair(a, b); moveTip(e); }}
+            onKeyDown={e => live.current.onDiagKey(e, r, c)} />);
           continue;
         }
         const v = mxCell(a, b, S.dir, S.yi, S.cum);
