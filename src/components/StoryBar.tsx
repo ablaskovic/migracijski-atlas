@@ -6,8 +6,12 @@ import { L, t } from '../lib/i18n.ts';
 import type { Patch, State } from '../lib/types.ts';
 
 /* Nalazi — curated findings. The picker is a header control (left of Prikaz);
-   only the caption banner stays over the map, bottom-center between the legend
-   (left) and the chip panels (right). */
+   the caption banner is an in-flow block UNDER .map-stage — MapView mounts it
+   outside the stage so it competes with neither the legend nor the chip dock,
+   and the note there records why: floated bottom-centre it shared the map's
+   bottom edge with both and won on z-index, leaving the "Dob i spol" chip
+   unclickable at every desktop width from 1200 to 1600. This header used to
+   describe that arrangement as the design. */
 export function StorySelect({ S, applyStory, resetAll }: {
   S: State; applyStory: (i: number) => void; resetAll: () => void;
 }) {
