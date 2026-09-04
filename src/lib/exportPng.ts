@@ -69,11 +69,22 @@ function scopeIds(clone: SVGSVGElement, u: string): void {
    Only while the reader has not zoomed. Above 1× the frame is one they chose,
    and the bbox is the magnified content — growing to it would export a sheet
    eight times too tall. */
+/* One reader of the zoom factor, for the two helpers that gate on it. They had
+   a regex each, and gridCrop's had lost its backslashes — `/scale(([d.]+))/`,
+   which is a capture of a capture of the letters d and . and matches the
+   literal text `scale` followed by one of them, never `scale(2.56)`. exec
+   returned null, `?? 1` made k exactly 1, and the guard below it could not
+   fire: every zoomed grid was cropped to the ink of its magnified content,
+   which is the opposite of what the code, the comment and the commit all say.
+   Shared, so the two cannot disagree about what `zoomed` means again. */
+function zoomK(node: SVGSVGElement): number {
+  const tf = node.querySelector('g[transform]')?.getAttribute('transform') ?? '';
+  return Number(/scale\(([\d.]+)\)/.exec(tf)?.[1] ?? 1);
+}
+
 function drawnH(node: SVGSVGElement): number {
   const h = node.clientHeight;
-  const tf = node.querySelector('g[transform]')?.getAttribute('transform') ?? '';
-  const k = Number(/scale\(([\d.]+)\)/.exec(tf)?.[1] ?? 1);
-  if (Math.abs(k - 1) > 0.001) return h;
+  if (Math.abs(zoomK(node) - 1) > 0.001) return h;
   try {
     const bb = node.getBBox();
     return Math.max(h, Math.ceil(bb.y + bb.height));
@@ -95,9 +106,7 @@ function drawnH(node: SVGSVGElement): number {
 const CROP_PAD = 20;
 function gridCrop(node: SVGSVGElement): { x: number; y: number; w: number; h: number } | null {
   if (node.getAttribute('role') !== 'grid') return null;
-  const tf = node.querySelector('g[transform]')?.getAttribute('transform') ?? '';
-  const k = Number(/scale(([d.]+))/.exec(tf)?.[1] ?? 1);
-  if (Math.abs(k - 1) > 0.001) return null;
+  if (Math.abs(zoomK(node) - 1) > 0.001) return null;
   const r = node.getBoundingClientRect();
   const ink = [...node.querySelectorAll('.mxc, .mxd, .yrc, text')]
     .map(e => e.getBoundingClientRect()).filter(q => q.width > 0 && q.height > 0);
