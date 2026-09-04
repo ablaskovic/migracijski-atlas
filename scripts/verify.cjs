@@ -471,13 +471,23 @@ const evalSafe = async (pg, fn) => {
     });
     await settle(150);
   };
-  const click = async sel => {
-    const el = await page.waitForSelector(sel, { timeout: 10000 }).catch(() => null);
+  /* Over the PAGE, not just the main one. Eight raw pg.click() calls on the
+     secondary pages this file opens sat outside this guard — the Back-language
+     and Forward-stack journeys, the deferred-reload legs, the corridor-direction
+     press — and each of them goes networkidle0 + a fixed settle before pressing.
+     Under the CPU contention this file documents at l.380, networkidle0 can
+     resolve before React mounts; puppeteer's page.click then throws "No element
+     found for selector", the throw unwinds the whole run, and the ledger that
+     would name the control is one of the checks the abort skips. Exactly the
+     flake this helper exists to absorb, on the pages it did not cover. */
+  const clickOn = async (pg, sel) => {
+    const el = await pg.waitForSelector(sel, { timeout: 10000 }).catch(() => null);
     if (!el) { missed.push('click ' + sel); return false; }
-    await el.click();
+    await el.click().catch(() => { missed.push('click ' + sel); });
     await settle(80);
     return true;
   };
+  const click = sel => clickOn(page, sel);
 
   /* fresh boot helper: hash state is read at module init, so force a real reload.
      `waits` is passed through for the one caller that knows networkidle0 cannot
@@ -6796,10 +6806,10 @@ const evalSafe = async (pg, fn) => {
     await settle(500);
     await pg.evaluate(() => { window.__mark = 'SESSION'; });
     await pg.setOfflineMode(true);
-    await pg.click('#jretry');
+    await clickOn(pg, '#jretry');
     await settle(450);
     const armed = await pg.evaluate(() => !!document.querySelector('#joffline'));
-    if (leave) { await pg.click('#segView button[data-v="klas"]'); await settle(550); }
+    if (leave) { await clickOn(pg, '#segView button[data-v="klas"]'); await settle(550); }
     /* Armed BEFORE anything that can start the reload. setOfflineMode(false)
        fires the browser's own 'online' event, so on the stayed arm the reload
        can already be under way by the time the line below runs — arming after it
@@ -6845,7 +6855,7 @@ const evalSafe = async (pg, fn) => {
        only clear by pressing retry a second time. A promise with nothing behind
        it is worse than no promise: it is the reason to wait. */
     if (leave) {
-      await pg.click('#segView button[data-v="jmap"]').catch(() => {});
+      await clickOn(pg, '#segView button[data-v="jmap"]');
       await settle(700);
       deferred.left.back = await evalSafe(pg, () => ({
         err: !!document.querySelector('#jerror'),
@@ -8293,7 +8303,7 @@ const evalSafe = async (pg, fn) => {
       /* the warm timer fires at ~1,5 s and is what makes JGEO non-null here */
       await settle(2600);
       await pg.evaluate(() => { window.__fmt = 0; });
-      await pg.click('#segDir button[data-v="in"]');
+      await clickOn(pg, '#segDir button[data-v="in"]');
       await settle(700);
       paintWork[k] = await pg.evaluate(() => ({ fmt: window.__fmt,
         jl: document.querySelectorAll('#map .jl').length }));
@@ -12885,9 +12895,9 @@ const evalSafe = async (pg, fn) => {
     });
     await pg.goto(url + '#v=saldo&c=1&y=2024', { waitUntil: 'networkidle0' });
     await settle(300);
-    await pg.click('#segView button[data-v="klas"]');   /* pushes a history entry */
+    await clickOn(pg, '#segView button[data-v="klas"]');   /* pushes a history entry */
     await settle(300);
-    await pg.click('#segLang button[data-l="en"]');     /* stored; replaces this entry */
+    await clickOn(pg, '#segLang button[data-l="en"]');     /* stored; replaces this entry */
     await settle(300);
     await pg.goBack();                                  /* back to the pre-toggle entry */
     await settle(400);
@@ -12922,10 +12932,10 @@ const evalSafe = async (pg, fn) => {
     await settle(300);
     await pg.select('#story', '12');                   /* Nalaz 13 — pushes */
     await settle(350);
-    await pg.click('#segView button[data-v="saldo"]'); /* pushes */
+    await clickOn(pg, '#segView button[data-v="saldo"]'); /* pushes */
     await settle(350);
     const from = await pg.evaluate(() => location.hash);
-    await pg.click('#segLang button[data-l="en"]');    /* replaces this entry */
+    await clickOn(pg, '#segLang button[data-l="en"]');    /* replaces this entry */
     await settle(350);
     await pg.goBack();                                 /* onto the Nalaz entry */
     await settle(400);
