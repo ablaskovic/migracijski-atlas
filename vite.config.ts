@@ -40,11 +40,14 @@ const dropDataChunkMaps = {
      `//# sourceMappingURL` comment off the data chunks, and with
      `build.sourcemap: 'hidden'` below there is never one to strip: hidden is
      precisely 'emit the map, emit no comment'. Verified against the shipped
-     dist — 3 JS chunks, 0 of them carrying a sourceMappingURL comment — so that
-     branch had nothing to match and its removal changes no byte of the output.
-     It read as the thing doing the work, which is worse than doing nothing. */
+     dist — 0 chunks carrying a sourceMappingURL comment — so that branch had
+     nothing to match and its removal changes no byte of the output. It read as
+     the thing doing the work, which is worse than doing nothing.
+     `appdata` joins them: it is the same kind of chunk for the same reason —
+     five JSON payloads with no statements to map, whose 168 kB map is the JSON
+     over again in sourcesContent. */
   generateBundle(_opts: unknown, bundle: Record<string, { type: string }>) {
-    const isData = (n: string) => /geo_(jls|regions5)-[\w-]+\.js$/.test(n);
+    const isData = (n: string) => /(?:geo_(?:jls|regions5)|appdata)-[\w-]+\.js$/.test(n);
     for (const name of Object.keys(bundle)) {
       if (name.endsWith('.map') && isData(name.replace(/\.map$/, ''))) delete bundle[name];
     }
@@ -90,12 +93,35 @@ export default defineConfig({
   // line a maintainer learns to scroll past, which is the opposite of a signal.
   // The number that matters is verify.cjs's, which fails the suite when the
   // entry exceeds 600 KiB. The two are not in the same unit — Rollup's limit is
-  // kB of 1000, the check divides by 1024 — so 600 KiB is 614 here, and the
-  // entry chunk is 601,5 kB (587 KiB) today. 608 is a few kB below that
-  // ceiling: quiet now, and it warns about 6 KiB before the check goes red
-  // rather than with it. Raise both together, or split a lazy chunk — the
-  // export path is the obvious one, and it is not a free move: App installs
-  // exportPNG/exportSVG as window hooks the suite drives synchronously in about
-  // twenty places.
-  build: { sourcemap: 'hidden', chunkSizeWarningLimit: 608 },
+  // kB of 1000, the check divides by 1024 — so 600 KiB is 614 here. The entry
+  // was 601,5 kB when this line was written and the split below took it to
+  // 194: the limit stays where it is, because what it guards is the ceiling,
+  // and the vendor chunk is the one now closest to it.
+  build: {
+    sourcemap: 'hidden',
+    chunkSizeWarningLimit: 608,
+    // …and three chunks instead of one, so a release does not re-send what did
+    // not change. The entry carried react-dom, six d3 packages and ~165 kB of
+    // static JSON along with the app code, and the app code is the only part
+    // that moves between releases — every deploy invalidated the whole 601 kB
+    // under a year-long immutable header. Split: entry 194 kB, vendor 243 kB,
+    // appdata 161 KiB. Measured on the built output: the three together gzip to
+    // 191,6 KiB against the single chunk's 192,9, so a cold visit is not paying
+    // for the split — and a returning reader after a release fetches 62,3 KiB
+    // instead of 192,9.
+    // The two geometry payloads are NOT in this: they are dynamic imports and
+    // must stay their own lazy chunks, which is what the `geo_` exclusion below
+    // is for — naming them here would pull them into the boot waterfall.
+    // Sizes above are kB of 1000 where the build log prints them and KiB where
+    // this file measures dist; the two units are the reason the limit is 608.
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          if (/node_modules[\\/](react|react-dom|scheduler|d3-)/.test(id)) return 'vendor';
+          if (/src[\\/]data[\\/].*\.json$/.test(id) && !/geo_(jls|regions5)/.test(id)) return 'appdata';
+          return undefined;
+        },
+      },
+    },
+  },
 });
