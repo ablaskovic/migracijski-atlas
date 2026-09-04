@@ -170,7 +170,14 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
       return nr < 0 || nr >= nR || nc < 0 || nc >= nC ? [r, c] : [nr, nc];
     });
   };
-  const pickYear = (yi: number) => { if (yi !== S.yi) setS({ yi }); };
+  /* `playing: false`, like every other route that takes the year FOR the
+     reader — the pointer scrub, openCorridor, setView, applyStory, toggleHelp.
+     This grid says of itself that it is "also a year picker", and a column
+     clicked or Entered during playback moved the ring and then lost it: the
+     next tick is 650 ms away and overwrites the pick. The scrubber's arrow
+     keys are the deliberate exception, because there they nudge a running
+     film; here the arrows only move focus and Enter is the commit. */
+  const pickYear = (yi: number) => { if (yi !== S.yi) setS({ yi, playing: false }); };
   const onCellKey = (e: ReactKeyboardEvent<SVGRectElement>, yi: number) => {
     /* Shift+arrow is the documented keyboard pan — the glossary says "Shift +
        the arrow keys pan a zoomed view" in the same sentence that says + and −
