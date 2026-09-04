@@ -5243,8 +5243,25 @@ const evalSafe = async (pg, fn) => {
      invalidation ran over the preset's *patch* keys, so a defensive `age: false`
      enrolled a caption that never mentions a panel. Measured: opening "Dob i
      spol" killed Nalaz 7 alone, out of seven. */
+  /* …over every preset there is, read from the source the way the spark-keys
+     check reads App.tsx. The list used to be a literal [1,2,3,5,6,7] — the story
+     count when it was written, six of what are now fifteen — so Nalazi 8–15
+     were never opened at all: add `asserts: ['age']` to one of them by
+     copy-paste and every preset in that range dies with the panel while this
+     prints ok over the six it happens to name. The only presets excused are the
+     ones whose caption IS about a panel, which is a property of stories.ts and
+     is now read from it rather than counted by hand (today: Nalaz 4, citz). */
+  const storySrc = (() => {
+    try { return fs.readFileSync(path.resolve(__dirname, '../src/lib/stories.ts'), 'utf8'); }
+    catch { return ''; }
+  })();
+  const nStories = (storySrc.match(/get cap\(\)/g) || []).length;
+  const panelStories = storySrc.split('get cap()')
+    .map((chunk, i) => ({ i, panel: /asserts:\s*\[[^\]]*(citz|age|jls)/.test(chunk) }))
+    .filter(x => x.i > 0 && x.panel).map(x => x.i);
   const survive = [];
-  for (const i of [1, 2, 3, 5, 6, 7]) {
+  for (let i = 1; i <= nStories; i++) {
+    if (panelStories.includes(i)) continue;
     await fresh('');
     survive.push(await page.evaluate(async (ix) => {
       const sel = document.querySelector('#story');
@@ -5257,8 +5274,12 @@ const evalSafe = async (pg, fn) => {
       return { ix, on, still: !!document.querySelector('#storyCap') };
     }, i));
   }
-  ck('a Nalaz that never mentions a panel survives one being opened — all six of them',
-    survive.every(s => s.on && s.still), JSON.stringify(survive.filter(s => !s.still)));
+  ck('a Nalaz that never mentions a panel survives one being opened, whatever the preset count',
+    nStories >= 15 && panelStories.length >= 1
+    && survive.length === nStories - panelStories.length
+    && survive.every(s => s.on && s.still),
+    JSON.stringify({ nStories, panelStories, tested: survive.length,
+      lost: survive.filter(s => !(s.on && s.still)) }));
   /* while the one whose claim IS a panel still dies with it (covered above for
      citz; this pins that the new `asserts` list is what does it) */
   await fresh('');
