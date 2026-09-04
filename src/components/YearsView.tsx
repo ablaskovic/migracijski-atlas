@@ -163,8 +163,15 @@ export default function YearsView({ S, setS, size, legend, panel, zoom }: {
 
   /* Changing Sastavnica reorders the rows and changing mode drops nine columns,
      so a stop parked at [20, 27] can end up outside the grid it belongs to. */
+  /* …and the clamp returns the previous tuple when it clamps nothing, for the
+     reason moveF does below: this runs on mount and on every Sastavnica or
+     Vrijeme change, and a fresh tuple there rebuilt all 588 cells and re-ran
+     the focus effect for a stop that was already inside the grid. */
   useEffect(() => {
-    setFc(([r, c]) => [Math.min(r, nR - 1), Math.min(c, nC - 1)]);
+    setFc(prev => {
+      const r = Math.min(prev[0], nR - 1), c = Math.min(prev[1], nC - 1);
+      return r === prev[0] && c === prev[1] ? prev : [r, c];
+    });
   }, [nR, nC]);
 
   const moveF = (dr: number, dc: number) => {

@@ -227,6 +227,15 @@ export function useZoom(w: number, h: number, frozen = false, onGesture?: () => 
       const d = e.deltaMode === 1 ? e.deltaY * LINE_PX
         : e.deltaMode === 2 ? Math.sign(e.deltaY) * NOTCH_PX
           : e.deltaY;
+      /* A horizontal swipe is not a zoom. A trackpad two-finger sideways
+         gesture over the map delivers deltaY 0, and everything below took it as
+         a zoom by a factor of 2^0: the yield guard passed, preventDefault ate
+         the gesture, and setT built a fresh transform identical to the old one,
+         re-rendering the map — 556 paths in the JLS view — once per event, at
+         trackpad rate, for a gesture that moved nothing.
+         Before the preventDefault, so the page keeps the horizontal scroll it
+         would otherwise have had. */
+      if (!d) return;
       const canScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
       if (canScroll && (d > 0 ? tRef.current.k <= kmin : tRef.current.k >= KMAX)) return;
       e.preventDefault();
