@@ -5,6 +5,7 @@ import { ensureFonts, fontCss } from './exportFonts.ts';
 import { paperCaveatLine, paperExportLine, paperThrLine, regionReadingLine } from './credits.ts';
 import { JMAP_STOPS } from '../components/Legend.tsx';
 import { exportLicenceLine } from './licences.ts';
+import { LOCK_FD } from './state.ts';
 import { L, t, yrSpan } from './i18n.ts';
 import type { Klas, State } from './types.ts';
 
@@ -265,11 +266,17 @@ function fname(S: State, per: string, ext: string): string {
      hub in the title, so the picture and its file name disagreed about what
      varies. */
   if (S.view === 'flow' && S.sel) bits.push(S.sel.toLowerCase());
-  /* the component: every view but the JLS map, whose single measured year has
-     no components to choose between */
-  if (S.view !== 'jmap') bits.push(S.flow);
-  /* absolute or per-capita — the choropleth views and the two grids read it */
-  if (S.view !== 'jmap' && S.view !== 'flow') bits.push(S.den);
+  /* the component and the denominator, in the views that HAVE them. Both are
+     clamped to BASE in the four LOCK_FD views — setView does it and decodeHash
+     does it — so klas, flow, mx and jmap carried a constant "tot" and a constant
+     "abs" in every file name they ever produced:
+     migracijski-atlas_mx_in_tot_abs_2018 names two axes the figure does not
+     read, which is the rule this
+     function states two paragraphs up and then broke for four views out of
+     seven. jmap already opted out of the component for the same reason. */
+  const lensed = !LOCK_FD.has(S.view);
+  if (lensed) bits.push(S.flow);
+  if (lensed) bits.push(S.den);
   /* the class boundary IS the Klasifikacija figure */
   if (S.view === 'klas') bits.push(S.thrRel ? S.thrPct + 'pct' : String(S.thr));
   /* …and the language, which changes every band string in the figure and was
