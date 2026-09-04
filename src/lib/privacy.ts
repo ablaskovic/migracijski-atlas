@@ -49,12 +49,33 @@ export const privacyShort = (): string => L(
    contradiction on the page, in the one section a reader consults precisely
    because they do not want to take it on trust. The claim that matters is
    unchanged and is the narrower one: the analytics store nothing. */
+/* …and the third thing a Speed Insights beacon carries, which "mjere brzine
+   učitavanja" does not cover.
+
+   Read out of the script the deployed origin actually serves
+   (/_vercel/speed-insights/script.js): every vital is posted as
+   {id, type, route, href, value, attribution}, and attribution is
+   {eventTarget: largestShiftTarget} for CLS, {eventTarget, eventType} for
+   INP/FID, and {eventTarget: element} for anything carrying one. eventTarget is
+   web-vitals' CSS selector for the element the measurement is about — a chain of
+   tag names, ids and classes, e.g. `#map>g>path.cnt.sel`.
+
+   `beforeSend` cannot strip it: the same script calls it with
+   {type: "vital", url, route} only, so dropHash below never sees the field. What
+   leaves is therefore which CONTROL a slow interaction was on, and it is worth
+   stating that it is not which county: web-vitals builds those selectors from
+   nodeName, id and className, and this app's identity lives in `data-iso`,
+   `data-j` and `data-a`/`data-b`, none of which appear in one. */
 export const privacyNote = (): string => L(
   'Atlas koristi Vercel Web Analytics i Speed Insights: bilježe se posjet stranici i mjere brzine učitavanja. '
+  + 'Uz mjeru brzine šalje se i CSS selektor elementa na koji se odnosi — naziv elementa, njegov id i CSS klase '
+  + '(npr. gumba koji ste pritisnuli); ne i županija, koridor ni godina koju gledate. '
   + 'Mjerenje ne koristi kolačiće i ništa ne pohranjuje na vašem uređaju. IP adresa i podaci preglednika obrađuju se na '
   + 'Vercelovoj mreži da bi se izveli država posjeta i dnevni anoniman otisak, i ne pohranjuju se kao takvi. '
   + 'Ne postoji prijava, korisnički račun ni profiliranje, a podaci se ne prodaju niti ustupaju trećima.',
   'The atlas uses Vercel Web Analytics and Speed Insights: page views and load-speed metrics. '
+  + 'A speed measurement also carries a CSS selector for the element it is about — an element name, its id and '
+  + 'its CSS classes (the button you pressed, say); not the county, corridor or year you are looking at. '
   + 'The measurement sets no cookies and stores nothing on your device. Your IP address and browser details are '
   + 'processed at Vercel’s edge to derive a country and a daily anonymous fingerprint, and are not retained '
   + 'as such. There is no sign-in, no account and no profiling, and nothing is sold or passed to third parties.');
