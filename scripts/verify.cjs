@@ -5686,7 +5686,9 @@ const evalSafe = async (pg, fn) => {
            check's name has to say Enhanced, because the two are different
            promises and the number alone does not distinguish them. */
         return { hidden: !bar.contains(a) && area > 0 && ov / area >= 0.999,
-          who: a.id || a.getAttribute('data-iso') || String(a.getAttribute('class') || a.tagName) };
+          who: a.id || a.getAttribute('data-iso') || a.getAttribute('data-j')
+            || (a.getAttribute('data-a') ? a.getAttribute('data-a') + ':' + a.getAttribute('data-b') : null)
+            || String(a.getAttribute('class') || a.tagName) };
       }));
       /* the cycle has closed once focus is back where it started, or has left
          the document altogether */
@@ -6102,12 +6104,21 @@ const evalSafe = async (pg, fn) => {
           inDialog: card.contains(a),
           covered: !card.contains(a) && bs.some(inside),
           boxH: Math.round(big.bottom - big.top), boxW: Math.round(big.right - big.left),
-          who: a.id || a.getAttribute('data-iso') || String(a.getAttribute('class') || a.tagName),
+          who: a.id || a.getAttribute('data-iso') || a.getAttribute('data-j')
+            || (a.getAttribute('data-a') ? a.getAttribute('data-a') + ':' + a.getAttribute('data-b') : null)
+            || String(a.getAttribute('class') || a.tagName),
         };
       }, cardSel, rectSel));
     }
     /* `moved` is the floor: focus that never goes anywhere reports "nothing
        outside the dialog" just as loudly as a correct trap does */
+    /* …and it can only count what `who` distinguishes. The fallback was
+       `class || tagName`, so every municipality collapsed to the string "jl" and
+       every matrix cell to "mxc": a walk across twenty of them counted one move.
+       Harmless while each of those surfaces contributes a single roving stop,
+       which is why it never showed — but the floor is the whole point of the
+       number, so the identity now uses the per-feature attributes the DOM
+       already carries (data-j for a municipality, data-a/data-b for a cell). */
     return { stops: stops.length, moved: stops.filter((s, i) => i && s.who !== stops[i - 1].who).length,
       outside: stops.filter(s => !s.body && !s.inDialog).length,
       covered: stops.filter(s => s.covered).length,
