@@ -9280,7 +9280,14 @@ const evalSafe = async (pg, fn) => {
     oneYear[k] = await page.evaluate(() => {
       const t = s => (document.querySelector(s) || {}).textContent || '';
       const cnt = document.querySelector('.cnt');
+      /* the comment above names seven surfaces and this read four of them. The
+         legend and #srLive are one querySelector away in the same evaluate, and
+         #srLive is the one a screen reader hears — the surface where
+         "2011.–2011." is least recoverable, since there is nothing beside it to
+         read instead. (The tooltip is not here on purpose: it needs a pointer,
+         and its period comes from the same builder the county label uses.) */
       return { rail: t('#railYear'), sub: t('#bigYearSub'),
+        legend: t('#legend'), live: t('#srLive'),
         cnt: cnt ? cnt.getAttribute('aria-label') || '' : '',
         svg: window.__exportSVG(false) || '' };
     });
@@ -9288,7 +9295,7 @@ const evalSafe = async (pg, fn) => {
   const sameSpan = /(\d{4})\.?–\1/;
   ck('a cumulative window of one year prints one year, not a span to itself',
     ['klas', 'saldo', 'en'].every(k => !sameSpan.test(oneYear[k].rail + oneYear[k].sub
-      + oneYear[k].cnt) && !sameSpan.test(oneYear[k].svg))
+      + oneYear[k].legend + oneYear[k].live + oneYear[k].cnt) && !sameSpan.test(oneYear[k].svg))
     && /2011/.test(oneYear.klas.rail)
     /* …and a real span is still a span */
     && /2011\.–2024\./.test(oneYear.wide.rail) && /2011\.–2024\./.test(oneYear.wide.sub),
