@@ -102,6 +102,13 @@ file map predates the port. Translation table:
 | `src/ipf.py`, `src/parse_*.py` | `tools/pipeline/` |
 | `src/verify.js` (32 checks) | `scripts/verify.cjs` (the count is pinned in that file) |
 
+`ref/od2018.json` is legitimately SPARSE: 419 of the 420 ordered county pairs,
+missing HR-20 → HR-11 (Međimurska → Požeško-slavonska), which is a measured zero
+in 2018 and simply carries no key. Every consumer reads it through `.get(b, 0)`
+— `ipf.py`, `parse_jls.py`, `parse_jlsmap.py` — and the shipped `odm.json` is
+dense at 420 (MA3-070), so nothing downstream sees the gap. Written down because
+a 419 next to a 420 is the shape of a defect, and an audit has re-raised it.
+
 The Python docstrings still cite the pre-port paths in their prose; the code
 itself opens the correct relative paths from `tools/pipeline/`.
 
