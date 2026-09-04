@@ -71,6 +71,17 @@
      literal fallback when it has not — the two must stay in step, which is why
      each is written next to the token it copies. -->
 <style>
+/* The palette, before anything else in this block — because everything below it
+   is a literal fallback for a token, and a literal is exactly what Chrome's
+   force-dark pipeline inverts. index.css declares `color-scheme: only light`,
+   and index.css is the file that has NOT arrived in the case this placeholder
+   exists for: a cached index.html against purged hashed assets, which is what
+   the ten-second message names. Measured on Android Chrome with Auto Dark and
+   the bundle held: the splash painted #222321 instead of #F4F5F2, and the
+   give-up sentence read light-on-light. Declared here, the placeholder keeps the
+   palette it was drawn for whether or not the bundle ever lands — which is what
+   "self-contained and cannot be broken by a change to the CSS bundle" means. */
+:root{color-scheme:only light}
 /* Its own height, not the body flex column's. `flex:1` centres this only where
    body is a flex container, and the stacked-layout block — every phone, any
    window under 560 px tall, a coarse pointer under 780 — sets body{display:block},
