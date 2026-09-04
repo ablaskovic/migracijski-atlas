@@ -66,7 +66,17 @@ function get(url, hop = 0) {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         if (hop >= MAXHOP) { reject(new Error(`more than ${MAXHOP} redirects, last hop ${url}`)); return; }
-        resolve(get(new URL(res.headers.location, url).href, hop + 1));
+        /* `new URL(…)` throws a TypeError for a Location the parser cannot make
+           sense of, and a throw inside a 'response' callback is an
+           uncaughtException — outside this promise, so the .catch() at the
+           bottom never sees it and the run ends with a stack instead of the
+           "smoke probe could not reach the origin" line. The exit is non-zero
+           either way, so CI was never misled; what was lost is the summary,
+           which is the whole output of this file. Rejecting keeps it. */
+        let next;
+        try { next = new URL(res.headers.location, url).href; }
+        catch { reject(new Error(`unparsable Location "${String(res.headers.location).slice(0, 80)}" from ${url}`)); return; }
+        resolve(get(next, hop + 1));
         return;
       }
       let body = '';
