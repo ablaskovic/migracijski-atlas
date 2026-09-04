@@ -9146,9 +9146,22 @@ const evalSafe = async (pg, fn) => {
   ck('and names the two contestable region assignments and the nine-region variant',
     /Ličko-senjska/.test(gl9.body) && /Šibensko-kninska/.test(gl9.body)
     && /devet regija/.test(gl9.body) && /ne imenuje središta/.test(gl9.body), 'regions');
+  /* …and the span is the data's, not a literal in two places. The prose used to
+     name 2001.–2024. and so did this check, so the next DZS release — which
+     fills pe[27] and stops peAt clamping 2025 — would leave the glossary saying
+     estimates end in 2024 and that 2025 takes the nearest available, both
+     false, with this green because it was comparing the sentence to its own
+     copy of it. HelpPanel prints the span from the data now; this reads the
+     data back, the way the LICENSE and vercel.json checks read disk. */
+  const peSpan = (() => {
+    const raw = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/atlas_data2.json'), 'utf8'));
+    const ys = raw.years.filter((_, i) => Object.values(raw.c).every(c => c.pe[i] != null));
+    return ys[0] + '.–' + ys[ys.length - 1] + '.';
+  })();
   ck('both denominators are defined, including the estimate\'s clamp',
     gl9.terms.includes('% popisa 2011.') && gl9.terms.includes('% tek. procjene')
-    && /2001\.–2024\./.test(gl9.body), JSON.stringify(gl9.terms.slice(-3)));
+    && gl9.body.includes(peSpan),
+    JSON.stringify({ peSpan, terms: gl9.terms.slice(-3) }));
   /* The threshold IS a number from the study; the old copy denied it one
      sentence after naming it. */
   ck('the "no figure is taken from the study" claim exempts the threshold it names',

@@ -7,7 +7,7 @@ import {
   PAPER_KLAS,
   paperTermCite, paperTermJournal, paperTermTail,
 } from '../lib/credits.ts';
-import { D, KLAB, PAPER_KLAS_DIFF, fmtI, klasLab } from '../lib/metrics.ts';
+import { D, KLAB, PAPER_KLAS_DIFF, PE_SPAN, fmtI, klasLab } from '../lib/metrics.ts';
 import {
   ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE, REPO, sources,
 } from '../lib/licences.ts';
@@ -294,10 +294,13 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         <dt>{L('godine', 'years')}</dt><dd>{L('prikaz u kojem je redak županija, a stupac godina — cijela serija svih 21 županije odjednom, u istim bojama kao karta', 'the view where a row is a county and a column a year — the whole series for all 21 counties at once, in the same colours as the map')}</dd>
         {/* Both denominators were undefined in the one surface that assumes
             nothing, and nothing said which of the two is the study's measure.
-            The second also clamps: pe covers 2001.–2024., so 2025 divides by the
-            2024 estimate and 1998.–2000. by the 2001 one. */}
+            The second also clamps: pe covers PE_SPAN, so a year past its end
+            divides by the last estimate and one before its start by the first.
+            The span is printed from the data rather than written out — as a
+            literal it was a sentence waiting to go false, one DZS release from
+            now, on the surface that exists to be trusted. */}
         <dt>{L('% popisa 2011.', '% of 2011 census')}</dt><dd>{L('vrijednost podijeljena brojem stanovnika po popisu 2011. — mjera kojom se služi i rad', 'the value divided by the population at the 2011 census — the measure the paper uses too')}</dd>
-        <dt>{L('% tek. procjene', '% of current estimate')}</dt><dd>{L('podijeljeno procjenom stanovništva za tu godinu; procjene postoje za 2001.–2024., pa se za ranije godine i za 2025. uzima najbliža dostupna', 'divided by the population estimate for that year; estimates exist for 2001–2024, so earlier years and 2025 use the nearest available one')}</dd>
+        <dt>{L('% tek. procjene', '% of current estimate')}</dt><dd>{L(`podijeljeno procjenom stanovništva za tu godinu; procjene postoje za ${yrSpan(PE_SPAN[0], PE_SPAN[1])}, pa se za godine izvan tog raspona uzima najbliža dostupna`, `divided by the population estimate for that year; estimates exist for ${yrSpan(PE_SPAN[0], PE_SPAN[1])}, so years outside that range use the nearest available one`)}</dd>
         {/* the legend and the rail say "iz rada" in three places; without this
             entry the shorthand pointed at nothing a reader could resolve */}
         <dt>{L('rad', 'the paper')}</dt><dd>{paperTermCite()}<span lang="hr">{paperTermJournal()}</span>{paperTermTail()}</dd>

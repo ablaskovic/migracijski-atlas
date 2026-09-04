@@ -240,6 +240,15 @@ export function netAt(iso: string, yi: number, flow: Flow): number {
   const mig = c.ii[yi] - c.oi[yi] + c.ie[yi] - c.oe[yi];
   return flow === 'all' ? mig + natAt(iso, yi) : mig;
 }
+/* The years every county actually has a population estimate for. The glossary
+   used to print "2001.–2024." as a literal beside the clamp peAt performs, so
+   the next DZS release — which fills pe[27] and stops 2025 from clamping —
+   would leave the sentence false with nothing to notice it. Derived once, from
+   the same array peAt reads. */
+export const PE_SPAN: [number, number] = (() => {
+  const ok = YEARS.filter((_, i) => Object.values(D).every(c => c.pe[i] != null));
+  return [ok[0], ok[ok.length - 1]];
+})();
 export function peAt(iso: string, yi: number): number {
   const pe = D[iso].pe;
   for (let i = yi; i >= 0; i--) { const v = pe[i]; if (v != null) return v; }
