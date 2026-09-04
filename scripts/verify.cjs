@@ -9976,14 +9976,31 @@ const evalSafe = async (pg, fn) => {
     if (openHelp) {
       const helpEn = await page.evaluate(() => {
         const c = document.querySelector('#helpCard');
-        return { n: c ? c.textContent.length : 0, txt: c ? c.textContent : '' };
+        if (!c) return { n: 0, txt: '' };
+        /* …minus anything that declares itself Croatian. The card cites the
+           paper by its Croatian title inside a div[lang="hr"], which is correct
+           and must stay: a bibliographic title is not translated, and marking it
+           is what tells a screen reader to switch voice. Sweeping it would make
+           the repaired word test below fail on the one Croatian string that
+           belongs there. The floor still counts the whole card. */
+        const clone = c.cloneNode(true);
+        clone.querySelectorAll('[lang="hr"]').forEach(e => e.remove());
+        return { n: c.textContent.length, txt: clone.textContent };
       });
       if (helpEn.n < 1500) enOrd.push('glossary did not open in English (' + helpEn.n + ' chars)');
       /* the Croatian view names went undetected here once: the card is prose,
-         so a handful of unambiguous Croatian words is the practical test */
-      for (const w of ['Klasifikacija', 'Zemlje', 'Godine', 'Tokovi', 'Matrica', 'županij', 'preseljen']) {
-        if (new RegExp('\b' + w).test(helpEn.txt)) enOrd.push('glossary Croatian «' + w + '»');
-      }
+         so a handful of unambiguous Croatian words is the practical test.
+         Built as one literal regex, because the string-built version could not
+         match anything: in a JS string literal '\b' is U+0008 BACKSPACE, not a
+         word boundary, so new RegExp('\b' + w) searched for a control character
+         followed by the word and every one of the seven silently passed. Two
+         escapes deep is where that mistake lives, so there are none here.
+         A lookbehind rather than \b for the boundary, because \b is ASCII-only:
+         it does not fire before 'županij', so even the corrected escape would
+         have left that word — and any accented one added later — unmatched. */
+      const HRW = /(?<!\p{L})(Klasifikacija|Zemlje|Godine|Tokovi|Matrica|županij|preseljen)/u;
+      const hrHit = HRW.exec(helpEn.txt);
+      if (hrHit) enOrd.push('glossary Croatian «' + hrHit[1] + '»');
       await page.evaluate(() => document.querySelector('#helpX')?.click());
       await settle(200);
     }
