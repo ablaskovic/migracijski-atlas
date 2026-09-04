@@ -2432,17 +2432,31 @@ const evalSafe = async (pg, fn) => {
        holds them starts at the crop origin. Comparing a cell's y against a
        cropped HEIGHT compares two different coordinate spaces and calls seven
        rows clipped that are wholly inside the figure. */
-    const vb = (inner?.getAttribute('viewBox') || '').trim().split(/s+/).map(Number);
+    /* `/s+/` is the letter s. It never split, so `['0 0 1074 640']` mapped to
+       [NaN], `vb.length === 4` was false and the [0, ih] fallback ran every
+       time — comparing a cell's y against the cropped HEIGHT, which is the
+       exact coordinate-space error the comment above forbids. It passes today
+       only because Matrica's rotated column labels reach the top of the box
+       and the crop origin is 0 here; a layout with crop.y > 20 would report
+       rows clipped that are wholly inside the figure. The fallback is a
+       silent widening of the test rather than a default, so whether the
+       viewBox parsed is now part of what the check asserts. */
+    const vbRaw = (inner?.getAttribute('viewBox') || '').trim();
+    const vb = vbRaw ? vbRaw.split(/\s+/).map(Number) : [];
     const ih = inner ? +inner.getAttribute('height') : 0;
-    const [vy, vh] = vb.length === 4 ? [vb[1], vb[3]] : [0, ih];
+    const vbOk = vb.length === 4 && vb.every(n => Number.isFinite(n));
+    const [vy, vh] = vbOk ? [vb[1], vb[3]] : [0, ih];
     const cells = [...d.querySelectorAll('.mxc')];
     const clipped = cells.filter(c => +c.getAttribute('y') + +c.getAttribute('height') > vy + vh + 0.5);
-    return { at1, out, badge, expCells: cells.length, expClipped: clipped.length,
+    return { at1, out, badge, vbRaw, vbOk, vy, vh, expCells: cells.length,
+      expClipped: clipped.length,
       expRowsClipped: new Set(clipped.map(c => c.getAttribute('data-a'))).size };
   });
   ck('a matrix taller than its box is recoverable by one zoom-out, and exports whole',
     tallGrid.at1.all === 21 && tallGrid.at1.vis < 21 && tallGrid.out.vis === 21
-    && tallGrid.badge && tallGrid.expCells === 420 && tallGrid.expClipped === 0,
+    && tallGrid.badge && tallGrid.expCells === 420 && tallGrid.expClipped === 0
+    /* …read in the figure's own coordinates, and not by accident */
+    && tallGrid.vbOk,
     JSON.stringify(tallGrid));
   await page.setViewport({ width: 1440, height: 900 });
 
