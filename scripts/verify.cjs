@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 634;
+const EXPECTED_CHECKS = 636;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -10210,6 +10210,79 @@ const evalSafe = async (pg, fn) => {
     && nNatY.lastPos === 2016 && new RegExp('je ' + nNatY.lastPos + '\\.').test(nNatY.cap),
     JSON.stringify({ total: nNatY.total, pos: nNatY.positive, lastPos: nNatY.lastPos }));
 
+  /* …and every county-level figure the fifteen captions print, recomputed from
+     atlas_data2.json rather than read off the screen. stories.ts states the rule
+     — "a data refresh that moves them must update these captions too (same rule
+     as the ground-truth constants pinned in scripts/verify.cjs)" — and the
+     constants actually pinned were −334 and +11.685, two figures out of about
+     forty. The rest could go stale in silence: the caption is display copy, the
+     map beside it renders from metrics, and nothing compared the two.
+     Recomputed in this file's own arithmetic, which is what "ground truth" means
+     in this suite — val() with its 2011 floor, regVal over the region groups,
+     netAt for a single year, formatted the way the app formats them (hr-HR
+     separators, U+2212, a sign unless the value rounds to nothing).
+     County and regional figures only: the corridor pairs, the JLS values and the
+     citizenship series come from payloads a DZS series revision does not touch,
+     and three of those are already pinned by checks above. Caption 6 is flow
+     `tot`, not `all` — its own patch says so, and reading it as `all` gives
+     −154.583 against the −97.195 it prints. */
+  const capFigs = (() => {
+    const src = fs.readFileSync(path.resolve(__dirname, '../src/lib/stories.ts'), 'utf8');
+    const caps = [...src.matchAll(/get cap\(\) \{ return L\((?:'([^']*)'|`([^`]*)`)/g)]
+      .map(m => m[1] ?? m[2]);
+    const raw = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/atlas_data2.json'), 'utf8'));
+    const Y = raw.years, IX = Y.indexOf(2011), yOf = y => Y.indexOf(y);
+    const netAt = (iso, i, flow) => {
+      const c = raw.c[iso];
+      if (flow === 'int') return c.ii[i] - c.oi[i];
+      if (flow === 'ext') return c.ie[i] - c.oe[i];
+      if (flow === 'nat') return (c.nat && c.nat[i] != null) ? c.nat[i] : 0;
+      const mig = c.ii[i] - c.oi[i] + c.ie[i] - c.oe[i];
+      return flow === 'all' ? mig + ((c.nat && c.nat[i] != null) ? c.nat[i] : 0) : mig;
+    };
+    const val = (iso, i, flow, den, cum) => {
+      let v = 0;
+      if (cum) for (let k = IX; k <= i; k++) v += netAt(iso, k, flow);
+      else v = netAt(iso, i, flow);
+      return den === 'abs' ? v : v / raw.c[iso].p * 100;
+    };
+    const REGC = {
+      sr: ['HR-02', 'HR-05', 'HR-20', 'HR-06', 'HR-07', 'HR-03', 'HR-04'],
+      is: ['HR-14', 'HR-16', 'HR-12', 'HR-11', 'HR-10'],
+    };
+    const regVal = (rk, i, flow, cum) => REGC[rk].reduce((a, iso) => a + val(iso, i, flow, 'abs', cum), 0);
+    const fI = new Intl.NumberFormat('hr-HR', { maximumFractionDigits: 0 });
+    const fR = new Intl.NumberFormat('hr-HR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const sg = (v, f) => { const a = f.format(Math.abs(v)); return (a === f.format(0) ? '' : v > 0 ? '+' : '−') + a; };
+    const abs = v => sg(Math.round(v), fI), pct = v => sg(v, fR) + ' %';
+    const Y24 = yOf(2024);
+    const TABLE = [
+      [2, ['HR-21', 'HR-18', 'HR-19', 'HR-01', 'HR-13', 'HR-14'].map(i => abs(val(i, Y24, 'all', 'abs', true)))],
+      [3, [abs(val('HR-18', Y24, 'tot', 'abs', true)), abs(val('HR-18', Y24, 'nat', 'abs', true)),
+        abs(val('HR-18', Y24, 'all', 'abs', true))]],
+      [6, [abs(regVal('is', Y24, 'tot', true)), abs(regVal('sr', Y24, 'tot', true))]],
+      [8, [abs(val('HR-01', Y24, 'int', 'abs', true)), abs(val('HR-01', Y24, 'ext', 'abs', true)),
+        abs(val('HR-17', Y24, 'int', 'abs', true)), abs(val('HR-17', Y24, 'ext', 'abs', true))]],
+      [9, [abs(val('HR-21', Y24, 'tot', 'abs', true)), pct(val('HR-18', Y24, 'tot', 'rel11', true)),
+        pct(val('HR-21', Y24, 'tot', 'rel11', true)), pct(val('HR-13', Y24, 'tot', 'rel11', true))]],
+      [11, [pct(val('HR-09', Y24, 'nat', 'rel11', true)), pct(val('HR-20', Y24, 'nat', 'rel11', true))]],
+      [12, [pct(val('HR-14', Y24, 'int', 'rel11', true)), pct(val('HR-16', Y24, 'int', 'rel11', true)),
+        pct(val('HR-12', Y24, 'int', 'rel11', true))]],
+      [13, [abs(netAt('HR-21', yOf(2015), 'int')), abs(netAt('HR-21', yOf(2020), 'int')),
+        abs(netAt('HR-21', yOf(2022), 'int')), abs(netAt('HR-01', yOf(2019), 'int')),
+        abs(netAt('HR-01', yOf(2022), 'int'))]],
+    ];
+    const missing = [];
+    for (const [ix, want] of TABLE) {
+      const cap = (caps[ix - 1] || '').replace(/\s/g, '');
+      for (const w of want) if (!cap.includes(w.replace(/\s/g, ''))) missing.push(ix + ':' + w);
+    }
+    return { caps: caps.length, checked: TABLE.reduce((a, [, w]) => a + w.length, 0), missing };
+  })();
+  ck('every county and regional figure a Nalaz caption prints is the figure the data gives',
+    capFigs.caps === 15 && capFigs.checked >= 29 && capFigs.missing.length === 0,
+    JSON.stringify(capFigs));
+
   /* ── the external Nalaz's two superlatives, against the atlas's own series ──
      It said 2022 was the first year the national external balance was positive
      and that at most one county had ever been positive before 2017. The shipped
@@ -11901,6 +11974,23 @@ const evalSafe = async (pg, fn) => {
       JSON.stringify({ spanHr, spanEn,
         hr: metaDesc.hr.includes(spanHr), en: metaDesc.en.includes(spanEn),
         statics: statics.map(l => (l.match(/\d{4}\.?–\d{4}\.?/) || ['—'])[0]) }));
+    /* …and the static Croatian description is the dictionary's, to the
+       character. App rewrites meta[name="description"] from t('meta.desc') on
+       every render, so an edit to index.html's copy changes nothing a rendering
+       crawler or a browser ever sees — while a non-rendering scraper reads only
+       that copy. Two Croatian descriptions for one page, and the file that looks
+       authoritative is the one nobody reads. They agree today; nothing kept them
+       in step, which is what this asserts. {span} is filled from the data, the
+       way the span check above does it. */
+    const dictHr = (() => {
+      const i18 = fs.readFileSync(path.resolve(__dirname, '../src/lib/i18n.ts'), 'utf8');
+      const m = /'meta\.desc':[\s\S]*?hr: '([^']*)'/.exec(i18);
+      return m ? m[1].replace('{span}', spanHr) : null;
+    })();
+    const staticHr = (/name="description" content="([^"]*)"/.exec(idx) || [])[1] || null;
+    ck('the static description a scraper reads is the one the app writes over it',
+      !!dictHr && staticHr === dictHr,
+      JSON.stringify({ static: (staticHr || '').slice(0, 60), dict: (dictHr || '').slice(0, 60) }));
   }
 
   /* The exported figure is where the country matters most: it leaves the app
