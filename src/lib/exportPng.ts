@@ -119,6 +119,15 @@ function gridCrop(node: SVGSVGElement): { x: number; y: number; w: number; h: nu
      the clip. Clamping here to clientHeight put that clip straight back —
      measured at 900×620, 40 cells across two rows fell outside the crop. */
   const hMax = drawnH(node);
+  /* Text rects, so the result is engine-dependent by one pixel and deliberately
+     left that way. Firefox reports sub-pixel client rects for the row and column
+     labels slightly wider than Chrome does, and the ceil() below turns that into
+     394×616 against Chrome's 393×615 — a Matrica PNG of 788×1232 rather than
+     786×1230. Invisible in the figure: the extra pixel is inside CROP_PAD's own
+     20 px margin, so no ink moves and nothing is clipped. Rounding to an even
+     multiple would only be worth it if a byte-identical figure across engines
+     were ever wanted, and nothing here wants one — the two exports are compared
+     by what they draw, not by their dimensions. */
   const w = Math.min(node.clientWidth - x, Math.ceil(x1 - r.left + CROP_PAD) - x);
   const h = Math.min(hMax - y, Math.ceil(y1 - r.top + CROP_PAD) - y);
   return w > 0 && h > 0 && (w < node.clientWidth || h < hMax) ? { x, y, w, h } : null;
