@@ -10441,9 +10441,18 @@ const evalSafe = async (pg, fn) => {
     if (!card) return { absent: true };
     const tabs = [...card.querySelectorAll('[role="tab"]')];
     const seen = [];
+    /* …minus anything that declares itself Croatian, which is the same exemption
+       the ordinal sweep takes and for the same reason: the card cites the paper
+       by its Croatian title inside div.help-cite[lang="hr"], and a bibliographic
+       title is not translated — marking it is what tells a screen reader to
+       switch voice. Sweeping it made the blacklist fire on "županija" the moment
+       its boundary was repaired to see a Croatian letter, on the one Croatian
+       string in this card that belongs there. */
     for (const tb of tabs.length ? tabs : [null]) {
       if (tb) { tb.click(); await new Promise(r => setTimeout(r, 160)); }
-      seen.push(card.textContent || '');
+      const clone = card.cloneNode(true);
+      clone.querySelectorAll('[lang="hr"]').forEach(e => e.remove());
+      seen.push(clone.textContent || '');
     }
     return { tabs: tabs.length, text: seen.join(' · ') };
   });
