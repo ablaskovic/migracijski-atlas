@@ -6913,8 +6913,16 @@ const evalSafe = async (pg, fn) => {
      new route. */
   ck('no county detail card in Matrica, even though sel is set',
     gz.detailCard === 0, String(gz.detailCard));
+  /* "says what a click now does" was asserted by the ABSENCE of a phrase the app
+     no longer contains anywhere — /otvara Tokove/ matches nothing in any build,
+     so that clause is true of a correct hint, of a wrong hint, of an empty
+     string, and of a rail with no .rail-hint at all (which is collected as ''
+     rather than null, so even the element going missing reads as a pass).
+     Assert the wording the rail actually renders, in either language, with a
+     length floor so a hint reduced to a stub cannot satisfy it either. */
   ck('the rail marks the row the card describes and says what a click now does',
-    gz.selrow === 1 && gz.rowExpanded === 'true' && !/otvara Tokove/.test(gz.hint),
+    gz.selrow === 1 && gz.rowExpanded === 'true'
+    && gz.hint.length > 20 && /otvara njegovu karticu|opens its card/.test(gz.hint),
     JSON.stringify({ selrow: gz.selrow, exp: gz.rowExpanded, hint: gz.hint.slice(0, 60) }));
 
   /* the same click, from the rail row and from the keyboard */
