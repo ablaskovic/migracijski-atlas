@@ -363,14 +363,13 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
           continue;
         }
         const v = mxCell(a, b, S.dir, S.yi, S.cum);
-        const isHl = !!hl && hl[0] === a && hl[1] === b;
         const isF = fc[0] === r && fc[1] === c;
         cells.push(
           <g key={a + b} role="presentation">
             <rect className="mxc" data-a={a} data-b={b} vectorEffect="non-scaling-stroke"
               x={x0 + c * cell} y={y0 + r * cell} width={cell} height={cell}
               fill={col(S.dir === 'net' ? v : Math.abs(v))}
-              stroke={isHl ? '#20262B' : '#fff'} strokeWidth={isHl ? 1.6 : 0.5}
+              stroke="#fff" strokeWidth={0.5}
               role="gridcell" tabIndex={isF ? 0 : -1} aria-colindex={c + 1}
               /* see the diagonal cell above: the row's lang="hr" must not reach a
                  label that is a sentence with English numbers in it */
@@ -435,7 +434,7 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
         lang="hr" aria-label={D[MXORD[r]].n}>{cells}</g>);
     }
     return rows;
-  }, [n, x0, y0, cell, S.dir, S.yi, S.cum, S.lang, hl, fc, selR, selC, showNum, numFs,
+  }, [n, x0, y0, cell, S.dir, S.yi, S.cum, S.lang, fc, selR, selC, showNum, numFs,
     col, cellAria, fitsNum, numTxt]);
 
   return (
@@ -487,6 +486,26 @@ export default function MatrixView({ S, setS, size, legend, panel, zoom, openCor
           <rect x={x0} y={y0 + hlR * cell} width={n * cell} height={cell} vectorEffect="non-scaling-stroke" />
           <rect x={x0 + hlC * cell} y={y0} width={cell} height={n * cell} vectorEffect="non-scaling-stroke" />
         </g>
+      )}
+      {/* …and the hovered cell's own outline, here rather than baked into the
+          cell. As a property of the 441-cell memo it put `hl` in that memo's
+          dependency list, so every crossing of a cell boundary — a mouse moving
+          along a row, or a finger on the coarse-pointer overlay, which writes
+          pairHl on every cell change — rebuilt all 441 cells to restroke one:
+          420 mxCell (up to 15 getOD each when cumulative, doubled for net), 420
+          col() evaluations, 420 cellAria strings with their Intl formatting, and
+          ~880 React elements to reconcile. Measured pure part 0,82 ms per
+          crossing (out, annual, 1440x900) to 1,86 ms (net, cumulative, with
+          in-cell numbers), before React diffs ~900 fibers — the same per-event
+          cost MA4M-092 moved off the pinch and left on the crossing, on the
+          device class the overlay exists for.
+          Drawn only off the diagonal, which never carried this outline: the
+          diagonal cell returns before the highlight is computed, and its own
+          label explains why it is not part of the matrix. */}
+      {hlR >= 0 && hlC >= 0 && hlR !== hlC && (
+        <rect className="mxhl" pointerEvents="none" fill="none" stroke="#20262B"
+          strokeWidth={1.6} vectorEffect="non-scaling-stroke"
+          x={x0 + hlC * cell} y={y0 + hlR * cell} width={cell} height={cell} />
       )}
       {/* Inside the zoom transform like everything else in the grid, so the width
           is multiplied by k without this: measured at the 4,096× the suite's own
