@@ -10665,8 +10665,16 @@ const evalSafe = async (pg, fn) => {
     && robotLines.some(l => /^allow:\s*\/$/i.test(l))
     /* and nothing is hidden from a renderer: a JS-rendered atlas whose assets
        are disallowed is an atlas a search engine cannot see */
-    && !robotLines.some(l => /^disallow:\s*\S/i.test(l)),
-    JSON.stringify({ status: robots.status, type: robots.type, lines: robotLines }));
+    && !robotLines.some(l => /^disallow:\s*\S/i.test(l))
+    /* …and it is served AS a text file, which is half of what "a real file"
+       means and was collected into the diagnostic without ever being asserted.
+       URL mode only: in dist mode the harness sets the MIME itself, so a clause
+       there would be this file checking its own static server. Against a real
+       origin the header is the deploy's answer — and text/html on /robots.txt is
+       exactly the SPA-rewrite failure this whole block exists for, which the
+       body test alone cannot see once the file is present. */
+    && (!URLMODE || /^text\/plain\b/.test(robots.type)),
+    JSON.stringify({ status: robots.status, type: robots.type, urlmode: URLMODE, lines: robotLines }));
 
   /* the Sitemap line must lead somewhere. Its URL is absolute by protocol and
      names the production origin, so the *path* is what is checked here — the
