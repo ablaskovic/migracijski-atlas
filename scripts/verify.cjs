@@ -8723,16 +8723,29 @@ const evalSafe = async (pg, fn) => {
     return { all: span(1998, 2006), late: span(2002, 2006),
       zero: out.filter(r => r.y >= 2007).every(r => r.gap === 0) };
   })();
-  await fresh('');
-  await click('#helpBtn');
-  const gapCopy = await page.evaluate(() => document.querySelector('#helpCard').textContent || '');
-  await click('#helpX');
-  ck('the glossary’s pre-2007 margin figures are the ones the payload carries',
-    gaps.zero && gaps.all[0] < gaps.late[0]
-    && [gaps.all[0], gaps.all[1], gaps.late[0], gaps.late[1]]
-      .every(v => gapCopy.includes(String(v))),
-    JSON.stringify({ ...gaps, has: [gaps.all[0], gaps.all[1], gaps.late[0], gaps.late[1]]
-      .map(v => [v, gapCopy.includes(String(v))]) }));
+  /* BOTH languages. This check's own comment says the figures are derived from
+     the data rather than pinned as literals, because "a DZS revision moves these
+     nine numbers, and then the sentence has to move with them" — and both halves
+     of the L() call carry them as literals. Reading the Croatian card alone, a
+     revision that moves the 1998–2006 minimum is fixed by editing the Croatian
+     string the failing check points at, after which this goes green while every
+     ?l=en reader is told the old number. The suite's other bilingual copy checks
+     — klasNote, preMargin, the caveat — read both. */
+  const gapCopy = {};
+  for (const [k, h] of [['hr', ''], ['en', '#l=en']]) {
+    await fresh(h);
+    await click('#helpBtn');
+    gapCopy[k] = await page.evaluate(() => (document.querySelector('#helpCard') || {}).textContent || '');
+    await click('#helpX');
+  }
+  {
+    const want = [gaps.all[0], gaps.all[1], gaps.late[0], gaps.late[1]].map(String);
+    ck('the glossary’s pre-2007 margin figures are the ones the payload carries, in both languages',
+      gaps.zero && gaps.all[0] < gaps.late[0]
+      && ['hr', 'en'].every(k => gapCopy[k].length > 1500 && want.every(v => gapCopy[k].includes(v))),
+      JSON.stringify({ ...gaps, has: ['hr', 'en'].map(k =>
+        [k, gapCopy[k].length, want.map(v => [v, gapCopy[k].includes(v)])]) }));
+  }
 
   /* clicking a cell is how the grid doubles as a year picker: it drives the same
      S.yi the scrubber and every other view read.
