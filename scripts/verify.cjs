@@ -5773,7 +5773,8 @@ const evalSafe = async (pg, fn) => {
     for (const hash of ['#v=saldo&c=1&y=2024', '#v=klas&c=1&y=2024', '#v=flow&s=HR-21&c=0&y=2018']) {
       await page.setViewport({ width: w, height: h, isMobile: true, hasTouch: true });
       await fresh(hash);
-      firstScreen.push({ w, h, v: hash.slice(3, 8), ...await page.evaluate(() => {
+      /* the view name, for the same reason as the stroke checks below */
+      firstScreen.push({ w, h, v: new URLSearchParams(hash.slice(1)).get('v') || 'saldo', ...await page.evaluate(() => {
         const R = s => { const e = document.querySelector(s); if (!e) return null;
           const r = e.getBoundingClientRect(); return r.width ? r : null; };
         const hd = R('header.hd'), mb = R('.map-box'), sb = R('#scrubBox'), hb = R('#helpBtn');
@@ -14788,7 +14789,9 @@ const evalSafe = async (pg, fn) => {
     ['#v=yrs&f=int&c=0&y=2022', 3, ['.yrc', '.yrsel rect']],
   ]) {
     const r = await strokeScan(hash, z, sels);
-    ck(`zooming ${hash.slice(3, 8)} does not fatten its strokes, and every stroke declares it`,
+    /* the view, not five characters of the hash: slice(3, 8) printed "reg&c", "mx&c="
+       and "yrs&f" in the log, which reads as a truncation rather than as a name */
+    ck(`zooming ${new URLSearchParams(hash.slice(1)).get('v') || 'saldo'} does not fatten its strokes, and every stroke declares it`,
       r.moved > 2000 && Object.values(r.declares).every(Boolean) && r.nScaling === 0,
       JSON.stringify(r));
   }
