@@ -153,14 +153,26 @@ The headers block is the other half. `script-src 'self'` and `connect-src
 'self'` are why `index.html` carries no inline script and why nothing in the app
 talks to a third-party origin — a CDN snippet, a Google-Fonts `<link>` or an
 inline `<script>` is blocked in production, not merely discouraged. The rest is
-`default-src 'self'`, `style-src 'self' 'unsafe-inline'` (Vite’s injected
-styles), `img-src 'self' data: blob:` (the PNG export goes through a blob URL),
+`default-src 'self'`, `style-src 'self' 'unsafe-inline'`,
+`img-src 'self' data: blob:` (the PNG export goes through a blob URL),
 `font-src 'self' data:` (the faces are self-hosted, and the SVG export embeds
 its own copies as data URLs),
 `object-src`/`base-uri`/`form-action`/`frame-ancestors` set to none, plus
 nosniff, a referrer policy, a permissions policy, COOP, `X-Frame-Options: DENY`,
-HSTS (two years, all subdomains) and `Vary: Accept-Encoding`. The frame header
-is redundant with `frame-ancestors 'none'` for anything that reads CSP, and
+HSTS (two years, all subdomains) and `Vary: Accept-Encoding`.
+
+`'unsafe-inline'` in `style-src` is not there for Vite's injected stylesheet
+alone, and it is not removable by tidying the components. Counted across six
+views: fifteen distinct inline-style shapes, and the largest by far is the rail
+— 123 rows a view, each with a `background` gradient, a `left` and a `width`
+computed from its own value. The legend and citizenship bars are the same
+shape, `--scrubh` and `--stageh` are custom properties React writes as inline
+styles by construction, and the tooltip's `font-weight:400` and the class tag's
+two colours round it out. Every one of them is data, not decoration: a class
+cannot carry a per-county gradient stop. Moving the three hand-written ones
+would shrink the surface and change nothing about the directive.
+
+The frame header is redundant with `frame-ancestors 'none'` for anything that reads CSP, and
 costs one line for anything that does not. There is no CSP `report-uri`: a
 report needs a collector, and every collector is a third party — which the
 page's own "reaches no third-party origin" guarantee forbids. HSTS carries no `preload` token: the
