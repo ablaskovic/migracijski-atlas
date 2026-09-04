@@ -1252,8 +1252,13 @@ const evalSafe = async (pg, fn) => {
   for (const [h, want] of [['#v=saldo', true], ['#v=klas', true], ['#v=reg', true],
     ['#v=flow&s=HR-21', true], ['#v=jmap', true], ['#v=mx&y=2018&c=0', false], ['#v=yrs', false]]) {
     await fresh(h);
-    const has = await page.evaluate(() => !!document.querySelector('#labBtn'));
-    if (has !== want) labViews.push(h + ' has=' + has + ' want=' + want);
+    /* the mount travels with the answer: for the two want=false views "no
+       #labBtn" is also what an unmounted page says, so without this those two
+       legs pass on a boot that never rendered. missed catches it at end of run —
+       but only if the run gets that far. */
+    const st = await page.evaluate(() => ({ has: !!document.querySelector('#labBtn'),
+      up: !!document.querySelector('#map') }));
+    if (st.has !== want || !st.up) labViews.push(h + ' has=' + st.has + ' want=' + want + ' mounted=' + st.up);
   }
   ck('the labels toggle is mounted exactly in the views that draw labels',
     labViews.length === 0, labViews.join(' | '));
