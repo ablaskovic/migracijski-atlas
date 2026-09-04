@@ -85,12 +85,23 @@ const HEADERS = (() => {
    `public` lets a shared cache hand the same 404 to readers who never saw the
    outage. The platform default applies to files that exist, which is the
    difference that matters, so this server mirrors THAT rather than the pattern.
-   Applied only where a file was found — every caller below is a 200 path. */
+   Applied only where a file was FOUND, which is the `found` argument below. */
 const ASSET_IMMUTABLE = { 'cache-control': 'public, max-age=31536000, immutable' };
-function policyFor(p) {
+function policyFor(p, found = true) {
   const out = {};
+  /* vercel.json's own path-matched headers apply to a response whatever its
+     status: Vercel matches the request PATH. They were applied to 200s only
+     here, so the 404 branches answered header-less — and the check that a
+     missing hashed asset is not cached for a year was reading that emptiness
+     rather than the policy. Re-add a `/assets/(.*)` Cache-Control rule to
+     vercel.json, which is exactly the regression that check exists to catch,
+     and it would have gone on printing ok. */
   for (const h of HEADERS) if (h.test(p)) Object.assign(out, h.set);
-  if (p.startsWith('/assets/')) Object.assign(out, ASSET_IMMUTABLE);
+  /* …and this one is the platform stamping its own header on build outputs it
+     PRODUCED. That is a property of a file that exists, so it belongs to a 200
+     and must not reach a 404 — which is the whole distinction the check is
+     about. */
+  if (found && p.startsWith('/assets/')) Object.assign(out, ASSET_IMMUTABLE);
   return out;
 }
 
@@ -138,13 +149,13 @@ function serve(dir) {
           if (REWRITE && REWRITE.re.test(p)) {
             const idx = path.resolve(dir, '.' + REWRITE.to);
             fs.readFile(idx, (e2, d2) => {
-              if (e2) { notFound.push(p + ' → ' + REWRITE.to); res.writeHead(404); res.end('nope'); return; }
+              if (e2) { notFound.push(p + ' → ' + REWRITE.to); res.writeHead(404, policyFor(p, false)); res.end('nope'); return; }
               res.writeHead(200, { 'content-type': 'text/html', ...policyFor(p) });
               res.end(d2);
             });
             return;
           }
-          notFound.push(p); res.writeHead(404); res.end('nope'); return;
+          notFound.push(p); res.writeHead(404, policyFor(p, false)); res.end('nope'); return;
         }
         res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream', ...policyFor(p) });
         res.end(data);
