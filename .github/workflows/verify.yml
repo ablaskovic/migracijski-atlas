@@ -80,6 +80,15 @@ jobs:
       || (github.event_name == 'pull_request'
           && github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
+    # The suite runs about twenty minutes and its failure mode at the end is a
+    # browser.close() that never returns — verify.cjs's own record has a run
+    # where two suites shared a machine and neither finished. With no
+    # timeout-minutes GitHub's default is 360, so a wedged Chrome holds a runner
+    # for six hours and the concurrency group above holds every later push on
+    # that ref behind it. 45 is a little over twice the honest run time: high
+    # enough that a slow runner is not reported as a hang, low enough that a
+    # hang is not reported as a slow runner.
+    timeout-minutes: 45
     # This job reads a repository and runs a test suite; it has no reason to be
     # able to write one. With no `permissions:` block the job took the
     # repository's default GITHUB_TOKEN scope, and actions/checkout leaves that
@@ -150,6 +159,19 @@ jobs:
       # build itself is an unhashed HTTPS download from storage.googleapis.com,
       # pinned only by puppeteer's own revisions table.
       - run: npm ci --prefix ci --ignore-scripts --no-audit --no-fund
+      # …and the ~170 MB Chrome that install.mjs fetches is not in `cache: npm`,
+      # which caches the npm registry tarballs and knows nothing about
+      # ~/.cache/puppeteer. Keyed on the resolved puppeteer version out of ci's
+      # own lockfile — the thing that decides WHICH Chrome revision is wanted —
+      # so a Dependabot bump of that lockfile misses the cache on purpose and
+      # every other run hits it. install.mjs still runs either way: it is
+      # idempotent and exits early when the revision is already there, which
+      # also means a partially-restored cache repairs itself rather than being
+      # trusted.
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('ci/package-lock.json') }}
       - run: node ci/node_modules/puppeteer/install.mjs
       # PUPPETEER_PATH is a puppeteer PACKAGE DIRECTORY (README.md), and
       # verify.cjs require()s it — so it has to be absolute, or node reads it as
