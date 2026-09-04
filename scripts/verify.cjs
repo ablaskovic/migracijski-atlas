@@ -130,7 +130,15 @@ probe404.add('/assets/verify-missing-cache.js');
 function serve(dir) {
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
-      let p = decodeURIComponent(req.url.split('?')[0]);
+      /* A malformed escape — `/%E0%A4%A`, or a bare `%` in an href — makes
+         decodeURIComponent throw URIError inside this listener, which nothing
+         above catches: Node raises uncaughtException and the process dies
+         mid-run with a stack trace, no ABORTED line and no finish(), the exact
+         silent-death shape this file's header says finish() exists to end.
+         A bad path is a 400, the way a real origin answers it. */
+      let p;
+      try { p = decodeURIComponent(req.url.split('?')[0]); }
+      catch { res.writeHead(400); res.end('bad path'); return; }
       if (VERCEL_STUB.includes(p)) {
         stubHits.add(p);
         res.writeHead(200, { 'content-type': 'text/javascript', ...policyFor(p) });
