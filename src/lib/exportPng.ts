@@ -1,7 +1,7 @@
 import {
   ISOS, DOM, RDOM, KCOL, KLAB, Y0, YEND,
   klasOf, paperKlasComparable, divScale, seqScale, flowMax, mxMax, jmapScale, flowBadge, fmtI, fmtR, exportDesc, marginFlow,
-  preMargin, preMarginNote, rampStops,
+  preMargin, preMarginNote, rampStops, arcMinNote,
 } from './metrics.ts';
 import { ensureFonts, fontCss } from './exportFonts.ts';
 import { paperCaveatLine, paperExportLine, paperThrLine, regionReadingLine } from './credits.ts';
@@ -344,7 +344,28 @@ function legendNote(S: State): string {
     return L('Samo preseljenja unutar RH (JLS↔JLS), bez inozemstva.',
       'Internal moves within Croatia only (LAU↔LAU), no international migration.');
   }
-  if ((S.view === 'flow' || S.view === 'mx') && S.dir === 'net') return t('note.pairEst') + pre;
+  /* Tokovi's two caveats, which the screen legend prints for all three
+     directions and the export printed for none. The arcs are FILTERED — nothing
+     under ARC_MIN people is drawn — and their widths are on a √ scale relative to
+     the selected county. Measured on #v=flow&s=HR-09&dir=out&c=0&y=2018:
+     Ličko-senjska draws 10 arcs against 20 partners, so half the network is
+     absent from the picture, and a 4,9× flow difference draws about 2,2× the
+     width. The exported document said neither — legendNote returned '' for out
+     and in, and only the pair-estimate sentence for net — on the one artifact
+     with no glossary and no tooltip behind it, where "no arc" reads as "no flow"
+     and the widths read as linear. That is this function's own header: the
+     caveat the on-screen legend carries has to travel with the image.
+     The √ sentence is dropped for net, exactly as the screen drops it: net draws
+     one arc per PAIR rather than per direction, and the screen's own net branch
+     prints the pair-estimate sentence instead. */
+  if (S.view === 'flow') {
+    const sqrt = S.dir === 'net' ? ''
+      : L('Debljina luka po korijenskoj (√) skali, relativno na odabranu županiju (nije usporediva između županija). ',
+        'Arc width on a square-root (√) scale, relative to the selected county (not comparable between counties). ');
+    return (arcMinNote() + sqrt + (S.dir === 'net' ? t('note.pairEst') : '') + pre).trim();
+  }
+  /* flow returns above, so this is Matrica's half of the pair-estimate note */
+  if (S.view === 'mx' && S.dir === 'net') return t('note.pairEst') + pre;
   /* Godine is the only view that renders 1998–2006 beside the rest, so it is the
      only one whose *image* can carry those columns off into a slide — the hatch
      that marks them on screen has no caption of its own, so the words go here. */

@@ -174,7 +174,7 @@ let fails = 0, n = 0;
    orphaning a Chromium and leaking a listening socket on every failed run. */
 let browser = null, srv = null;
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 624;
+const EXPECTED_CHECKS = 625;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -4521,6 +4521,43 @@ const evalSafe = async (pg, fn) => {
     ck('export carries the structural-estimate note the screen carries  ' + h,
       ex.structural, String(ex.structural));
   }
+
+  /* …and Tokovi's two, which reached neither format in any direction. The arcs
+     are FILTERED — nothing under 5 people is drawn — and their widths are on a √
+     scale relative to the selected county. Measured on HR-09 in the measured
+     year: Ličko-senjska draws 10 arcs against 20 partners, so half its network
+     is simply absent from the picture, and a 4,9× flow difference draws about
+     2,2× the width. The screen legend says both; the export said neither, on the
+     one artifact with no glossary behind it, where "no arc" reads as "no flow"
+     and the widths read as linear.
+     Asserted AGAINST THE SCREEN rather than against a literal, so the two cannot
+     drift apart again — which is the failure this block exists for — and in both
+     languages, because a note that only travels in Croatian is a note the
+     English figure does not carry. The √ sentence is expected absent for net and
+     present otherwise, because that is what the screen does: net draws one arc
+     per pair, and its branch prints the pair-estimate sentence instead. */
+  await page.setViewport({ width: 1440, height: 900 });
+  const arcNote = [];
+  for (const lang of ['hr', 'en']) {
+    for (const dir of ['out', 'in', 'net']) {
+      await fresh(`#v=flow&s=HR-09&dir=${dir}&c=0&y=2018` + (lang === 'en' ? '&l=en' : ''));
+      arcNote.push({ lang, dir, ...await page.evaluate(() => {
+        const doc = String(window.__exportSVG(false));
+        const scr = (document.querySelector('.legend-note') || {}).textContent || '';
+        const MIN = /nisu ucrtani|not drawn/, SQRT = /korijenskoj|square-root/;
+        return { exMin: MIN.test(doc), exSqrt: SQRT.test(doc),
+          scMin: MIN.test(scr), scSqrt: SQRT.test(scr), scLen: scr.length };
+      }) });
+    }
+  }
+  ck('a Tokovi export carries the same two caveats its own legend prints',
+    arcNote.length === 6
+    /* the screen note has to be there to compare against, or this compares
+       nothing with nothing and calls it agreement */
+    && arcNote.every(r => r.scLen > 40 && r.scMin)
+    && arcNote.every(r => r.exMin === r.scMin && r.exSqrt === r.scSqrt)
+    && arcNote.every(r => r.exSqrt === (r.dir !== 'net')),
+    JSON.stringify(arcNote));
   /* the PNG shrinks its title to clear the period; the SVG twin used a fixed 21 px
      and at a 732 px map (a 1024 px window) ran 73 px through "2011.–2024." */
   await page.setViewport({ width: 1024, height: 800 });
