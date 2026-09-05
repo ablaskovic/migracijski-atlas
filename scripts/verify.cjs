@@ -1084,7 +1084,8 @@ const evalSafe = async (pg, fn) => {
      three portrait legs below are those cases. `legendH` rather than `!!box`
      because display:none is what this was, and a zero-height box is a box. */
   const printOv = [];
-  for (const [w, h, hash, open] of [
+  const printCdp = await page.createCDPSession();
+  for (const [w, h, hash, open, fs] of [
     [1123, 794, '#v=saldo&c=1&y=2024', '#helpBtn'],
     [794, 1123, '#v=saldo&c=1&y=2024', '#helpBtn'],
     [1123, 794, '#v=klas&c=1&y=2024&s=HR-21', null],
@@ -1093,13 +1094,25 @@ const evalSafe = async (pg, fn) => {
     [718, 1047, '#v=saldo&c=1&y=2024&cz=1', null],
     [718, 1047, '#v=saldo&c=1&y=2024&ag=1', null],
     [718, 1047, '#v=flow&s=HR-21&dir=out&jl=1&y=2018&c=0', null],
+    /* …and the same sheet at a 24 px root, which is the setting that grows every
+       released panel while the paper stays the same size. Eight legs measured
+       the layout at the browser default and none at the size a reader who cannot
+       read 14 px actually uses — and this block's own subject is a panel in the
+       flow pushing what follows, which is exactly what a bigger root does more
+       of. The landscape A4 box is the tighter of the two here: the existing
+       check's ground note records the matrix drawn at 400×370 at root 16 and
+       357×326 at 24 inside a 430 px map, so the room is there and what is being
+       asked is whether the panels still stay out of it. */
+    [1123, 794, '#v=saldo&c=1&y=2024', '#helpBtn', 24],
+    [1123, 794, '#v=saldo&c=1&y=2024&cz=1', null, 24],
   ]) {
     await page.setViewport({ width: w, height: h });
+    if (fs) await printCdp.send('Page.setFontSizes', { fontSizes: { standard: fs, fixed: fs } });
     await fresh(hash);
     if (open) { await click(open); await settle(300); }
     await page.emulateMediaType('print');
     await settle(350);
-    printOv.push({ w, h, ...await page.evaluate(() => {
+    printOv.push({ w, h, fs: fs || 16, ...await page.evaluate(() => {
       const box = s => { const e = document.querySelector(s); if (!e) return null;
         const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; };
       const area = (a, b) => { if (!a || !b) return 0;
@@ -1125,6 +1138,7 @@ const evalSafe = async (pg, fn) => {
       }
       const m = box('#map'), mb = box('.map-box'), lg = box('.legend');
       return { seen, worst, at, floating: fixedOrAbs,
+        root: Math.round(parseFloat(getComputedStyle(document.documentElement).fontSize)),
         mapH: m ? Math.round(m.height) : 0,
         legendH: lg ? Math.round(lg.height) : 0,
         /* …and beside the map it decodes, not carried off to the bottom edge of
@@ -1132,10 +1146,16 @@ const evalSafe = async (pg, fn) => {
         legendInBox: !!(lg && mb && lg.top >= mb.top - 1 && lg.bottom <= mb.bottom + 1) };
     }) });
     await page.emulateMediaType(null);
+    if (fs) await printCdp.send('Page.setFontSizes', { fontSizes: { standard: 16, fixed: 16 } });
   }
+  await printCdp.detach();
   await page.setViewport({ width: 1440, height: 900 });
   ck('printing with a panel open puts it in the flow instead of over the page',
-    printOv.length === 8
+    printOv.length === 10
+    /* and the two big-root legs really were at a big root, so "nothing collides"
+       is not the browser default measured twice more */
+    && printOv.filter(r => r.fs === 24).length === 2
+    && printOv.filter(r => r.fs === 24).every(r => r.root >= 22)
     /* each case opens exactly one panel, and 0 panels found is not a clean sheet */
     && printOv.every(r => r.seen >= 1 && r.mapH >= 430
       && r.legendH >= 40 && r.legendInBox)
