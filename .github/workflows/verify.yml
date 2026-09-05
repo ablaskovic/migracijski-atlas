@@ -23,7 +23,14 @@
 # puppeteer is deliberately not a devDependency — the README explains that it is
 # to spare a fresh clone and a cold deploy the Chrome download. That argument is
 # about clones and deploys, not about a CI runner that installs once per job, so
-# it is added here with --no-save and nothing in package.json moves.
+# CI installs it from a tree of its own: ci/package.json pins 25.8.0 and
+# `npm ci --prefix ci` below resolves all 27 packages from ci/package-lock.json,
+# every one with a `resolved` and an `integrity`. Nothing in the root
+# package.json moves either way.
+# This paragraph said "it is added here with --no-save", which was true of the
+# `npm i --no-save puppeteer@25.8.0` this job used to run and stopped being true
+# when the ci/ lockfile replaced it — and --no-save was exactly the property
+# that made that install unpinned, which is the reason it was replaced.
 #
 # One thing this runner cannot answer. index.css's metric-matched fallback faces
 # wrap system faces by name — src:local('Arial'), local('Courier New'),
