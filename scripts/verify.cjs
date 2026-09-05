@@ -7522,9 +7522,11 @@ const evalSafe = async (pg, fn) => {
      request — so a reader in a tunnel or a Wi-Fi-to-cell handover at that moment
      had BOTH flags latched while sitting in Saldo seeing nothing, and pressing
      Regije seconds later on a healthy connection got "Geometrija regija nije
-     učitana." for the rest of the session, because a failed module fetch is
-     cached in the module map. Blocked only over the warm window here, then
-     released before the view is opened. */
+     učitana." for the rest of the session, because the latched flag is what
+     those views render from and only a retry press clears it (the payload was
+     an import() then, so the module map pinned the rejection too, and even the
+     press could not recover without a reload). Blocked only over the warm
+     window here, then released before the view is opened. */
   blockGeoChunk = 'reg';
   await page.goto('about:blank');
   await goTo(url, ['networkidle0']);
@@ -7534,9 +7536,9 @@ const evalSafe = async (pg, fn) => {
      warm's rejection ran through the same catch as a real request and latched
      regErr here, so the reader was carrying a failure for a view they had not
      opened. (Opening it afterwards still fails, and correctly shows the error
-     and the retry: a rejected module fetch is cached in the browser's module
-     map, which is why retryGeo reloads. What this asserts is that the app does
-     not claim a failure nobody has asked it to have.) */
+     and the retry, because the flag is latched and nothing clears it until the
+     reader presses. What this asserts is that the app does not claim a failure
+     nobody has asked it to have.) */
   /* …and the Saldo probe alone could not fail. MapView gates the whole geostat
      region on `S.view === 'jmap' || S.view === 'reg'`, and #jerror lives inside
      it, so in Saldo both selectors return null BY CONSTRUCTION: the three
@@ -7545,14 +7547,21 @@ const evalSafe = async (pg, fn) => {
      navigated away from. Nothing about the behaviour could turn it red.
      So the absence is still asserted — and named as an absence, `geostat`, so
      the file says out loud that that arm proves nothing on its own — and the
-     discrimination comes from what Regije paints FIRST when it is opened. A
-     failed module fetch is cached in the module map, so the view fails either
-     way and the end state is identical; what differs is the frame before it.
+     discrimination comes from what Regije paints FIRST when it is opened.
      Unlatched, the real call is a fresh request as far as the app knows, so the
      first geostat state is the spinner. Pre-latched, `regFailed()` is already
      true at that first render and the error is painted with no spinner at all.
      Measured: fixed → first {loading:true, err:false}; with the speculative flag
-     removed → first {loading:false, err:true}, and no spinner state ever. */
+     removed → first {loading:false, err:true}, and no spinner state ever.
+     This used to add "a failed module fetch is cached in the module map, so the
+     view fails either way and the end state is identical; what differs is the
+     frame before it". The end states are no longer identical: the payload is
+     fetched, not imported, so an unlatched re-entry on a healthy network
+     genuinely recovers. Measured with the warm blocked, released, then Regije
+     opened: {loading:true,err:false} → {loading:false,err:false}, 21 shapes
+     drawn and no #jstatus at all. Latched, it stays on the error until the
+     retry is pressed. So the first frame is still the discriminator, and the
+     end state has become a second one rather than a wash. */
   const warmLatch = await page.evaluate(async () => {
     const seen = [];
     const snap = () => {
@@ -7674,8 +7683,8 @@ const evalSafe = async (pg, fn) => {
      nothing, and the legend rendered it as a real axis: "0" and "1" under
      "Gradovi i općine · dolasci u JLS · 2018.", a published claim that the
      largest municipal inflow measured in 2018 was one person — against 9.606 in,
-     6.193 out and ±3.413 net. A failed module fetch is cached, so this was not a
-     flash: the false key sat permanently beside the error message, and both
+     6.193 out and ±3.413 net. The error flag latches, so this was not a flash:
+     the false key sat beside the error message until a retry press, and both
      exporters read the same scale. */
   ck('a JLS map with no geometry draws no colour key at all',
     !geoFail.bar && !/1/.test(geoFail.lbls), JSON.stringify({ bar: geoFail.bar, lbls: geoFail.lbls }));

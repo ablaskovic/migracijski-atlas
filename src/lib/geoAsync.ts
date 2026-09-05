@@ -62,8 +62,8 @@ export const geoStatus = (jm: boolean): string =>
    t=1,5 s had BOTH error flags latched while sitting in Saldo, seeing nothing.
    Seconds later, on a fully healthy connection, pressing Regije and then
    JLS 2018. showed "Geometrija … nije učitana." for the rest of the session,
-   because a failed module fetch is cached in the browser's module map (the note
-   on retryGeo says so). The app was permanently wrong about the network on the
+   because the latched flag is what those views render from and only a retry
+   press clears it. The app was permanently wrong about the network on the
    strength of a request nobody made. A speculative failure clears the promise
    slot so the next real call retries, and says nothing. */
 /* …and speculative-ness is a property of the CALL, not of the promise. `??=`
