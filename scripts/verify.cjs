@@ -7348,16 +7348,17 @@ const evalSafe = async (pg, fn) => {
     !retryTap.missing && retryTap.coarse && retryTap.h >= 44 && retryTap.w >= 44,
     JSON.stringify(retryTap));
   /* …and it is dropped when the reader leaves the view that armed it. retryGeo
-     registers a reload for when the connection returns, and it was scoped to
-     nothing and never removed — so a reader who pressed the retry offline in the
-     JLS view, went back to Klasifikacija (which works completely offline,
-     exports included), rebuilt a zoom transform and a per-view year window, and
-     reconnected an hour later had the document reload under them, taking vmem
-     and the zoom with it. Both are deliberately outside the hash, so the reload
-     cannot restore them: the exact loss the deferral exists to avoid, arriving
-     by another door, with the notice that explained it long off screen.
+     registers a re-fetch for when the connection returns, and when it registered
+     a RELOAD it was scoped to nothing and never removed — so a reader who
+     pressed the retry offline in the JLS view, went back to Klasifikacija (which
+     works completely offline, exports included), rebuilt a zoom transform and a
+     per-view year window, and reconnected an hour later had the document reload
+     under them, taking vmem and the zoom with it. Both are deliberately outside
+     the hash, so the reload could not restore them: the exact loss the deferral
+     exists to avoid, arriving by another door, with the notice that explained it
+     long off screen.
      Both halves, because the promise still has to be kept: a reader who stays in
-     the failing view gets the reload they were told about. */
+     the failing view gets the geometry they were told would arrive. */
   /* …and whatever happens in here costs ONE check. This block drives a page
      through a reload it triggers itself, which is the one place in the file
      where an evaluate can lose its execution context for a legitimate reason —
@@ -7420,16 +7421,24 @@ const evalSafe = async (pg, fn) => {
        Observing beats waiting. The navigation promise is armed BEFORE the
        dispatch, so it cannot be missed by a reload that starts early, and it
        resolves the moment the reload lands instead of 1.2 s later. Whether it
-       navigated is now asserted rather than inferred from the sentinel: the
-       stayed arm must reload, the leave arm must not. evalSafe is the belt to
-       that brace — an evaluate whose context is torn down by the navigation this
-       block exists to cause is re-run once against the new one, so the expected
-       reload can never again be reported as a harness abort. */
+       navigated is now asserted rather than inferred from the sentinel — and
+       what is asserted of BOTH arms is that they do not navigate: the deferral
+       resumes by re-fetching in place. This said "the stayed arm must reload,
+       the leave arm must not", which the assertion below has contradicted since
+       the reload became a re-fetch (`!deferred.stayed.navigated`); the sentinel
+       and `navigated` are two independent ways of proving the same negative,
+       which is why both are still read. The waits are kept at their old length
+       even though nothing should now arrive on them: they are the window in
+       which a regression WOULD be seen, and shortening a window that exists to
+       observe an absence only makes the absence easier to report. evalSafe
+       stays for the same reason — belt for the brace, so a navigation that does
+       happen is a failed check and not a harness abort. */
     /* …and the explicit dispatch is a belt for the case where the browser's own
-       event does not arrive. When it DID arrive first — which is what happens
-       under load — this evaluate's context is already gone, and the rejection is
-       the success case, not a failure: it is the reload this block exists to
-       observe, and it was the abort measured at 5948 twice over. */
+       event does not arrive. Back when the deferral reloaded, the browser's own
+       event arriving first tore this evaluate's context down, and that rejection
+       was the success case rather than a failure — the abort measured at 5948
+       twice over. Nothing navigates now, so the catch is dead weight that costs
+       nothing and would tell the truth again the day something does. */
     await pg.evaluate(() => { setTimeout(() => window.dispatchEvent(new Event('online')), 0); })
       .catch(() => { /* the reload beat us to it */ });
     const navigated = await nav;
