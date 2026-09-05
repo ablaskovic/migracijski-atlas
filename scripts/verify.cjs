@@ -7335,6 +7335,15 @@ const evalSafe = async (pg, fn) => {
        page.on('request') makes both handlers call continue() on the same
        request, which is the throw the comment at :302 names. */
     const pg = await watch(await browser.newPage(), u => /geo_jls/.test(u));
+    /* A second `request` listener that only COUNTS — it calls neither continue()
+       nor abort(), so it cannot collide with watch()'s own handler. The
+       deferral's promise is no longer "the document reloads": the payload is a
+       fetched asset now, so what it owes the reader is another REQUEST for it.
+       That is what this counts, and the predicate above keeps aborting them, so
+       the view stays failed and the sentinel stays put — which is what makes the
+       two arms distinguishable at all. */
+    let geoReq = 0;
+    pg.on('request', r => { if (/geo_jls/.test(r.url())) geoReq++; });
     await pinHr(pg);
     await pg.setViewport({ width: 1440, height: 900 });
     await pg.goto(url + '#v=jmap&dir=net', { waitUntil: 'domcontentloaded' });
@@ -7345,6 +7354,7 @@ const evalSafe = async (pg, fn) => {
     await clickOn(pg, '#jretry');
     await settle(450);
     const armed = await pg.evaluate(() => !!document.querySelector('#joffline'));
+    const geoAtArm = geoReq;
     if (leave) { await clickOn(pg, '#segView button[data-v="klas"]'); await settle(550); }
     /* Armed BEFORE anything that can start the reload. setOfflineMode(false)
        fires the browser's own 'online' event, so on the stayed arm the reload
@@ -7380,7 +7390,7 @@ const evalSafe = async (pg, fn) => {
       .catch(() => { /* the reload beat us to it */ });
     const navigated = await nav;
     await settle(250);
-    deferred[leave ? 'left' : 'stayed'] = { armed, navigated,
+    deferred[leave ? 'left' : 'stayed'] = { armed, navigated, refetched: geoReq - geoAtArm,
       ...(await evalSafe(pg, () => ({ mark: window.__mark || 'GONE', hash: location.hash }))) };
     /* …and what the view SAYS when the reader comes back to it. This leg proved
        the reload was dropped and stopped there, so nothing read the notice that
@@ -7401,10 +7411,18 @@ const evalSafe = async (pg, fn) => {
     await closePage(pg);
   }
   } catch (e) { deferred.error = String(e && e.message).slice(0, 120); }
-  ck('a deferred reload keeps its promise in the view that armed it and is dropped on the way out',
+  /* …and what it keeps is a REQUEST, not a reload. The promise this deferral
+     makes is that the geometry resumes by itself, and it used to keep it by
+     reloading the document — so the sentinel was gone and `navigated` was true
+     on the arm that stayed. A fetched asset needs neither: the stayed arm issues
+     another request for the payload and keeps the page it was on, sentinel and
+     all, which is strictly the better outcome and the whole point of the change.
+     The arm that left must still issue nothing. */
+  ck('a deferred fetch keeps its promise in the view that armed it and is dropped on the way out',
     !deferred.error && deferred.stayed && deferred.left
-    && deferred.stayed.armed && deferred.stayed.navigated && deferred.stayed.mark === 'GONE'
-    && deferred.left.armed && !deferred.left.navigated
+    && deferred.stayed.armed && deferred.stayed.refetched >= 1
+    && !deferred.stayed.navigated && deferred.stayed.mark === 'SESSION'
+    && deferred.left.armed && !deferred.left.navigated && deferred.left.refetched === 0
     && deferred.left.mark === 'SESSION' && /v=klas/.test(deferred.left.hash)
     /* the failure UI is still there on return — err and retry — and only the
        promise that is no longer true is gone */
@@ -7618,20 +7636,25 @@ const evalSafe = async (pg, fn) => {
   ck('a JLS map with no geometry draws no colour key at all',
     !geoFail.bar && !/1/.test(geoFail.lbls), JSON.stringify({ bar: geoFail.bar, lbls: geoFail.lbls }));
   blockGeoChunk = false;
-  /* The retry reloads, because a failed module fetch is cached in the browser's
-     module map and a second import() of the same specifier never hits the
-     network (measured: 0 of 556 with the promise slot cleared). */
-  /* the press reloads, so the wait has to be for the navigation first: the
-     waitForFunction swallows the context-destroyed error and the evaluate after
-     it then raced the new document, aborting the run mid-file */
-  await Promise.all([
-    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null),
-    click('#jretry'),
-  ]);
+  /* The retry re-fetches in place. It used to reload, because a failed module
+     fetch is pinned in the browser's module map and a second import() of the
+     same specifier never hits the network — measured, 0 of 556 with the promise
+     slot cleared. The payload is a fetched asset now, so a press is an ordinary
+     re-request, and the navigation this block used to have to wait for does not
+     happen. That is asserted rather than assumed: a reload would take the
+     sentinel with it, so one is written before the press and read after. */
+  await page.evaluate(() => { window.__retryMark = 'HELD'; });
+  const navRetry = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 3000 })
+    .then(() => true).catch(() => false);
+  await click('#jretry');
   await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 })
     .catch(() => {});
   const retried = await page.evaluate(() => document.querySelectorAll('#map .jl').length);
-  ck('the retry genuinely re-fetches the chunk it failed on', retried === 556, String(retried));
+  const retryKept = await page.evaluate(() => window.__retryMark || 'GONE');
+  const retryNavigated = await navRetry;
+  ck('the retry genuinely re-fetches the payload it failed on, without reloading the page',
+    retried === 556 && retryKept === 'HELD' && retryNavigated === false,
+    JSON.stringify({ retried, retryKept, retryNavigated }));
   /* …and its OTHER branch, which shipped with no guard at all. The retry checks
      the network first: offline it must render #joffline and arm a one-shot
      `online` listener instead of calling location.reload(), which offline
