@@ -161,8 +161,8 @@ export function loadRegGeo(speculative = false): Promise<void> {
    will resume by itself" is better served than one who is handed the same error
    again. `offline` is the answer the caller renders instead of a dead button,
    and what the deferral now resumes with is a re-fetch. */
-/* …and the deferred reload is disarmable, because it was armed for the rest of
-   the session and scoped to nothing. A reader offline in the JLS view presses
+/* …and the deferred re-fetch is disarmable, because when it was a deferred
+   RELOAD it was armed for the rest of the session and scoped to nothing. A reader offline in the JLS view presses
    the retry, goes back to Klasifikacija — which works completely offline,
    exports included — rebuilds a zoom transform and a per-view year window, and
    an hour later the connection returns and the document reloads under them,
@@ -213,11 +213,17 @@ function refetch(): Promise<void> {
    `navigator.onLine === false` is a reliable "no", and its `true` is worth
    almost nothing: it means an interface is up. Behind a captive portal, with
    DNS down, or on a network that answers the handshake and drops the request,
-   the flag reads true and the reload this function then performs replaces a
+   the flag reads true and the retry goes ahead into a request that cannot
+   succeed, so the reader presses the button and gets the same error back.
+   The probe is what makes the difference between that and the deferral, which
+   says the retry will resume by itself when the connection returns.
+   It mattered more than that once: when this function ended in
+   `location.reload()`, a true from the flag on a dead network replaced a
    working app — every view but this one renders and exports from the entry
-   bundle — with the browser's network-error page. That session loss is the
-   exact thing the offline branch exists to prevent, arriving through the branch
-   that is supposed to be the safe one.
+   bundle — with the browser's network-error page, so the safe branch was the
+   one that lost the session. The payload is fetched rather than imported now
+   and the retry is a re-fetch, so that particular cliff is gone; the probe
+   stays because a request that is going to fail is still worth not making.
 
    So the flag is asked first, because a false is free and certain, and then the
    origin is asked whether it is actually reachable: a HEAD for a file that is
@@ -248,7 +254,7 @@ export async function retryGeo(): Promise<'reloading' | 'offline'> {
   await refetch();
   return 'reloading';
 }
-/** Drop a deferred reload that is no longer wanted. Safe to call when none is armed. */
+/** Drop a deferred re-fetch that is no longer wanted. Safe to call when none is armed. */
 export const cancelRetry = (): void => { disarmOnline?.(); };
 /** Whether one is armed. MapView renders the "it will resume by itself" notice
  *  from this rather than from a flag of its own, so the notice cannot outlive
