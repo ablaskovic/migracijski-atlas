@@ -213,8 +213,9 @@ token does nothing until the apex is submitted to hstspreload.org, which this
 repository cannot do, and leaving that list takes months.
 
 Caching is two rules, and neither of them is about the fonts: `/fonts/` for a week — which covers the two OFL licence texts, the only
-files in that directory — and the document `must-revalidate`. The eight woff2
-are bundled, so they ship as hashed `/assets/` outputs and take the platform's
+files in that directory — and the document `must-revalidate`. Every woff2 is
+bundled — ten of them now, since the two mono symbol subsets landed and made a
+count written when there were eight wrong — so they ship as hashed `/assets/` outputs and take the platform's
 own immutable default along with the JS and the CSS. There is deliberately no `/assets/` rule — a Vercel headers
 source matches the request path rather than the response, so one declared there
 stamped a year of `immutable` onto 404s as well. `verify.cjs`’s own server
