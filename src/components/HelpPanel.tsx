@@ -9,7 +9,8 @@ import {
 } from '../lib/credits.ts';
 import { D, KLAB, PAPER_KLAS_DIFF, PE_SPAN, fmtI, klasLab } from '../lib/metrics.ts';
 import {
-  ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE, REPO, sources,
+  APP_VERSION, ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE,
+  REPO, sources,
 } from '../lib/licences.ts';
 import { ANALYTICS_URL, ANALYTICS_VENDOR, privacyNote, privacyState } from '../lib/privacy.ts';
 import { L, NEWTAB, t, yrSpan } from '../lib/i18n.ts';
@@ -510,6 +511,10 @@ export default function HelpPanel({ S, setS }: { S: State; setS: (p: Patch) => v
         {` (© ${CODE_YEAR} `}<span lang="hr">{ATLAS_AUTHOR}</span>{' — '}
         <a className="paper-link" href={REPO} target="_blank" rel="noopener noreferrer"
           aria-label={`${L('Izvorni kod atlasa na GitHubu', 'The atlas source code on GitHub')}. ${NEWTAB()}`}>GitHub</a>
+        {/* …and WHICH build, beside the repository that would receive the report.
+            Rendered only when the stamp is there: under `vite dev` it is not, and
+            an empty ‘inačica ’ would be worse than the silence. */}
+        {APP_VERSION() && `${L(' · inačica ', ' · version ')}${APP_VERSION()}`}
         {')'}{L(', a fontovi pod ', ', and the fonts under ')}
         <b>{FONT_LICENCE}</b>
         {/* one link per copyright holder, each with a name of its own and the

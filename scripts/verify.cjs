@@ -206,7 +206,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 648;
+const EXPECTED_CHECKS = 649;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8857,8 +8857,13 @@ const evalSafe = async (pg, fn) => {
       document.querySelector('#helpBtn').click();
       await new Promise(r => setTimeout(r, 350));
       const g = window.__PAPER_KLAS;
+      const credit = [...document.querySelectorAll('#helpCard .help-p')]
+        .find(e => /GitHub/.test(e.textContent));
+      const vm = credit && credit.textContent.match(/(?:inačica|version)\s+([\d.]+)/);
       return { txt: [...document.querySelectorAll('#helpCard .help-p')].map(e => e.textContent)
         .find(t => /razlikuju od objavljenih|differ from the published/.test(t)) || '',
+      stamp: document.documentElement.getAttribute('data-v'),
+      ver: vm ? vm[1] : null,
       counts: g ? [g.gain.length, g.neu.length, g.loss.length] : null };
     });
   }
@@ -8868,6 +8873,37 @@ const evalSafe = async (pg, fn) => {
     && glSplit.en.txt.includes(`${glSplit.en.counts[0]} gaining, ${glSplit.en.counts[1]} neutral and ${glSplit.en.counts[2]} losing counties`)
     && !/sedam pobjednica|seven gaining/.test(glSplit.hr.txt + glSplit.en.txt),
     JSON.stringify({ counts: glSplit.hr.counts, hr: glSplit.hr.txt.slice(0, 60) }));
+
+  /* ── …and which build said it ──
+     The version was in the page all along and not for a human: stampVersion
+     writes package.json's number onto <html data-v> at build time, and the only
+     thing that had ever read it was smoke.cjs, over HTTP. A reader reporting
+     "the atlas draws X wrong" could not say which atlas.
+     Three copies are compared, because that is what makes the visible one
+     trustworthy: package.json (read off disk here), the stamp on <html>, and
+     the characters the glossary actually renders.
+     What it guards is the RENDERED clause, which is the copy with no other
+     guard: measured against a build of the previous commit, {hr: null, en:
+     null, stamp: "2.7.0"} — the stamp was correct and the reader still could
+     not see it, which is precisely the state this exists to end.
+     It does NOT guard the stamp going missing, and the first draft of this
+     comment claimed it did. Tried it: adding a space to index.html's root tag
+     so the plugin's anchor misses does not silently drop the attribute, it
+     fails the build — "stamp-version: <html lang=\"hr\"> not found in
+     index.html" — because vite.config already throws on it. package.json is
+     read here anyway, so the third copy costs nothing and says which number is
+     the source.
+     Both languages, because the clause is the one part of that line that is
+     translated (· inačica / · version) and a missing English arm would print the
+     Croatian word to an English reader. */
+  const pkgVer = (() => {
+    try { return JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')).version; }
+    catch { return null; }
+  })();
+  ck('the glossary tells the reader which build they are on, and it is this build',
+    !!pkgVer && glSplit.hr.ver === pkgVer && glSplit.en.ver === pkgVer
+    && glSplit.hr.stamp === pkgVer && glSplit.en.stamp === pkgVer,
+    JSON.stringify({ pkg: pkgVer, hr: glSplit.hr.ver, en: glSplit.en.ver, stamp: glSplit.hr.stamp }));
 
   /* ── the colour rule may not claim the opposite of the data ──
      the Boje paragraph explained the shared per-(flow×den×cum) domain with

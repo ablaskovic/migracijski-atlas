@@ -98,6 +98,25 @@ export const FONT_LICENCE = 'SIL OFL 1.1';
 export const ATLAS_AUTHOR = 'Ante Blašković';
 export const CODE_YEAR = '2026';
 export const REPO = 'https://github.com/ablaskovic/migracijski-atlas';
+/* Which build the reader is looking at, for the same reason the author is
+   named: a bug report about "the atlas" is not answerable without it, and the
+   page could not say. It was there all along, just not for a human —
+   vite.config's stampVersion plugin writes package.json's version onto
+   <html data-v> at build time, and the only thing that ever read it was
+   smoke.cjs, over HTTP.
+   Read from the stamp rather than imported from package.json, so this is not a
+   second copy that can drift: what the glossary prints and what the deploy
+   probe compares are the same characters from the same attribute. There is no
+   __APP_VERSION__ define and this does not add one; the entry chunk still
+   carries no version string, which smoke.cjs documents and a maintainer has
+   already once gone looking for.
+   Empty under `vite dev`: stampVersion is a transformIndexHtml, so it does not
+   run there and the attribute is absent. The caller omits the clause rather
+   than printing a bare ‘v’, which is also why this returns '' and not a
+   placeholder — a version the page invented would be worse than none. */
+export const APP_VERSION = (): string =>
+  (typeof document === 'undefined' ? ''
+    : document.documentElement.getAttribute('data-v') || '');
 /* Two copyright holders, so two files. One link for three families from two
    holders was both wrong and the reason public/fonts/OFL-Oswald.txt shipped with
    nothing on the site reaching it — OFL §2 requires the licence to travel with
