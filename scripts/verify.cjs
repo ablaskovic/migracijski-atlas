@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 644;
+const EXPECTED_CHECKS = 645;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8935,6 +8935,87 @@ const evalSafe = async (pg, fn) => {
     paintWork.jmap.jl === 556 && paintWork.jmap.fmt > 1000
     && paintWork.mx.jl === 0 && paintWork.mx.fmt < paintWork.jmap.fmt / 2,
     JSON.stringify(paintWork));
+
+  /* ── and the same counter, per HOVER, on the two grids ──
+     The press above is a rare event; a pointer crossing cells is the common one,
+     and nothing measured it. Both grids have been rebuilt whole by a hover in
+     living memory — the highlight was in the memo's dependency list, so moving
+     one cell re-derived every cell — and the fix for each is a dependency
+     change no assertion can see. A count is what can: this walks a real pointer
+     across twenty cells and divides.
+     Counted, not timed, for the reason the block above gives: a call count is
+     the same number on any machine. The budget is per CROSSING: measured here,
+     47 formatter calls a cell in Matrica and 104 in Godine, which is a hover
+     reading its own row and column. The ceiling is 150 — above both with room,
+     and far below what a hover that rebuilds the grid costs: the two defects
+     this idiom is borrowed from measured 371 and 467 a hover in Matrica and 644
+     in Godine, and every one of those is caught by a wide margin. Godine is the
+     larger number because its grid is 21×28 rather than 21×20.
+     One commit per crossing too, through the devtools hook React looks for. A
+     hover writes one piece of state (pairHl / yrHl), so one commit is what it
+     costs; two would mean a second render chasing the first. */
+  const hoverWork = {};
+  {
+    const pg = await watch(await browser.newPage());
+    await pinHr(pg);
+    await pg.setViewport({ width: 1440, height: 900 });
+    await pg.evaluateOnNewDocument(() => {
+      const g = Object.getOwnPropertyDescriptor(Intl.NumberFormat.prototype, 'format').get;
+      Object.defineProperty(Intl.NumberFormat.prototype, 'format', {
+        configurable: true,
+        get() {
+          const inner = g.call(this);
+          return function (...a) { window.__fmt = (window.__fmt || 0) + 1; return inner(...a); };
+        },
+      });
+      /* React looks for this global before it renders anything and calls
+         onCommitFiberRoot for every commit; a stub with the fields it probes is
+         enough, and it works against the production build. */
+      window.__commits = 0;
+      window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+        isDisabled: false, supportsFiber: true, renderers: new Map(),
+        inject() { return 1; }, onCommitFiberRoot() { window.__commits++; },
+        onCommitFiberUnmount() {}, onPostCommitFiberRoot() {},
+        on() {}, off() {}, sub() { return () => {}; },
+      };
+    });
+    for (const [k, h, sel] of [['mx', '#v=mx&y=2018&c=0&dir=out', '.mxc'],
+      ['yrs', '#v=yrs&c=0&y=2022', '.yrc']]) {
+      await pg.goto('about:blank');
+      await pg.goto(url + h, { waitUntil: 'domcontentloaded' });
+      await pg.waitForFunction(x => document.querySelectorAll(x).length > 100, { timeout: 20000 }, sel)
+        .catch(() => {});
+      await settle(2600);
+      const pts = await pg.evaluate(x => {
+        /* one row of cells, left to right — the crossing a reader makes */
+        const cells = [...document.querySelectorAll(x)]
+          .map(e => e.getBoundingClientRect())
+          .filter(r => r.width > 1 && r.height > 1)
+          .sort((a, b) => (a.top - b.top) || (a.left - b.left));
+        const row = cells.filter(r => Math.abs(r.top - cells[Math.floor(cells.length / 2)].top) < 1);
+        return (row.length >= 20 ? row : cells).slice(0, 20)
+          .map(r => [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)]);
+      }, sel);
+      await pg.mouse.move(pts[0][0], pts[0][1]);
+      await settle(250);
+      await pg.evaluate(() => { window.__fmt = 0; window.__commits = 0; });
+      for (const [x, y] of pts.slice(1)) { await pg.mouse.move(x, y); await settle(45); }
+      await settle(250);
+      hoverWork[k] = { moves: pts.length - 1, ...await pg.evaluate(() => ({
+        fmt: window.__fmt, commits: window.__commits,
+        hooked: typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object' })) };
+    }
+    await closePage(pg);
+  }
+  ck('a pointer crossing a grid reads its own row and column, not the whole grid',
+    ['mx', 'yrs'].every(k => {
+      const r = hoverWork[k];
+      /* the floors are what make the ceilings mean anything: a crossing that
+         formatted nothing, or committed nothing, measured nothing */
+      return r && r.hooked && r.moves === 19 && r.fmt > 0 && r.commits > 0
+        && r.fmt / r.moves <= 150 && r.commits / r.moves <= 2;
+    }),
+    JSON.stringify(hoverWork));
 
   /* ── a view that draws no map does not re-project one on every resize frame ──
      jds and rds beside it carry a view term; the county memo did not. Matrica
