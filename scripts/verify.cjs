@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 647;
+const EXPECTED_CHECKS = 648;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -13325,6 +13325,59 @@ const evalSafe = async (pg, fn) => {
       '.mxd[data-kf]:focus', '.yrc[data-kf]:focus', '.jl[data-kf]:focus']
       .every(s => String(kfRing.rule).includes(s)),
     JSON.stringify(kfRing));
+
+  /* …and the rule REACHES each element focus is actually handed to.
+     The clause above asserts five selector strings exist in the cascade. That is
+     not the same as the element the Escape landed on being matched by one of
+     them: a hand-back target outside every one of those selectors — a rail row,
+     a chip header, #story, #helpBtn — would get the marker and no rule, which is
+     what the marker is for. In Chromium the pixels cannot tell, because
+     :focus-visible paints the same ring there either way; the cascade can.
+     So each hand-back path this file already exercises is walked again, and the
+     element that ends up focused is tested against the [data-kf]:focus rules
+     with `:focus` stripped — it IS focused, so what is left to ask is whether a
+     selector reaches it.
+     This is the half of the Firefox case a Chrome-only suite can carry. The
+     other half — that Firefox really does leave :focus-visible false on these
+     paths — needs a Firefox binary, and this project installs Chrome only (its
+     ci/ lockfile pins puppeteer's Chrome download and nothing else; `launch({
+     browser: 'firefox' })` here reports "Could not find Firefox"). The
+     measurement that made the rule exist is recorded in index.css. */
+  const kfTargets = [];
+  for (const [what, hash, open, want] of [
+    ['citz chip', '#v=saldo&c=1&y=2024', '#citzHd', '#citzHd'],
+    ['county card', '#v=saldo&c=1&y=2024&s=HR-18', null, '.cnt[data-iso="HR-18"]'],
+    ['glossary', '#v=saldo&c=1&y=2024', '#helpBtn', '#helpBtn'],
+    ['age chip', '#v=saldo&c=1&y=2024', '#ageHd', '#ageHd'],
+  ]) {
+    await fresh(hash);
+    if (open) { await click(open); await settle(250); }
+    await page.keyboard.press('Escape');
+    await settle(250);
+    kfTargets.push({ what, ...await page.evaluate(w => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return { on: 'BODY', kf: false, matched: null };
+      const sels = [];
+      for (const sh of document.styleSheets) {
+        let rules; try { rules = sh.cssRules; } catch { continue; }
+        for (const r of rules) {
+          if (r.selectorText && /\[data-kf\]:focus/.test(r.selectorText)) sels.push(r.selectorText);
+        }
+      }
+      /* each comma-separated part, with :focus removed — the element is focused,
+         so what is being asked is whether a selector reaches it at all */
+      const parts = sels.join(',').split(',').map(x => x.trim().replace(/:focus/g, ''))
+        .filter(x => /\[data-kf\]/.test(x));
+      const hit = parts.filter(x => { try { return el.matches(x); } catch { return false; } });
+      return { on: el.id || el.getAttribute('data-iso') || String(el.className || el.tagName),
+        expected: !!document.querySelector(w) && document.querySelector(w) === el,
+        kf: el.hasAttribute('data-kf'), matched: hit.slice(0, 2), n: parts.length };
+    }, want) });
+  }
+  ck('every Escape hand-back lands on an element a [data-kf] rule actually reaches',
+    kfTargets.length === 4
+    && kfTargets.every(t => t.expected && t.kf && t.matched && t.matched.length >= 1),
+    JSON.stringify(kfTargets));
 
   /* ── and the SELECTION ring, on the same argument the focus ring settled ──
      It was `.cnt.sel{stroke:var(--acc)}` — a single teal line drawn as the
