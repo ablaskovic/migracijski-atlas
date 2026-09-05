@@ -449,10 +449,16 @@ const evalSafe = async (pg, fn) => {
        the page's by resource type, not by timing. The comment here used to claim
        the flag was "set only after a page has loaded, so the @font-face fetches
        at boot are untouched", and all three call sites armed it BEFORE the boot
-       they said it spared. Measured at 1440×900: a boot makes 22 woff2 requests,
-       16 of them resourceType 'font' — index.css's @font-face rules — and 6
-       'fetch', which are exportFonts' warm (8 since the symbol subsets landed —
-       woff2 is excluded from asset inlining so all eight stay files).
+       they said it spared. Measured at 1440×900 with the cache off, twice: a boot
+       makes 16 woff2 requests, 8 of them resourceType 'font' — index.css declares
+       22 @font-face rules but they name only 8 distinct files, and every one is
+       used — and 8 'fetch', which are exportFonts' warm, one per imported face
+       (woff2 is excluded from asset inlining, so all eight stay files rather
+       than becoming data: URIs in the entry chunk). The figures here read 22
+       and 16 and 6 until this was re-measured: 6 'fetch' predated the two symbol
+       subsets, a parenthetical revised that half to 8 without moving the total,
+       and the 'font' half had meanwhile halved. Three numbers, none of them
+       still true, and the arithmetic did not close either way.
        The unqualified test caught all of them,
        so the '404' arm rendered the page under test in the metric fallbacks
        rather than in the faces it ships.
