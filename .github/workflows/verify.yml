@@ -219,8 +219,19 @@ jobs:
 
   # The deployed origin, which the job above cannot see: it checks the commit it
   # was handed, and every question smoke asks is about what readers are actually
-  # served. No npm ci — smoke.cjs imports only node builtins and vercel.json —
-  # and no secrets, because it is GET-only.
+  # served. No secrets, because it is GET-only.
+  #
+  # It DOES build, though smoke.cjs itself imports only node builtins and
+  # vercel.json. Its sharpest check compares the deployed entry chunk against
+  # the one in ./dist, and ./dist is gitignored, so on a bare checkout
+  # localEntry() returns null and that check is false however healthy
+  # production is. Added without a build, this job was red on every run —
+  # including the runs where the deploy was perfect — which is the cry-wolf
+  # the exit-2 handling below exists to avoid, and it would have buried the one
+  # failure the job was written for under a permanent red. `npx vite build` and
+  # not `npm run build`: the bundle is all this job compares, and folding tsc
+  # and oxlint in would let a lint warning turn a question about production
+  # red. The verify job already runs both on every push.
   smoke:
     # deployment_status fires for preview deployments as well, hence the
     # environment filter; the schedule and a manual run always qualify.
@@ -239,6 +250,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22.12'
+      # --ignore-scripts for the reason the verify job uses it: nothing in this
+      # job needs a browser, and puppeteer's postinstall would fetch one.
+      - run: npm ci --ignore-scripts
+      - run: npx vite build
       # exit 1 is a real answer about the deploy and fails the job; exit 2 means
       # smoke could not reach the origin at all — DNS, a dropped packet, GitHub's
       # egress — which is not this repository's news and must not cry wolf every
