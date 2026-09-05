@@ -21,10 +21,18 @@ dist-test
 #
 # Vite auto-loads .env, .env.production and the rest from the project root and
 # INLINES every VITE_* value into the bundle — so a secret in one is not merely
-# committed, it is published in dist/assets/index-*.js. Nothing in src/ reads
-# import.meta.env today and no such file has ever been committed (history
-# scanned), which is exactly when to add the line: before the first one exists.
-# .env.example is exempted so a template can be checked in on purpose.
+# committed, it is published in dist/assets/index-*.js. No such file has ever
+# been committed (history scanned), which is exactly when to add the line:
+# before the first one exists. .env.example is exempted so a template can be
+# checked in on purpose.
+#
+# src/ reads exactly one VITE_* name, VITE_TEST_HOOKS (App.tsx and lib/credits.ts,
+# typed in vite-env.d.ts), and it does NOT come from a .env: vite.config.ts
+# `define`s it from the build mode, true for `--mode hooks` and false for the
+# plain build vercel.json runs. That is the point — the value that decides
+# whether the suite's window hooks exist has no file a maintainer could copy a
+# secret into beside it. This block said "nothing in src/ reads import.meta.env
+# today", which the commit that added the mode gate made false the same week.
 #
 # .vercel/project.json is written by `vercel link` and carries the org and
 # project ids; the CLI asks for it to be ignored, and the deploy here is on
