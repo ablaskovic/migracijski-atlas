@@ -57,15 +57,31 @@ function readOrigin() {
    recursed between the two forever: no stack overflow, since each hop is a fresh
    tick, just unbounded wall time and a growing chain of pending promises. */
 const TIMEOUT = 10000, MAXHOP = 3;
+/* Not every failure to finish is a failure to reach.
+   Everything this function rejects with used to leave by the same door — exit 2,
+   which CI annotates and passes, on the stated grounds that it means "DNS, a
+   dropped packet, GitHub's egress … not this repository's news". Three of the
+   rejections are the repository's news exactly: a redirect loop (this file's own
+   comment calls it "a routine consequence of adding a redirect rule to a domain
+   that already has an alias"), a Location header the URL parser cannot read, and
+   an idle timeout AFTER the socket connected — which the comment above calls "the
+   exact state a broken deploy leaves an apex in, which is the state this file
+   exists for". Any of the three means every reader is getting nothing, and all
+   three reject before the first ck() runs, so the job would have gone green over
+   a site that was down for everyone.
+   They are tagged here and leave by exit 3. A DNS failure or a refused
+   connection — nobody home, or nobody home yet — still leaves by 2. */
+const originFault = m => Object.assign(new Error(m), { originFault: true });
 function get(url, hop = 0) {
   return new Promise((resolve, reject) => {
+    let connected = false;
     const req = (url.startsWith('https:') ? https : http).get(url, {
       headers: { 'user-agent': 'migracijski-atlas-smoke' }, timeout: TIMEOUT,
     }, res => {
       res.on('error', reject);
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        if (hop >= MAXHOP) { reject(new Error(`more than ${MAXHOP} redirects, last hop ${url}`)); return; }
+        if (hop >= MAXHOP) { reject(originFault(`more than ${MAXHOP} redirects, last hop ${url}`)); return; }
         /* `new URL(…)` throws a TypeError for a Location the parser cannot make
            sense of, and a throw inside a 'response' callback is an
            uncaughtException — outside this promise, so the .catch() at the
@@ -75,7 +91,7 @@ function get(url, hop = 0) {
            which is the whole output of this file. Rejecting keeps it. */
         let next;
         try { next = new URL(res.headers.location, url).href; }
-        catch { reject(new Error(`unparsable Location "${String(res.headers.location).slice(0, 80)}" from ${url}`)); return; }
+        catch { reject(originFault(`unparsable Location "${String(res.headers.location).slice(0, 80)}" from ${url}`)); return; }
         resolve(get(next, hop + 1));
         return;
       }
@@ -85,7 +101,10 @@ function get(url, hop = 0) {
       res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'] || '',
         headers: res.headers, body }));
     });
-    req.on('timeout', () => req.destroy(new Error(`timeout after ${TIMEOUT / 1000}s: ${url}`)));
+    req.on('socket', sock => { if (sock.connecting) sock.once('connect', () => { connected = true; }); else connected = true; });
+    req.on('timeout', () => req.destroy(connected
+      ? originFault(`timeout after ${TIMEOUT / 1000}s with the socket connected: ${url}`)
+      : new Error(`timeout after ${TIMEOUT / 1000}s before connecting: ${url}`)));
     req.on('error', reject);
   });
 }
@@ -326,4 +345,14 @@ function localEntry() {
     console.log(`  ${ahead}\n  — the origin cannot be newer than what has been pushed, whatever the version says`);
   }
   process.exitCode = fails || short ? 1 : 0;
-})().catch(e => { console.error('smoke probe could not reach the origin: ' + e.message); process.exit(2); });
+})().catch(e => {
+  /* 3 = the origin answered and what it answered is broken; 1 = a check about
+     the deploy failed; 2 = smoke never got far enough to have an opinion. CI
+     downgrades 2 alone. */
+  if (e && e.originFault) {
+    console.error('the origin is reachable and misbehaving: ' + e.message);
+    process.exit(3);
+  }
+  console.error('smoke probe could not reach the origin: ' + e.message);
+  process.exit(2);
+});

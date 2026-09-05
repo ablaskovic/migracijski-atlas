@@ -254,10 +254,16 @@ jobs:
       # job needs a browser, and puppeteer's postinstall would fetch one.
       - run: npm ci --ignore-scripts
       - run: npx vite build
-      # exit 1 is a real answer about the deploy and fails the job; exit 2 means
-      # smoke could not reach the origin at all — DNS, a dropped packet, GitHub's
-      # egress — which is not this repository's news and must not cry wolf every
-      # morning. Annotated, not failed.
+      # exit 1 is a real answer about the deploy and fails the job. exit 3 is a
+      # real answer too: the origin answered and what it answered is broken — a
+      # redirect loop, an unreadable Location, a socket that connected and then
+      # went silent. Those reject before the first check runs, so they carry no
+      # ck() line, and they used to leave by the same exit 2 the downgrade below
+      # is for: the site could be down for every reader and this job green.
+      # exit 2 alone now means smoke never got far enough to have an opinion —
+      # DNS, a refused connection, GitHub's egress — which is not this
+      # repository's news and must not cry wolf every morning. Annotated, not
+      # failed; everything else fails.
       - name: smoke the deployed origin
         run: |
           set +e
