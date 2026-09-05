@@ -212,7 +212,14 @@ export default defineConfig(({ mode }) => ({
     // must stay their own lazy chunks, which is what the `geo_` exclusion below
     // is for — naming them here would pull them into the boot waterfall.
     // Sizes above are kB of 1000 where the build log prints them and KiB where
-    // this file measures dist; the two units are the reason the limit is 608.
+    // this file measures dist. The two units are why the limit is not 600 — but
+    // they do not give 608 either: 600 KiB is 614 kB, and the sentence here
+    // said the units "are the reason the limit is 608", which does not close.
+    // 608 is 614 minus a margin, 6.400 bytes of it (6,25 KiB), so the build
+    // WARNS before the suite FAILS rather than at the same instant. Measured:
+    // rollup warns above 608.000 bytes, verify.cjs fails at 600 * 1024 =
+    // 614.400. The entry is 195.585 bytes today, so both are far off; the
+    // margin is for the day they are not.
     rollupOptions: {
       output: {
         manualChunks: (id: string) => {
