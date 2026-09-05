@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 646;
+const EXPECTED_CHECKS = 647;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -12081,19 +12081,45 @@ const evalSafe = async (pg, fn) => {
     if (bad.length) enOrd.push(h + (openHelp ? ' +glossary' : '') + ' → ' + bad.slice(0, 2).join(' ; '));
     const dia = await page.evaluate(NAMES => {
       const DIA = /[čćžšđČĆŽŠĐ]/;
+      /* …and the words with no diacritic in them, which the letter test cannot
+         see: "saldo", "neto", "matrica", "regije", "tokovi", "godine" are
+         Croatian and ASCII. Word-boundary lookarounds over letters AND digits so
+         a match is a word rather than a fragment, and `\p{L}*` tails so an
+         inflected form is caught —  is ASCII-only and does not fire before
+         "županij". This one runs over the name attributes too, which the
+         diacritic test deliberately does not: a label carries place names by
+         design, and none of these words is one. */
+      const HRW = /(?<![\p{L}\p{N}])(godina|godine|županij\p{L}*|izmjereno|procjena|saldo|doseljen\p{L}*|odseljen\p{L}*|neto|koridor\p{L}*|klasifikacij\p{L}*|zemlje|tokovi|matrica|regije|odlasc\p{L}*|dolasc\p{L}*|preseljen\p{L}*|zatvori|nalaz\p{L}*)(?![\p{L}\p{N}])/iu;
       const out = [];
       const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       for (let n = w.nextNode(); n; n = w.nextNode()) {
         const t = (n.textContent || '').trim();
-        if (!t || !DIA.test(t)) continue;
         const el = n.parentElement;
-        if (!el || !el.getClientRects().length) continue;
+        if (!t || !el || !el.getClientRects().length) continue;
         const lg = el.closest('[lang]');
         if (lg && lg.getAttribute('lang') === 'hr') continue;
+        const hw = HRW.exec(t);
+        if (hw) { out.push((el.id || el.className || el.tagName) + ' word «' + hw[1] + '» in «' + t.slice(0, 40) + '»'); continue; }
+        if (!DIA.test(t)) continue;
         let rest = t;
         for (const nm of NAMES) rest = rest.split(nm).join('');
         if (!DIA.test(rest)) continue;
         out.push((el.id || el.className || el.tagName) + ' «' + t.slice(0, 44) + '»');
+      }
+      /* aria-valuetext with them: #spark is a role=slider and its spoken value
+         is that attribute, so a Croatian year there is read to an English
+         listener and to nobody else — the one string on the page whose only
+         audience is a screen reader. */
+      for (const el of document.querySelectorAll('[aria-label],[title],[aria-valuetext]')) {
+        if (el.closest('.paper-link, .help-cite, noscript')) continue;
+        const lg = el.closest('[lang]');
+        if (lg && lg.getAttribute('lang') === 'hr') continue;
+        for (const a of ['aria-label', 'title', 'aria-valuetext']) {
+          const v = el.getAttribute(a);
+          if (!v) continue;
+          const hw = HRW.exec(v);
+          if (hw) out.push(a + ' word «' + hw[1] + '» in «' + v.slice(0, 40) + '»');
+        }
       }
       return out;
     }, DIA_NAMES);
@@ -12134,6 +12160,51 @@ const evalSafe = async (pg, fn) => {
     enOrd.length === 0, enOrd.slice(0, 3).join(' | '));
   ck('no unannotated Croatian word survives into English, anywhere on the page',
     enDia.length === 0, enDia.slice(0, 3).join(' | '));
+
+  /* …and the mirror, which nothing asked at all. Every i18n check in this file
+     reads the ENGLISH page: the whole apparatus assumes the leak runs one way,
+     because English is the translation and Croatian is the original. It does not
+     — a string added in English and never given a Croatian half reads as
+     English to the reader the atlas is primarily for, and `L()` makes that a
+     one-character mistake. Same shape as the sweep above with the languages
+     swapped: a word list rather than a letter test, because English has no
+     letter Croatian lacks. `lang="en"` is exempt for the reason `lang="hr"` is
+     on the other side — index.html's no-JS half and the glossary's own English
+     annotations are marked, and marked is the correct state. */
+  const hrEn = [];
+  for (const [h, openHelp] of [['#v=saldo&c=1&y=2024&s=HR-18'], ['#v=klas&c=1&y=2024'],
+    ['#v=mx&y=2018&c=0&dir=net'], ['#v=flow&s=HR-21&pp=HR-01&dir=net&y=2018&c=0'],
+    ['#cz=1'], ['#ag=1'], ['#v=saldo&c=1&y=2024', true]]) {
+    await fresh(h);
+    if (openHelp) { await click('#helpBtn'); await settle(250); }
+    const bad = await page.evaluate(() => {
+      const ENW = /(?<![\p{L}\p{N}])(net|measured|estimate|county|counties|flows|year|years|cumulative|finding|close|internal|external)(?![\p{L}\p{N}])/iu;
+      const out = [];
+      const skip = el => !!(el && el.closest && el.closest('[lang="en"], .paper-link, .help-cite, noscript'));
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        const t = (n.textContent || '').trim();
+        const el = n.parentElement;
+        if (!t || !el || !el.getClientRects().length || skip(el)) continue;
+        const m = ENW.exec(t);
+        if (m) out.push((el.id || el.className || el.tagName) + ' «' + m[1] + '» in «' + t.slice(0, 40) + '»');
+      }
+      for (const el of document.querySelectorAll('[aria-label],[title],[aria-valuetext]')) {
+        if (skip(el)) continue;
+        for (const a of ['aria-label', 'title', 'aria-valuetext']) {
+          const v = el.getAttribute(a);
+          if (!v) continue;
+          const m = ENW.exec(v);
+          if (m) out.push(a + ' «' + m[1] + '» in «' + v.slice(0, 40) + '»');
+        }
+      }
+      return out;
+    });
+    if (bad.length) hrEn.push(h + (openHelp ? ' +glossary' : '') + ' → ' + bad.slice(0, 2).join(' ; '));
+    if (openHelp) { await page.evaluate(() => document.querySelector('#helpX')?.click()); await settle(200); }
+  }
+  ck('and no English word survives into Croatian either',
+    hrEn.length === 0, hrEn.slice(0, 3).join(' | '));
 
   /* The other half of the same problem: a Croatian place name inside a lang="en"
      document is voiced with English phonemes unless the element that carries it
