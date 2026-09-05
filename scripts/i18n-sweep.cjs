@@ -139,7 +139,9 @@ async function dynamicSweep(dist) {
   const jls = JSON.parse(fs.readFileSync(path.join(SRC, 'data/geo_jls.json'), 'utf8'));
   const NAMES = [...Object.values(raw.c).map(c => c.n),
     ...jls.features.map(f => String(f.properties.n || '')),
-    'Vinovrški', 'Maras', 'Županije', 'Državljanstvo']
+    /* the citation surnames only — see the same list in verify.cjs for why
+       Županije and Državljanstvo do not belong here */
+    'Vinovrški', 'Maras']
     .filter(n => /[čćžšđČĆŽŠĐ]/.test(n)).sort((a, b) => b.length - a.length);
 
   const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--lang=hr-HR'] });

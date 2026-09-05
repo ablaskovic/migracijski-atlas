@@ -12115,7 +12115,17 @@ const evalSafe = async (pg, fn) => {
     const jls = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/data/geo_jls.json'), 'utf8'));
     return [...Object.values(raw.c).map(c => c.n),
       ...jls.features.map(f => String(f.properties.n || '')),
-      'Vinovrški', 'Maras', 'Županije', 'Državljanstvo']
+      /* The citation surnames only. Županije and Državljanstvo were in this
+         list as "proper nouns the citation and the two chip panels carry", and
+         they are neither: every rendered occurrence of either is the Croatian
+         arm of an L() pair — CitzPanel.tsx:103, HelpPanel.tsx:549,
+         Legend.tsx:225, YearsView.tsx:400 — so neither can reach an English DOM
+         except as the leak this sweep exists to catch. Subtracting them
+         suppressed no false positive and blinded the check to a Croatian chip
+         header on the English page, which is the shape of the regression it was
+         written for. The county and JLS names below still cover every real
+         place name. */
+      'Vinovrški', 'Maras']
       .filter(n => /[čćžšđČĆŽŠĐ]/.test(n)).sort((a, b) => b.length - a.length);
   })();
   const enDia = [];
