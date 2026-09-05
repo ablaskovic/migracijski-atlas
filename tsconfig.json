@@ -23,8 +23,8 @@
        (42), MatrixView (30), Rail and MapView (26 each) and YearsView (23).
        The total moves whenever an indexed read is added — it read 397 for the
        part of this pass before two more arrived — so it is the distribution and
-       not the total that carries the argument: seven files hold three quarters
-       of it. It
+       not the total that carries the argument: those seven files hold 254 of
+       the 399, just under two thirds, in seven of the tree's 36 source files. It
        is the one flag that would catch an out-of-range year or county index, so
        it is worth having — but as a long-tail migration with its own commit
        series, not as a line here that turns the build red. The four above cost
