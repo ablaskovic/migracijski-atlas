@@ -3,14 +3,24 @@
    the raw DZS/Pitoski sources — "looks fine" is not a result). The final line
    prints the executed check count; every feature addition extends this file.
    Usage:
-     node scripts/verify.cjs dist          # serve ./dist and check the production build
+     node scripts/verify.cjs dist-test     # serve ./dist-test and check that build
      node scripts/verify.cjs http://...    # check an already-running server
-                                           # (vite preview, or the deployed origin —
+                                           # (vite preview --outDir dist-test —
                                            #  NOT `vite dev`: its analytics debug
                                            #  scripts come from va.vercel-scripts.com
                                            #  and it serves /src/main.tsx, so the
                                            #  third-party and entry-weight checks
                                            #  are red by construction there)
+   THE TARGET MUST BE THE HOOKS BUILD. Roughly forty checks call window.__exportPNG
+   / __exportSVG / __wrapText / __PAPER_KLAS to read what an export would contain,
+   and those four exist only in `vite build --mode hooks` — `npm run verify` makes
+   that build as dist-test. They used to be unconditional, so `… dist` and a run
+   against the deployed origin both worked; gating them off the deploy artefact
+   (which is the point: the reader's bundle must not carry them) took both of
+   those targets away, and this file kept `|| 'dist'` and said nothing, so the
+   plain build aborted mid-run with `window.__exportPNG is not a function` at
+   check 33 of 648. It is now the default, and a target without the hooks is
+   refused at boot with the command that makes one, rather than 600 checks later.
    Needs puppeteer: `npm i --no-save puppeteer@25.8.0` (not a default devDep, to spare the
    Chrome download — and --no-save so following this line does not write it back),
    or point PUPPETEER_PATH at an existing install. */
@@ -256,7 +266,7 @@ const evalSafe = async (pg, fn) => {
 };
 
 (async () => {
-  const arg = process.argv[2] || 'dist';
+  const arg = process.argv[2] || 'dist-test';
   let url = arg;
   /* URL mode was guaranteed red against every possible host, with failures that
      indicted the app rather than the harness: it skipped serve(), so the two
@@ -595,6 +605,28 @@ const evalSafe = async (pg, fn) => {
      here rather than fixed in place because fresh() is defined between the two
      points, and nothing touched the page in between. */
   await fresh('');
+
+  /* The four hooks, asked of the running page before anything depends on them.
+     The alternative is what this file used to do: reach check 33, call a
+     function that is not there, and abort the whole run out of the outer
+     handler with a message about `window.__exportPNG` that names neither the
+     cause nor the cure. This is not a ck() — a target that cannot answer the
+     questions is a harness fault, and a harness fault must not be reported as a
+     count of failed checks against a build that may be perfectly good. Exit 2,
+     the same code the missing-index.html guard above uses, and print the
+     command. Asked of the page rather than of the files on disk so URL mode is
+     covered by the same guard. */
+  const missing = await page.evaluate(() => ['__exportPNG', '__exportSVG', '__wrapText', '__PAPER_KLAS']
+    .filter(n => window[n] === undefined));
+  if (missing.length) {
+    console.error('this build has no test hooks (' + missing.join(', ') + ') — the suite'
+      + ' needs the `--mode hooks` build:');
+    console.error('  npx vite build --mode hooks --outDir dist-test --emptyOutDir');
+    console.error('or just `npm run verify`, which makes it.');
+    await browser.close();
+    if (srv) srv.close();
+    process.exit(2);
+  }
 
   /* ── geometry (winding-bug guards) ── */
   const geo = await page.evaluate(() => {
@@ -16017,7 +16049,14 @@ const evalSafe = async (pg, fn) => {
     return { tested: scan(arg), deployed: scan(path.resolve(__dirname, '../dist')), NAMES };
   })();
   ck('the suite’s window hooks are in the build it drives and in no other',
-    !!hookSplit.tested && hookSplit.tested.length === 4
+    /* Both halves read files off disk, so both are scoped to the mode that has
+       files: in URL mode `arg` is an http(s) URL, readdirSync throws on it and
+       scan() returns null, which made the left half unsatisfiable — a healthy
+       origin ended the run "1/648 CHECKS FAILED" for a fact about the harness.
+       The boot guard above has already proved the hooks are present there, by
+       asking the page instead of the directory; what is left here is the disk
+       comparison, and URL mode has no disk to compare. */
+    (URLMODE || (!!hookSplit.tested && hookSplit.tested.length === 4))
     /* the deploy artefact is only there when `npm run verify` built it — a run
        against a URL or a hand-made directory has nothing to compare */
     && (hookSplit.deployed === null || hookSplit.deployed.length === 0),
