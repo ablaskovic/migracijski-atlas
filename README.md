@@ -42,7 +42,7 @@ node scripts/i18n-sweep.cjs dist-test  # …and 114 states in both languages
 `scripts/i18n-sweep.cjs` is the bilingual sweep run by hand rather than by the
 suite: the suite asks the same questions over sixteen states and has half an
 hour of other work to do, this asks them over 57 states per language and over
-all 421 `L()` pairs in `src/`. The static half catches what a browser cannot —
+all 420 `L()` pairs in `src/`. The static half catches what a browser cannot —
 a pair whose two halves are identical, or that disagree about their named
 placeholders — and found the English short citation hardcoding a year the
 Croatian half read from a constant. Exit 1 on any finding.

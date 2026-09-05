@@ -60,6 +60,24 @@ function readArg(s, i) {
   return null;
 }
 
+/* Comments blanked before the scan, newlines kept so line numbers still point at
+   the source. Without this the scanner reads its own documentation: i18n.ts's
+   comment "everything else is written in place as L('…', '…')" parsed as a call
+   site, and because its two halves are the same ellipsis it also became the
+   first row printed under "identical halves" — a phantom at the head of the very
+   list a reader scans for translations that were never written. Measured: 421
+   pairs / 2 identical before, 420 / 1 after, the survivor being metrics.ts's
+   deliberate " %".
+   String literals are not tracked, so a // inside one would blank to the line
+   end. There is none in src/ today and the failure mode is a missed pair rather
+   than an invented one, which is the right way round for a tool whose output a
+   reader is asked to eyeball. */
+function blank(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
+    .replace(/\/\/[^\n]*/g, m => ' '.repeat(m.length));
+}
+
 function pairs() {
   const out = [];
   const walk = d => {
@@ -67,7 +85,7 @@ function pairs() {
       const p = path.join(d, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (!/\.tsx?$/.test(e.name)) continue;
-      const s = fs.readFileSync(p, 'utf8');
+      const s = blank(fs.readFileSync(p, 'utf8'));
       const rel = path.relative(ROOT, p).replace(/\\/g, '/');
       for (let i = 0; (i = s.indexOf('L(', i)) >= 0; i += 2) {
         /* `L(` and not `someL(` / `.L(` */
