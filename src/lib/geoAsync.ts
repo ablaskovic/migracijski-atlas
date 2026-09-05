@@ -80,13 +80,33 @@ export const geoStatus = (jm: boolean): string =>
    Kept per slot and mutable, so a real call joining an in-flight warm makes the
    outcome the reader's, while a warm nobody joined still says nothing. */
 let jlsSpec = false, regSpec = false;
+/* FETCHED, not imported.
+
+   `import('../data/geo_jls.json')` made the payload a JS chunk and put its
+   failure in the browser's MODULE MAP, where it is pinned: a second import() of
+   the same specifier resolves to the cached rejection without touching the
+   network, which is why the retry had to reload the whole document — and why
+   pressing it offline replaced a working app with Chrome's error page.
+   `new URL(…, import.meta.url)` gives the same content-hashed asset URL with
+   none of that. A failed fetch pins nothing, so the retry is a retry; the
+   payload is served as application/json rather than wrapped in a module, so
+   there is no chunk and no source map to drop; and the URL is still hashed and
+   still immutable, so the caching story is unchanged.
+   `cache: 'no-store'` ONLY on a retry — the happy path must take the immutable
+   cache, and a retry must not be answered by whatever failed last time. */
 function load<T>(
-  imp: () => Promise<{ default: unknown }>,
+  url: string,
   set: (v: T) => void,
   slot: 'jls' | 'reg',
+  retry = false,
 ): Promise<void> {
-  const p = imp().then(m => {
-    set(m.default as T);
+  const p = fetch(url, retry ? { cache: 'no-store' } : undefined).then(r => {
+    /* a 404 body parses as JSON just as happily as the payload does when the
+       server answers the SPA shell — the status is what says which */
+    if (!r.ok) throw new Error(String(r.status));
+    return r.json();
+  }).then(m => {
+    set(m as T);
     if (slot === 'jls') jlsErr = false; else regErr = false;
   }).catch(() => {
     if (slot === 'jls') { jlsP = null; if (!jlsSpec) jlsErr = true; }
@@ -95,42 +115,52 @@ function load<T>(
   return p;
 }
 
+/* The two payloads' own URLs. `new URL(specifier, import.meta.url)` is what
+   Vite rewrites into a hashed asset reference at build time — the same hashing
+   the chunks had, without the module semantics. */
+const JLS_URL = new URL('../data/geo_jls.json', import.meta.url).href;
+const REG_URL = new URL('../data/geo_regions5.json', import.meta.url).href;
+
 export function loadJlsGeo(speculative = false): Promise<void> {
   if (jls) return Promise.resolve();
   /* before the memo, so a real request that joins an in-flight warm clears the
      flag the warm set — the failure is now one a reader is waiting on */
   if (!speculative) jlsSpec = false;
-  if (!jlsP) { jlsSpec = speculative; jlsP = load<JlsGeo>(() => import('../data/geo_jls.json'), v => { jls = v; }, 'jls'); }
+  if (!jlsP) { jlsSpec = speculative; jlsP = load<JlsGeo>(JLS_URL, v => { jls = v; }, 'jls'); }
   return jlsP;
 }
 export function loadRegGeo(speculative = false): Promise<void> {
   if (reg) return Promise.resolve();
   if (!speculative) regSpec = false;
-  if (!regP) { regSpec = speculative; regP = load<RegGeo>(() => import('../data/geo_regions5.json'), v => { reg = v; }, 'reg'); }
+  if (!regP) { regSpec = speculative; regP = load<RegGeo>(REG_URL, v => { reg = v; }, 'reg'); }
   return regP;
 }
 /* Retry entry point for the error UI.
 
-   This reloads the document rather than re-calling `import()`, and that is not
-   laziness: a failed module fetch is recorded in the browser's *module map*, so
-   a second `import()` of the same specifier resolves to the cached rejection
-   without touching the network. Measured — clearing `jlsP` alone still returned
-   0 of 556 features. The whole view state lives in the hash, so a reload is the
-   only thing that genuinely re-fetches.
+   It used to reload the document, and that was not laziness: while the payload
+   was a module, a failed fetch was recorded in the browser's *module map*, so a
+   second `import()` of the same specifier resolved to the cached rejection
+   without touching the network — measured, clearing `jlsP` alone still returned
+   0 of 556 features. A reload was the only thing that genuinely re-fetched.
+   The payload is a fetched asset now (see `load` above), so nothing is pinned
+   and the retry is an ordinary re-request. Measured: with the payload failing,
+   a zoom of translate(-400,-106) scale(2) made by the reader, and the server
+   then healthy — one press clears #jerror, draws all 556 municipalities, makes
+   ZERO navigations, and leaves that transform exactly where it was. A reload
+   could not have restored it, because it is deliberately outside the hash.
 
-   But "a reload costs the user nothing" is only true while the connection is up,
-   and this button appears at the moment it is most likely to be down. Measured
-   with the network forced offline after first load: Saldo, Klasifikacija, Regije,
+   The offline branch stays, and so does the reason for it. Measured with the
+   network forced offline after first load: Saldo, Klasifikacija, Regije,
    Tokovi, Matrica and Godine all switch, render and export — a full PNG export
    offline returned successfully — with zero console errors and zero failed
-   requests, because everything except the two geometry chunks is already in the
-   entry bundle. Pressing retry there replaced that working app with Chrome's own
-   network-error page (url `chrome-error://chromewebdata/`), and took the zoom
-   transform and the per-view year memory with it — both deliberately outside the
-   hash, so a reload cannot restore them. The recovery control destroyed the
-   session in exactly the state it exists for.
-   So: reload when there is a network to reload over, and otherwise wait for one.
-   `offline` is the answer the caller renders instead of a dead button. */
+   requests, because everything except the two geometry payloads is already in
+   the entry bundle. Back when this reloaded, pressing retry there replaced that
+   working app with Chrome's own network-error page (url
+   `chrome-error://chromewebdata/`); it cannot do that now, but a request that
+   is going to fail is still worth not making, and a reader who is told "this
+   will resume by itself" is better served than one who is handed the same error
+   again. `offline` is the answer the caller renders instead of a dead button,
+   and what the deferral now resumes with is a re-fetch. */
 /* …and the deferred reload is disarmable, because it was armed for the rest of
    the session and scoped to nothing. A reader offline in the JLS view presses
    the retry, goes back to Klasifikacija — which works completely offline,
@@ -150,9 +180,33 @@ let disarmOnline: (() => void) | null = null;
 function armOnline(): 'offline' {
   disarmOnline?.();
   const ac = new AbortController();
-  window.addEventListener('online', () => location.reload(), { once: true, signal: ac.signal });
+  /* re-FETCH when the network returns, not reload. The reload was never the
+     point — it was the only way past a pinned module-map rejection, and there is
+     no module map now. Refetching keeps the zoom transform and the per-view year
+     memory, which are deliberately outside the hash and which a reload could not
+     restore: the loss this whole deferral was built to avoid is simply gone. */
+  window.addEventListener('online', () => { void refetch(); }, { once: true, signal: ac.signal });
   disarmOnline = () => { ac.abort(); disarmOnline = null; };
   return 'offline';
+}
+/* Clear whichever slot failed and ask for it again. The promise memo is what
+   makes a second call a no-op, so it is the thing to drop; the error flag goes
+   with it, so the view returns to "loading" rather than sitting on an error
+   while the request is in flight. */
+function refetch(): Promise<void> {
+  const jobs: Promise<void>[] = [];
+  if (jlsErr || (!jls && jlsP === null)) {
+    jlsErr = false; jlsP = null;
+    jobs.push(load<JlsGeo>(JLS_URL, v => { jls = v; }, 'jls', true));
+    jlsP = jobs[jobs.length - 1];
+  }
+  if (regErr || (!reg && regP === null)) {
+    regErr = false; regP = null;
+    jobs.push(load<RegGeo>(REG_URL, v => { reg = v; }, 'reg', true));
+    regP = jobs[jobs.length - 1];
+  }
+  subs.forEach(f => f());
+  return Promise.all(jobs).then(() => undefined);
 }
 /* REACHABILITY, not the OS flag.
 
@@ -188,7 +242,10 @@ async function reachable(): Promise<boolean> {
 export async function retryGeo(): Promise<'reloading' | 'offline'> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return armOnline();
   if (!(await reachable())) return armOnline();
-  location.reload();
+  /* 'reloading' is kept as the word the caller already renders against, and it
+     is still what the reader sees happen — the view goes back to loading and
+     comes back with the map. What it no longer means is `location.reload()`. */
+  await refetch();
   return 'reloading';
 }
 /** Drop a deferred reload that is no longer wanted. Safe to call when none is armed. */

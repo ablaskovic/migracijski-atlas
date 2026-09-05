@@ -118,7 +118,12 @@ const dropDataChunkMaps = {
      the thing doing the work, which is worse than doing nothing.
      `appdata` joins them: it is the same kind of chunk for the same reason —
      five JSON payloads with no statements to map, whose 168 kB map is the JSON
-     over again in sourcesContent. */
+     over again in sourcesContent.
+     The two geometry payloads have LEFT this list, because they are no longer
+     chunks: geoAsync fetches them as hashed .json assets, which have no module
+     wrapper and therefore no map to drop. The names stay in the pattern so a
+     revert to `import()` re-arms the rule rather than silently shipping 557 kB
+     of `"mappings": ""` again. */
   generateBundle(_opts: unknown, bundle: Record<string, { type: string }>) {
     const isData = (n: string) => /(?:geo_(?:jls|regions5)|appdata)-[\w-]+\.js$/.test(n);
     for (const name of Object.keys(bundle)) {

@@ -569,13 +569,13 @@ const evalSafe = async (pg, fn) => {
       if (!up) missed.push('mount ' + (h || '/'));
     }
     await settle(400);
-    /* geo_jls.json (464 kB) loads via a dynamic import() fired from a useEffect,
-       i.e. *after* networkidle0 can already have resolved — so every #v=jmap
-       check was racing the chunk against a fixed 400 ms. Wait on the condition
-       instead of on a stopwatch. */
+    /* geo_jls.json (464 kB) is fetched from a useEffect, i.e. *after*
+       networkidle0 can already have resolved — so every #v=jmap check was racing
+       the payload against a fixed 400 ms. Wait on the condition instead of on a
+       stopwatch. */
     if (/v=jmap/.test(h)) {
       /* `.catch`, like every other jmap wait in this file. Without it a loaded
-         box that misses 15 s on the 464 kB chunk rejected here, which killed the
+         box that misses 15 s on the 464 kB payload rejected here, which killed the
          whole run from inside a helper — a hard abort where a normal FAIL on the
          checks that follow is both truer and readable. */
       await page.waitForFunction(() => document.querySelectorAll('#map .jl').length === 556, { timeout: 15000 })
@@ -5670,8 +5670,16 @@ const evalSafe = async (pg, fn) => {
     const html = fs.existsSync(path.resolve(arg, 'index.html'))
       ? fs.readFileSync(path.resolve(arg, 'index.html'), 'utf8') : '';
     return {
-      jls: files.filter(f => /^geo_jls-.*\.js$/.test(f)).length,
-      reg: files.filter(f => /^geo_regions5-.*\.js$/.test(f)).length,
+      /* `.json`, not `.js`. The two payloads are fetched as hashed ASSETS now
+         rather than imported as modules — the change that made the retry a
+         retry instead of a page reload — so the file this looks for is the
+         payload itself. Still one hashed file each, still off the boot
+         waterfall, and now with no source map to drop. */
+      jls: files.filter(f => /^geo_jls-.*\.json$/.test(f)).length,
+      reg: files.filter(f => /^geo_regions5-.*\.json$/.test(f)).length,
+      /* and NOT as chunks any more, which is the other half of the same claim */
+      jlsChunk: files.filter(f => /^geo_jls-.*\.js$/.test(f)).length,
+      regChunk: files.filter(f => /^geo_regions5-.*\.js$/.test(f)).length,
       entry: files.filter(f => /^index-.*\.js$/.test(f)).length,
       inHtml: (html.match(/geo_(?:jls|regions5)/g) || []).length,
     };
@@ -5693,10 +5701,11 @@ const evalSafe = async (pg, fn) => {
       index: performance.getEntriesByType('resource')
         .filter(r => /\/assets\/index-.*\.js$/.test(r.name)).length };
   });
-  ck('geo_jls and geo_regions5 ship as their own chunks, and index.html pulls in neither',
+  ck('geo_jls and geo_regions5 ship as their own hashed files, and index.html pulls in neither',
     URLMODE
       ? geoWhen.index === 1 && geoWhen.g.length === 2
-      : geoArt.jls === 1 && geoArt.reg === 1 && geoArt.entry === 1 && geoArt.inHtml === 0,
+      : geoArt.jls === 1 && geoArt.reg === 1 && geoArt.entry === 1 && geoArt.inHtml === 0
+        && geoArt.jlsChunk === 0 && geoArt.regChunk === 0,
     JSON.stringify({ geoArt, index: geoWhen.index }));
   ck('and both arrive after the load event rather than in the boot waterfall',
     geoResp === 2 && geoWhen.g.length === 2 && geoWhen.g.every(x => x.after) && geoWhen.load > 0,

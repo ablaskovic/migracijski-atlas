@@ -1048,7 +1048,7 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
         <span className="labbtn labbtn-lane" aria-hidden="true">{L('Aa oznake', 'Aa labels')}</span>
       )}
       </div>
-      {/* The 475 KB municipal geometry is its own chunk, so "not here yet" and
+      {/* The 475 KB municipal geometry is its own file, so "not here yet" and
           "never arriving" are two different states and the view has to name
           both. It used to name neither: `jlsGeo()` returns null before the
           fetch *and* after it fails, so the loading placeholder was also the
@@ -1075,15 +1075,19 @@ export default function MapView({ S, setS, selectCounty, setHL, setJlsHl, resetS
             {!waiting ? null : (jm ? jlsFailed() : regFailed()) ? (
               <>
                 <span id="jerror">{geoStatus(jm)}</span>
-                {/* The retry reloads, which is the only thing that re-fetches a
-                    module the browser has cached a rejection for — but offline
-                    that replaces a working app (every view but this one still
-                    renders and exports from the entry bundle) with the browser's
-                    network-error page. retryGeo says which happened; here we
-                    only have to render the answer, and the listener it armed
-                    reloads by itself when the connection comes back. */}
-                {/* retryGeo probes the origin before reloading, so it is async;
-                    the bump is what re-renders the notice once it has decided. */}
+                {/* The retry re-FETCHES, in place. It used to reload, because a
+                    module the browser has cached a rejection for cannot be
+                    re-imported — and offline that replaced a working app (every
+                    view but this one still renders and exports from the entry
+                    bundle) with the browser's network-error page. The payload is
+                    a fetched asset now, so the press costs the reader nothing:
+                    their zoom and their per-view year memory, both deliberately
+                    outside the hash, survive it.
+                    retryGeo still probes the origin first, and still says which
+                    of the two happened, so an offline press is told it will
+                    resume by itself rather than handed the same error again.
+                    Async, so the bump is what re-renders the notice once it has
+                    decided. */}
                 <button id="jretry" onClick={() => { void retryGeo().then(() => bumpRetry(n => n + 1)); }}>
                   {L('Pokušaj ponovno', 'Try again')}</button>
                 {retryArmed() && <span id="joffline">{L('Nema mreže — nastavit će se automatski kad se veza vrati.',

@@ -106,7 +106,12 @@ build: every commit between two bumps stamps the same `data-v`, so a deploy
 hundreds of commits behind a single version still answers "current".
 
 The two large geometry payloads (`geo_jls.json` 475 kB, `geo_regions5.json` 68 kB)
-are their own chunks: the view that needs one fetches it on entry, and the other is
+are their own content-hashed **files**, fetched rather than imported as modules:
+a failed module import is pinned in the browser's module map, which is why the
+error UI's retry used to have to reload the whole document — and reloading took
+the reader's zoom and per-view year memory with it, both deliberately outside
+the hash. A fetch pins nothing, so the retry is a retry. The view that needs one
+fetches it on entry, and the other is
 warmed on a 1,5 s timer (skipped under Save-Data or 2g), so neither is ever on the
 first-paint path. Splitting them out keeps roughly two fifths of the transfer a
 first paint would otherwise carry off that path — on the v2.6.1 build, 46,9 % of
