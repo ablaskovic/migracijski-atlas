@@ -7354,8 +7354,14 @@ const evalSafe = async (pg, fn) => {
     await clickOn(pg, '#jretry');
     await settle(450);
     const armed = await pg.evaluate(() => !!document.querySelector('#joffline'));
-    const geoAtArm = geoReq;
     if (leave) { await clickOn(pg, '#segView button[data-v="klas"]'); await settle(550); }
+    /* the baseline is taken HERE, not at the press. Between the two, the retry's
+       own re-render re-runs MapView's load effect and issues a request of its
+       own — measured, one on each arm — which is the reader asking, not the
+       deferral firing. What this check is about is what happens when the
+       connection RETURNS, so the count starts at the last moment before it
+       does. */
+    const geoAtArm = geoReq;
     /* Armed BEFORE anything that can start the reload. setOfflineMode(false)
        fires the browser's own 'online' event, so on the stayed arm the reload
        can already be under way by the time the line below runs — arming after it
