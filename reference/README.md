@@ -37,7 +37,8 @@ behind metric-matched fallbacks, and `vercel.json`'s CSP names no font host.
 
 ## The cost of keeping them
 
-Every clone carries 592 kB it will never run. The alternative is to delete both and
+Every clone carries 598 kB (584 KiB) it will never run — 565.213 B of offline
+HTML and 32.520 B of handoff, this README not counted. The alternative is to delete both and
 point at a tag — but there is no tag for v4 (the repository has `v1.0.0` and `v2.0.0`,
 both of the React app, and the artifact arrived in the initial commit), so deleting
 them today would lose the record rather than move it. Tag the v4 artifact first if that
