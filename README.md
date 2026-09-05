@@ -194,8 +194,11 @@ HSTS (two years, all subdomains) and `Vary: Accept-Encoding`.
 `'unsafe-inline'` in `style-src` is not there for Vite's injected stylesheet
 alone, and it is not removable by tidying the components. Counted across six
 views: fifteen distinct inline-style shapes, and the largest by far is the rail
-— 123 rows a view, each with a `background` gradient, a `left` and a `width`
-computed from its own value. The legend and citizenship bars are the same
+— 123 such rows across those six views (21 in Saldo, Klasifikacija and Godine,
+one per county; 20 in Tokovi, Matrica and JLS), each with a `background`
+gradient, a `left` and a `width` computed from its own value. The figure read
+“123 rows a view”, which is the same count restated as a per-view one: no view
+renders more than 21, and the argument only needs the total. The legend and citizenship bars are the same
 shape, `--scrubh` and `--stageh` are custom properties React writes as inline
 styles by construction, and the tooltip's `font-weight:400` and the class tag's
 two colours round it out. Every one of them is data, not decoration: a class
