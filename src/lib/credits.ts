@@ -42,7 +42,15 @@ export const PAPER = {
      record and is quoted, not composed.
      A getter, so every existing PAPER.short read follows the toggle without
      changing. */
-  get short() { return L(`Maras i Vinovrški (${YEAR})`, 'Maras and Vinovrški (2026)'); },
+  /* Both halves from YEAR. The English hardcoded 2026 beside a Croatian half
+     that reads the constant, so a corrected year would have moved one language
+     and not the other — in a citation, which is the one string on the page that
+     must not drift. The Croatian keeps the ordinal dot the constant carries and
+     the English drops it, which is the only difference there ever was.
+     Found by scripts/i18n-sweep.cjs. */
+  get short() {
+    return L(`Maras i Vinovrški (${YEAR})`, `Maras and Vinovrški (${YEAR.replace('.', '')})`);
+  },
   journal: JOURNAL,
   /** Landing page — Hrčak, open access. */
   url: 'https://hrcak.srce.hr/349820',

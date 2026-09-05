@@ -35,7 +35,17 @@ npm i --no-save puppeteer@25.8.0   # once, for verification (see below)
 npm run verify       # typecheck + lint + build + 647-check suite (must pass)
 npm run smoke        # probe the DEPLOYED origin (network; not part of verify)
 node tools/regex-hunt.cjs   # regex literals that lost a backslash (also run by verify)
+node scripts/i18n-sweep.cjs            # every L() pair, statically (<1 s)
+node scripts/i18n-sweep.cjs dist-test  # …and 114 states in both languages
 ```
+
+`scripts/i18n-sweep.cjs` is the bilingual sweep run by hand rather than by the
+suite: the suite asks the same questions over sixteen states and has half an
+hour of other work to do, this asks them over 57 states per language and over
+all 421 `L()` pairs in `src/`. The static half catches what a browser cannot —
+a pair whose two halves are identical, or that disagree about their named
+placeholders — and found the English short citation hardcoding a year the
+Croatian half read from a constant. Exit 1 on any finding.
 
 `puppeteer` is deliberately **not** a default devDependency: it downloads
 ~170 MB of Chrome, which every fresh clone and every cold deploy would pay for a
