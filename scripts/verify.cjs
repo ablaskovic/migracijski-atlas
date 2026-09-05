@@ -3762,7 +3762,21 @@ const evalSafe = async (pg, fn) => {
      15,7 px cell.
      matchMedia is patched rather than emulated because puppeteer cannot serve
      the two pointer queries different answers, and that disagreement IS the
-     device. */
+     device.
+
+     And the patch's limit, stated so it is not mistaken for emulation. What it
+     changes is what JS SEES; the CSS engine still evaluates the real values, so
+     a rule written under `(pointer:fine) and (any-pointer:coarse)` is not
+     exercised by anything here. Chrome offers no way to fix that: CDP's
+     Emulation.setEmulatedMedia accepts `pointer` and `any-pointer` features
+     without error and ignores them — measured, matchMedia and layout unchanged
+     — and `hasTouch` flips both queries together, which is the one combination
+     a hybrid is not. Firefox can be driven into it
+     (ui.primaryPointerCapabilities=6 with ui.allPointerCapabilities=7), and
+     puppeteer speaks to Firefox through BiDi with this same harness, so the day
+     a rule depends on the hybrid LAYOUT rather than on the behaviour below, a
+     Firefox leg is what can test it. Everything this block asserts is JS
+     behaviour, which is exactly what the patch can carry. */
   const hybrid = await (async () => {
     const pg = await watch(await browser.newPage());
     await pinHr(pg);
