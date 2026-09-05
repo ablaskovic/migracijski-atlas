@@ -1819,7 +1819,24 @@ body.stage-collapsed .main{flex:none;height:420px}
    textual substitute: they are not decoration, they are the legend for ink the
    forced palette does not touch, so opting them out keeps the key and the map
    saying the same thing. Each gets a CanvasText edge so its box stays visible
-   against a forced background. Pressed states get a border, which survives. */
+   against a forced background. Pressed states get a border, which survives.
+
+   WHICH PALETTE THESE NUMBERS ARE. Every ratio in this block was taken under
+   Chrome's `forced-colors: active` emulation, and that emulation renders one
+   theme: High Contrast Black. Read out of it — Canvas #000000, CanvasText
+   #ffffff, Highlight #1aebff, HighlightText #000000, LinkText and VisitedText
+   #ffff00, GrayText #3ff23f, ButtonFace #000000, ButtonText #ffffff. So a
+   figure quoted against a BLACK Canvas is measured, and any figure for a light
+   HCM theme — the 4,45:1 below, for one — is arithmetic on a palette nothing
+   here can render. Both are stated as what they are, because the whole point of
+   this block is that it argues from measurements.
+
+   …and the same holds for what the SVG note below claims: `fill` is not forced,
+   which is why the five chart SVGs and the two grids' labels are checked
+   against this Canvas rather than assumed safe. A surface added later with a
+   `<text fill="var(--ink)">` inherits that problem and needs a rule here — see
+   the chart-contrast check in scripts/verify.cjs, which is what would catch it
+   at 4,5:1 for text and 3:1 for a series. */
 @media (forced-colors:active){
   .legend-bar,.legend-sw,.citz-rows .sw,.zbar span{forced-color-adjust:none}
   /* …and .zbar span with them. It was in the opt-out list and not in this one —
@@ -1827,10 +1844,12 @@ body.stage-collapsed .main{flex:none;height:420px}
      declared #1D4E89 at opacity .75 composites to rgb(22,59,103) over a black
      Canvas, which is 1,86:1 against that Canvas: below the 3:1 WCAG 1.4.11 asks
      of a graphical object carrying information, and black is what the default
-     High Contrast themes use. Its TRACK keeps a forced border, so the reader saw
-     an outlined empty box whose fill they could not locate the end of — the bar
-     read as 0 whatever its value. In a light HCM theme the same composite is
-     4,45:1, which is why this is specific to the black ones. An outline rather
+     High Contrast themes use — and is the one Chrome's emulation renders, so
+     the 1,86:1 above is measured. Its TRACK keeps a forced border, so the reader
+     saw an outlined empty box whose fill they could not locate the end of — the
+     bar read as 0 whatever its value. In a light HCM theme the same composite
+     computes to 4,45:1, which is arithmetic rather than a measurement and is
+     why this is specific to the black ones. An outline rather
      than a border: the fill’s width IS the datum, and a border would take 2 px
      off it. */
   .zbar span{outline:1px solid CanvasText;outline-offset:-1px}
