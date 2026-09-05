@@ -11285,6 +11285,21 @@ const evalSafe = async (pg, fn) => {
           ['IBM Plex Sans', 'Arial', 600, 'Saldo Klasifikacija Regije'],
           ['IBM Plex Mono', 'Courier New', 400, 'DZS tab. 7.4.1.–7.4.3. · OpenStreetMap ODbL · CC BY 4.0'],
           ['Oswald', 'Arial Narrow', 600, 'MIGRACIJSKI ATLAS ŽUPANIJA'],
+          /* …and a SHORT run of the kind the swap actually moves. The four above
+             are long prose or long caps, where one scalar fits well and a
+             per-label error averages out inside them. The strings that shift
+             visibly are the control labels, and index.css records what they cost
+             — +13,79 % on "SVG", +8,88 % "PNG", −6,61 % "Internal", mean 2,62 %
+             over the 43 captions against 0,005 % on the prose sample the scalar
+             was fitted to. Nothing measured that class; this string is it.
+             It is held to a BOUND rather than to "better than doing nothing",
+             because for short runs the fallback is NOT better and the stylesheet
+             says so outright — measured here, 0,0347 against raw Arial's 0,0252.
+             A single size-adjust cannot be both, and the guarantee the faces
+             actually make is about the long runs that dominate the shift. What
+             this clause is for is the OTHER direction: a change that widens the
+             short-label residue past what the CSS documents. */
+          ['IBM Plex Sans', 'Arial', 400, 'SVG PNG HR EN Kumulativno Internal Regije', 'short'],
         ];
         /* Whether the wrapped face exists on THIS machine, measured two ways
            that must agree: the font API's own answer, and whether the family
@@ -11292,8 +11307,9 @@ const evalSafe = async (pg, fn) => {
            `SENT` is a family that cannot exist, so it is what "no face" looks
            like. */
         const SENT = 'ZZ no such family 12345';
-        const out = cases.map(([real, loc, wt, s]) => ({
-          f: real + ' ' + wt,
+        const out = cases.map(([real, loc, wt, s, kind]) => ({
+          f: real + ' ' + wt + (kind ? ' (' + kind + ')' : ''),
+          kind: kind || 'long',
           fb: +Math.abs(w(real + ' Fallback', wt, s) / w(real, wt, s) - 1).toFixed(4),
           raw: +Math.abs(w(loc, wt, s) / w(real, wt, s) - 1).toFixed(4),
           /* the real webfont itself — self-hosted, so it must load everywhere */
@@ -11447,8 +11463,13 @@ const evalSafe = async (pg, fn) => {
      behaving exactly as documented. A face that resolved is held to the bar; a
      face that did not is skipped, and the detail line names it. */
   ck('and each fallback face is closer to its webfont’s width than doing nothing',
-    swap.widths.length === 4 && swap.widths.every(x => x.webfont)
-    && swap.widths.every(x => (x.loaded ? x.fb <= x.raw && x.fb < 0.02 : true)),
+    swap.widths.length === 5 && swap.widths.every(x => x.webfont)
+    && swap.widths.filter(x => x.kind === 'long')
+      .every(x => (x.loaded ? x.fb <= x.raw && x.fb < 0.02 : true))
+    /* the short-label case, held to the residue index.css documents rather than
+       to a promise the design does not make — see the note on that case */
+    && swap.widths.filter(x => x.kind === 'short')
+      .every(x => (x.loaded ? x.fb < 0.06 : true)),
     fbMode + ' ' + JSON.stringify(swap.widths));
 
   /* …and the RULES, not only their effect. Every clause above infers "this
