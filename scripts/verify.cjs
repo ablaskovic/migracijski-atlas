@@ -16072,7 +16072,7 @@ const evalSafe = async (pg, fn) => {
        The boot guard above has already proved the hooks are present there, by
        asking the page instead of the directory; what is left here is the disk
        comparison, and URL mode has no disk to compare. */
-    (URLMODE || (!!hookSplit.tested && hookSplit.tested.length === 4))
+    (URLMODE || (!!hookSplit.tested && hookSplit.tested.length === hookSplit.NAMES.length))
     /* the deploy artefact is only there when `npm run verify` built it — a run
        against a URL or a hand-made directory has nothing to compare */
     && (hookSplit.deployed === null || hookSplit.deployed.length === 0),
