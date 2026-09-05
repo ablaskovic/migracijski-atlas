@@ -114,8 +114,8 @@ the hash. A fetch pins nothing, so the retry is a retry. The view that needs one
 fetches it on entry, and the other is
 warmed on a 1,5 s timer (skipped under Save-Data or 2g), so neither is ever on the
 first-paint path. Splitting them out keeps roughly two fifths of the transfer a
-first paint would otherwise carry off that path — on the v2.6.1 build, 46,9 % of
-raw bytes and 40,5 % of the gzip a browser actually pulls. A proportion rather
+first paint would otherwise carry off that path — on the v2.7.0 build, 46,0 % of
+raw bytes and 39,8 % of the gzip a browser actually pulls. A proportion rather
 than a byte count, because the counts drift every time a line of source changes;
 “a little over half” was already under half when it replaced them — and the
 proportion is stamped with the build it was taken on, which is the discipline the
