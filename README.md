@@ -175,9 +175,14 @@ is no longer relocatable to a subpath — see the comment in
 [`vite.config.ts`](vite.config.ts).
 
 The headers block is the other half. `script-src 'self'` and `connect-src
-'self'` are why `index.html` carries no inline script and why nothing in the app
-talks to a third-party origin — a CDN snippet, a Google-Fonts `<link>` or an
-inline `<script>` is blocked in production, not merely discouraged. The rest is
+'self'` are why `index.html` carries no inline script it could *execute* and why
+nothing in the app talks to a third-party origin — a CDN snippet, a
+Google-Fonts `<link>` or an inline `<script>` is blocked in production, not
+merely discouraged. The one `<script>` in the document is the
+`type="application/ld+json"` block that gives a shared link its unfurl card:
+`script-src` does not gate a data block, so it costs the policy nothing — but
+this paragraph said "no inline script" flatly for the day between that block
+landing and this sentence being corrected. The rest is
 `default-src 'self'`, `style-src 'self' 'unsafe-inline'`,
 `img-src 'self' data: blob:` (the PNG export goes through a blob URL),
 `font-src 'self' data:` (the faces are self-hosted, and the SVG export embeds
