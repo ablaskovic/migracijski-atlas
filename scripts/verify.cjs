@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 645;
+const EXPECTED_CHECKS = 646;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -9004,6 +9004,36 @@ const evalSafe = async (pg, fn) => {
       hoverWork[k] = { moves: pts.length - 1, ...await pg.evaluate(() => ({
         fmt: window.__fmt, commits: window.__commits,
         hooked: typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object' })) };
+      /* …and the KEYBOARD path, against a rebuild whose size is measured in the
+         same run rather than written down. An arrow press moves the roving cell,
+         which IS a memo dependency, so the grid rebuilds — once. What the two
+         hl-in-deps defects did was make it twice, and no count written into this
+         file can tell one rebuild from two across viewports: the cost per cell
+         changes with whether the cells are wide enough to print their values.
+         So a control that changes a dep and touches no focus — Smjer in Matrica,
+         Sastavnica in Godine — is pressed first, and what it costs IS one
+         rebuild. The arrow press is then compared to that. */
+      Object.assign(hoverWork[k], await pg.evaluate(async x => {
+        const grp = x === '.mxc' ? '#segDir' : '#segFlow';
+        const seg = document.querySelector(grp + ' button:not([aria-pressed="true"]):not(:disabled)');
+        if (!seg) return { rebuild: null };
+        window.__fmt = 0; window.__commits = 0;
+        seg.click();
+        await new Promise(z => setTimeout(z, 500));
+        const rebuild = window.__fmt;
+        const c = document.querySelector(x + '[tabindex="0"]');
+        if (!c) return { rebuild, arrow: null };
+        c.focus();
+        await new Promise(z => setTimeout(z, 250));
+        window.__fmt = 0; window.__commits = 0;
+        const N = 10;
+        for (let i = 0; i < N; i++) {
+          document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+          await new Promise(z => setTimeout(z, 60));
+        }
+        await new Promise(z => setTimeout(z, 300));
+        return { rebuild, arrow: window.__fmt / N, arrowCommits: window.__commits / N };
+      }, sel));
     }
     await closePage(pg);
   }
@@ -9016,6 +9046,15 @@ const evalSafe = async (pg, fn) => {
         && r.fmt / r.moves <= 150 && r.commits / r.moves <= 2;
     }),
     JSON.stringify(hoverWork));
+  ck('and an arrow press across it costs one rebuild, not two',
+    ['mx', 'yrs'].every(k => {
+      const r = hoverWork[k];
+      return r && r.rebuild > 100 && r.arrow > 0
+        /* 1,3 — measured, both grids sit at 1,01, and two rebuilds is 2,0 */
+        && r.arrow <= r.rebuild * 1.3 && r.arrowCommits <= 2;
+    }),
+    JSON.stringify(['mx', 'yrs'].map(k => [k, hoverWork[k].rebuild, hoverWork[k].arrow,
+      +(hoverWork[k].arrow / hoverWork[k].rebuild).toFixed(2), hoverWork[k].arrowCommits])));
 
   /* ── a view that draws no map does not re-project one on every resize frame ──
      jds and rds beside it carry a view term; the county memo did not. Matrica
