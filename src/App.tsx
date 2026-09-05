@@ -696,20 +696,32 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, [resetSeq]);
   useEffect(() => {
-    window.__exportPNG = dl => exportPNG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
-    window.__exportSVG = dl => exportSVG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
     /* Warm the export's font payload here rather than at the click: the SVG
        exporter is synchronous by contract, so the faces have to be in hand
        before anyone presses Izvoz. One same-origin request against an immutable
        cache, off the first-paint path. */
     ensureFonts().catch(() => { /* the figure names the families instead */ });
-    /* …and the wrapper, which no shipped string can reach the hard-break branch
-       of: the widest unbreakable token in the app is the 39-character DOI, and
-       it fits every canvas the exporter draws. So the only way to check that
-       guard is to call it — the same reason __PAPER_KLAS is exposed for the
-       split sentence. */
-    window.__wrapText = (txt, font, w) => wrapText(txt, font, () => w);
-    return () => { delete window.__exportPNG; delete window.__exportSVG; delete window.__wrapText; };
+    /* The three suite hooks, and ONLY in the build the suite drives.
+       They were installed for every visitor: three functions on `window` that
+       nothing on the page calls and nobody was promised. Not exploitable — same
+       origin only, and the CSP admits no foreign script — but public surface all
+       the same, and surface that exists is surface that has to keep working.
+       `npm run verify` builds with `--mode hooks`, which is the only thing that
+       makes this constant true; vercel.json's buildCommand is a plain
+       `vite build`, where it folds to `if (false)` and the minifier drops the
+       block. verify.cjs asserts the guard from this file's source, so the
+       deployed build cannot regain them without that check going red.
+       __wrapText is here because no shipped string can reach the wrapper's
+       hard-break branch — the widest unbreakable token in the app is the
+       39-character DOI, and it fits every canvas the exporter draws — so the
+       only way to check that guard is to call it. */
+    if (import.meta.env.VITE_TEST_HOOKS) {
+      window.__exportPNG = dl => exportPNG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
+      window.__exportSVG = dl => exportSVG(document.querySelector<SVGSVGElement>('#map')!, ref.current, dl);
+      window.__wrapText = (txt, font, w) => wrapText(txt, font, () => w);
+      return () => { delete window.__exportPNG; delete window.__exportSVG; delete window.__wrapText; };
+    }
+    return undefined;
   }, []);
   useEffect(() => { document.body.classList.toggle('panel-open', S.citz || S.jls || S.age || S.help); }, [S.citz, S.jls, S.age, S.help]);
   /* …and whether the stage still has room to exist. A reader who raises Chrome's

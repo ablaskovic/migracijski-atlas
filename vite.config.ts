@@ -143,7 +143,19 @@ const dropDataChunkMaps = {
 // deployed here used and which is what produced the defect. (Still NOT file://:
 // the entry is an ES module and a module fetched from a null origin is
 // CORS-blocked — measured, blank page, "blocked by CORS policy". Serve it.)
-export default defineConfig({
+/* A function, for `mode` alone. `vite build --mode hooks` is what
+   `npm run verify` uses to produce the artefact the suite drives; a plain
+   `vite build`, which is what vercel.json's buildCommand runs, gets `false` and
+   the four window.__* test hooks are dead code the minifier removes. Chosen over
+   an env var because it needs no cross-platform shim and no .env file — and
+   .env* is gitignored, so a file would have had to be exempted. */
+export default defineConfig(({ mode }) => ({
+  define: {
+    /* Vite only substitutes import.meta.env.VITE_* it finds in a .env file, so
+       the one this project uses is defined here instead. JSON so the value is a
+       boolean literal and the `if` around each hook folds away. */
+    'import.meta.env.VITE_TEST_HOOKS': JSON.stringify(mode === 'hooks'),
+  },
   plugins: [react(), dropDataChunkMaps, stampVersion, preloadFaces],
   base: '/',
   // Source maps are BUILT and not advertised. They were shipped with a
@@ -206,4 +218,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

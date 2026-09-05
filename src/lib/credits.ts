@@ -91,8 +91,11 @@ for (const k of ['gain', 'neu', 'loss'] as const)
 export const paperSplit = (): string =>
   `${PAPER_KLAS.gain.length} / ${PAPER_KLAS.neu.length} / ${PAPER_KLAS.loss.length}`;
 /* …and exposed so the suite can compare the sentence against the TABLE rather
-   than against a literal copy of it. One property, read-only, no behaviour. */
-if (typeof window !== 'undefined') {
+   than against a literal copy of it. One property, read-only, no behaviour —
+   and only in the build the suite drives: `vite build --mode hooks` is what
+   makes this constant true, and a plain build folds it to `if (false)`. See the
+   note by the three export hooks in App. */
+if (import.meta.env.VITE_TEST_HOOKS && typeof window !== 'undefined') {
   (window as unknown as { __PAPER_KLAS?: typeof PAPER_KLAS }).__PAPER_KLAS = PAPER_KLAS;
 }
 

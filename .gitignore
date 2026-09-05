@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+# the second build `npm run verify` makes: the same tree with the four suite
+# hooks compiled in (vite build --mode hooks). dist/ stays the deploy artefact,
+# which is what smoke.cjs compares against the origin.
+dist-test
 
 # Two things this project can produce that must never be committed, neither of
 # which the Vite template's `*.local` covers.

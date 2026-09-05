@@ -196,7 +196,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 643;
+const EXPECTED_CHECKS = 644;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -15649,6 +15649,42 @@ const evalSafe = async (pg, fn) => {
      documented check count below stays a constant. */
   ck('every control this run pressed was present, and every boot mounted the app',
     missed.length === 0, missed.slice(0, 4).join(' | '));
+
+  /* ── and the four suite hooks are not in the build that ships ──
+     window.__exportPNG, __exportSVG, __wrapText and credits' __PAPER_KLAS exist
+     for this file. They were installed for every visitor: four symbols on
+     `window` that nothing on the page calls and nobody was promised. Not
+     exploitable — same origin only, and the CSP admits no foreign script — but
+     surface that exists is surface that has to keep working.
+     They are behind `import.meta.env.VITE_TEST_HOOKS` now, which vite.config
+     defines from the build MODE: true only for `--mode hooks`, which is the
+     build this suite is handed, and false for the plain `vite build` that
+     vercel.json names as its buildCommand, where the minifier drops the blocks.
+     Asserted on the two artefacts rather than on the source, because what ships
+     is a file and not an intention: `npm run verify` produces both, and this
+     reads the deploy one off disk. Both halves, so "the hooks are gone" cannot
+     pass by their having gone from everywhere. */
+  const hookSplit = (() => {
+    const NAMES = ['__exportPNG', '__exportSVG', '__wrapText', '__PAPER_KLAS'];
+    const scan = dir => {
+      try {
+        const a = path.join(dir, 'assets');
+        const found = new Set();
+        for (const f of fs.readdirSync(a).filter(x => /\.js$/.test(x))) {
+          const src = fs.readFileSync(path.join(a, f), 'utf8');
+          for (const n of NAMES) if (src.includes(n)) found.add(n);
+        }
+        return [...found].sort();
+      } catch { return null; }
+    };
+    return { tested: scan(arg), deployed: scan(path.resolve(__dirname, '../dist')), NAMES };
+  })();
+  ck('the suite’s window hooks are in the build it drives and in no other',
+    !!hookSplit.tested && hookSplit.tested.length === 4
+    /* the deploy artefact is only there when `npm run verify` built it — a run
+       against a URL or a hand-made directory has nothing to compare */
+    && (hookSplit.deployed === null || hookSplit.deployed.length === 0),
+    JSON.stringify({ tested: hookSplit.tested, deployed: hookSplit.deployed }));
 
   /* ── and no regex in the tree lost a backslash ──
      Twice a working regex reached HEAD meaning something else, because the shell

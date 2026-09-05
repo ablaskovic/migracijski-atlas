@@ -32,7 +32,7 @@ npm run build        # production build -> dist/ (serve it — the entry is an E
 npm run lint         # oxlint
 npm run typecheck    # tsc --noEmit (strict)
 npm i --no-save puppeteer@25.8.0   # once, for verification (see below)
-npm run verify       # typecheck + lint + build + 643-check suite (must pass)
+npm run verify       # typecheck + lint + build + 644-check suite (must pass)
 npm run smoke        # probe the DEPLOYED origin (network; not part of verify)
 node tools/regex-hunt.cjs   # regex literals that lost a backslash (also run by verify)
 ```
@@ -56,6 +56,16 @@ is how it shipped the first time. A later `npm ci` removes it; repeat the line.
 The suite pins its own size — `EXPECTED_CHECKS` in `scripts/verify.cjs` — so a
 deleted check is a failure rather than a quieter green run. The number above is
 the one that file runs; if the two disagree, the file is right.
+
+`npm run verify` builds **twice**: a plain `vite build` into `dist/`, which is
+the deploy artefact and what `npm run smoke` compares against the origin, and a
+`vite build --mode hooks` into `dist-test/`, which is what the suite drives. The
+only difference is four `window.__*` functions the suite needs to reach the
+exporters and the wrapper's hard-break branch. They used to be installed for
+every visitor; `vite.config.ts` now defines `import.meta.env.VITE_TEST_HOOKS`
+from the build mode, so a plain build folds them to `if (false)` and the
+minifier drops them. A check reads both directories and fails if the deploy
+build carries any of the four, or if the tested build is missing one.
 
 `npm run verify` can only test the build it is handed, so all of its checks can
 be green while the origin readers actually reach serves something else — which
