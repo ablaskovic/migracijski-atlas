@@ -15029,9 +15029,17 @@ const evalSafe = async (pg, fn) => {
   /* ── M-17: Windows High Contrast blanks whatever decodes the map ── */
   /* puppeteer's own emulateMediaFeatures whitelist does not carry forced-colors,
      so this goes through CDP directly */
+  /* …with the colour scheme pinned beside it. The palette the emulation
+     renders follows prefers-color-scheme: Canvas #000 / CanvasText #fff on a
+     dark host, #fff / #000 on a light one. Measured here, where the OS theme is
+     dark, against ubuntu-latest, where CI runs this and the chart check below
+     read a white Canvas on all five of its boots while every other assertion
+     in the block passed. Every ratio in index.css's forced-colors block and in
+     this file was taken on the black palette, so that is the one every host is
+     asked to render. */
   const cdp = await page.createCDPSession();
-  const forced = on => cdp.send('Emulation.setEmulatedMedia',
-    { features: on ? [{ name: 'forced-colors', value: 'active' }] : [] });
+  const FORCED = [{ name: 'forced-colors', value: 'active' }, { name: 'prefers-color-scheme', value: 'dark' }];
+  const forced = on => cdp.send('Emulation.setEmulatedMedia', { features: on ? FORCED : [] });
   await forced(true);
   await fresh('#v=klas&c=1&y=2024');
   const fcKlas = await page.evaluate(() => {
@@ -15198,7 +15206,7 @@ const evalSafe = async (pg, fn) => {
   await page.setViewport({ width: 1440, height: 900 });
   const fcCdp = await page.createCDPSession().catch(() => null);
   const fcForced = async on => { if (fcCdp) await fcCdp.send('Emulation.setEmulatedMedia',
-    { features: on ? [{ name: 'forced-colors', value: 'active' }] : [] }); };
+    { features: on ? FORCED : [] }); };
   await fcForced(true).catch(() => {});
   for (const [hash, want] of [
     ['#v=saldo&c=1&y=2024&s=HR-21', ['#cardSvg .ints']],
@@ -15249,7 +15257,7 @@ const evalSafe = async (pg, fn) => {
           if (!els.length) { missing.push(sel); continue; }
           for (const e of els.slice(0, 3)) put(sel, '', getComputedStyle(e)[prop], 3);
         }
-        return { bg, seen, missing, bad: bad.slice(0, 4), nBad: bad.length };
+        return { bg, fc: matchMedia('(forced-colors: active)').matches, seen, missing, bad: bad.slice(0, 4), nBad: bad.length };
       })})(${JSON.stringify(want)})`) });
     } catch (e) {
       fcChart.push({ h: hash.slice(0, 26), err: String(e && e.message).slice(0, 90) });
@@ -15260,10 +15268,12 @@ const evalSafe = async (pg, fn) => {
   await page.setViewport({ width: 1440, height: 900 });
   ck('forced colors leaves no chart series or axis label below its contrast floor',
     fcChart.length === 5
-    /* a palette that did not take, or a boot with no marks in it, is not a pass */
-    && fcChart.every(r => r.bg === 'rgb(0, 0, 0)' && r.seen >= 10 && r.missing.length === 0)
+    /* a palette that did not take, or a boot with no marks in it, is not a pass.
+       `fc` is the emulation's own word that it took; the black Canvas is the
+       palette pinned at FORCED, the one every ratio here was measured on */
+    && fcChart.every(r => r.fc && r.bg === 'rgb(0, 0, 0)' && r.seen >= 10 && r.missing.length === 0)
     && fcChart.every(r => r.nBad === 0),
-    JSON.stringify(fcChart.filter(r => r.bg !== 'rgb(0, 0, 0)' || r.seen < 10
+    JSON.stringify(fcChart.filter(r => !r.fc || r.bg !== 'rgb(0, 0, 0)' || r.seen < 10
       || r.missing.length || r.nBad)) + ' n=' + fcChart.length);
 
   /* ── M-18: the differential stroke test exercised 2 of 9 documented selectors ──

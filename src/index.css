@@ -1822,13 +1822,16 @@ body.stage-collapsed .main{flex:none;height:420px}
    against a forced background. Pressed states get a border, which survives.
 
    WHICH PALETTE THESE NUMBERS ARE. Every ratio in this block was taken under
-   Chrome's `forced-colors: active` emulation, and that emulation renders one
-   theme: High Contrast Black. Read out of it — Canvas #000000, CanvasText
-   #ffffff, Highlight #1aebff, HighlightText #000000, LinkText and VisitedText
-   #ffff00, GrayText #3ff23f, ButtonFace #000000, ButtonText #ffffff. So a
-   figure quoted against a BLACK Canvas is measured, and any figure for a light
-   HCM theme — the 4,45:1 below, for one — is arithmetic on a palette nothing
-   here can render. Both are stated as what they are, because the whole point of
+   Chrome's `forced-colors: active` emulation, and that emulation renders the
+   palette of the colour scheme in force: High Contrast Black under a dark
+   scheme — which scripts/verify.cjs pins beside the emulation, because a
+   GitHub runner is light and rendered a white Canvas — and High Contrast
+   White under a light one. Read out of the black one — Canvas #000000,
+   CanvasText #ffffff, Highlight #1aebff, HighlightText #000000, LinkText and
+   VisitedText #ffff00, GrayText #3ff23f, ButtonFace #000000, ButtonText
+   #ffffff. So a figure quoted against a BLACK Canvas is measured, and any
+   figure for a light HCM theme — the 4,45:1 below, for one — is arithmetic on
+   a palette the suite does not measure. Both are stated as what they are, because the whole point of
    this block is that it argues from measurements.
 
    …and the same holds for what the SVG note below claims: `fill` is not forced,
@@ -1844,8 +1847,9 @@ body.stage-collapsed .main{flex:none;height:420px}
      declared #1D4E89 at opacity .75 composites to rgb(22,59,103) over a black
      Canvas, which is 1,86:1 against that Canvas: below the 3:1 WCAG 1.4.11 asks
      of a graphical object carrying information, and black is what the default
-     High Contrast themes use — and is the one Chrome's emulation renders, so
-     the 1,86:1 above is measured. Its TRACK keeps a forced border, so the reader
+     High Contrast themes use — and is the one Chrome's emulation renders under
+     the dark scheme the suite pins, so the 1,86:1 above is measured. Its TRACK
+     keeps a forced border, so the reader
      saw an outlined empty box whose fill they could not locate the end of — the
      bar read as 0 whatever its value. In a light HCM theme the same composite
      computes to 4,45:1, which is arithmetic rather than a measurement and is
@@ -1890,7 +1894,8 @@ body.stage-collapsed .main{flex:none;height:420px}
      forced. It fixed the two keys, the rail, the pressed states and the focus
      ring for that reason and left the five figures alone. Measured under
      forced-colors:active on the default High Contrast black palette (Canvas
-     #000, CanvasText #fff — the palette Chrome's emulation renders):
+     #000, CanvasText #fff — the palette Chrome's emulation renders under a
+     dark scheme, which the suite pins):
        #cardSvg  the "unutarnje (crta)" line   #20262B on #000   1,37:1
        #citzSvg  the Hrvatska group's 10 stacks #20262B           1,37:1
        #ageSvg   the internal-move bars, and "25–29"              1,37:1
