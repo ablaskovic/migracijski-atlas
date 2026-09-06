@@ -90,20 +90,20 @@ const HEADERS = (() => {
   } catch { return []; }
 })();
 /* …plus the one header the deploy sends that vercel.json does NOT declare:
-   the platform stamps its own year-long immutable Cache-Control on the hashed
-   build outputs it produced. That rule used to be written out in vercel.json as
-   `/assets/(.*)`, which matches the request PATH and not the response — so a
-   404 for a missing hashed asset shipped `public, max-age=31536000, immutable`
-   and Chrome cached it. Probed live: GET /assets/nema.js → 404 with that
-   header, while a non-matching path gets max-age=0, must-revalidate; and in
-   headless Chrome with the cache on, one transient 404 of the entry chunk
-   survived a reload and a fresh navigation — the app never mounted again, and
-   `public` lets a shared cache hand the same 404 to readers who never saw the
-   outage. The platform default applies to files that exist, which is the
-   difference that matters, so this server mirrors THAT rather than the pattern.
-   Applied only where a file was FOUND, which is the `found` argument below. */
-const ASSET_IMMUTABLE = { 'cache-control': 'public, max-age=31536000, immutable' };
-function policyFor(p, found = true) {
+   the platform's own default, `public, max-age=0, must-revalidate`, on every
+   response the rules above leave without a Cache-Control — hits and 404s
+   alike, probed live on the entry chunk and on a missing /assets/ path.
+   This used to stamp `public, max-age=31536000, immutable` on found /assets/
+   files instead, on the belief that the vite preset does that for the hashed
+   outputs it built once the `/assets/(.*)` rule was dropped (see the
+   missing-asset check for why it was: a headers source matches the request
+   PATH, so the rule stamped a year onto 404s and Chrome kept them). The preset
+   does no such thing — @vercel/frameworks declares no headers for vite — and
+   the deployed origin never sent immutable again, which smoke.cjs found the
+   first time it ran against a deploy without the rule. So this mirrors what
+   the deploy actually sends, and smoke.cjs asks the live origin the same. */
+const PLATFORM_DEFAULT = { 'cache-control': 'public, max-age=0, must-revalidate' };
+function policyFor(p) {
   const out = {};
   /* vercel.json's own path-matched headers apply to a response whatever its
      status: Vercel matches the request PATH. They were applied to 200s only
@@ -113,11 +113,7 @@ function policyFor(p, found = true) {
      vercel.json, which is exactly the regression that check exists to catch,
      and it would have gone on printing ok. */
   for (const h of HEADERS) if (h.test(p)) Object.assign(out, h.set);
-  /* …and this one is the platform stamping its own header on build outputs it
-     PRODUCED. That is a property of a file that exists, so it belongs to a 200
-     and must not reach a 404 — which is the whole distinction the check is
-     about. */
-  if (found && p.startsWith('/assets/')) Object.assign(out, ASSET_IMMUTABLE);
+  if (!out['cache-control']) Object.assign(out, PLATFORM_DEFAULT);
   return out;
 }
 
@@ -173,13 +169,13 @@ function serve(dir) {
           if (REWRITE && REWRITE.re.test(p)) {
             const idx = path.resolve(dir, '.' + REWRITE.to);
             fs.readFile(idx, (e2, d2) => {
-              if (e2) { notFound.push(p + ' → ' + REWRITE.to); res.writeHead(404, policyFor(p, false)); res.end('nope'); return; }
+              if (e2) { notFound.push(p + ' → ' + REWRITE.to); res.writeHead(404, policyFor(p)); res.end('nope'); return; }
               res.writeHead(200, { 'content-type': 'text/html', ...policyFor(p) });
               res.end(d2);
             });
             return;
           }
-          notFound.push(p); res.writeHead(404, policyFor(p, false)); res.end('nope'); return;
+          notFound.push(p); res.writeHead(404, policyFor(p)); res.end('nope'); return;
         }
         res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream', ...policyFor(p) });
         res.end(data);
@@ -15604,16 +15600,25 @@ const evalSafe = async (pg, fn) => {
      Accept-Encoding, which is why this was invisible from inside the platform.
      Declared in the block that reaches every path, so it is asserted here on
      the document and the asset alike; smoke.cjs asks the live origin. */
-  /* …and the immutable half is asserted only where it can be false. vercel.json
-     deliberately leaves the asset cache-control to the platform default, so
-     serve() stamps ASSET_IMMUTABLE on every /assets/ 200 itself — in dist mode,
-     the only mode `npm run verify` and CI run, that conjunct compared a string
-     this file had just written to itself. Nothing in the repo or the deploy
-     could have made it false. URL mode reads a real origin, and smoke.cjs asks
-     the live one; the three conjuncts that stay unconditional are the ones
-     vercel.json actually declares. */
-  ck('content-hashed assets are immutable, the document revalidates, and both declare their Vary',
-    (!URLMODE || /immutable/.test(assetHdr['cache-control'] || ''))
+  /* …and the asset half asserts what the deploy actually sends. vercel.json
+     deliberately leaves the asset Cache-Control to the platform, and the
+     platform's default is the same `public, max-age=0, must-revalidate` the
+     document gets — not the year-long immutable this expected in URL mode,
+     which the vite preset never stamps: probed live once a deploy without the
+     `/assets/(.*)` rule existed, and @vercel/frameworks declares no headers
+     for vite. A hashed asset is therefore revalidated on every navigation and
+     answered 304 by the edge, and a stale one can never be kept blind, which
+     is the trade the missing-asset check below chose. Both at once — a year
+     on files that exist and nothing on a miss — is not a vercel.json matter
+     at all but a Build Output API `handle: hit` route the build would have to
+     emit, the way Vercel's own Next builder stamps _next/static; measured
+     live, what it would save is two parallel edge round-trips per full load
+     and no bytes, so that pipeline change is not made here. serve() mirrors
+     the default, so in dist mode this can only go red if vercel.json gains an
+     asset rule that says otherwise — the same regression that check guards;
+     URL mode and smoke.cjs read the origin. */
+  ck('content-hashed assets and the document both revalidate, and both declare their Vary',
+    /must-revalidate/.test(assetHdr['cache-control'] || '')
     && /must-revalidate/.test(docHdr['cache-control'] || '')
     && /accept-encoding/i.test(docHdr.vary || '') && /accept-encoding/i.test(assetHdr.vary || ''),
     JSON.stringify({ mode: URLMODE ? 'url' : 'dist', asset: assetHdr['cache-control'],
@@ -15660,9 +15665,11 @@ const evalSafe = async (pg, fn) => {
      who never saw the outage. Route in: a rollback that purges the current chunk
      and a rollforward that re-mints the same URL, which this deploy's own
      history has done.
-     The rule is gone; the platform's built-in stamps the same header on the
-     hashed outputs it produced, which are files that exist, and serve() mirrors
-     that. smoke.cjs asserts the live asset still carries it. */
+     The rule is gone and nothing replaced it: the platform's default,
+     `public, max-age=0, must-revalidate`, covers hits and misses alike, so the
+     entry chunk is revalidated on every navigation — the check above — and a
+     404 is never cached blind. serve() mirrors that default; smoke.cjs asks
+     the live origin both questions. */
   const errsMiss = errors.length;
   const missAsset = await page.evaluate(async u => {
     const r = await fetch(new URL('/assets/verify-missing-cache.js', u));

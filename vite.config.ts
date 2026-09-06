@@ -202,8 +202,8 @@ export default defineConfig(({ mode }) => ({
     // …and three chunks instead of one, so a release does not re-send what did
     // not change. The entry carried react-dom, six d3 packages and ~165 kB of
     // static JSON along with the app code, and the app code is the only part
-    // that moves between releases — every deploy invalidated the whole 601 kB
-    // under a year-long immutable header. Split: entry 194 kB, vendor 243 kB,
+    // that moves between releases — every deploy re-sent the whole 601 kB under
+    // a new hash. Split: entry 194 kB, vendor 243 kB,
     // appdata 161 KiB. Measured on the built output: the three together gzip to
     // 191,6 KiB against the single chunk's 192,9, so a cold visit is not paying
     // for the split — and a returning reader after a release fetches 62,3 KiB

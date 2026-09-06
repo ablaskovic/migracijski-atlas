@@ -72,11 +72,11 @@ const TIMEOUT = 10000, MAXHOP = 3;
    They are tagged here and leave by exit 3. A DNS failure or a refused
    connection — nobody home, or nobody home yet — still leaves by 2. */
 const originFault = m => Object.assign(new Error(m), { originFault: true });
-function get(url, hop = 0) {
+function get(url, hop = 0, extra = {}) {
   return new Promise((resolve, reject) => {
     let connected = false;
     const req = (url.startsWith('https:') ? https : http).get(url, {
-      headers: { 'user-agent': 'migracijski-atlas-smoke' }, timeout: TIMEOUT,
+      headers: { 'user-agent': 'migracijski-atlas-smoke', ...extra }, timeout: TIMEOUT,
     }, res => {
       res.on('error', reject);
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -92,7 +92,7 @@ function get(url, hop = 0) {
         let next;
         try { next = new URL(res.headers.location, url).href; }
         catch { reject(originFault(`unparsable Location "${String(res.headers.location).slice(0, 80)}" from ${url}`)); return; }
-        resolve(get(next, hop + 1));
+        resolve(get(next, hop + 1, extra));
         return;
       }
       let body = '';
@@ -234,13 +234,29 @@ function localEntry() {
      failing, so a human would notice; that is a coincidence of the current
      wiring, not a guarantee, and the pin above makes it one. */
   if (served) {
-    const asset = await get(ORIGIN.replace(/\/$/, '') + served);
+    const assetUrl = ORIGIN.replace(/\/$/, '') + served;
+    const asset = await get(assetUrl);
     /* the status too: a 404 has headers and a body like any other response, and
        every assertion here was reading those without ever asking whether the
        fetch succeeded */
-    ck('content-hashed assets are served immutable',
-      asset.status === 200 && /immutable/.test(asset.headers['cache-control'] || ''),
-      asset.status + ' ' + (asset.headers['cache-control'] || 'absent'));
+    /* …and it revalidates rather than being cached blind. This asked for
+       `immutable`, on the belief that the platform stamps a year onto the hashed
+       outputs it built once the `/assets/(.*)` rule was dropped for the reason
+       the ghost check below records. It does not — the vite preset declares no
+       headers of its own — and the first deploy without the rule answered the
+       entry chunk with the same `public, max-age=0, must-revalidate` the
+       document gets, plus an ETag. So a repeat visit costs one conditional
+       round-trip per asset, answered 304 by the edge, and a stale chunk can
+       never be kept for a year. That is what is asked now, the 304 included:
+       a validator the edge ignored would re-download the bundle on every
+       navigation, which the header alone cannot reveal. */
+    const again = asset.headers.etag
+      ? await get(assetUrl, 0, { 'if-none-match': asset.headers.etag }) : null;
+    ck('content-hashed assets revalidate against the edge, and it answers 304',
+      asset.status === 200 && /no-cache|max-age=0/.test(asset.headers['cache-control'] || '')
+      && !!again && again.status === 304,
+      asset.status + ' ' + (asset.headers['cache-control'] || 'absent') + ' · etag '
+      + (asset.headers.etag || 'absent') + ' · again ' + (again ? again.status : 'skipped'));
     /* …and it says what it varies on. Asked for the same URL three times with
        Accept-Encoding identity / gzip / br, the origin returned three different
        bodies — 573.949 / 191.684 / 193.505 bytes for the entry chunk — and no
@@ -250,8 +266,8 @@ function localEntry() {
        may key on the URL alone, so a reader behind a TLS-inspecting corporate
        proxy — routine in the offices and universities this atlas is written for
        — can be handed a colleague's brotli bytes while announcing only gzip.
-       The filename is content-hashed and the entry is immutable, so nothing
-       invalidates it until the next deploy changes the hash. Vercel's own edge
+       The filename is content-hashed, so a wrong body a cache stored under it
+       sits there until the next deploy changes the hash. Vercel's own edge
        does key on Accept-Encoding, which is why the omission is invisible from
        inside the platform — and why it has to be asked here. */
     ck('negotiated responses declare what they vary on',
@@ -263,15 +279,16 @@ function localEntry() {
        immutable` — and Chrome cached it: one transient 404 of the entry chunk
        survived a reload and a fresh navigation, leaving a dead atlas for up to
        a year, with `public` letting a shared cache pass it to readers who never
-       saw the outage. The rule is gone and the platform default takes over,
-       which applies to files that exist. This is the only place that can be
-       observed, because it is a property of the deploy and not of the build. */
+       saw the outage. The rule is gone and the platform default takes over —
+       `public, max-age=0, must-revalidate`, on hits and misses alike. This is
+       the only place that can be observed, because it is a property of the
+       deploy and not of the build. */
     const ghost = await get(ORIGIN.replace(new RegExp('/$'), '') + '/assets/smoke-missing-cache.js');
     ck('a missing hashed asset is not cached for a year',
       ghost.status === 404 && !/immutable/.test(ghost.headers['cache-control'] || ''),
       ghost.status + ' ' + (ghost.headers['cache-control'] || 'absent'));
   } else {
-    for (const name of ['content-hashed assets are served immutable',
+    for (const name of ['content-hashed assets revalidate against the edge, and it answers 304',
       'negotiated responses declare what they vary on',
       'a missing hashed asset is not cached for a year']) {
       ck(name, false, 'no /assets/index-*.js in the served HTML — nothing to ask');

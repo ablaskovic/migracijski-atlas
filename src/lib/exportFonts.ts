@@ -13,8 +13,8 @@
    So the faces travel with the figure. Fetched at export time rather than
    imported, because a static import puts ~130 KB of base64 in the entry chunk
    for a feature most readers never use; fetched, it costs one same-origin
-   request against an immutable cache, and only when someone exports. App warms
-   it on mount so the click is instant.
+   request per face, a 304 from the edge on a warm visit. App warms it on mount
+   so the click is instant.
 
    Only the two families the exported document actually draws with: IBM Plex
    Mono at 400 and 500, and Oswald (one file per subset covers both weights it

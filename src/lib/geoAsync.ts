@@ -90,10 +90,12 @@ let jlsSpec = false, regSpec = false;
    `new URL(…, import.meta.url)` gives the same content-hashed asset URL with
    none of that. A failed fetch pins nothing, so the retry is a retry; the
    payload is served as application/json rather than wrapped in a module, so
-   there is no chunk and no source map to drop; and the URL is still hashed and
-   still immutable, so the caching story is unchanged.
-   `cache: 'no-store'` ONLY on a retry — the happy path must take the immutable
-   cache, and a retry must not be answered by whatever failed last time. */
+   there is no chunk and no source map to drop; and the URL is still hashed, so
+   the caching story is unchanged.
+   `cache: 'no-store'` ONLY on a retry — the happy path must take the browser
+   cache (a 304 from the edge on a warm visit, which is the deploy's default for
+   every hashed asset), and a retry must not be answered by whatever failed last
+   time. */
 function load<T>(
   url: string,
   set: (v: T) => void,

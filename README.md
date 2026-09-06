@@ -217,7 +217,8 @@ Caching is two rules, and neither of them is about the fonts: `/fonts/` for a we
 files in that directory — and the document `must-revalidate`. Every woff2 is
 bundled — ten of them now, since the two mono symbol subsets landed and made a
 count written when there were eight wrong — so they ship as hashed `/assets/` outputs and take the platform's
-own immutable default along with the JS and the CSS. There is deliberately no `/assets/` rule — a Vercel headers
+own default along with the JS and the CSS: `public, max-age=0, must-revalidate`, revalidated with an ETag and
+answered 304 by the edge, because the Vite preset stamps no `immutable` of its own. A year on files that exist and nothing on a miss would take a Build Output API `hit`-phase route emitted by the build, the way Vercel's Next builder does it; measured, revalidating costs two parallel edge round-trips per full load and no bytes, so that is not done. There is deliberately no `/assets/` rule — a Vercel headers
 source matches the request path rather than the response, so one declared there
 stamped a year of `immutable` onto 404s as well. `verify.cjs`’s own server
 applies these same headers, so the suite fails on a CSP the deploy would reject.

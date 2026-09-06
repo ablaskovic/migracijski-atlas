@@ -698,8 +698,8 @@ export default function App() {
   useEffect(() => {
     /* Warm the export's font payload here rather than at the click: the SVG
        exporter is synchronous by contract, so the faces have to be in hand
-       before anyone presses Izvoz. One same-origin request against an immutable
-       cache, off the first-paint path. */
+       before anyone presses Izvoz. One same-origin request per face — a 304
+       from the edge on a warm visit — off the first-paint path. */
     ensureFonts().catch(() => { /* the figure names the families instead */ });
     /* The three suite hooks, and ONLY in the build the suite drives.
        They were installed for every visitor: three functions on `window` that
