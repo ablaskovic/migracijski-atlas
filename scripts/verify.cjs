@@ -202,7 +202,7 @@ let browser = null, srv = null;
    come up. Module scope, and printed by finish() on the abort path. */
 let missed = [];
 /* pinned by the last check in the file; update deliberately, like the DOM contract */
-const EXPECTED_CHECKS = 649;
+const EXPECTED_CHECKS = 650;
 async function finish(code) {
   try { if (browser) await browser.close(); } catch { /* already gone */ }
   try { if (srv) srv.close(); } catch { /* already gone */ }
@@ -8893,6 +8893,10 @@ const evalSafe = async (pg, fn) => {
         .find(t => /razlikuju od objavljenih|differ from the published/.test(t)) || '',
       stamp: document.documentElement.getAttribute('data-v'),
       ver: vm ? vm[1] : null,
+      /* the header's small print ends in ` · v2.7.1`; textContent is read, so
+         the CSS upper-casing of that line does not reach the match */
+      hdVer: (((document.querySelector('.hd-eyebrow') || {}).textContent || '')
+        .match(/·\s*v([\d.]+)\s*$/) || [])[1] || null,
       counts: g ? [g.gain.length, g.neu.length, g.loss.length] : null };
     });
   }
@@ -8933,6 +8937,19 @@ const evalSafe = async (pg, fn) => {
     !!pkgVer && glSplit.hr.ver === pkgVer && glSplit.en.ver === pkgVer
     && glSplit.hr.stamp === pkgVer && glSplit.en.stamp === pkgVer,
     JSON.stringify({ pkg: pkgVer, hr: glSplit.hr.ver, en: glSplit.en.ver, stamp: glSplit.hr.stamp }));
+  /* …and the header's small print, which every reader sees without a click:
+     the eyebrow ends in ` · v2.7.1`, the same characters from the same
+     attribute, so the copies compared are package.json, the stamp, the
+     glossary and the eyebrow. It is the eyebrow rather than the footer because
+     the footer's credit sentence has 32 px of slack at 1440 in Croatian
+     against the 51 px the tag needs — measured, a footer clause cost a line
+     (75 → 88 px) and took the map box under the 560 px pinned further down.
+     Both languages, because the eyebrow is an L() pair and the tag is appended
+     outside it: an arm that lost the tag would print nothing rather than the
+     other language's word, which is why each is read. */
+  ck('and the header’s small print says it too, on the surface every reader sees',
+    !!pkgVer && glSplit.hr.hdVer === pkgVer && glSplit.en.hdVer === pkgVer,
+    JSON.stringify({ pkg: pkgVer, hr: glSplit.hr.hdVer, en: glSplit.en.hdVer }));
 
   /* ── the colour rule may not claim the opposite of the data ──
      the Boje paragraph explained the shared per-(flow×den×cum) domain with

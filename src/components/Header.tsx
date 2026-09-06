@@ -6,6 +6,7 @@ import { jlsGeo, regGeo } from '../lib/geoAsync.ts';
 import { StorySelect } from './StoryBar.tsx';
 import { EFF_FD, LOCK_FD, focusSoon } from '../lib/state.ts';
 import { PAPER, paperPending, paperSub } from '../lib/credits.ts';
+import { APP_VERSION } from '../lib/licences.ts';
 import { L, t, titleAlt, yrSpan } from '../lib/i18n.ts';
 import type { Patch, State, View } from '../lib/types.ts';
 
@@ -192,7 +193,26 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
     <header className="hd">
       <div>
         <div className="hd-eyebrow">{L(`DZS 7.4.2. ${yrSpan(Y0, YEND)} · tokovi: 2018. izmjereno · ostale godine IPF procjena`,
-          `CBS 7.4.2. ${yrSpan(Y0, YEND)} · flows: 2018 measured · other years IPF estimate`)}</div>
+          `CBS 7.4.2. ${yrSpan(Y0, YEND)} · flows: 2018 measured · other years IPF estimate`)}
+          {/* …and which build drew it, on the one surface every reader sees.
+              The glossary has said so since 8e361ea, one click away; a reader
+              reporting "the atlas draws X wrong" still had nothing to quote
+              without opening it. Here rather than in the footer, whose credit
+              sentence has 32 px of slack at 1440 in Croatian against the 51 px
+              this tag needs — measured, a footer clause cost a line (75 → 88 px)
+              and took the map box under the 560 the suite pins. The eyebrow
+              costs nothing: it is the widest thing in its column, so it widens
+              into the gap before the controls, and from 390 to 2560 px the
+              header height and every control position are unchanged in both
+              languages. At 360 and 320 px it takes a third line — 13 px of
+              header, inside what the phone first-screen check allows (53 px
+              of map visible at 320 against its 40 px floor). Under a 24 px
+              minimum font it wraps one line further at several widths, where
+              the header already wraps and the page scrolls. Language-neutral
+              on purpose: "v" reads in both, and the
+              line is upper-cased. Omitted under `vite dev`, where the stamp is
+              absent, for the reason APP_VERSION() gives. */}
+          {APP_VERSION() && ` · v${APP_VERSION()}`}</div>
         <div className="hd-titlerow">
           {/* data-alt is the title in the other language, reserved as a ghost so
               the switch beside it does not move when it is pressed — see

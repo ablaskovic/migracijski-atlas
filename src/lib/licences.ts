@@ -105,13 +105,14 @@ export const REPO = 'https://github.com/ablaskovic/migracijski-atlas';
    <html data-v> at build time, and the only thing that ever read it was
    smoke.cjs, over HTTP.
    Read from the stamp rather than imported from package.json, so this is not a
-   second copy that can drift: what the glossary prints and what the deploy
-   probe compares are the same characters from the same attribute. There is no
+   second copy that can drift: what the header's small print and the glossary
+   print and what the deploy probe compares are the same characters from the
+   same attribute. There is no
    __APP_VERSION__ define and this does not add one; the entry chunk still
    carries no version string, which smoke.cjs documents and a maintainer has
    already once gone looking for.
    Empty under `vite dev`: stampVersion is a transformIndexHtml, so it does not
-   run there and the attribute is absent. The caller omits the clause rather
+   run there and the attribute is absent. Both callers omit the clause rather
    than printing a bare ‘v’, which is also why this returns '' and not a
    placeholder — a version the page invented would be worse than none. */
 export const APP_VERSION = (): string =>
