@@ -7967,7 +7967,10 @@ const evalSafe = async (pg, fn) => {
         if (c) {
           const r = c.getBoundingClientRect();
           const key = Math.round(r.left) + 'x' + Math.round(r.width * 10) / 10;
-          if (key !== window.__frames[window.__frames.length - 1]) window.__frames.push(key);
+          const last = window.__frames[window.__frames.length - 1];
+          /* the loaded-face count beside each geometry, so a failure says which
+             state of the swap it caught */
+          if (!last || key !== last.k) window.__frames.push({ k: key, f: [...document.fonts].filter(x => x.status === 'loaded').length });
         }
         if (window.__frames.length < 40) requestAnimationFrame(tick);
       };
@@ -7979,8 +7982,38 @@ const evalSafe = async (pg, fn) => {
     firstPaint[k] = await pg.evaluate(() => window.__frames);
     await closePage(pg);
   }
-  ck('a grid view paints its cells once, at the geometry it keeps',
-    firstPaint.mx.length === 1 && firstPaint.yrs.length === 1,
+  /* …give or take the font swap. One geometry per view here, and on
+     ubuntu-latest — where CI runs this — Matrica went 461×18,5 → 463×18,4 in
+     the frame the real faces landed. The metric-matched fallbacks in index.css
+     are local('Arial'), local('Arial Narrow') and local('Courier New'); a
+     GitHub runner has none of them and falls through to its default face, so
+     there the swap re-lays out the header and footer line boxes — the stage
+     loses 2–3 px of height, and the cell is height-bound, 21 × 0,1 — and the
+     mono-text chip dock, which the placement in use subtracts from the lane.
+     The x shift is MatrixView's own centring of the grid in that lane, −9,5 px
+     per px of cell; the legend never moves, pinned at its 280 px max-width.
+     Godine is width-bound and blind to all of it, which is why only mx went
+     red. Reproduced here with the local() names broken and the woff2 held
+     back: 456×19 → 461×18,5 → 463×18,4, a fully-fallback first paint sitting
+     7–10 px left of the final with a cell 3–5 % larger. That residue is the
+     one the stylesheet already records as unfittable, and the floor paint this
+     exists to catch is 12 px cells at x=14 against 18,4 at 463, 7 px at x=2
+     against 25,7 at 414 — 450 px and a third of a cell away. So every geometry
+     recorded has to sit within 40 px and a quarter of a cell of the one the
+     grid keeps: four times the measured swap, a tenth of the floor paint. What
+     that bound cannot see is a legend box measured one frame late, which
+     would land 17 px left of the final; mutation-tested, the exact form of
+     this check never saw that either, because `drawn` flips after the size
+     effect and the legend effect has run by then. */
+  const nearLast = fr => {
+    const [fx, fw] = String((fr[fr.length - 1] || {}).k || '').split('x').map(Number);
+    return fr.length >= 1 && fr.every(({ k }) => {
+      const [x, w] = k.split('x').map(Number);
+      return Math.abs(x - fx) <= 40 && w >= 0.8 * fw && w <= 1.25 * fw;
+    });
+  };
+  ck('a grid view paints its cells at the geometry it keeps, within the font swap’s residue',
+    nearLast(firstPaint.mx) && nearLast(firstPaint.yrs),
     JSON.stringify(firstPaint));
 
   /* …and a pinch leaves no readout behind it. On a coarse pointer the two grids
