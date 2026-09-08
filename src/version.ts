@@ -15,7 +15,8 @@ export function versionHref(version: Version): string {
   url.searchParams.set('version', version);
   url.hash = '';
   try { url.hash = sessionStorage.getItem(`atlas-${version}-hash`) ?? ''; } catch { /* Storage is optional. */ }
-  return url.pathname + url.search + url.hash;
+  // A rewritten path may start with //; keep it a path on this origin.
+  return url.href;
 }
 
 export function rememberVersion(current: Version, next: Version) {

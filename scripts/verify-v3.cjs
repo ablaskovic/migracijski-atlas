@@ -163,6 +163,23 @@ const signed = (n, relative) => {
   check('v2 also retains its own analysis', await page.evaluate(() => location.hash) === v2Hash);
   await go('#v=saldo&c=0&y=2018');
   check('old shared links keep opening v2', await page.$('#map') !== null && await page.$('.v3-app') === null);
+  // Inspect links before clicking: a // path must never become a host name.
+  for (const route of ['/', '/atlas/en/saldo', '//outside.invalid/atlas/']) {
+    await page.goto(origin + route + '?version=v3&l=en' + v3Hash, { waitUntil: 'networkidle0' });
+    for (const next of ['v2', 'v3']) {
+      check(`version links stay on-origin at ${route} before switching to ${next}`, await page.$$eval(
+        '.atlas-version-switch a,.v3-footer-links a[href*="version=v2"]',
+        (links, pathname) => links.length >= 2 && links.every(a => {
+          const u = new URL(a.href);
+          return u.origin === location.origin && u.pathname === pathname && u.searchParams.get('l') === 'en';
+        }), route));
+      await navClick(`.atlas-version-switch a[href*="version=${next}"]`);
+      check(`switching to ${next} preserves ${route} and its saved analysis`, await page.evaluate(
+        (want, pathname, host, hash) => document.documentElement.dataset.atlasVersion === want
+          && location.origin === host && location.pathname === pathname && location.hash === hash,
+        next, route, origin, next === 'v2' ? v2Hash : v3Hash));
+    }
+  }
   await go('?version=v3&l=en');
   await click('.v3-header-actions>.v3-icon-button');
   await page.select('#v3-year', '20');
