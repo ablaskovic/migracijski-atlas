@@ -12,7 +12,7 @@ export default function TrendChart({ s, compact = false, onYear, flow }: Props) 
   const step = (w - left - right) / YEARS.length;
   const y = (n: number) => mid - n / max * (mid - top);
   const fmt = new Intl.NumberFormat(s.lang === 'hr' ? 'hr-HR' : 'en-GB', { notation: 'compact', maximumFractionDigits: 0 });
-  return <svg className={'v3-trend-chart' + (compact ? ' is-compact' : '')} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={s.lang === 'hr' ? 'Godišnji saldo od 1998. do 2025.' : 'Annual net change from 1998 to 2025'}>
+  return <svg className={'v3-trend-chart' + (compact ? ' is-compact' : '')} viewBox={`0 0 ${w} ${h}`} role={onYear ? 'group' : 'img'} aria-label={s.lang === 'hr' ? 'Godišnji saldo od 1998. do 2025.' : 'Annual net change from 1998 to 2025'}>
     <title>{series.map((n, i) => `${YEARS[i]}: ${n}`).join('; ')}</title>
     {[top, mid, bottom].map((y, i) => <g key={y}><line x1={left} x2={w - right} y1={y} y2={y} className="v3-chart-grid" />{!compact && <text x={left - 12} y={y + 4} textAnchor="end">{fmt.format(i === 0 ? max : i === 1 ? 0 : -max)}</text>}</g>)}
     {series.map((n, i) => <g key={YEARS[i]}>

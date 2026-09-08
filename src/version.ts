@@ -6,7 +6,7 @@ export function selectedVersion(): Version {
   // A non-empty legacy hash names a v2 analysis, regardless of saved preference.
   if (location.hash && !location.hash.startsWith('#explore=')) return 'v2';
   if (location.hash.startsWith('#explore=')) return 'v3';
-  try { if (localStorage.getItem('atlas-version') === 'v2') return 'v2'; } catch { /* Storage is optional. */ }
+  try { if (sessionStorage.getItem('atlas-version') === 'v2') return 'v2'; } catch { /* Storage is optional. */ }
   return 'v3';
 }
 
@@ -20,5 +20,5 @@ export function versionHref(version: Version): string {
 
 export function rememberVersion(current: Version, next: Version) {
   try { sessionStorage.setItem(`atlas-${current}-hash`, location.hash); } catch { /* Storage is optional. */ }
-  try { localStorage.setItem('atlas-version', next); } catch { /* Explicit URL still works. */ }
+  try { sessionStorage.setItem('atlas-version', next); } catch { /* Explicit URL still works. */ }
 }
