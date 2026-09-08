@@ -1,8 +1,18 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
-import './index.css';
+import { selectedVersion } from './version.ts';
+import VersionSwitch from './VersionSwitch.tsx';
+import './version.css';
+
+// A document navigation between versions keeps their styles and module-level
+// state isolated. Existing atlas permalinks continue to open the original app.
+const version = selectedVersion();
+document.documentElement.dataset['atlasVersion'] = version;
+const { default: App } = version === 'v2'
+  ? await import('./App.tsx')
+  : await import('./v3/AppV3.tsx');
+if (version === 'v2') await import('./index.css');
 
 /* The boundary is above <App/> rather than inside it, because what it exists to
    survive is App failing to render at all — see the note in ErrorBoundary. */
@@ -21,5 +31,5 @@ import './index.css';
    a state updater may be called twice for one dispatch.
    Below the boundary, so a render that throws is still caught by it. */
 createRoot(document.getElementById('root')!).render(
-  <ErrorBoundary><StrictMode><App /></StrictMode></ErrorBoundary>,
+  <ErrorBoundary><StrictMode><App />{version === 'v2' && <div className="atlas-classic-switch"><VersionSwitch version="v2" /></div>}</StrictMode></ErrorBoundary>,
 );
