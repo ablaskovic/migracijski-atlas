@@ -91,12 +91,16 @@ export default function AppV3() {
   }, [playing]);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 3500); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => {
-    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape' && !dialog.current?.open) { setPlaying(false); if (sharing) setSharing(false); else if (state.current.county) update({ county: null }); } };
+    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape' && !dialog.current?.open) { setPlaying(false); if (sharing) closeSharing(); else if (state.current.county) inspectCounty(null); } };
     window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape);
   }, [sharing]);
   async function share() {
     try { await navigator.clipboard.writeText(location.href); setNotice(L('Poveznica je kopirana.', 'Link copied to clipboard.')); }
     catch { setSharing(true); }
+  }
+  function closeSharing() {
+    setSharing(false);
+    requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.v3-share')?.focus());
   }
   function exportCSV() {
     const rows = s.view === 'flows' ? [
@@ -105,26 +109,29 @@ export default function AppV3() {
         const from = direction === 'in' ? iso : hub, to = direction === 'in' ? hub : iso;
         return [from, D[from].n, to, D[to].n, s.cum ? 2011 : YEARS[s.yi], YEARS[s.yi], flowOf(hub, direction, iso, s.yi, s.cum), estimated ? 'IPF estimate: 2018 structure scaled to CBS out-margins; in-margins approximate' : 'Measured 2018', 'Pitoski et al. 2021, CC BY 4.0, doi.org/10.1186/s40649-021-00093-0; DZS / CBS'];
       }),
+    ] : s.view === 'trends' ? [
+      ['County ISO', 'County', 'Year', 'Metric', 'Unit', 'Value', 'Source'],
+      ...ISOS.flatMap(iso => YEARS.map((year, yi) => [iso, D[iso].n, year, s.flow, s.relative ? '% of 2011 census' : 'people', value(iso, { ...s, yi, cum: false }), 'DZS / CBS: podaci.dzs.hr'])),
     ] : [
       ['County ISO', 'County', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source'],
       ...order.map(iso => [iso, D[iso].n, s.cum ? 2011 : YEARS[s.yi], YEARS[s.yi], s.flow, s.relative ? '% of 2011 census' : 'people', value(iso, s), 'DZS / CBS: podaci.dzs.hr']),
     ];
-    downloadFile('\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n'), 'text/csv;charset=utf-8', `atlas-${period}-${s.view === 'flows' ? `flows-${direction}` : s.flow}.csv`);
+    downloadFile('\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n'), 'text/csv;charset=utf-8', `atlas-${s.view === 'trends' ? `${YEARS[0]}-${YEARS[YEARS.length - 1]}` : period}-${s.view === 'flows' ? `flows-${direction}` : s.flow}.csv`);
     setNotice(L('Podaci su izvezeni u CSV.', 'Data exported as CSV.'));
   }
   function showAbout() { setPlaying(false); dialog.current?.showModal(); }
 
   function inspectCounty(county: string | null) {
-    const previous = s.county;
+    const previous = state.current.county, view = state.current.view;
     update({ county });
     requestAnimationFrame(() => {
-      const target = document.querySelector<HTMLElement | SVGElement>(s.view === 'flows' ? '.v3-hub-label select' : county ? '.v3-county-detail h2' : `[data-county="${previous}"]`);
+      const target = document.querySelector<HTMLElement | SVGElement>(view === 'flows' ? '.v3-hub-label select' : county ? '.v3-county-detail h2' : `[data-county="${previous}"]`);
       target?.focus({ preventScroll: true });
-      if (county && s.view !== 'flows' && window.matchMedia('(max-width:720px)').matches) document.querySelector('.v3-county-panel')?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth' });
+      if (county && view !== 'flows' && window.matchMedia('(max-width:720px)').matches) document.querySelector('.v3-county-panel')?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth' });
     });
   }
 
-  const timeline = <div className="v3-timeline"><button className="v3-play" aria-label={playing ? L('Zaustavi animaciju', 'Pause animation') : L('Pokreni animaciju godina', 'Play years')} aria-pressed={playing} onClick={() => { if (!playing && s.yi === YEARS.length - 1) update({ yi: s.cum ? IX2011 : 0 }); setPlaying(!playing); }}><Icon name={playing ? 'pause' : 'play'} size={17} /></button><div className="v3-year-input"><label htmlFor="v3-year">{L('GODINA', 'YEAR')}</label><select id="v3-year" value={s.yi} onChange={e => { setPlaying(false); update({ yi: Number(e.target.value) }); }}>{YEARS.map((y, i) => (!s.cum || i >= IX2011) && <option key={y} value={i}>{y}</option>)}</select></div><div className="v3-slider-wrap"><input aria-label={L('Odaberite godinu', 'Select year')} aria-valuetext={String(YEARS[s.yi])} type="range" min={s.cum ? IX2011 : 0} max={YEARS.length - 1} value={s.yi} onChange={e => { setPlaying(false); update({ yi: Number(e.target.value) }, true); }} style={{ '--progress': `${(s.yi - (s.cum ? IX2011 : 0)) / (YEARS.length - 1 - (s.cum ? IX2011 : 0)) * 100}%` } as CSSProperties} /><div className="v3-year-ticks"><span>{s.cum ? 2011 : YEARS[0]}</span><span>{s.cum ? 2015 : 2005}</span><span>{s.cum ? 2020 : 2015}</span><span>{YEARS[YEARS.length - 1]}</span></div></div><div className="v3-time-mode"><button aria-pressed={!s.cum} onClick={() => update({ cum: false })}>{L('Godišnje', 'Annual')}</button><button aria-pressed={s.cum} disabled={s.view === 'trends'} onClick={() => update({ cum: true })}>{L('Zbroj od 2011.', 'Total since 2011')}</button></div></div>;
+  const timeline = <div className="v3-timeline"><button className="v3-play" aria-label={playing ? L('Zaustavi animaciju', 'Pause animation') : L('Pokreni animaciju godina', 'Play years')} aria-pressed={playing} onClick={() => { if (!playing && s.yi === YEARS.length - 1) update({ yi: s.cum ? IX2011 : 0 }); setPlaying(!playing); }}><Icon name={playing ? 'pause' : 'play'} size={17} /></button><div className="v3-year-input"><label htmlFor="v3-year">{L('GODINA', 'YEAR')}</label><select id="v3-year" value={s.yi} onChange={e => { setPlaying(false); update({ yi: Number(e.target.value) }); }}>{YEARS.map((y, i) => (!s.cum || i >= IX2011) && <option key={y} value={i}>{y}</option>)}</select></div><div className="v3-slider-wrap"><input aria-label={L('Odaberite godinu', 'Select year')} aria-valuetext={String(YEARS[s.yi])} type="range" min={s.cum ? IX2011 : 0} max={YEARS.length - 1} value={s.yi} onChange={e => { setPlaying(false); update({ yi: Number(e.target.value) }, true); }} style={{ '--progress': `${(s.yi - (s.cum ? IX2011 : 0)) / (YEARS.length - 1 - (s.cum ? IX2011 : 0)) * 100}%` } as CSSProperties} /><div className="v3-year-ticks">{[s.cum ? 2011 : YEARS[0], s.cum ? 2015 : 2005, s.cum ? 2020 : 2015, YEARS[YEARS.length - 1]].map(y => <span key={y} style={{ left: `${(y - (s.cum ? 2011 : YEARS[0])) / (YEARS[YEARS.length - 1] - (s.cum ? 2011 : YEARS[0])) * 100}%` }}>{y}</span>)}</div></div><div className="v3-time-mode" role="group" aria-label={L('Vremensko razdoblje', 'Time window')}><button aria-pressed={!s.cum} onClick={() => update({ cum: false })}>{L('Godišnje', 'Annual')}</button><button aria-pressed={s.cum} disabled={s.view === 'trends'} onClick={() => update({ cum: true })}>{L('Zbroj od 2011.', 'Total since 2011')}</button></div></div>;
   const navLabels = [L('Karta', 'Map'), L('Trendovi', 'Trends'), L('Tokovi', 'Flows')];
   const viewIcon = (v: Explore) => v === 'map' ? 'map' as const : v === 'trends' ? 'trend' as const : 'flow' as const;
   return <div className="v3-app" style={{ '--ramp': ramp } as CSSProperties}>
@@ -133,7 +140,7 @@ export default function AppV3() {
       <a className="v3-brand" href="?version=v3" aria-label={L('Migracijski atlas — početni prikaz', 'Migration atlas — reset view')}><span className="v3-brand-symbol"><Icon name="map" size={25} /></span><span>{L('migracijski', 'migration')}<strong>atlas<span className="v3-brand-period">.</span></strong></span></a>
       <span className="v3-header-caption">{L('HRVATSKA', 'CROATIA')}<span />1998—2025</span>
       <div className="v3-header-actions"><VersionSwitch version="v3" />
-        <div className="v3-language" aria-label={L('Jezik', 'Language')}>{(['hr', 'en'] as const).map(l => <button key={l} aria-pressed={s.lang === l} onClick={() => { storeLang(l); update({ lang: l }); }}>{l.toUpperCase()}</button>)}</div>
+        <div className="v3-language" role="group" aria-label={L('Jezik', 'Language')}>{(['hr', 'en'] as const).map(l => <button key={l} aria-pressed={s.lang === l} onClick={() => { storeLang(l); update({ lang: l }); }}>{l.toUpperCase()}</button>)}</div>
         <button className="v3-icon-button" aria-label={light ? L('Tamni prikaz', 'Dark theme') : L('Svijetli prikaz', 'Light theme')} title={light ? L('Tamni prikaz', 'Dark theme') : L('Svijetli prikaz', 'Light theme')} onClick={() => setLight(!light)}><Icon name={light ? 'moon' : 'sun'} size={19} /></button>
         <button aria-label={L('Podijeli prikaz', 'Share this view')} className="v3-button v3-share" onClick={() => void share()}><Icon name="share" size={16} /><span>{L('Podijeli', 'Share')}</span></button>
       </div>
@@ -156,8 +163,8 @@ export default function AppV3() {
           <article className="v3-stat"><div className="v3-stat-label">{s.county ? L('Unutarnji migracijski saldo', 'Net internal migration') : L('Županije s pozitivnim saldom', 'Counties with net gains')}<Icon name="map" size={17} /></div><strong data-stat="counties">{s.county ? format(val(s.county, s.yi, 'int', 'abs', s.cum)) : <>{winners}<small> / 21</small></>}</strong><span>{s.county ? L('preseljenja između županija', 'moves between counties') : L('više doseljenih nego odseljenih', 'more arrivals than departures')}</span></article>
         </section>
         <section className="v3-workspace" aria-label={L('Istraživanje podataka', 'Explore the data')}>
-          <div className="v3-toolbar"><div className="v3-tabs">{(['map', 'trends', 'flows'] as const).map((v, i) => <button key={v} className={s.view === v ? 'is-active' : ''} aria-pressed={s.view === v} onClick={() => selectView(v)}><Icon name={viewIcon(v)} size={17} /><span className="v3-tab-long">{[L('Istraži kartu', 'Explore map'), L('Kroz godine', 'Through the years'), L('Migracijski tokovi', 'Migration flows')][i]}</span><span className="v3-tab-short">{navLabels[i]}</span></button>)}</div><button className="v3-export" onClick={exportCSV}><Icon name="download" size={16} />CSV</button></div>
-          <div className="v3-filters">{s.view === 'flows' ? <><span className={'v3-data-badge' + (estimated ? ' is-estimate' : '')}><span />{estimated ? L('IPF PROCJENA', 'IPF ESTIMATE') : L('IZMJERENO · 2018.', 'MEASURED · 2018')}</span><div className="v3-segment">{(['in', 'out'] as const).map(d => <button key={d} aria-pressed={direction === d} onClick={() => update({ dir: d })}>{d === 'in' ? L('Doseljavanje', 'Arrivals') : L('Odseljavanje', 'Departures')}</button>)}</div><label className="v3-hub-label">{L('Županija', 'County')}<select value={hub} onChange={e => update({ county: e.target.value })}>{ISOS.map(i => <option key={i} value={i}>{countyName(i, s.lang)}</option>)}</select></label></> : <><div className="v3-metrics" aria-label={L('Sastavnica', 'Component')}>{FLOWS.map(f => <button key={f} aria-pressed={s.flow === f} onClick={() => update({ flow: f })}>{metricNames[f]}</button>)}</div><label className="v3-unit"><span className="v3-sr">{L('Jedinica', 'Unit')}</span><select aria-label={L('Jedinica', 'Unit')} value={s.relative ? 'pct' : 'people'} onChange={e => update({ relative: e.target.value === 'pct' })}><option value="people">{L('Broj osoba', 'People')}</option><option value="pct">{L('% popisa 2011.', '% of 2011 census')}</option></select></label></>}</div>
+          <div className="v3-toolbar"><div className="v3-tabs" role="group" aria-label={L('Prikaz', 'View')}>{(['map', 'trends', 'flows'] as const).map((v, i) => <button key={v} className={s.view === v ? 'is-active' : ''} aria-pressed={s.view === v} onClick={() => selectView(v)}><Icon name={viewIcon(v)} size={17} /><span className="v3-tab-long">{[L('Istraži kartu', 'Explore map'), L('Kroz godine', 'Through the years'), L('Migracijski tokovi', 'Migration flows')][i]}</span><span className="v3-tab-short">{navLabels[i]}</span></button>)}</div><button className="v3-export" onClick={exportCSV}><Icon name="download" size={16} />CSV</button></div>
+          <div className="v3-filters">{s.view === 'flows' ? <><span className={'v3-data-badge' + (estimated ? ' is-estimate' : '')}><span />{estimated ? L('IPF PROCJENA', 'IPF ESTIMATE') : L('IZMJERENO · 2018.', 'MEASURED · 2018')}</span><div className="v3-segment" role="group" aria-label={L('Smjer migracija', 'Migration direction')}>{(['in', 'out'] as const).map(d => <button key={d} aria-pressed={direction === d} onClick={() => update({ dir: d })}>{d === 'in' ? L('Doseljavanje', 'Arrivals') : L('Odseljavanje', 'Departures')}</button>)}</div><label className="v3-hub-label">{L('Županija', 'County')}<select value={hub} onChange={e => update({ county: e.target.value })}>{ISOS.map(i => <option key={i} value={i}>{countyName(i, s.lang)}</option>)}</select></label></> : <><div className="v3-metrics" role="group" aria-label={L('Sastavnica', 'Component')}>{FLOWS.map(f => <button key={f} aria-pressed={s.flow === f} onClick={() => update({ flow: f })}>{metricNames[f]}</button>)}</div><label className="v3-unit"><span className="v3-sr">{L('Jedinica', 'Unit')}</span><select aria-label={L('Jedinica', 'Unit')} value={s.relative ? 'pct' : 'people'} onChange={e => update({ relative: e.target.value === 'pct' })}><option value="people">{L('Broj osoba', 'People')}</option><option value="pct">{L('% popisa 2011.', '% of 2011 census')}</option></select></label></>}</div>
           {s.view === 'trends' ? <div className="v3-trends-view"><div className="v3-section-heading"><div><span className="v3-eyebrow">1998—2025</span><h2>{s.county ? countyName(s.county, s.lang) : L('Kada se smjer promijenio?', 'When did the direction change?')}</h2><p>{s.county ? metricFull[s.flow] : L('Vanjski migracijski saldo Hrvatske', 'Croatia’s net external migration')} · {L('godišnji broj osoba', 'annual number of people')}</p></div>{s.county && <button className="v3-button" onClick={() => update({ county: null })}>{L('Cijela Hrvatska', 'All Croatia')}</button>}</div>
             <TrendChart s={s} onYear={yi => { setPlaying(false); update({ yi, cum: false }); }} />
             <div className="v3-section-heading"><div><h3>{L('Svaka županija. Svaka godina.', 'Every county. Every year.')}</h3><p>{metricFull[s.flow]} · {s.relative ? L('% stanovništva prema popisu 2011.', '% of 2011 census population') : L('godišnji broj osoba', 'annual number of people')} · {L('Odaberite ćeliju za detalje.', 'Select a cell to inspect.')}</p></div><span className="v3-mini-legend"><i />{L('gubitak', 'loss')}<i />{L('dobitak', 'gain')}</span></div>
@@ -177,7 +184,7 @@ export default function AppV3() {
       </main>
     </div>
     <About dialog={dialog} lang={s.lang} />
-    {sharing && <div className="v3-share-fallback" role="dialog" aria-label={L('Kopirajte poveznicu', 'Copy the link')}><label>{L('Kopirajte poveznicu', 'Copy the link')}<input readOnly value={location.href} onFocus={e => e.currentTarget.select()} autoFocus /></label><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={() => setSharing(false)}><Icon name="close" /></button></div>}
+    {sharing && <div className="v3-share-fallback" role="dialog" aria-label={L('Kopirajte poveznicu', 'Copy the link')}><label>{L('Kopirajte poveznicu', 'Copy the link')}<input readOnly value={location.href} onFocus={e => e.currentTarget.select()} autoFocus /></label><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={closeSharing}><Icon name="close" /></button></div>}
     <div className="v3-toast" role="status" aria-live="polite">{notice && <><Icon name="check" size={17} />{notice}</>}</div>
     <Analytics beforeSend={dropHash} /><SpeedInsights beforeSend={dropHash} />
   </div>;

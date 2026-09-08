@@ -11362,16 +11362,20 @@ const evalSafe = async (pg, fn) => {
     const html = await (await fetch(u)).text();
     const src = (html.match(/src="([^"]*index-[^"]*\.js)"/) || [])[1];
     if (!src) return { err: 'no entry chunk in index.html' };
-    const js = await (await fetch(new URL(src, u))).text();
-    return { advertises: /sourceMappingURL=/.test(js), bytes: js.length };
+    // The entry now selects a version. Check the executable chunks the page
+    // actually loaded, including the selected app and shared calculations.
+    const urls = [...new Set([new URL(src, u).href, ...performance.getEntriesByType('resource')
+      .map(r => r.name).filter(n => /\/assets\/[^/]+\.js$/.test(n))])];
+    const chunks = await Promise.all(urls.map(async href => (await fetch(href)).text()));
+    return { advertises: chunks.some(js => /sourceMappingURL=/.test(js)), bytes: chunks.reduce((n, js) => n + js.length, 0) };
   }, url);
   /* …across the maps the build writes, not the entry's alone. The vendor split
      moved react and the six d3 packages into their own chunk and their sources
      went with them: the entry map fell from a hundred-odd to 42 while nothing
      about the property being asserted changed, and a floor of 50 turned that
      into a failure. Every map is read, the total carries the floor, and the
-     app's own modules are still required BY NAME in the entry's — which is the
-     map a stack trace from this code lands in. */
+     app's own modules are still required BY NAME across those maps. The version
+     loader and each selected application now have their own source maps. */
   const smapDisk = URLMODE ? null : (() => {
     const ad = path.resolve(arg, 'assets');
     const files = fs.existsSync(ad) ? fs.readdirSync(ad) : [];
@@ -11386,20 +11390,22 @@ const evalSafe = async (pg, fn) => {
     if (j.err) return { err: j.err };
     const maps = files.filter(f => /\.js\.map$/.test(f));
     let total = 0, allMapped = true;
+    const appSources = new Set();
     for (const m of maps) {
       const k = read(m);
       if (k.err) return { err: k.err };
       total += (k.sources || []).length;
       allMapped = allMapped && !!k.mappings;
+      for (const source of k.sources || []) if (/App\.tsx|metrics\.ts/.test(source)) appSources.add(source);
     }
     return { file: map, kb: Math.round(fs.statSync(path.join(ad, map)).size / 1024),
       maps: maps.length, sources: (j.sources || []).length, total, hasMappings: allMapped,
-      names: (j.sources || []).filter(s => /App\.tsx|metrics\.ts/.test(s)).length };
+      names: appSources.size };
   })();
   ck('the bundle advertises no source map, and the build still writes one that resolves to real sources',
     !smapServed.err && smapServed.advertises === false && smapServed.bytes > 50000
     && (URLMODE || (!smapDisk.err && smapDisk.hasMappings && smapDisk.maps >= 2
-      && smapDisk.total > 100 && smapDisk.sources > 30 && smapDisk.names >= 2)),
+      && smapDisk.total > 100 && smapDisk.sources > 0 && smapDisk.names >= 2)),
     JSON.stringify({ smapServed, smapDisk }));
 
   /* WCAG 2.5.3, and the reason it failed: the visible label of a row is its text

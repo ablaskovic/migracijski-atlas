@@ -44,6 +44,15 @@ const signed = (n, relative) => {
   const page = await browser.newPage();
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  const downloadSession = await page.createCDPSession();
+  await downloadSession.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output });
+  const downloadCSV = async filename => {
+    const file = path.join(output, filename);
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    await page.click('.v3-export');
+    for (let i = 0; i < 40 && !fs.existsSync(file); i++) await new Promise(resolve => setTimeout(resolve, 100));
+    return fs.readFileSync(file, 'utf8');
+  };
   const go = async (suffix = '?version=v3&l=en') => { await page.goto(origin + '/' + suffix, { waitUntil: 'networkidle0' }); };
   const text = selector => page.$eval(selector, el => el.textContent);
   const click = async selector => { await page.click(selector); };
@@ -55,6 +64,12 @@ const signed = (n, relative) => {
   check('all 21 counties are interactive', await page.$$eval('[data-county]', els => els.length === 21 && els.every(el => el.getAttribute('role') === 'button' && el.getAttribute('tabindex') === '0')));
   check('v2 stylesheet is absent from v3', await page.evaluate(() => [...document.styleSheets].every(s => !/\/src-[^/]*\.css/.test(s.href || ''))));
   await page.screenshot({ path: path.join(output, 'desktop-dark.png'), fullPage: true });
+  await click('.v3-map-tools button:first-child');
+  check('map zoom enlarges the geographic layer', await page.$eval('.v3-counties', el => el.parentElement.getAttribute('transform').includes('scale(1.5)')));
+  await click('.v3-map-tools button:nth-child(3)');
+  check('map reset restores its original extent', await page.$eval('.v3-counties', el => el.parentElement.getAttribute('transform').includes('scale(1)')));
+  const countyCSV = await downloadCSV('atlas-2025-tot.csv');
+  check('county CSV contains the current 21-county comparison', countyCSV.trim().split('\r\n').length === 22 && countyCSV.includes('"HR-01","Zagrebačka","2025","2025","tot","people","3475"'));
 
   for (const flow of ['tot', 'int', 'ext', 'nat', 'all']) {
     for (const setting of [{ year: 2025, cum: false, relative: false }, { year: 2024, cum: true, relative: true }, { year: 1998, cum: false, relative: false }]) {
@@ -95,6 +110,8 @@ const signed = (n, relative) => {
   check('historical grid contains 21 × 28 annual observations', await page.$$eval('[data-grid-cell]', els => els.length === 588));
   check('annual trends do not offer a contradictory cumulative mode', await page.$eval('.v3-time-mode button:nth-child(2)', el => el.disabled));
   check('interactive chart exposes its year controls', await page.$eval('.v3-trend-chart', el => el.getAttribute('role') === 'group'));
+  const yearsCSV = await downloadCSV('atlas-1998-2025-tot.csv');
+  check('historical CSV contains every displayed county/year observation', yearsCSV.trim().split('\r\n').length === 589 && yearsCSV.includes('"HR-21","Grad Zagreb","2025","tot","people","2397"'));
   await page.focus('[data-grid-cell="0"]'); await page.keyboard.press('ArrowDown');
   check('heatmap uses arrow-key navigation', await page.evaluate(() => document.activeElement?.getAttribute('data-grid-cell') === '28'));
   await page.keyboard.press('Enter');
@@ -151,6 +168,11 @@ const signed = (n, relative) => {
   check('sources open in an accessible modal dialog', await page.$eval('.v3-about', el => el.open && el.getAttribute('aria-labelledby') === 'v3-about-title'));
   await page.keyboard.press('Escape');
   check('dialog closes and restores the actual opener', await page.evaluate(() => !document.querySelector('.v3-about').open && document.activeElement === document.querySelector('.v3-footer-links button')));
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('denied'); } } }));
+  await click('.v3-share');
+  check('sharing works when clipboard access is denied', await page.$eval('.v3-share-fallback input', el => el.value === location.href && el.readOnly));
+  await page.keyboard.press('Escape');
+  check('closing the manual share field restores focus', await page.evaluate(() => document.activeElement === document.querySelector('.v3-share')));
 
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewport({ width, height: 900, deviceScaleFactor: 1 });
@@ -167,6 +189,9 @@ const signed = (n, relative) => {
   check('reduced-motion preference disables animations', await page.$eval('.v3-workspace', el => getComputedStyle(el).animationName === 'none'));
   await page.evaluate(() => document.documentElement.style.fontSize = '200%');
   check('enlarged text does not create page-wide overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  check('interface text respects the reader’s font-size setting', await page.$eval('.v3-stat-label', el => parseFloat(getComputedStyle(el).fontSize) >= 24));
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
+  check('phone layout supports 200% text enlargement', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   check('no JavaScript runtime errors', errors.length === 0);
   console.log(`\n${checks} V3 CHECKS PASSED`);
 })().catch(e => { console.error(e); process.exitCode = 1; }).finally(async () => { if (browser) await browser.close(); server.close(); });

@@ -9,10 +9,11 @@ import './version.css';
 // state isolated. Existing atlas permalinks continue to open the original app.
 const version = selectedVersion();
 document.documentElement.dataset['atlasVersion'] = version;
+// Register the classic font faces before App's exporter can warm them.
+if (version === 'v2') await import('./index.css');
 const { default: App } = version === 'v2'
   ? await import('./App.tsx')
   : await import('./v3/AppV3.tsx');
-if (version === 'v2') await import('./index.css');
 
 /* The boundary is above <App/> rather than inside it, because what it exists to
    survive is App failing to render at all — see the note in ErrorBoundary. */
