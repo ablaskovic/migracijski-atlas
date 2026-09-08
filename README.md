@@ -7,7 +7,36 @@ zemlje), measured 2018 OD matrix, JLS corridors and a 556-municipality 2018 map
 (Pitoski et al. 2021, CC BY; boundaries OSM/ODbL), IPF estimates for other years —
 all honesty-labeled in the UI.
 
-## Views & features
+## V3 and the classic atlas
+
+The default experience is now a separate, dark-by-default **v3**. The version
+switch is available in both interfaces: `?version=v3` opens the new explorer and
+`?version=v2` opens the classic atlas. Existing v2 hash links keep opening v2.
+Each version remembers its own last analysis in the current browser tab, and
+explicit version URLs take precedence over that tab's preference.
+
+V3 includes a county map with a fixed color scale across years, searchable
+rankings, county breakdowns, annual trends, a keyboard-navigable 21 × 28 history
+grid, measured 2018 migration corridors and clearly marked IPF estimates for
+other periods. It starts in 2025, supports Croatian and English, offers light
+mode, and shares the complete selected view through its URL. CSV export follows
+the displayed view: the current county comparison, all annual observations, or
+the selected hub's corridors with their measured/estimated provenance.
+
+V2's `src/App.tsx`, `src/index.css`, components, calculations and datasets are
+unchanged. The small loader in `src/main.tsx` imports one version and its styles;
+switching versions navigates the document so CSS and module state stay isolated.
+V3 lives in `src/v3/` and reuses the existing computation layer. The classic
+version retains classification, regions, the OD matrix, municipal data,
+demographics, citizenship and PNG/SVG figure exports.
+
+Run `npm run verify:v3` for the v3 production build and focused browser checks.
+This uses the same optional Puppeteer installation described below, writes its
+build and screenshots under ignored `logs/`, and can run alongside
+`npm run verify`. The original 650-check suite selects the real v2 URL before
+loading each page; its behavior checks remain in place. CI runs both suites.
+
+## Classic v2 views & features
 
 Seven views — **Saldo**, **Klasifikacija** (absolute or % threshold), **Regije**,
 **Godine** (21 counties × the whole series as a grid), **Tokovi** (arcs + corridor

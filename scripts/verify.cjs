@@ -43,6 +43,19 @@ const https = require('https');
    was `require(process.env.PUPPETEER_PATH || 'puppeteer')`, i.e. it retried the
    exact require that had just failed and could never have helped. A pre-existing
    *Chrome* is puppeteer's own PUPPETEER_EXECUTABLE_PATH, honoured at launch. */
+// Run the unchanged classic behavior checks through the real v2 URL. The base
+// server URL stays query-free because tests append paths and language queries.
+async function newV2Page(browser) {
+  const page = await browser.newPage();
+  await page.evaluateOnNewDocument(() => {
+    if (!/^https?:$/.test(location.protocol)) return;
+    const url = new URL(location.href);
+    url.searchParams.set('version', 'v2');
+    history.replaceState(null, '', url);
+  });
+  return page;
+}
+
 let puppeteer;
 try { puppeteer = require('puppeteer'); }
 catch {
@@ -287,7 +300,7 @@ const evalSafe = async (pg, fn) => {
      existing checks meaning what they meant, and the English surface gets its
      own block at the end rather than being tested by accident. */
   browser = await puppeteer.launch({ args: ['--no-sandbox', '--force-device-scale-factor=1', '--lang=hr-HR'] });
-  const page = await browser.newPage();
+  const page = await newV2Page(browser);
   /* A real visitor's tab is focused; a headless one is not, and nothing in the
      suite noticed until a check pressed Tab. Tab past the last stop of a modal
      hands focus to the browser UI — and in headless there is no way back: from
@@ -1231,7 +1244,7 @@ const evalSafe = async (pg, fn) => {
   });
   let legEscape, mfsRoom, legScroll;
   try {
-    const pg = await watch(await mfsBrowser.newPage());
+    const pg = await watch(await newV2Page(mfsBrowser));
     await pinHr(pg);
     await pg.emulateTimezone('Europe/Zagreb');
     /* …and the layout the same setting collapses. A root the reader raised
@@ -1433,7 +1446,7 @@ const evalSafe = async (pg, fn) => {
     });
     try {
       for (const [k, br] of [['base', browser], ['big', bigger]]) {
-        const pg = await watch(await br.newPage());
+        const pg = await watch(await newV2Page(br));
         await pinHr(pg);
         const c = await pg.createCDPSession();
         if (k === 'big') await c.send('Page.setFontSizes', { fontSizes: { standard: 24, fixed: 24 } });
@@ -1483,7 +1496,7 @@ const evalSafe = async (pg, fn) => {
     });
     try {
       for (const [k, br] of [['base', browser], ['big', bigger2]]) {
-        const pg = await watch(await br.newPage());
+        const pg = await watch(await newV2Page(br));
         await pinHr(pg);
         const c = await pg.createCDPSession();
         if (k === 'big') await c.send('Page.setFontSizes', { fontSizes: { standard: 24, fixed: 24 } });
@@ -2468,7 +2481,7 @@ const evalSafe = async (pg, fn) => {
       Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });
       Object.defineProperty(navigator, 'language', { get: () => 'hr-HR', configurable: true });
     });
-    const pA = await watch(await browser.newPage()), pB = await watch(await browser.newPage());
+    const pA = await watch(await newV2Page(browser)), pB = await watch(await newV2Page(browser));
     await navPin(pA); await navPin(pB);
     await pA.goto(url, { waitUntil: 'domcontentloaded' });
     await pA.evaluate(() => localStorage.setItem('atlas-lang', 'en'));
@@ -3832,7 +3845,7 @@ const evalSafe = async (pg, fn) => {
      Firefox leg is what can test it. Everything this block asserts is JS
      behaviour, which is exactly what the patch can carry. */
   const hybrid = await (async () => {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pinHr(pg);
     await pg.emulateTimezone('Europe/Zagreb');
     await pg.setViewport({ width: 1440, height: 900, hasTouch: true, isMobile: false });
@@ -5335,7 +5348,7 @@ const evalSafe = async (pg, fn) => {
      sequence that goes back and forth is two fingers driving one drag. */
   const twoFinger = await (async () => {
     const leg = async fn => {
-      const pg = await watch(await browser.newPage());
+      const pg = await watch(await newV2Page(browser));
       await pinHr(pg);
       const c = await pg.createCDPSession();
       await pg.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
@@ -5408,7 +5421,7 @@ const evalSafe = async (pg, fn) => {
      points, on their own page, because a pinch-zoomed viewport does not wash
      out. */
   const rearm = await (async () => {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pinHr(pg);
     const c = await pg.createCDPSession();
     await pg.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
@@ -7369,7 +7382,7 @@ const evalSafe = async (pg, fn) => {
     /* the blocked chunk goes through watch()'s predicate: a second
        page.on('request') makes both handlers call continue() on the same
        request, which is the throw the comment at :302 names. */
-    const pg = await watch(await browser.newPage(), u => /geo_jls/.test(u));
+    const pg = await watch(await newV2Page(browser), u => /geo_jls/.test(u));
     /* A second `request` listener that only COUNTS — it calls neither continue()
        nor abort(), so it cannot collide with watch()'s own handler. The
        deferral's promise is no longer "the document reloads": the payload is a
@@ -7953,7 +7966,7 @@ const evalSafe = async (pg, fn) => {
      legend's size depends only on view/dir and never on the grid. */
   const firstPaint = {};
   for (const [k, h, sel] of [['mx', '#v=mx&y=2018&c=0&dir=out', '.mxc'], ['yrs', '#v=yrs&c=0&y=2022', '.yrc']]) {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pinHr(pg);
     await pg.setViewport({ width: 1440, height: 900 });
     await pg.evaluateOnNewDocument(s => {
@@ -8030,7 +8043,7 @@ const evalSafe = async (pg, fn) => {
   const pinchTip = {};
   for (const [k, h, sel] of [['mx', '#v=mx&y=2018&c=0&dir=net', '.mxc'],
     ['yrs', '#v=yrs&y=2018&c=0', '.yrc'], ['jmap', '#v=jmap&dir=net', '.jl']]) {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pinHr(pg);
     const c = await pg.createCDPSession();
     await pg.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
@@ -9079,7 +9092,7 @@ const evalSafe = async (pg, fn) => {
      map's own 1.711 — the difference is exactly the 556 × 3 this memo makes. */
   const paintWork = {};
   {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pinHr(pg);
     await pg.setViewport({ width: 1440, height: 900 });
     await pg.evaluateOnNewDocument(() => {
@@ -9132,7 +9145,7 @@ const evalSafe = async (pg, fn) => {
      costs; two would mean a second render chasing the first. */
   const hoverWork = {};
   {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pinHr(pg);
     await pg.setViewport({ width: 1440, height: 900 });
     await pg.evaluateOnNewDocument(() => {
@@ -11572,7 +11585,7 @@ const evalSafe = async (pg, fn) => {
      guarantees the advance. */
   const swap = {}, swapNarrow = {};
   for (const mode of ['fallback', 'real']) {
-    const p2 = await watch(await browser.newPage(),
+    const p2 = await watch(await newV2Page(browser),
       mode === 'fallback' ? (u => u.endsWith('.woff2')) : null);
     await pinHr(p2);
     await p2.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
@@ -11691,7 +11704,7 @@ const evalSafe = async (pg, fn) => {
     args: ['--no-sandbox', '--force-device-scale-factor=2', '--lang=hr-HR'] });
   try {
     for (const mode of ['fallback', 'real']) {
-      const ph = await hiBrowser.newPage();
+      const ph = await newV2Page(hiBrowser);
       if (mode === 'fallback') {
         await ph.setRequestInterception(true);
         ph.on('request', r => (/\.woff2(\?|$)/.test(r.url()) ? r.abort() : r.continue()));
@@ -12757,7 +12770,7 @@ const evalSafe = async (pg, fn) => {
      suite has a timezone of its own, and on a Croatian one every case below
      would pass for the wrong reason. */
   const bootLang = async (tags, tz, stored) => {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pg.emulateTimezone(tz);
     await pg.evaluateOnNewDocument((t, st) => {
       Object.defineProperty(navigator, 'languages', { get: () => t, configurable: true });
@@ -13899,7 +13912,7 @@ const evalSafe = async (pg, fn) => {
       '--force-device-scale-factor=1',
       '--blink-settings=primaryPointerType=4,availablePointerTypes=6'] });
     try {
-      const hp = await watch(await hb.newPage());
+      const hp = await watch(await newV2Page(hb));
       await pinHr(hp);
       for (const [w, h] of [[1280, 720], [1280, 640], [1100, 710], [1024, 701]]) {
         /* `isMobile: false` spelled out, and about:blank between: puppeteer's
@@ -14318,7 +14331,7 @@ const evalSafe = async (pg, fn) => {
      hybrid put it 14 px BELOW the finger that summoned it. */
   const tapRes = [];
   for (const hybrid of [false, true]) {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pinHr(pg);
     if (hybrid) {
       await pg.evaluateOnNewDocument(() => {
@@ -14379,7 +14392,7 @@ const evalSafe = async (pg, fn) => {
      language while localStorage still said otherwise, and reloading that same
      URL booted the other one. One URL, two languages, by arrival route. */
   const backLang = await (async () => {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pg.emulateTimezone('Europe/Zagreb');
     await pg.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });
@@ -14418,7 +14431,7 @@ const evalSafe = async (pg, fn) => {
      second Back landing on the byte-identical hash and view, a press with no
      visible effect. Without the toggle, Forward works. */
   const fwdStack = await (async () => {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pg.emulateTimezone('Europe/Zagreb');
     await pinHr(pg);
     await pg.goto(url + '#v=saldo&c=1&y=2024', { waitUntil: 'networkidle0' });
@@ -14637,7 +14650,7 @@ const evalSafe = async (pg, fn) => {
   /* the ledger mark this leg scrubs back to */
   const ebHad = errors.length;
   const ebOrigin = await (async () => {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pinHr(pg);
     await pg.goto(url + '/evil.example/?l=en#v=saldo&c=1&y=2024&s=HR-18',
       { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -15461,7 +15474,7 @@ const evalSafe = async (pg, fn) => {
      choice" was exercised in neither direction. Both directions now, on a fresh
      document each time — and a link must not rewrite what the reader chose. */
   const linkVsStored = async (stored, hash) => {
-    const pg = await watch(await browser.newPage());
+    const pg = await watch(await newV2Page(browser));
     await pg.emulateTimezone('Europe/Zagreb');
     await pg.evaluateOnNewDocument(st => {
       Object.defineProperty(navigator, 'languages', { get: () => ['hr-HR', 'hr'], configurable: true });

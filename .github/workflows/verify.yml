@@ -186,6 +186,9 @@ jobs:
       # PUPPETEER_PATH is a puppeteer PACKAGE DIRECTORY (README.md), and
       # verify.cjs require()s it — so it has to be absolute, or node reads it as
       # a bare package name and looks in node_modules.
+      - run: npm run verify:v3
+        env:
+          PUPPETEER_PATH: ${{ github.workspace }}/ci/node_modules/puppeteer
       - run: npm run verify
         env:
           PUPPETEER_PATH: ${{ github.workspace }}/ci/node_modules/puppeteer

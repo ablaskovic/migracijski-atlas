@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "verify": "tsc --noEmit && oxlint --deny-warnings && vite build && vite build --mode hooks --outDir dist-test --emptyOutDir && node scripts/verify.cjs dist-test",
-    "smoke": "node scripts/smoke.cjs"
+    "smoke": "node scripts/smoke.cjs",
+    "verify:v3": "tsc --noEmit && oxlint --deny-warnings && vite build --outDir logs/v3-build && node scripts/verify-v3.cjs logs/v3-build"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
