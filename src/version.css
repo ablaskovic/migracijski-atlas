@@ -5,6 +5,7 @@
 .atlas-version-switch a:focus-visible{outline:2px solid #57d9b3;outline-offset:3px}
 .atlas-version-dot{display:none;width:5px;height:5px;border-radius:50%;background:currentColor}
 .atlas-version-switch a[aria-current] .atlas-version-dot{display:block}
-.atlas-classic-switch{position:fixed;z-index:101;right:12px;bottom:10px;background:#111f2b;border-radius:9px;box-shadow:0 3px 16px #0003}
-@media(max-width:780px),(max-height:560px){.atlas-classic-switch{bottom:calc(var(--scrubh,128px) + 10px)}}
+.atlas-classic-switch{position:absolute;z-index:101;right:12px;top:10px;background:#111f2b;border-radius:9px;box-shadow:0 3px 16px #0003}
+[data-atlas-version=v2] .hd>div:first-child{padding-right:8rem}
+@media(max-width:900px),(max-height:560px),((any-pointer:coarse) and (max-height:780px)){.atlas-classic-switch{position:static;width:max-content;margin:12px 12px 12px auto}[data-atlas-version=v2] .hd>div:first-child{padding-right:0}}
 @media print{.atlas-classic-switch{display:none}}
