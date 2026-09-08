@@ -226,6 +226,7 @@ function localEntry() {
   ck('the deployed entry chunk is the one in ./dist',
     !!served && !!local && served === local,
     'deployed ' + served + ' · local ' + (local || 'no dist — run `npm run build`'));
+  let entryBody = '';
   /* An else, because the count has to be the same either way. These three sat
      inside `if (served)` alone, so on the very failure this file exists to
      catch — an origin whose markup carries no recognisable /assets/index-*.js
@@ -236,6 +237,7 @@ function localEntry() {
   if (served) {
     const assetUrl = ORIGIN.replace(/\/$/, '') + served;
     const asset = await get(assetUrl);
+    if (asset.status === 200) entryBody = asset.body;
     /* the status too: a 404 has headers and a body like any other response, and
        every assertion here was reading those without ever asking whether the
        fetch succeeded */
@@ -322,14 +324,21 @@ function localEntry() {
   ck(`the deployed build is the current release (${want})`,
     servedV === want, 'deployed ' + (servedV || 'none') + ' · local ' + want);
 
-  const sheet = (home.body.match(/href="\.?(\/assets\/index-[\w-]+\.css)"/) || [])[1] || null;
-  if (sheet) {
-    const css = await get(ORIGIN.replace(/\/$/, '') + sheet);
+  /* The split loader links only the version switch's CSS from HTML; Vite's
+     dependency list in the served entry names the classic stylesheet loaded
+     on demand. Read both, so the fallback check still reaches v2 without
+     pinning a generated filename or mistaking v3's stylesheet for v2's. */
+  const sheets = [...new Set([
+    ...[...home.body.matchAll(/href="\.?(\/assets\/[\w-]+\.css)"/g)].map(m => m[1]),
+    ...[...entryBody.matchAll(/["'`](\/?assets\/[\w-]+\.css)["'`]/g)].map(m => '/' + m[1].replace(/^\//, '')),
+  ])];
+  if (sheets.length) {
+    const css = await Promise.all(sheets.map(sheet => get(ORIGIN.replace(/\/$/, '') + sheet)));
     ck('the deployed stylesheet carries v2.1.1 — the metric-matched font fallbacks',
-      css.status === 200 && css.body.includes('ascent-override'),
-      css.status + ' · missing "ascent-override"');
+      css.some(r => r.status === 200 && r.body.includes('ascent-override')),
+      css.map((r, i) => sheets[i] + ': ' + r.status).join(' · ') + ' · missing "ascent-override"');
   } else {
-    ck('the home page links a built stylesheet', false, 'no /assets/index-*.css in the served HTML');
+    ck('the home page links a built stylesheet', false, 'no built stylesheet in the served HTML or entry dependencies');
   }
 
   ck(`all ${EXPECTED_SMOKE} smoke checks ran`, n + 1 === EXPECTED_SMOKE,

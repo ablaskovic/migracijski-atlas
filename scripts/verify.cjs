@@ -14637,9 +14637,12 @@ const evalSafe = async (pg, fn) => {
       fail: !!document.querySelector('#renderFail'), map: !!document.querySelector('#map'),
       href: location.pathname + location.search }));
   })();
+  const reloadedURL = new URL(reloadWorks.href ?? '/', url);
   ck('…and pressing the reload link actually reloads the document',
     reloadWorks.marker === 'gone' && !reloadWorks.fail && reloadWorks.map
-    && reloadWorks.href === '/?l=en', JSON.stringify(reloadWorks));
+    && reloadedURL.pathname === '/' && reloadedURL.searchParams.get('l') === 'en'
+    && reloadedURL.searchParams.get('version') === 'v2'
+    && [...reloadedURL.searchParams].length === 2, JSON.stringify(reloadWorks));
   /* …and none of the four may leave the origin. Every href was built from a raw
      `location.pathname`, and vercel.json rewrites index.html for every path
      outside /assets/ and /fonts/ — so `https://migracijski-atlas.hr//evil.example/`
