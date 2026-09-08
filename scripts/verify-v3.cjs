@@ -40,7 +40,7 @@ const signed = (n, relative) => {
 (async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--lang=en-GB'] });
+  browser = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--lang=en-GB'] });
   const page = await browser.newPage();
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
@@ -66,6 +66,14 @@ const signed = (n, relative) => {
   await page.screenshot({ path: path.join(output, 'desktop-dark.png'), fullPage: true });
   await click('.v3-map-tools button:first-child');
   check('map zoom enlarges the geographic layer', await page.$eval('.v3-counties', el => el.parentElement.getAttribute('transform').includes('scale(1.5)')));
+  const mapBounds = await page.$eval('.v3-map', el => el.getBoundingClientRect().toJSON());
+  const countyBeforePan = await page.$eval('[data-county="HR-01"]', el => el.getBoundingClientRect().left);
+  await page.mouse.move(mapBounds.x + 20, mapBounds.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(mapBounds.x + 80, mapBounds.y + 40, { steps: 6 });
+  await page.mouse.up();
+  const countyAfterPan = await page.$eval('[data-county="HR-01"]', el => el.getBoundingClientRect().left);
+  check('dragging the responsive map tracks the pointer distance', Math.abs(countyAfterPan - countyBeforePan - 60) < 1);
   await click('.v3-map-tools button:nth-child(3)');
   check('map reset restores its original extent', await page.$eval('.v3-counties', el => el.parentElement.getAttribute('transform').includes('scale(1)')));
   const countyCSV = await downloadCSV('atlas-2025-tot.csv');
