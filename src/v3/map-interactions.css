@@ -1,4 +1,5 @@
 .v3-map{touch-action:none;user-select:none;-webkit-user-select:none}
+.v3-compass text{fill:currentColor}
 .v3-map .v3-counties path[data-county]{stroke:var(--land-stroke);stroke-width:1.25px}
 .v3-map.is-panning,.v3-map.is-panning .v3-counties path{cursor:grabbing}
 .v3-county-outlines,.v3-region-boundaries{pointer-events:none;fill:none}

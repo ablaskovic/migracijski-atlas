@@ -17,22 +17,28 @@ map controls and fixed timeline.
 Each version remembers its own last analysis in the current browser tab, and
 explicit version URLs take precedence over that tab's preference.
 
-V3 includes a county map with a fixed color scale across years, searchable
-rankings, county breakdowns, annual trends, a keyboard-navigable 21 × 28 history
-grid, measured 2018 migration corridors and clearly marked IPF estimates for
-other periods. It starts in 2025, supports Croatian and English, offers light
-mode, and shares the complete selected view through its URL. CSV export follows
-the displayed view: the current county comparison, all annual observations, or
-the selected hub's corridors with their measured/estimated provenance.
+V3 includes eight native views: county balances, annual/cumulative history,
+migration corridors, classification, five regions, the 21 × 21 OD matrix,
+556 municipalities, and population panels. Population panels cover age/sex,
+citizenship, origin/destination countries and local corridors, with their actual
+data years stated explicitly. All 15 guided findings are available in the
+explorer. The Maras–Vinovrški study is linked prominently; About contains the
+full citation, source licences, glossary and methodology.
+
+Maps support pointer-anchored wheel zoom, dragging, pinch, consistent county
+outlines and city/county label modes. Figures export as PNG/SVG with embedded
+fonts, numerical legends and attribution; CSV retains complete data and method
+labels. V3 starts in 2025, supports Croatian and English, offers light mode,
+and shares analysis settings and population subtabs through its URL.
 
 V2's `src/App.tsx`, `src/index.css`, components, calculations and datasets are
 unchanged. The small loader in `src/main.tsx` imports one version and its styles;
 switching versions navigates the document so CSS and module state stay isolated.
-V3 lives in `src/v3/` and reuses the existing computation layer. The classic
-version retains classification, regions, the OD matrix, municipal data,
-demographics, citizenship and PNG/SVG figure exports.
+V3 lives in `src/v3/` and reuses the existing computation layer. Both interfaces
+offer the original analysis tools and data.
 
-Run `npm run verify:v3` for the v3 production build and focused browser checks.
+Run `npm run verify:v3` for the v3 production build, browser regressions,
+map gesture checks and data-parity checks against the source arrays.
 This uses the same optional Puppeteer installation described below, writes its
 build and screenshots under ignored `logs/`, and can run alongside
 `npm run verify`. The original 650-check suite selects the real v2 URL before

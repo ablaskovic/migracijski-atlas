@@ -99,7 +99,12 @@ export default function useMapNavigation(width: number, height: number) {
     rebase();
     if (!pointers.current.size) setDragging(false);
   };
+  const reset = () => { cancel(); update({ zoom: 1, x: 0, y: 0 }); };
+  const reveal = (target: SVGGraphicsElement) => {
+    const clip = svg.current?.getBoundingClientRect(), box = target.getBoundingClientRect();
+    if (clip && (box.right <= clip.left || box.left >= clip.right || box.bottom <= clip.top || box.top >= clip.bottom)) reset();
+  };
   return { svg, ...view, dragging, suppressClick, onPointerDown, onPointerMove, onPointerEnd,
     zoomIn: () => zoomTo(current.current.zoom + .5), zoomOut: () => zoomTo(current.current.zoom - .5),
-    reset: () => { cancel(); update({ zoom: 1, x: 0, y: 0 }); }, maxZoom: MAX_ZOOM };
+    reset, reveal, maxZoom: MAX_ZOOM };
 }

@@ -116,14 +116,15 @@ const signed = (n, relative) => {
   await go();
   await click('.v3-tabs button:nth-child(2)');
   check('historical grid contains 21 × 28 annual observations', await page.$$eval('[data-grid-cell]', els => els.length === 588));
-  check('annual trends do not offer a contradictory cumulative mode', await page.$eval('.v3-time-mode button:nth-child(2)', el => el.disabled));
+  check('trends support both annual and cumulative observations', await page.$eval('.v3-time-mode button:nth-child(2)', el => !el.disabled));
   check('interactive chart exposes its year controls', await page.$eval('.v3-trend-chart', el => el.getAttribute('role') === 'group'));
   const yearsCSV = await downloadCSV('atlas-1998-2025-tot.csv');
-  check('historical CSV contains every displayed county/year observation', yearsCSV.trim().split('\r\n').length === 589 && yearsCSV.includes('"HR-21","Grad Zagreb","2025","tot","people","2397"'));
+  check('historical CSV contains every displayed county/year observation', yearsCSV.trim().split('\r\n').length === 589 && yearsCSV.includes('"HR-21","Grad Zagreb","2025","2025","tot","people","2397"'));
+  const secondCounty = await page.$eval('[data-grid-cell="28"]', el => el.getAttribute('aria-label').split(' · ')[0]);
   await page.focus('[data-grid-cell="0"]'); await page.keyboard.press('ArrowDown');
   check('heatmap uses arrow-key navigation', await page.evaluate(() => document.activeElement?.getAttribute('data-grid-cell') === '28'));
   await page.keyboard.press('Enter');
-  check('heatmap selection changes county and year together', await page.evaluate(() => location.hash.includes('county=HR-02') && location.hash.includes('year=1998')));
+  check('heatmap selection changes county and year together', await page.evaluate(name => document.querySelector('.v3-intro h1').textContent === name && location.hash.includes('year=1998'), secondCounty));
   await page.screenshot({ path: path.join(output, 'trends.png'), fullPage: true });
 
   await go(); await click('.v3-tabs button:nth-child(3)');
@@ -141,7 +142,7 @@ const signed = (n, relative) => {
   await click('.v3-export');
   for (let i = 0; i < 40 && !fs.existsSync(csv); i++) await new Promise(resolve => setTimeout(resolve, 100));
   const exported = fs.readFileSync(csv, 'utf8');
-  check('flow CSV carries actual corridor counts and measured provenance', exported.includes('"Origin ISO"') && exported.includes('"Measured 2018"') && exported.includes(`"HR-21","Grad Zagreb","HR-01","Zagrebačka","2018","2018","${linkValue}"`));
+  check('flow CSV carries actual corridor counts and measured provenance', exported.includes('"Selected county ISO"') && exported.includes('2018') && exported.includes('CC BY 4.0') && exported.includes(`"HR-21","Grad Zagreb","HR-01","Zagrebačka","2018","2018","out","${linkValue}"`));
   await page.select('#v3-year', '27');
   check('unmeasured flow years disclose the IPF estimate', (await text('.v3-data-badge')).includes('IPF ESTIMATE') && (await text('.v3-map-column')).includes('in-margins approximate'));
   await page.screenshot({ path: path.join(output, 'flows.png'), fullPage: true });

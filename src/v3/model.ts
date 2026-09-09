@@ -88,8 +88,7 @@ export const colors = (max: number, light = false) => scalePow<string>().exponen
 export const ranked = (s: AtlasState) => [...ISOS].sort((a, b) => value(b, s) - value(a, s));
 export const fold = (text: string) => text.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 export const countyName = (iso: string, lang: Lang) => iso === 'HR-21' && lang === 'en' ? 'City of Zagreb' : D[iso].n;
-export function totals(s: AtlasState) {
-  const isos = s.county ? [s.county] : ISOS;
+export function totals(s: AtlasState, isos = s.county ? [s.county] : ISOS) {
   const sum = (key: 'ie' | 'oe') => isos.reduce((n, iso) => n + D[iso][key].slice(s.cum ? IX2011 : s.yi, s.yi + 1).reduce((a, b) => a + b, 0), 0);
   return { arrivals: sum('ie'), departures: sum('oe'), net: isos.reduce((n, iso) => n + val(iso, s.yi, s.county ? 'tot' : 'ext', 'abs', s.cum), 0) };
 }

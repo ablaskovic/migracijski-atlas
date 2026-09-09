@@ -88,7 +88,7 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
             fill={fillCounty?.(f.iso) ?? (isFlow ? (f.iso === hub ? 'var(--accent)' : 'var(--flow-land)') : scale(n))}
             vectorEffect="non-scaling-stroke"
             onPointerEnter={() => { if (!nav.dragging) onHover(f.iso); }} onPointerLeave={() => onHover(null)}
-            onFocus={e => { setFocused(e.currentTarget.matches(':focus-visible') ? f.iso : null); onHover(f.iso); }} onBlur={() => { setFocused(null); onHover(null); }}
+            onFocus={e => { nav.reveal(e.currentTarget); setFocused(e.currentTarget.matches(':focus-visible') ? f.iso : null); onHover(f.iso); }} onBlur={() => { setFocused(null); onHover(null); }}
             onClick={() => onSelect(f.iso)}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(f.iso); } }}>
             <title>{description}</title>

@@ -119,6 +119,31 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
     await reset();const tap=await countyPoint('HR-03');await page.touchscreen.tap(tap.x,tap.y);await sleep(100);check('touch tap still selects the intended county',await page.evaluate(()=>location.hash.includes('county=HR-03')));
     await go();await page.click('.v3-map-tools button:first-child');const mobile=await point();const mobileBefore=await matrix();await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:mobile.x,y:mobile.y,id:0}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:mobile.x+30,y:mobile.y+20,id:0}]});await sleep(60);const mobileAfter=await matrix();await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
     check('single-finger touch pans and cancellation clears gesture',!same(mobileBefore,mobileAfter)&&await page.evaluate(()=>!document.querySelector('.v3-map.is-panning')&&!location.hash.includes('county=')));
+    await cdp.send('Emulation.setFocusEmulationEnabled',{enabled:true});
+    const revealed=[];
+    for(const kind of ['county','municipality']){
+      if(kind==='municipality'){
+        await page.select('.v3-explore-controls select','municipalities');
+        await page.waitForFunction(()=>document.querySelectorAll('[data-municipality]').length===556);
+        await page.$eval('.v3-map',e=>e.scrollIntoView({block:'center'}));
+        const p=await point();await page.mouse.move(p.x,p.y);await page.mouse.wheel({deltaY:-160});await sleep(100);
+        check('municipal wheel listener works after navigation and asynchronous geometry load',(await matrix()).a>1);
+      }
+      await reset();for(let i=0;i<3;i++)await page.click('.v3-map-tools button:first-child');
+      await page.keyboard.press('Tab');
+      const hidden=await page.evaluate(kind=>{
+        const clip=document.querySelector('.v3-map').getBoundingClientRect();
+        const target=[...document.querySelectorAll('[data-'+kind+']')].find(e=>{const r=e.getBoundingClientRect();return r.right<=clip.left||r.left>=clip.right||r.bottom<=clip.top||r.top>=clip.bottom;});
+        if(!target)return null;const id=target.getAttribute('data-'+kind);target.focus();return id;
+      },kind);
+      await sleep(100);
+      const visible=hidden&&await page.evaluate(({kind,id})=>{
+        const e=document.querySelector('[data-'+kind+'="'+id+'"]'),r=e.getBoundingClientRect(),clip=document.querySelector('.v3-map').getBoundingClientRect();
+        return document.activeElement===e&&r.right>clip.left&&r.left<clip.right&&r.bottom>clip.top&&r.top<clip.bottom;
+      },{kind,id:hidden});
+      revealed.push({kind,hidden,visible,zoom:(await matrix()).a});
+    }
+    check('keyboard focus reveals counties and municipalities outside a zoomed viewport',revealed.every(r=>r.hidden&&r.visible&&r.zoom===1),revealed);
     check('interaction runs without browser errors',errors.length===0,errors);
     console.log('TOTAL '+checks+' checks passed');
   } finally {await browser.close();await new Promise(r=>server.close(r));}
