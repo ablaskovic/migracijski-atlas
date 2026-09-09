@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { geoConicEqualArea, geoDistance, geoPath } from 'd3-geo';
 import type { FeatureCollection, Geometry } from 'geojson';
 import { GEO, ISOS, SHORTN, flowMax, flowOf } from '../lib/metrics.ts';
@@ -29,6 +29,23 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
   const { zoom } = nav;
   const [labels, setLabels] = useState<'cities' | 'counties' | 'off'>('cities');
   const [focused, setFocused] = useState<string | null>(null);
+  const [labelMetrics, setLabelMetrics] = useState({ scale: 1, rootSize: 16 });
+  useEffect(() => {
+    const svg = nav.svg.current;
+    if (!svg) return;
+    const compact = matchMedia('(max-width:960px), (any-pointer:coarse)');
+    const measure = () => {
+      const scale = compact.matches ? svg.getScreenCTM()?.a ?? 1 : 1;
+      const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      setLabelMetrics(old => old.scale === scale && old.rootSize === rootSize ? old : { scale, rootSize });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    observer.observe(document.documentElement);
+    compact.addEventListener('change', measure);
+    return () => { observer.disconnect(); compact.removeEventListener('change', measure); };
+  }, [nav.svg]);
   const scale = colors(domain(s), light);
   const hub = s.county ?? 'HR-21';
   const isFlow = s.view === 'flows';
@@ -53,15 +70,24 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
   const labelMode = labels === 'cities' ? L('Gradovi', 'Cities') : labels === 'counties' ? L('Županije', 'Counties') : L('Bez naziva', 'Labels off');
   const nextLabels = labels === 'cities' ? 'counties' : labels === 'counties' ? 'off' : 'cities';
   const countyLabels: { iso: string; text: string; x: number; y: number; width: number }[] = [];
-  const labelSize = 12 / zoom;
+  // SVG viewBox scaling should not shrink phone labels below readable screen text.
+  const compactLabelSize = labelMetrics.scale < 1 ? 11 / labelMetrics.scale / zoom : undefined;
+  const labelSize = compactLabelSize ?? 12 / zoom;
+  const labelGap = 3 / (zoom * labelMetrics.scale);
+  const cityLabels: { name: string; x: number; y: number; width: number }[] = [];
+  for (const [name, lon, lat] of cities) {
+    const [x, y] = projection([lon, lat])!, height = (compactLabelSize ?? 11) * labelMetrics.rootSize / 16;
+    const width = name.length * height * .65;
+    if (!compactLabelSize || !cityLabels.some(p => x < p.x + p.width + labelGap && x + width + labelGap > p.x && Math.abs(p.y - y) < height * 1.4 + labelGap)) cityLabels.push({ name, x, y, width });
+  }
   if (labels === 'counties') {
     // Keep crowded northern names apart; zooming reveals the smaller counties.
     const ordered = [...shapes].sort((a, b) => Number(b.iso === active) - Number(a.iso === active));
-    const labelHeight = labelSize * parseFloat(getComputedStyle(document.documentElement).fontSize) / 16;
+    const labelHeight = labelSize * labelMetrics.rootSize / 16;
     for (const f of ordered) {
       const [x, y] = anchors[f.iso], text = f.iso === 'HR-21' ? L('Grad Zagreb', 'City of Zagreb') : SHORTN[f.iso];
-      const width = text.length * labelHeight * .6;
-      if (!countyLabels.some(p => Math.abs(p.x - x) < (p.width + width) / 2 + 3 / zoom && Math.abs(p.y - y) < labelHeight + 3 / zoom)) countyLabels.push({ iso: f.iso, text, x, y, width });
+      const width = text.length * labelHeight * (compactLabelSize ? .65 : .6);
+      if (!countyLabels.some(p => Math.abs(p.x - x) < (p.width + width) / 2 + labelGap && Math.abs(p.y - y) < labelHeight * (compactLabelSize ? 1.4 : 1) + labelGap)) countyLabels.push({ iso: f.iso, text, x, y, width });
     }
   }
 
@@ -69,7 +95,7 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
     <svg ref={nav.svg} className={'v3-map' + (nav.dragging ? ' is-panning' : '')} viewBox={`0 0 ${W} ${H}`} aria-label={L('Interaktivna karta hrvatskih županija', 'Interactive map of Croatian counties')}
       onPointerDown={e => { if (nav.onPointerDown(e)) onHover(null); }}
       onPointerMove={e => { if (nav.onPointerMove(e)) onHover(null); }}
-      onPointerUp={nav.onPointerEnd} onPointerCancel={nav.onPointerEnd} onLostPointerCapture={nav.onPointerEnd}
+      onPointerUp={nav.onPointerEnd} onPointerCancel={e => { nav.onPointerEnd(e); onHover(null); }} onLostPointerCapture={nav.onPointerEnd}
       onClickCapture={e => { if (e.detail > 0 && nav.suppressClick.current) { e.preventDefault(); e.stopPropagation(); } }}
       onDragStart={e => e.preventDefault()}>
       <defs><pattern id="v3-grid" width="45" height="45" patternUnits="userSpaceOnUse"><path d="M 45 0 L 0 0 0 45" fill="none" stroke="currentColor" strokeWidth=".6" /></pattern>{['in', 'out'].map(dir => <marker key={dir} id={dir === 'in' ? 'v3-arrowhead' : 'v3-arrowhead-out'} viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 10 5 0 10Z" fill={dir === 'in' ? 'var(--accent)' : 'var(--coral)'} /></marker>)}</defs>
@@ -103,14 +129,12 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
             fill="none" markerEnd={incoming ? 'url(#v3-arrowhead)' : 'url(#v3-arrowhead-out)'} stroke={incoming ? 'var(--accent)' : 'var(--coral)'} strokeWidth={.8 + 6 * Math.sqrt(Math.abs(d.n) / maxFlow)} opacity={emphasized ? active === d.iso ? .95 : .1 : .65} />;
         })}<circle cx={anchors[hub][0]} cy={anchors[hub][1]} r="6" fill="var(--text)" stroke="var(--surface)" strokeWidth="3" /></g>}
         <g className="v3-county-outlines" aria-hidden="true">{outlines.map(iso => <path key={iso} data-outline={iso} d={shapes.find(f => f.iso === iso)?.d} className={focused === iso ? 'is-focused' : undefined} vectorEffect="non-scaling-stroke" />)}</g>
-        {labels === 'cities' && <g className="v3-map-labels" aria-hidden="true">{cities.map(([name, lon, lat]) => {
-          const [x, y] = projection([lon, lat])!;
-          return <g key={name} transform={`translate(${x} ${y})`}><circle r="2.4" /><text x="7" y="4">{name}</text></g>;
-        })}</g>}
+        {labels === 'cities' && <g className="v3-map-labels" aria-hidden="true">{cityLabels.map(({ name, x, y }) => <g key={name} transform={`translate(${x} ${y})`}><circle r="2.4" /><text x="7" y="4" style={compactLabelSize ? { fontSize: `${compactLabelSize / 16}rem` } : undefined}>{name}</text></g>)}</g>}
         {labels === 'counties' && <g className="v3-map-labels v3-county-labels" aria-hidden="true" style={{ fontSize: `${labelSize / 16}rem` }}>{countyLabels.map(label => <text key={label.iso} data-county-label={label.iso} x={label.x} y={label.y} textAnchor="middle" dominantBaseline="central">{label.text}</text>)}</g>}
       </g>
       <g className="v3-geographic-scale" transform={`translate(${W - 60 - scaleWidth * zoom} ${H - 28})`} aria-hidden="true"><path d={`M0 -5V0H${scaleWidth * zoom}V-5`} fill="none" stroke="currentColor" strokeWidth="1" /><text x={scaleWidth * zoom / 2} y="15" textAnchor="middle">50 km · 45° N</text></g>
     </svg>
+    <p className="v3-touch-hint">{zoom > 1 ? L('Povucite kartu · ↺ za listanje stranice', 'Drag to move · ↺ to scroll page') : L('Listajte jednim prstom · Povećajte s dva', 'Scroll with one finger · Zoom with two')}</p>
     <div className="v3-map-tools"><button title={L('Povećaj kartu', 'Zoom in')} aria-label={L('Povećaj kartu', 'Zoom in')} disabled={zoom >= nav.maxZoom} onClick={nav.zoomIn}><Icon name="plus" size={18} /></button>
       <button title={L('Smanji kartu', 'Zoom out')} aria-label={L('Smanji kartu', 'Zoom out')} disabled={zoom === 1} onClick={nav.zoomOut}><Icon name="minus" size={18} /></button>
       <button title={L('Vrati prikaz', 'Reset map')} aria-label={L('Vrati prikaz', 'Reset map')} onClick={nav.reset}><Icon name="reset" size={16} /></button>

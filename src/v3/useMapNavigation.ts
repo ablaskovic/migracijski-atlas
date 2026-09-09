@@ -50,9 +50,22 @@ export default function useMapNavigation(width: number, height: number) {
       const pixels = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1);
       zoomTo(current.current.zoom * Math.exp(-Math.max(-1000, Math.min(1000, pixels)) * .002), p.x, p.y);
     };
+    // Keep one-finger page scrolling native, but retain both pointers for a map pinch.
+    const touch = (e: TouchEvent) => { if (pointers.current.size === 2 && e.cancelable) e.preventDefault(); };
     el.addEventListener('wheel', wheel, { passive: false });
+    el.addEventListener('touchstart', touch, { passive: false });
+    el.addEventListener('touchmove', touch, { passive: false });
     window.addEventListener('blur', cancel);
-    return () => { el.removeEventListener('wheel', wheel); window.removeEventListener('blur', cancel); cancel(); };
+    // Rotation changes SVG coordinates underneath an active gesture.
+    window.addEventListener('resize', cancel);
+    return () => {
+      el.removeEventListener('wheel', wheel);
+      el.removeEventListener('touchstart', touch);
+      el.removeEventListener('touchmove', touch);
+      window.removeEventListener('blur', cancel);
+      window.removeEventListener('resize', cancel);
+      cancel();
+    };
   }, [zoomTo, cancel]);
   const rebase = () => {
     const [a, b] = [...pointers.current.values()];
@@ -82,6 +95,7 @@ export default function useMapNavigation(width: number, height: number) {
     const [a, b] = [...pointers.current.values()];
     if (!suppressClick.current && Math.hypot(a.clientX - start.clientX, a.clientY - start.clientY) <= 5) return false;
     suppressClick.current = true;
+    if (e.pointerType === 'touch' && !b && start.view.zoom === 1) return true;
     setDragging(true);
     e.preventDefault();
     const zoom = b && start.distance > 0 ? Math.max(1, Math.min(MAX_ZOOM, start.view.zoom * Math.hypot(a.x - b.x, a.y - b.y) / start.distance)) : start.view.zoom;

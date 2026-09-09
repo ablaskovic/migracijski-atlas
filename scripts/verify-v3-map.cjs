@@ -33,14 +33,15 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
   const reset=async()=>{await page.click('.v3-map-tools button:nth-child(3)');await sleep(60);};
   const matrix=()=>page.$eval('.v3-map-world',el=>{const m=el.transform.baseVal.consolidate().matrix;return {a:m.a,d:m.d,e:m.e,f:m.f};});
   const point=()=>page.$eval('.v3-map',el=>{const p=new DOMPoint(480,230).matrixTransform(el.getScreenCTM());return {x:p.x,y:p.y};});
-  const countyPoint=async(iso='HR-01')=>page.$eval('[data-county="'+iso+'"]',el=>{
+  const shapePoint=async selector=>page.$eval(selector,el=>{
     const b=el.getBBox(), m=el.getScreenCTM(), pts=[];
     for(let yi=1;yi<20;yi++)for(let xi=1;xi<20;xi++){
       const p=new DOMPoint(b.x+b.width*xi/20,b.y+b.height*yi/20), s=p.matrixTransform(m);
       if(el.isPointInFill(p)&&document.elementFromPoint(s.x,s.y)===el)pts.push({x:s.x,y:s.y,d:(xi-10)**2+(yi-10)**2});
     }
-    pts.sort((a,b)=>a.d-b.d); if(!pts[0])throw new Error('No visible county hit');return pts[0];
+    pts.sort((a,b)=>a.d-b.d); if(!pts[0])throw new Error('No visible map shape hit');return pts[0];
   });
+  const countyPoint=(iso='HR-01')=>shapePoint('[data-county="'+iso+'"]');
   const clickCounty=async iso=>{const p=await countyPoint(iso);await page.mouse.click(p.x,p.y);await sleep(80);};
   const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   try {
@@ -110,6 +111,25 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
     check('selection and focus outlines retain the same non-scaling width at both zoom limits',edgeWidths.length===6&&edgeWidths.every(e=>e.width==='2.5px'&&e.vector==='non-scaling-stroke'));
     await reset();await page.$eval('[data-county="HR-03"]',e=>e.focus());await page.keyboard.press('Enter');check('keyboard county selection remains available',await page.evaluate(()=>location.hash.includes('county=HR-03')));
     await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});await go();
+    const labelSamples=[];
+    for(const font of [16,20,24]){
+      await page.$eval('html',(e,font)=>e.style.fontSize=font+'px',font);await sleep(120);
+      for(const mode of ['cities','counties']){
+        if(mode==='counties')await page.click('.v3-map-tools button:nth-child(4)');
+        for(const zoom of [1,2.5]){
+          if(zoom>1)for(let i=0;i<3;i++)await page.click('.v3-map-tools button:first-child');
+          const labels=await page.$$eval('.v3-map-labels text',els=>els.map(e=>({name:e.textContent,size:parseFloat(getComputedStyle(e).fontSize)*e.getScreenCTM().a,box:e.getBoundingClientRect().toJSON()})));
+          const collisions=labels.flatMap((a,i)=>labels.slice(i+1).filter(b=>Math.min(a.box.right,b.box.right)>Math.max(a.box.left,b.box.left)&&Math.min(a.box.bottom,b.box.bottom)>Math.max(a.box.top,b.box.top)).map(b=>[a.name,b.name]));
+          labelSamples.push({font,mode,zoom,count:labels.length,sizes:labels.map(e=>e.size),collisions});
+          if(font===16&&zoom===1){await page.$eval('.v3-map',e=>e.scrollIntoView({block:'center'}));await page.screenshot({path:path.join(output,'mobile-'+mode+'-labels.png')});}
+        }
+        await reset();
+      }
+      await page.click('.v3-map-tools button:nth-child(4)');await page.click('.v3-map-tools button:nth-child(4)');
+    }
+    check('phone city and county labels stay readable at both zoom limits and honor larger browser text',labelSamples.every(s=>s.count>=4&&s.sizes.every(size=>Math.abs(size-11*s.font/16)<.05)),labelSamples);
+    check('phone labels remain free of collisions at normal and larger text sizes',labelSamples.every(s=>s.collisions.length===0),labelSamples.map(({font,mode,zoom,count,collisions})=>({font,mode,zoom,count,collisions})));
+    await page.$eval('html',e=>e.style.removeProperty('font-size'));await go();
     const touchPoint=await point();const cdp=await page.createCDPSession();
     const touches=d=>[{x:touchPoint.x-d,y:touchPoint.y,id:0},{x:touchPoint.x+d,y:touchPoint.y,id:1}];
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:touches(35)});
@@ -144,6 +164,63 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
       revealed.push({kind,hidden,visible,zoom:(await matrix()).a});
     }
     check('keyboard focus reveals counties and municipalities outside a zoomed viewport',revealed.every(r=>r.hidden&&r.visible&&r.zoom===1),revealed);
+    const centerMap=async()=>{await page.$eval('.v3-map',e=>e.scrollIntoView({block:'center'}));await sleep(100);return page.$eval('.v3-map',el=>{const r=el.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};});};
+    const touchState=()=>page.evaluate(()=>({scroll:scrollY,scale:visualViewport.scale,panning:!!document.querySelector('.v3-map.is-panning'),selected:document.querySelectorAll('[data-county][aria-pressed=true],[data-municipality][aria-pressed=true]').length,action:getComputedStyle(document.querySelector('.v3-map')).touchAction}));
+    const touchSwipe=async p=>{
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:0}]});
+      for(let y=20;y<=120;y+=20){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:p.x,y:p.y-y,id:0}]});await sleep(30);}
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(350);
+    };
+    for(const kind of ['county','municipality']){
+      await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});await go();
+      if(kind==='municipality'){await page.select('.v3-explore-controls select','municipalities');await page.waitForFunction(()=>document.querySelectorAll('[data-municipality]').length===556);}
+      for(const [width,height]of [[390,844],[844,390]]){
+        await page.setViewport({width,height,isMobile:true,hasTouch:true});await reset();const p=await centerMap();
+        const before=await touchState();await touchSwipe(p);const after=await touchState();
+        check(kind+' map permits one-finger page scrolling at full extent '+width+'x'+height,after.scroll-before.scroll>70&&(await matrix()).a===1&&!after.panning&&after.selected===before.selected&&after.action==='pan-y',{before,after});
+        const pinchResults=[];
+        for(const angle of [Math.PI/2,Math.PI/4]){
+          await reset();const p=await centerMap(),before=await touchState(),touches=d=>[-1,1].map((s,id)=>({x:p.x+s*d*Math.cos(angle),y:p.y+s*d*Math.sin(angle),id}));
+          await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:touches(30)});
+          for(let d=35;d<=60;d+=5){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:touches(d)});await sleep(20);}
+          await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(70);
+          pinchResults.push({angle,zoom:(await matrix()).a,before,after:await touchState()});
+        }
+        check(kind+' vertical and diagonal pinches retain both fingers '+width+'x'+height,pinchResults.every(r=>Math.abs(r.zoom-2)<.01&&Math.abs(r.after.scroll-r.before.scroll)<1&&r.after.scale===1&&!r.after.panning&&r.after.selected===r.before.selected&&r.after.action==='none'),pinchResults);
+        const hints=[];
+        for(const lang of ['hr','en']){
+          await page.click('.v3-language button:nth-child('+(lang==='hr'?1:2)+')');await centerMap();
+          hints.push(await page.evaluate(lang=>{const h=document.querySelector('.v3-touch-hint'),r=h.getBoundingClientRect(),m=document.querySelector('.v3-map').getBoundingClientRect(),t=document.querySelector('.v3-map-tools').getBoundingClientRect();return{lang,text:h.textContent,visible:getComputedStyle(h).display!=='none',fits:r.left>=m.left&&r.right<=m.right&&r.top>=m.top&&r.bottom<=m.bottom,clearTools:r.right<=t.left||r.bottom<=t.top,pointer:getComputedStyle(h).pointerEvents};},lang));
+        }
+        check(kind+' mobile hints are bilingual, visible and clear of controls '+width+'x'+height,hints.every(h=>h.visible&&h.fits&&h.clearTools&&h.pointer==='none')&&hints[0].text.includes('Povucite')&&hints[1].text.includes('Drag'),hints);
+        await page.screenshot({path:path.join(output,kind+'-touch-'+width+'.png')});
+      }
+      const pinchOutPoint=await centerMap(),closing=d=>[-1,1].map((s,id)=>({x:pinchOutPoint.x+s*d,y:pinchOutPoint.y,id}));
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:closing(60)});
+      for(let d=55;d>=25;d-=5){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:closing(d)});await sleep(20);}
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(70);
+      const pinchOutBefore=await touchState();await touchSwipe(await centerMap());const pinchOutAfter=await touchState();
+      check(kind+' pinching back to full extent restores one-finger page scrolling',(await matrix()).a===1&&pinchOutAfter.action==='pan-y'&&pinchOutAfter.scroll-pinchOutBefore.scroll>70&&!pinchOutAfter.panning);
+      await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});await reset();await page.click('.v3-map-tools button:first-child');const p=await centerMap(),before=await touchState();
+      const panBefore=await matrix();
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:0}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:p.x+20,y:p.y+15,id:0}]});await sleep(60);
+      const moved=await matrix();await page.setViewport({width:844,height:390,isMobile:true,hasTouch:true});await sleep(100);
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:p.x+60,y:p.y+40,id:0}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(60);
+      check(kind+' rotation cancels an active pan without changing extent or selecting',!same(panBefore,moved)&&same(moved,await matrix())&&!((await touchState()).panning)&&(await touchState()).selected===before.selected,{before,moved,after:await touchState()});
+      await reset();const scrollPoint=await centerMap(),resetBefore=await touchState();await touchSwipe(scrollPoint);const resetAfter=await touchState();
+      check(kind+' reset returns from map panning to normal page scrolling',(await matrix()).a===1&&resetAfter.scroll-resetBefore.scroll>70&&resetAfter.action==='pan-y'&&!resetAfter.panning&&await page.$eval('.v3-touch-hint',e=>e.textContent.includes('Scroll with one finger')));
+      await centerMap();
+      const tapId=kind==='county'?'HR-03':await page.$$eval('[data-municipality]',els=>els.filter(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}).sort((a,b)=>{const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();return y.width*y.height-x.width*x.height;})[0].dataset.municipality);
+      const selector='[data-'+kind+'="'+tapId+'"]',tap=await shapePoint(selector);await page.touchscreen.tap(tap.x,tap.y);await sleep(100);
+      check(kind+' touch selection still works after scrolling, pinch and rotation',await page.$eval(selector,e=>e.getAttribute('aria-pressed')==='true'));
+      if(kind==='municipality')check('municipality touch selection uses its geographic border without a rectangular focus ring',await page.$eval(selector,e=>getComputedStyle(e).outlineStyle==='none'&&document.querySelector('[data-municipality-outline]')?.getAttribute('data-municipality-outline')===e.dataset.municipality));
+    }
+    await page.setViewport({width:1440,height:1080,isMobile:false,hasTouch:false});await go('#explore=municipalities&county=HR-04&dir=net&pair=HR-21');await page.waitForFunction(()=>document.querySelectorAll('[data-municipality]').length===556);
+    const municipality='[data-municipality="181"]',hit=await shapePoint(municipality);await page.mouse.click(hit.x,hit.y);await sleep(80);
+    const municipalFocus=()=>page.$eval(municipality,e=>({active:document.activeElement===e,visible:e.matches(':focus-visible'),outline:getComputedStyle(e).outlineStyle,selected:e.getAttribute('aria-pressed'),border:document.querySelector('[data-municipality-outline]')?.getAttribute('data-municipality-outline'),borderWidth:getComputedStyle(document.querySelector('[data-municipality-outline]')).strokeWidth}));
+    const pointerFocus=await municipalFocus();await page.screenshot({path:path.join(output,'municipality-click-border.png')});
+    await page.keyboard.press('Tab');await page.$eval(municipality,e=>e.focus());const keyboardFocus=await municipalFocus();
+    check('municipality mouse and keyboard focus retain a shape outline without the browser rectangle',[pointerFocus,keyboardFocus].every(s=>s.active&&s.outline==='none'&&s.selected==='true'&&s.border==='181'&&s.borderWidth==='2.5px')&&keyboardFocus.visible,{pointerFocus,keyboardFocus});
     check('interaction runs without browser errors',errors.length===0,errors);
     console.log('TOTAL '+checks+' checks passed');
   } finally {await browser.close();await new Promise(r=>server.close(r));}

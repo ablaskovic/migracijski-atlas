@@ -1,6 +1,10 @@
-.v3-map{touch-action:none;user-select:none;-webkit-user-select:none}
+.v3-map{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.v3-touch-hint{display:none}
+@media(any-pointer:coarse){.v3-touch-hint{display:block;position:absolute;top:9px;left:15px;max-width:calc(100% - 84px);margin:0;padding:4px 7px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:5px;font-size:.75rem;line-height:1.5;pointer-events:none}}
+@media print{.v3-touch-hint{display:none}}
 .v3-compass text{fill:currentColor}
 .v3-map .v3-counties path[data-county]{stroke:var(--land-stroke);stroke-width:1.25px}
+.v3-map .v3-municipal-shapes path:focus{outline:none}
 .v3-map.is-panning,.v3-map.is-panning .v3-counties path{cursor:grabbing}
 .v3-county-outlines,.v3-region-boundaries{pointer-events:none;fill:none}
 .v3-county-outlines path{stroke:var(--accent);stroke-width:2.5px;stroke-linejoin:round}
