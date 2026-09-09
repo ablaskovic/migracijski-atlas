@@ -31,6 +31,11 @@ fonts, numerical legends and attribution; CSV retains complete data and method
 labels. V3 starts in 2025, supports Croatian and English, offers light mode,
 and shares analysis settings and population subtabs through its URL.
 
+On phones and tablets, controls have larger touch targets, inputs stay readable,
+and wide tables keep their headings visible while scrolling. At full map extent,
+one finger scrolls the page; pinch to zoom, then drag to pan the map. Sharing uses
+the device's share sheet when available, with clipboard and manual-copy fallbacks.
+
 V2's `src/App.tsx`, `src/index.css`, components, calculations and datasets are
 unchanged. The small loader in `src/main.tsx` imports one version and its styles;
 switching versions navigates the document so CSS and module state stay isolated.
@@ -38,7 +43,9 @@ V3 lives in `src/v3/` and reuses the existing computation layer. Both interfaces
 offer the original analysis tools and data.
 
 Run `npm run verify:v3` for the v3 production build, browser regressions,
-map gesture checks and data-parity checks against the source arrays.
+map gesture checks and data-parity checks against the source arrays. Mobile
+regressions cover portrait/landscape layouts, real touch gestures, table scrolling,
+sharing and dialogs, and Croatian/English at 200% text size.
 This uses the same optional Puppeteer installation described below, writes its
 build and screenshots under ignored `logs/`, and can run alongside
 `npm run verify`. The original 650-check suite selects the real v2 URL before
