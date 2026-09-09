@@ -17,6 +17,11 @@ interface Props {
   tab?: Panel;
   onTab?: (tab: Panel) => void;
   onYear?: (yi: number) => void;
+  age?: 'ext' | 'int';
+  onAge?: (mode: 'ext' | 'int') => void;
+  localScope?: 'inter' | 'local';
+  onLocalScope?: (scope: 'inter' | 'local') => void;
+  onDirection?: (direction: Direction) => void;
 }
 type CsvRow = (string | number)[];
 const SOURCE = 'DZS STAN-2026-2-1';
@@ -29,21 +34,27 @@ function saveCsv(rows: CsvRow[], name: string) {
   downloadFile('\uFEFF' + csv, 'text/csv;charset=utf-8', name + '.csv');
 }
 
-export default function PopulationPanels({ lang, county, yi, cum, direction, onCounty, tab, onTab, onYear }: Props) {
+export default function PopulationPanels({ lang, county, yi, cum, direction, onCounty, tab, onTab, onYear, age, onAge, localScope, onLocalScope, onDirection }: Props) {
   const L = (hr: string, en: string) => lang === 'hr' ? hr : en;
   const format = (n: number) => new Intl.NumberFormat(lang === 'hr' ? 'hr-HR' : 'en-GB').format(n);
   const [localPanel, setLocalPanel] = useState<Panel>('age');
   const panel = tab ?? localPanel;
   const setPanel = (next: Panel) => { setLocalPanel(next); onTab?.(next); };
-  const [ageMode, setAgeMode] = useState<'ext' | 'int'>('ext');
+  const [localAge, setLocalAge] = useState<'ext' | 'int'>('ext');
+  const ageMode = age ?? localAge;
+  const setAgeMode = (mode: 'ext' | 'int') => { setLocalAge(mode); onAge?.(mode); };
   const [citYear, setCitYear] = useState(closestCitYear(YEARS[yi]));
   const [municipalCounty, setMunicipalCounty] = useState(county ?? 'HR-21');
-  const [municipalDirection, setMunicipalDirection] = useState<Direction>(direction);
-  const [municipalMode, setMunicipalMode] = useState<'inter' | 'local'>('inter');
+  const [localDirection, setLocalDirection] = useState<Direction>(direction);
+  const municipalDirection = onDirection ? direction : localDirection;
+  const setMunicipalDirection = (dir: Direction) => { setLocalDirection(dir); onDirection?.(dir); };
+  const [localMunicipalMode, setLocalMunicipalMode] = useState<'inter' | 'local'>('inter');
+  const municipalMode = localScope ?? localMunicipalMode;
+  const setMunicipalMode = (scope: 'inter' | 'local') => { setLocalMunicipalMode(scope); onLocalScope?.(scope); };
   const [query, setQuery] = useState('');
   useEffect(() => { setCitYear(closestCitYear(YEARS[yi])); }, [yi]);
   useEffect(() => { if (county) setMunicipalCounty(county); }, [county]);
-  useEffect(() => { setMunicipalDirection(direction); }, [direction]);
+  useEffect(() => { setLocalDirection(direction); }, [direction]);
   const tabs: [Panel, string][] = [
     ['age', L('Dob i spol', 'Age and sex')], ['citizenship', L('Državljanstvo', 'Citizenship')],
     ['countries', L('Zemlje', 'Countries')], ['municipal', L('Gradovi i općine', 'Towns and municipalities')],
