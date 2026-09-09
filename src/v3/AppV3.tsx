@@ -23,6 +23,7 @@ import MunicipalityMap from './MunicipalityMap.tsx';
 import { exportDataCSV, exportCurrentFigure } from './exports.ts';
 import './v3.css';
 import './explorer.css';
+import './mobile.css';
 
 const initial = readState();
 setLang(initial.lang);
@@ -35,7 +36,7 @@ export default function AppV3() {
   const [playing, setPlaying] = useState(false);
   const direction = s.dir;
   const [notice, setNotice] = useState('');
-  const [sharing, setSharing] = useState(false);
+  const [sharing, setSharing] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const state = useRef(s); state.current = s;
@@ -49,10 +50,11 @@ export default function AppV3() {
   const metricNames = { tot: L('Saldo migracija', 'Net migration'), int: L('Unutarnje', 'Internal'), ext: L('Vanjske', 'External'), nat: L('Prirodni prirast', 'Natural change'), all: L('Migracije + prirast', 'Migration + natural change') };
   const metricFull = { tot: L('Migracijski saldo', 'Net migration'), int: L('Unutarnji migracijski saldo', 'Net internal migration'), ext: L('Vanjski migracijski saldo', 'Net external migration'), nat: L('Prirodni prirast', 'Natural change'), all: L('Migracije + prirodni prirast', 'Migration + natural change') };
   const nationalPanel = s.view === 'population' && s.panel !== 'municipal';
+  const scopeCounty = s.view === 'flows' ? s.county ?? 'HR-21' : s.county;
   const region = s.view === 'regions' && s.county ? REG[REGOF[s.county]] : null;
-  const title = region ? region.name : s.county && !nationalPanel ? countyName(s.county, s.lang) : L('Hrvatska u pokretu.', 'Croatia in motion.');
+  const title = region ? region.name : scopeCounty && !nationalPanel ? countyName(scopeCounty, s.lang) : L('Hrvatska u pokretu.', 'Croatia in motion.');
   const period = s.cum ? `2011–${YEARS[s.yi]}` : String(YEARS[s.yi]);
-  const current = totals(s, region?.c);
+  const current = totals({ ...s, county: scopeCounty }, region?.c);
   const winners = ISOS.filter(iso => val(iso, s.yi, 'tot', 'abs', s.cum) > 0).length;
   const hub = s.county ?? 'HR-21';
   const flowView = s.view === 'flows' || s.view === 'matrix';
@@ -62,7 +64,8 @@ export default function AppV3() {
   const color = colors(max, light);
   const ramp = `linear-gradient(90deg,${Array.from({ length: 21 }, (_, i) => `${color(-max + i / 10 * max)} ${i * 5}%`).join(',')})`;
 
-  function update(patch: Partial<AtlasState>, replace = false) {
+  function update(patch: Partial<AtlasState>, replace = false, autoplay = false) {
+    if (!autoplay && Object.keys(patch).some(k => k !== 'lang')) setPlaying(false);
     const next = normalizeState({ ...state.current, ...patch, den: patch.den ?? (patch.relative === undefined ? state.current.den : patch.relative ? 'rel11' : 'abs'), story: patch.story !== undefined ? patch.story : Object.keys(patch).every(k => k === 'lang') ? state.current.story : null });
     setLang(next.lang); state.current = next; setS(next); setHover(null);
     const url = new URL(location.href); url.hash = stateHash(next); url.searchParams.set('version', 'v3');
@@ -70,8 +73,10 @@ export default function AppV3() {
     if (url.href !== location.href) history[replace ? 'replaceState' : 'pushState'](null, '', url);
   }
   function selectView(view: Explore) {
+    const opener = document.activeElement;
     setPlaying(false);
     update((view === 'flows' || view === 'matrix') && !flowView ? { view, yi: IX2018, cum: false } : { view });
+    requestAnimationFrame(() => { if (opener && !opener.isConnected) document.querySelector<HTMLElement>('[aria-label="' + (state.current.lang === 'hr' ? 'Svi prikazi' : 'All views') + '"]')?.focus({ preventScroll: true }); });
   }
   useEffect(() => {
     const url = new URL(location.href); url.hash = stateHash(state.current);
@@ -94,7 +99,7 @@ export default function AppV3() {
     const timer = setInterval(() => {
       const next = state.current.yi + 1;
       if (next >= YEARS.length) { setPlaying(false); return; }
-      update({ yi: next }, true);
+      update({ yi: next }, true, true);
     }, 900);
     const pauseHidden = () => { if (document.hidden) setPlaying(false); };
     document.addEventListener('visibilitychange', pauseHidden);
@@ -102,23 +107,37 @@ export default function AppV3() {
   }, [playing]);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 3500); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => {
-    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape' && !dialog.current?.open) { setPlaying(false); if (sharing) closeSharing(); else if (state.current.county) inspectCounty(null); } };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || dialog.current?.open || e.defaultPrevented) return;
+      setPlaying(false);
+      if (sharing) closeSharing();
+      else if (['flows', 'matrix'].includes(state.current.view) && state.current.pair) document.querySelector<HTMLButtonElement>('.v3-pair .v3-icon-button')?.click();
+      else if (state.current.county && state.current.view !== 'flows') inspectCounty(null);
+    };
     window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape);
   }, [sharing]);
   async function share() {
-    try { await navigator.clipboard.writeText(location.href); setNotice(L('Poveznica je kopirana.', 'Link copied to clipboard.')); }
-    catch { setSharing(true); }
+    setPlaying(false);
+    const url = location.href;
+    if (navigator.share && window.matchMedia('(pointer:coarse)').matches) {
+      try { await navigator.share({ title: document.title, url }); return; }
+      catch (error) { if (error instanceof DOMException && error.name === 'AbortError') return; }
+    }
+    try { await navigator.clipboard.writeText(url); setNotice(L('Poveznica je kopirana.', 'Link copied to clipboard.')); }
+    catch { setSharing(url); }
   }
   function closeSharing() {
-    setSharing(false);
+    setSharing(null);
     document.querySelector<HTMLButtonElement>('.v3-share')?.focus();
   }
   function exportCSV() {
+    setPlaying(false);
     if (s.view === 'municipalities' && !jlsGeo()) return;
     exportDataCSV(s);
     setNotice(L('Podaci su izvezeni u CSV.', 'Data exported as CSV.'));
   }
   async function exportImage(format: 'png' | 'svg') {
+    setPlaying(false);
     setExporting(true);
     try { await exportCurrentFigure(s, format, light); setNotice(L('Slika je izvezena.', 'Figure exported.')); }
     catch { setNotice(L('Izvoz nije uspio. Pokušajte ponovno nakon učitavanja karte.', 'Export failed. Try again once the map has loaded.')); }
@@ -128,10 +147,18 @@ export default function AppV3() {
 
   function inspectCounty(county: string | null) {
     const previous = state.current.county, view = state.current.view;
-    if (view === 'flows') { update({ pair: county === (state.current.county ?? 'HR-21') ? null : county }); return; }
+    if (view === 'flows') {
+      update({ pair: county === (state.current.county ?? 'HR-21') ? null : county });
+      if (county && window.matchMedia('(max-width:720px), (pointer:coarse)').matches) requestAnimationFrame(() => {
+        const heading = document.getElementById('v3-pair-title');
+        heading?.focus({ preventScroll: true });
+        heading?.scrollIntoView({ block: 'center', behavior: 'instant' });
+      });
+      return;
+    }
     update({ county });
     requestAnimationFrame(() => {
-      const target = document.querySelector<HTMLElement | SVGElement>(county ? '.v3-county-detail h2' : `[data-county="${previous}"]`);
+      const target = document.querySelector<HTMLElement | SVGElement>(county ? '.v3-county-detail h2' : `[data-county="${previous}"]`) ?? document.querySelector<HTMLElement>('.v3-explore-controls select');
       target?.focus({ preventScroll: true });
       if (county && window.matchMedia('(max-width:720px)').matches) document.querySelector('.v3-county-panel')?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth' });
     });
@@ -159,25 +186,25 @@ export default function AppV3() {
         <div className="v3-side-bottom"><button onClick={showAbout}><Icon name="info" /><span>{L('O atlasu', 'About')}</span></button><span className="v3-side-coordinate">45° N<br />16° E</span></div>
       </nav>
       <main id="v3-explorer" tabIndex={-1}>
-        <section className="v3-intro"><div><div className="v3-eyebrow"><span className="v3-live-dot" />{L('ATLAS MIGRACIJA', 'MIGRATION ATLAS')}<span className="v3-eyebrow-divider">/</span>{region ? L('REGIJA', 'REGION') : s.county && !nationalPanel ? L('ŽUPANIJA', 'COUNTY') : L('NACIONALNI PREGLED', 'NATIONAL OVERVIEW')}</div>
+        <section className="v3-intro"><div><div className="v3-eyebrow"><span className="v3-live-dot" />{L('ATLAS MIGRACIJA', 'MIGRATION ATLAS')}<span className="v3-eyebrow-divider">/</span>{region ? L('REGIJA', 'REGION') : scopeCounty && !nationalPanel ? L('ŽUPANIJA', 'COUNTY') : L('NACIONALNI PREGLED', 'NATIONAL OVERVIEW')}</div>
           <h1>{title}</h1><p>{L('Ljudi, mjesta i promjene. Istražite migracije kroz 28 godina.', 'People, places, and change. Explore 28 years of migration.')}</p></div>
-          <div className="v3-period"><span>{s.cum ? L('RAZDOBLJE', 'PERIOD') : L('GODINA', 'YEAR')}</span><strong>{period}</strong>{s.county && <button onClick={() => update({ county: null })}>{L('Cijela Hrvatska', 'All Croatia')} <Icon name="close" size={13} /></button>}</div>
+          <div className="v3-period"><span>{s.cum ? L('RAZDOBLJE', 'PERIOD') : L('GODINA', 'YEAR')}</span><strong>{period}</strong>{s.county && s.view !== 'flows' && <button onClick={() => inspectCounty(null)}>{L('Cijela Hrvatska', 'All Croatia')} <Icon name="close" size={13} /></button>}</div>
         </section>
         <ResearchContext lang={s.lang} onAbout={showAbout} />
         {s.view !== 'population' && <section className="v3-stats" aria-label={L('Pregled podataka', 'Key figures')}>
-          <article className="v3-stat v3-stat-primary"><div className="v3-stat-label">{s.county ? L('Migracijski saldo', 'Net migration') : L('Vanjski migracijski saldo', 'Net external migration')}<Icon name="flow" size={17} /></div><strong className={current.net < 0 ? 'v3-negative' : ''} data-stat="net">{format(current.net)}</strong><span>{L('doseljeni − odseljeni', 'arrivals − departures')} · {period}</span></article>
+          <article className="v3-stat v3-stat-primary"><div className="v3-stat-label">{scopeCounty ? L('Migracijski saldo', 'Net migration') : L('Vanjski migracijski saldo', 'Net external migration')}<Icon name="flow" size={17} /></div><strong className={current.net < 0 ? 'v3-negative' : ''} data-stat="net">{format(current.net)}</strong><span>{L('doseljeni − odseljeni', 'arrivals − departures')} · {period}</span></article>
           <article className="v3-stat"><div className="v3-stat-label">{L('Doseljeni iz inozemstva', 'Arrivals from abroad')}<span className="v3-stat-arrow">↙</span></div><strong data-stat="arrivals">{nf.format(current.arrivals)}</strong><span>{L('registriranih doseljenja', 'registered arrivals')} · {period}</span></article>
           <article className="v3-stat"><div className="v3-stat-label">{L('Odseljeni u inozemstvo', 'Departures abroad')}<span className="v3-stat-arrow is-coral">↗</span></div><strong data-stat="departures">{nf.format(current.departures)}</strong><span>{L('registriranih odseljenja', 'registered departures')} · {period}</span></article>
-          <article className="v3-stat"><div className="v3-stat-label">{s.county ? L('Unutarnji migracijski saldo', 'Net internal migration') : L('Županije s pozitivnim saldom', 'Counties with net gains')}<Icon name="map" size={17} /></div><strong data-stat="counties">{s.county ? format((region?.c ?? [s.county]).reduce((sum, iso) => sum + val(iso, s.yi, 'int', 'abs', s.cum), 0)) : <>{winners}<small> / 21</small></>}</strong><span>{s.county ? L('preseljenja između županija', 'moves between counties') : L('više doseljenih nego odseljenih', 'more arrivals than departures')}</span></article>
+          <article className="v3-stat"><div className="v3-stat-label">{scopeCounty ? L('Unutarnji migracijski saldo', 'Net internal migration') : L('Županije s pozitivnim saldom', 'Counties with net gains')}<Icon name="map" size={17} /></div><strong data-stat="counties">{scopeCounty ? format((region?.c ?? [scopeCounty]).reduce((sum, iso) => sum + val(iso, s.yi, 'int', 'abs', s.cum), 0)) : <>{winners}<small> / 21</small></>}</strong><span>{scopeCounty ? L('preseljenja između županija', 'moves between counties') : L('više doseljenih nego odseljenih', 'more arrivals than departures')}</span></article>
         </section>
         }
         <section className="v3-workspace" aria-label={L('Istraživanje podataka', 'Explore the data')}>
           <div className="v3-toolbar"><div className="v3-tabs" role="group" aria-label={L('Prikaz', 'View')}>{(['map', 'trends', 'flows'] as const).map((v, i) => <button key={v} className={s.view === v ? 'is-active' : ''} aria-pressed={s.view === v} onClick={() => selectView(v)}><Icon name={viewIcon(v)} size={17} /><span className="v3-tab-long">{[L('Istraži kartu', 'Explore map'), L('Kroz godine', 'Through the years'), L('Migracijski tokovi', 'Migration flows')][i]}</span><span className="v3-tab-short">{navLabels[i]}</span></button>)}</div><div className="v3-export-actions">{s.view !== 'population' && <button className="v3-export" disabled={s.view === 'municipalities' && !jlsGeo()} onClick={exportCSV}><Icon name="download" size={16} />CSV</button>}{s.view !== 'population' && <><button disabled={exporting || s.view === 'municipalities' && !jlsGeo()} onClick={() => void exportImage('svg')} aria-label={L('Izvezi SVG', 'Export SVG')}>SVG</button><button disabled={exporting || s.view === 'municipalities' && !jlsGeo()} onClick={() => void exportImage('png')} aria-label={L('Izvezi PNG', 'Export PNG')}>{exporting ? '…' : 'PNG'}</button></>}</div></div>
           <div className="v3-explore-controls"><label>{L('ISTRAŽI', 'EXPLORE')}<select aria-label={L('Svi prikazi', 'All views')} value={s.view} onChange={e => selectView(e.target.value as Explore)}>{VIEWS.map(v => <option key={v} value={v}>{viewName(v, s.lang)}</option>)}</select></label><label>{L('VOĐENI NALAZI', 'GUIDED FINDINGS')}<select aria-label={L('Vođeni nalazi', 'Guided findings')} value={s.story ?? ''} onChange={e => { if (e.target.value !== '') { setPlaying(false); update(findingPatch(+e.target.value)); } else update({ story: null }); }}><option value="">{L('Odaberite priču…', 'Choose a story…')}</option>{STORIES.map((story, i) => <option key={i} value={i}>{String(i + 1).padStart(2, '0')} · {story.label}</option>)}</select></label></div>
-          {s.story != null && (!STORIES[s.story].needs || jlsGeo()) && <div className="v3-finding" role="status"><span className="v3-eyebrow">{L('NALAZ', 'FINDING')} {String(s.story + 1).padStart(2, '0')}</span><p>{STORIES[s.story].cap}</p><button className="v3-icon-button" aria-label={L('Zatvori nalaz', 'Close finding')} onClick={() => update({ story: null })}><Icon name="close" size={16} /></button></div>}
+          {s.story != null && (!STORIES[s.story].needs || jlsGeo()) && <div className="v3-finding" role="status"><span className="v3-eyebrow">{L('NALAZ', 'FINDING')} {String(s.story + 1).padStart(2, '0')}</span><p>{STORIES[s.story].cap}</p><button className="v3-icon-button" aria-label={L('Zatvori nalaz', 'Close finding')} onClick={() => { update({ story: null }); requestAnimationFrame(() => document.querySelector<HTMLElement>('.v3-explore-controls label:nth-child(2) select')?.focus({ preventScroll: true })); }}><Icon name="close" size={16} /></button></div>}
           {s.view !== 'classify' && s.view !== 'population' && <div className="v3-filters">{flowView || s.view === 'municipalities' ? <><span className={'v3-data-badge' + (estimated ? ' is-estimate' : '')}><span />{estimated ? L('IPF PROCJENA', 'IPF ESTIMATE') : L('IZMJERENO · 2018.', 'MEASURED · 2018')}</span><div className="v3-segment" role="group" aria-label={L('Smjer migracija', 'Migration direction')}>{(['in', 'out', 'net'] as const).map(d => <button key={d} aria-pressed={direction === d} onClick={() => update({ dir: d })}>{d === 'in' ? L('Doseljavanje', 'Arrivals') : d === 'out' ? L('Odseljavanje', 'Departures') : L('Saldo', 'Net')}</button>)}</div>{s.view === 'flows' && <label className="v3-hub-label">{L('Županija', 'County')}<select value={hub} onChange={e => update({ county: e.target.value, pair: null })}>{ISOS.map(i => <option key={i} value={i}>{countyName(i, s.lang)}</option>)}</select></label>}</> : <><div className="v3-metrics" role="group" aria-label={L('Sastavnica', 'Component')}>{FLOWS.map(f => <button key={f} aria-pressed={s.flow === f} onClick={() => update({ flow: f })}>{metricNames[f]}</button>)}</div><label className="v3-unit"><select aria-label={L('Jedinica', 'Unit')} value={s.den} onChange={e => update({ den: e.target.value as Den })}><option value="abs">{L('Broj osoba', 'People')}</option><option value="rel11">{L('% popisa 2011.', '% of 2011 census')}</option><option value="relest">{L('% procijenjenog stanovništva', '% of estimated population')}</option></select></label></>}</div>}
           {!flowView && s.view !== 'classify' && s.view !== 'municipalities' && s.view !== 'population' && s.den === 'relest' && <p className="v3-data-note v3-den-note">{unitName(s)} · {L('Kumulativni saldo dijeli se stanovništvom na kraju razdoblja.', 'Cumulative net change uses the population at the end of the period.')}</p>}
-          {s.view === 'classify' ? <><ClassificationView s={s} light={light} update={update} format={format} />{timeline}</> : s.view === 'regions' ? <><RegionsView s={s} light={light} update={update} format={format} />{timeline}</> : s.view === 'matrix' ? <><MatrixView s={s} light={light} update={update} format={format} />{timeline}</> : s.view === 'municipalities' ? <MunicipalityMap s={s} light={light} update={update} /> : s.view === 'population' ? <><PopulationPanels lang={s.lang} county={s.county} yi={s.yi} cum={s.cum} direction={s.dir} tab={s.panel} onTab={panel => update({ panel })} onCounty={county => update({ county })} onYear={yi => update({ yi, cum: false })} age={s.age} onAge={age => update({ age })} localScope={s.localScope} onLocalScope={localScope => update({ localScope })} onDirection={dir => update({ dir })} />{timeline}</> : s.view === 'trends' ? <div className="v3-trends-view"><div className="v3-section-heading"><div><span className="v3-eyebrow">1998—2025</span><h2>{s.county ? countyName(s.county, s.lang) : L('Kada se smjer promijenio?', 'When did the direction change?')}</h2><p>{s.county ? metricFull[s.flow] : L('Vanjski migracijski saldo Hrvatske', 'Croatia’s net external migration')} · {L('godišnji broj osoba', 'annual number of people')}</p></div>{s.county && <button className="v3-button" onClick={() => update({ county: null })}>{L('Cijela Hrvatska', 'All Croatia')}</button>}</div>
+          {s.view === 'classify' ? <><ClassificationView s={s} light={light} update={update} format={format} />{timeline}</> : s.view === 'regions' ? <><RegionsView s={s} light={light} update={update} format={format} />{timeline}</> : s.view === 'matrix' ? <><MatrixView s={s} light={light} update={update} format={format} />{timeline}</> : s.view === 'municipalities' ? <MunicipalityMap s={s} light={light} update={update} /> : s.view === 'population' ? <><PopulationPanels lang={s.lang} county={s.county} yi={s.yi} cum={s.cum} direction={s.dir} tab={s.panel} onTab={panel => update({ panel })} onCounty={county => update({ county })} onYear={yi => update({ yi, cum: false })} age={s.age} onAge={age => update({ age })} localScope={s.localScope} onLocalScope={localScope => update({ localScope })} onDirection={dir => update({ dir })} />{timeline}</> : s.view === 'trends' ? <div className="v3-trends-view"><div className="v3-section-heading"><div><span className="v3-eyebrow">1998—2025</span><h2>{s.county ? countyName(s.county, s.lang) : L('Kada se smjer promijenio?', 'When did the direction change?')}</h2><p>{s.county ? metricFull[s.flow] : L('Vanjski migracijski saldo Hrvatske', 'Croatia’s net external migration')} · {L('godišnji broj osoba', 'annual number of people')}</p></div>{s.county && <button className="v3-button" onClick={() => inspectCounty(null)}>{L('Cijela Hrvatska', 'All Croatia')}</button>}</div>
             <TrendChart s={{ ...s, cum: false }} onYear={yi => { setPlaying(false); update({ yi, cum: false }); }} />
             {s.county && <CountySeries s={s} />}
             <div className="v3-section-heading"><div><h3>{L('Svaka županija. Svaka godina.', 'Every county. Every year.')}</h3><p>{metricFull[s.flow]} · {(s.den === 'relest' ? L('% procjene za godinu stupca', '% of the column year’s estimate') : unitName(s)) + (s.cum ? L(' · zbroj od 2011.', ' · total since 2011') : L(' · godišnje', ' · annual'))} · {L('Odaberite ćeliju za detalje.', 'Select a cell to inspect.')}</p></div><span className="v3-mini-legend"><i />{L('gubitak', 'loss')}<i />{L('dobitak', 'gain')}</span></div>
@@ -199,7 +226,7 @@ export default function AppV3() {
       </main>
     </div>
     <About dialog={dialog} lang={s.lang} />
-    {sharing && <div className="v3-share-fallback" role="dialog" aria-label={L('Kopirajte poveznicu', 'Copy the link')}><label>{L('Kopirajte poveznicu', 'Copy the link')}<input readOnly value={location.href} onFocus={e => e.currentTarget.select()} autoFocus /></label><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={closeSharing}><Icon name="close" /></button></div>}
+    {sharing && <div className="v3-share-fallback" role="dialog" aria-label={L('Kopirajte poveznicu', 'Copy the link')}><label>{L('Kopirajte poveznicu', 'Copy the link')}<input readOnly value={sharing} onFocus={e => e.currentTarget.select()} autoFocus /></label><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={closeSharing}><Icon name="close" /></button></div>}
     <div className="v3-toast" role="status" aria-live="polite">{notice && <><Icon name="check" size={17} />{notice}</>}</div>
     <Analytics beforeSend={dropHash} /><SpeedInsights beforeSend={dropHash} />
   </div>;

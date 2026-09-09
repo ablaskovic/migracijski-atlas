@@ -1,0 +1,80 @@
+/* Touch sizing also applies to tablets that use a wider desktop layout. */
+@media (max-width:960px), (pointer:coarse) {
+  .v3-app :is(.v3-icon-button,.v3-play,.v3-map-tools button) { width:44px; height:44px; min-width:44px; min-height:44px }
+  .v3-app :is(.v3-button,.v3-text-button,.v3-language button,.v3-tabs button,.v3-metrics button,.v3-segment button,.v3-time-mode button,.v3-export-actions>button,.v3-research-more,.v3-period button) { min-height:44px }
+  .v3-app .atlas-version-switch a { display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; font-size:.875rem }
+  .v3-app .v3-language button { min-width:44px; font-size:.875rem }
+  .v3-app :is(.v3-share,.v3-segment button) { min-width:44px }
+  .v3-app :is(select,input:not([type=range])) { font-size:max(1rem,16px); min-height:44px }
+  .v3-app :is(.v3-explore-controls label,.v3-data-badge,.v3-year-input label) { font-size:.6875rem }
+  .v3-app :is(.v3-tabs button,.v3-metrics button,.v3-segment button,.v3-time-mode button,.v3-export-actions>button) { font-size:.8125rem }
+  .v3-app .v3-export-actions>button { min-width:44px; padding-inline:8px }
+  .v3-app .v3-toolbar { height:auto; min-height:56px; flex-wrap:wrap; padding-block:8px }
+  .v3-app .v3-tabs { flex-wrap:wrap; height:auto; column-gap:18px }
+  .v3-app .v3-slider-wrap { padding-top:0 }
+  .v3-app .v3-slider-wrap input { height:44px; border-radius:0; background:linear-gradient(90deg,var(--accent) var(--progress),var(--border) var(--progress)) center / 100% 4px no-repeat }
+  .v3-app .v3-slider-wrap input::-webkit-slider-thumb { width:24px; height:24px; border-width:4px }
+  .v3-app .v3-slider-wrap input::-moz-range-thumb { width:16px; height:16px; border-width:4px }
+  .v3-app .v3-year-ticks { margin-top:0; font-size:.6875rem }
+  .v3-app .v3-timeline { grid-template-columns:44px minmax(72px,auto) minmax(0,1fr) }
+  .v3-app .v3-time-mode button { white-space:normal; line-height:1.4 }
+  .v3-app .v3-search input { padding-block:10px }
+  .v3-app .v3-rank-row { min-height:52px }
+  .v3-app .v3-rank-label { white-space:normal; overflow:visible; text-overflow:clip; line-height:1.4 }
+  .v3-app :is(.v3-data-note,.v3-panel-subtitle,.v3-panel-foot,.v3-map-heading>div>span) { font-size:.8125rem }
+  .v3-app .v3-stat>span { font-size:.75rem }
+  .v3-app .v3-stat-label { font-size:.8125rem }
+  .v3-app .v3-map-readout { font-size:.75rem; max-width:calc(100% - 90px); flex-wrap:wrap; gap:4px 10px }
+  .v3-app .v3-map-tools { right:12px; top:16px }
+  .v3-app .v3-legend { font-size:.75rem; flex-wrap:wrap }
+  .v3-app .v3-color-key { max-width:100%; font-size:.6875rem; flex-shrink:1; min-width:0 }
+  .v3-app .v3-flow-key { flex-shrink:0 }
+  .v3-app .v3-legend>.v3-flow-key+span { flex:1; min-width:0 }
+  .v3-app .v3-research-heading>.v3-eyebrow { font-size:.6875rem }
+  .v3-app .v3-research-body>p { font-size:.8125rem }
+  .v3-app .v3-research-body>.v3-research-independence { font-size:.75rem }
+  .v3-app .v3-research-more { font-size:.8125rem; padding-block:6px; text-align:left; max-width:calc(100% - 47px); flex-shrink:1; overflow-wrap:anywhere }
+  .v3-app .v3-footer { font-size:.75rem }
+  .v3-app .v3-footer-links { gap:4px 18px }
+  .v3-app .v3-footer-links :is(a,button) { min-height:44px; display:inline-flex; align-items:center; font-size:.8125rem }
+  .v3-app .v3-about { max-height:calc(100dvh - 24px); padding:22px; overscroll-behavior:contain; scroll-padding-top:60px }
+  .v3-app .v3-about summary { min-height:44px }
+  .v3-app .v3-dialog-header { position:sticky; top:-22px; margin-top:-10px; padding-block:10px; background:var(--surface); z-index:1 }
+  .v3-app .v3-source-list>a { min-height:56px }
+  .v3-app .v3-share-fallback { top:16px; max-height:calc(100dvh - 32px); overflow:auto }
+  .v3-app .v3-toast { bottom:max(16px,env(safe-area-inset-bottom)); font-size:.8125rem }
+  .v3-app main { padding-bottom:max(20px,env(safe-area-inset-bottom)) }
+}
+
+@media (max-width:600px) {
+  .v3-app .v3-header { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:6px 10px; padding:12px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left)) }
+  .v3-app .v3-brand { grid-column:1/3; grid-row:1; min-height:44px; min-width:0 }
+  .v3-app .v3-header-actions { display:contents }
+  .v3-app .atlas-version-switch { grid-column:3; grid-row:1; justify-self:end }
+  .v3-app .v3-language { grid-column:1; grid-row:2; flex-wrap:wrap; padding:0; gap:4px }
+  .v3-app .v3-header-actions>.v3-icon-button { grid-column:2; grid-row:2 }
+  .v3-app .v3-share { grid-column:3; grid-row:2; width:auto; padding:8px 10px; min-height:44px; font-size:.8125rem; color:var(--accent); border:1px solid var(--border); background:var(--surface) }
+  .v3-app .v3-share span { display:inline; white-space:normal; overflow-wrap:anywhere }
+  .v3-app .v3-intro { align-items:flex-start; flex-wrap:wrap }
+  .v3-app .v3-intro>div:first-child { flex-basis:180px }
+  .v3-app .v3-intro p { font-size:.875rem }
+  .v3-app .v3-intro .v3-eyebrow { font-size:.625rem; flex-wrap:wrap }
+  .v3-app .v3-period { margin-left:auto; min-width:0 }
+  .v3-app .v3-metrics { overflow:visible; flex-wrap:wrap }
+  .v3-app .v3-metrics button { white-space:normal; text-align:left }
+  .v3-app .v3-segment { flex-wrap:wrap; max-width:100% }
+  .v3-app .v3-segment button { flex:1; white-space:normal }
+  .v3-app .v3-hub-label { display:grid; grid-template-columns:1fr; justify-content:stretch; font-size:.75rem; gap:6px }
+  .v3-app .v3-hub-label select { max-width:100%; width:100%; min-width:0 }
+  .v3-app .v3-unit { justify-content:stretch }
+  .v3-app .v3-unit select { width:100%; max-width:100% }
+  .v3-app .v3-timeline { gap:8px; padding-inline:14px }
+  .v3-app .v3-year-input { min-width:0 }
+  .v3-app .v3-year-input select { width:100%; padding-right:4px }
+  .v3-app .v3-slider-wrap { min-width:0 }
+  .v3-app .v3-finding { padding-right:56px }
+}
+
+@media (orientation:landscape) and (max-height:500px) {
+  .v3-app .v3-about { max-height:calc(100dvh - 16px); margin-block:8px }
+}

@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useRef, type RefObject } from 'react';
 import { APP_VERSION, ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, FONT_LICENCE, FONT_LICENCES, IMG_LICENCE, REPO, sources } from '../lib/licences.ts';
 import { NO_AFFIL, PAPER, PAPER_KLAS, PAPER_THR, PAPER_WINDOW, paperCaveatLine, regionReadingLine } from '../lib/credits.ts';
 import { CIT, D, DEMO, ISOS, PAPER_KLAS_DIFF, PE_SPAN, YEARS, klasLab } from '../lib/metrics.ts';
@@ -12,7 +12,12 @@ export default function About({ dialog, lang }: { dialog: RefObject<HTMLDialogEl
   const period = `${PAPER_WINDOW.from}–${PAPER_WINDOW.to}`;
   const newTab = L('Otvara se u novoj kartici', 'Opens in a new tab');
   const build = APP_VERSION();
-  return <dialog ref={dialog} className="v3-about" aria-labelledby="v3-about-title" onClick={e => { if (e.target === e.currentTarget) dialog.current?.close(); }}>
+  const backdropPress = useRef(false);
+  const outside = (x: number, y: number) => { const r = dialog.current?.getBoundingClientRect(); return !!r && (x < r.left || x > r.right || y < r.top || y > r.bottom); };
+  return <dialog ref={dialog} className="v3-about" aria-labelledby="v3-about-title"
+    onPointerDown={e => { backdropPress.current = e.target === e.currentTarget && outside(e.clientX, e.clientY); }}
+    onPointerCancel={() => { backdropPress.current = false; }}
+    onClick={e => { if (backdropPress.current && e.target === e.currentTarget && outside(e.clientX, e.clientY)) dialog.current?.close(); backdropPress.current = false; }}>
     <div className="v3-dialog-header"><span className="v3-eyebrow">{L('O ATLASU', 'ABOUT THE ATLAS')}</span><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={() => dialog.current?.close()}><Icon name="close" /></button></div>
     <h2 id="v3-about-title">{L('Podaci s kontekstom.', 'Data with context.')}</h2>
     <p>{L(`Interaktivni pregled registriranih migracija ${ISOS.length} hrvatske županije od ${YEARS[0]}. do ${YEARS[YEARS.length - 1]}.`, `An interactive view of registered migration across Croatia’s ${ISOS.length} counties from ${YEARS[0]} to ${YEARS[YEARS.length - 1]}.`)}</p>
