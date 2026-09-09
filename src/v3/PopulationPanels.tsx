@@ -3,6 +3,7 @@ import { CIT, DEMO, ISOS, JLS, YEARS, cgroups, countryName as countryLabel } fro
 import type { JlsRow, Lang } from '../lib/types.ts';
 import { countyName, downloadFile, fold } from './model.ts';
 import Icon from './Icon.tsx';
+import TableScroll from './TableScroll.tsx';
 import './population-panels.css';
 
 type Panel = 'age' | 'citizenship' | 'countries' | 'municipal';
@@ -135,7 +136,7 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
       <div className="v3-pop-grid">
         <div className="v3-pop-card">
           <h3>{L('Raspodjela po dobi', 'Age distribution')}</h3><p className="v3-pop-subtitle">{ageMode === 'ext' ? L('Odseljeni lijevo · doseljeni desno', 'Departures on the left · arrivals on the right') : L('Preseljenja unutar Hrvatske, sve razine', 'Moves within Croatia, all levels')}</p>
-          <div className="v3-pop-table-scroll" tabIndex={0} role="region" aria-label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table v3-pop-age-table">
+          <TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table v3-pop-age-table">
             <caption className="v3-sr">{L('Migracije prema dobnim skupinama u Hrvatskoj, ', 'Migration by age band in Croatia, ') + DEMO.year}</caption>
             <thead><tr>{ageMode === 'ext' && <th scope="col">{L('Odseljeni', 'Departures')}</th>}<th scope="col">{L('Dob', 'Age')}</th><th scope="col">{ageMode === 'ext' ? L('Doseljeni', 'Arrivals') : L('Preseljeni', 'Moves')}</th></tr></thead>
             <tbody>{DEMO.ages.map((_, index) => { const i = DEMO.ages.length - index - 1; return <tr key={DEMO.ages[i]} className={i === peakAge ? 'is-peak' : ''}>
@@ -143,16 +144,16 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
               <th scope="row">{DEMO.ages[i]}</th><td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${ageValues[i] / ageMax * 100}%` }} /><span>{format(ageValues[i])}</span></td>
             </tr>; })}</tbody>
             <tfoot><tr>{ageMode === 'ext' && <td>{format(DEMO.cTot[1])}</td>}<th scope="row">{L('Ukupno', 'Total')}</th><td>{format(ageTotal)}</td></tr></tfoot>
-          </table></div>
+          </table></TableScroll>
         </div>
         <div className="v3-pop-side">
           <div className="v3-pop-highlight"><span className="v3-eyebrow">{L('NAJVEĆA DOBNA SKUPINA', 'LARGEST AGE BAND')}</span><strong>{DEMO.ages[peakAge]}</strong><p>{format(ageValues[peakAge])} {ageMode === 'ext' ? L('doseljenih', 'arrivals') : L('preseljenih', 'moves')} · {new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(ageValues[peakAge] / ageTotal * 100)}%</p></div>
           <div className="v3-pop-card"><h3>{L('Raspodjela po spolu', 'Sex distribution')}</h3><p className="v3-pop-subtitle">{L('Ukupno za sve dobne skupine', 'Totals across all age bands')}</p>
-            <table className="v3-pop-table v3-pop-sex-table"><caption className="v3-sr">{L('Migracije prema spolu u Hrvatskoj, ', 'Migration by sex in Croatia, ') + DEMO.year}</caption>
+            <TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Migracije prema spolu', 'Migration by sex')}><table className="v3-pop-table v3-pop-sex-table"><caption className="v3-sr">{L('Migracije prema spolu u Hrvatskoj, ', 'Migration by sex in Croatia, ') + DEMO.year}</caption>
               <thead><tr><th scope="col">{L('Spol', 'Sex')}</th><th scope="col">{ageMode === 'ext' ? L('Doseljeni', 'Arrivals') : L('Preseljeni', 'Moves')}</th>{ageMode === 'ext' && <th scope="col">{L('Odseljeni', 'Departures')}</th>}</tr></thead>
               <tbody><tr><th scope="row">{L('Muškarci', 'Men')}</th><td>{format(ageMode === 'ext' ? DEMO.extM.d : DEMO.intM)}<small>{Math.round(100 * (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM) / ageTotal)}%</small></td>{ageMode === 'ext' && <td>{format(DEMO.extM.o)}<small>{Math.round(100 * DEMO.extM.o / DEMO.cTot[1])}%</small></td>}</tr>
                 <tr><th scope="row">{L('Žene', 'Women')}</th><td>{format(ageTotal - (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM))}<small>{Math.round(100 * (1 - (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM) / ageTotal))}%</small></td>{ageMode === 'ext' && <td>{format(DEMO.cTot[1] - DEMO.extM.o)}<small>{Math.round(100 * (1 - DEMO.extM.o / DEMO.cTot[1]))}%</small></td>}</tr></tbody>
-            </table>
+            </table></TableScroll>
           </div>
           <p className="v3-pop-note">{L('Vanjska migracija znači prelazak državne granice. Unutarnja migracija obuhvaća preseljenja među naseljima unutar Hrvatske, uključujući ona unutar iste županije.', 'External migration crosses the national border. Internal migration includes moves between settlements within Croatia, including moves inside the same county.')}</p>
         </div>
@@ -161,33 +162,33 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
     </>}
 
     {panel === 'citizenship' && <>
-      <div className="v3-pop-cit-chart" role="group" aria-label={L('Odaberite godinu državljanstva', 'Choose citizenship year')}>
+      <TableScroll className="v3-pop-chart-scroll" lang={lang} label={L('Odaberite godinu državljanstva', 'Choose citizenship year')}><div className="v3-pop-cit-chart" role="group" aria-label={L('Odaberite godinu državljanstva', 'Choose citizenship year')}>
         {CIT.years.map((y, i) => <button key={y} className="v3-pop-cit-year" aria-pressed={citYear === y} onClick={() => { setCitYear(y); onYear?.(YEARS.indexOf(y)); }} aria-label={`${y}: ${L('doseljeni', 'arrivals')} ${format(CIT.tot.d[i])}; ${L('odseljeni', 'departures')} ${format(CIT.tot.o[i])}`}>
           <span className="v3-pop-cit-pair" aria-hidden="true">{(['d', 'o'] as const).map(key => <span className={'v3-pop-cit-stack ' + (key === 'o' ? 'is-departures' : '')} key={key}>{cgroups().map(([group]) => <i key={group} style={{ height: `${CIT.g[group][key][i] / Math.max(...CIT.tot.d, ...CIT.tot.o) * 100}%`, background: GROUP_COLORS[group] }} />)}</span>)}</span>
           <strong>{y}</strong><span className="v3-pop-cit-totals"><span>{format(CIT.tot.d[i])}</span><span>{format(CIT.tot.o[i])}</span></span>
         </button>)}
-      </div>
+      </div></TableScroll>
       <p className="v3-pop-chart-key">{L('Svake godine: doseljeni lijevo, odseljeni desno. Odaberite godinu za tablicu.', 'Each year: arrivals on the left, departures on the right. Select a year for its table.')}</p>
       <div className="v3-pop-card"><div className="v3-pop-card-heading"><h3>{L('Državljanstvo', 'Citizenship')} · {citYear}{lang === 'hr' ? '.' : ''}</h3><span className="v3-pop-net">{L('Saldo ', 'Net ')}{CIT.tot.d[ci] - CIT.tot.o[ci] > 0 ? '+' : ''}{format(CIT.tot.d[ci] - CIT.tot.o[ci])}</span></div>
-        <div className="v3-pop-table-scroll" tabIndex={0} role="region" aria-label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table"><caption className="v3-sr">{L('Vanjska migracija prema državljanstvu u Hrvatskoj, ', 'External migration by citizenship in Croatia, ') + citYear}</caption>
+        <TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table"><caption className="v3-sr">{L('Vanjska migracija prema državljanstvu u Hrvatskoj, ', 'External migration by citizenship in Croatia, ') + citYear}</caption>
           <thead><tr><th scope="col">{L('Državljanstvo', 'Citizenship')}</th><th scope="col">{L('Doseljeni', 'Arrivals')}</th><th scope="col">{L('Odseljeni', 'Departures')}</th><th scope="col">{L('Saldo', 'Net')}</th></tr></thead>
           <tbody>{cgroups().map(([key, label]) => <tr key={key}><th scope="row"><span className="v3-pop-group"><i aria-hidden="true" style={{ background: GROUP_COLORS[key] }} />{label}</span></th><td>{format(CIT.g[key].d[ci])}</td><td>{format(CIT.g[key].o[ci])}</td><td>{format(CIT.g[key].d[ci] - CIT.g[key].o[ci])}</td></tr>)}</tbody>
           <tfoot><tr><th scope="row">{L('Ukupno', 'Total')}</th><td>{format(CIT.tot.d[ci])}</td><td>{format(CIT.tot.o[ci])}</td><td>{format(CIT.tot.d[ci] - CIT.tot.o[ci])}</td></tr></tfoot>
-        </table></div>
+        </table></TableScroll>
       </div>
       <p className="v3-pop-source">{L('Prema zemlji državljanstva, ne zemlji podrijetla ili odredišta. DZS STAN-2026-2-1, tablica 2. CSV uključuje svih pet godina.', 'By country of citizenship, not country of origin or destination. CBS STAN-2026-2-1, table 2. CSV includes all five years.')}</p>
     </>}
 
     {panel === 'countries' && <>
       <div className="v3-pop-controls"><p className="v3-pop-note">{L('Najvećih 12 zemalja po doseljenima, uz ostatak do nacionalnog zbroja.', 'The top 12 countries by arrivals, plus the remainder to the national total.')}</p><label className="v3-pop-search"><Icon name="search" size={16} /><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={L('Pronađite zemlju…', 'Find a country…')} aria-label={L('Pronađite zemlju', 'Find a country')} /></label></div>
-      <div className="v3-pop-card"><div className="v3-pop-table-scroll" tabIndex={0} role="region" aria-label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table v3-pop-country-table"><caption className="v3-sr">{L('Zemlje podrijetla i odredišta, Hrvatska, ', 'Countries of origin and destination, Croatia, ') + DEMO.year}</caption>
+      <div className="v3-pop-card"><TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table v3-pop-country-table"><caption className="v3-sr">{L('Zemlje podrijetla i odredišta, Hrvatska, ', 'Countries of origin and destination, Croatia, ') + DEMO.year}</caption>
         <thead><tr><th scope="col">{L('Zemlja', 'Country')}</th><th scope="col">{L('Doseljeni', 'Arrivals')}</th><th scope="col">{L('Odseljeni', 'Departures')}</th><th scope="col">{L('Saldo', 'Net')}</th></tr></thead>
         <tbody>{shownCountries.map(([name, arrivals, departures]) => <tr key={name} className={name === countries[countries.length - 1][0] ? 'is-remainder' : ''}><th scope="row">{countryLabel(name)}</th>
           <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${arrivals / countryMax * 100}%` }} /><span>{format(arrivals)}</span></td>
           <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${departures / countryMax * 100}%`, background: 'color-mix(in srgb, var(--coral) 18%, transparent)', borderColor: 'var(--coral)' }} /><span>{format(departures)}</span></td><td>{format(arrivals - departures)}</td></tr>)}
           {!shownCountries.length && <tr><td colSpan={4} className="v3-pop-empty">{L('Nema pronađenih zemalja.', 'No countries found.')} <button onClick={() => setQuery('')}>{L('Očisti pretragu', 'Clear search')}</button></td></tr>}</tbody>
         <tfoot><tr><th scope="row">{L('Ukupno · sve zemlje', 'Total · all countries')}</th><td>{format(DEMO.cTot[0])}</td><td>{format(DEMO.cTot[1])}</td><td>{format(DEMO.cTot[0] - DEMO.cTot[1])}</td></tr></tfoot>
-      </table></div></div>
+      </table></TableScroll></div>
       <p className="v3-pop-source">{L('Zemlja podrijetla/odredišta ne mora biti zemlja državljanstva. „Ostale zemlje” je izračunat ostatak, a ne pojedinačna zemlja. DZS STAN-2026-2-1, tablica I 4. CSV uključuje cijeli popis.', 'Country of origin/destination may differ from country of citizenship. “Other countries” is a calculated remainder, not a single country. CBS STAN-2026-2-1, table I 4. CSV includes the complete list.')}</p>
     </>}
 
@@ -199,10 +200,10 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
         {(['in', 'out', 'net'] as const).map(dir => <button key={dir} aria-pressed={municipalDirection === dir} onClick={() => setMunicipalDirection(dir)}>{dir === 'in' ? L('Dolazni', 'Inbound') : dir === 'out' ? L('Odlazni', 'Outbound') : L('Oba smjera · bruto', 'Both directions · gross')}</button>)}
       </div>}<label className="v3-pop-search"><Icon name="search" size={16} /><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={L('Pronađite grad ili općinu…', 'Find a town or municipality…')} aria-label={L('Pronađite grad ili općinu', 'Find a town or municipality')} /></label></div>
       <div className="v3-pop-card"><div className="v3-pop-card-heading"><h3>{L('Najveći zabilježeni koridori', 'Largest recorded corridors')}</h3><span className="v3-pop-count">{shownMunicipalRows.length}/{municipalRows.length}</span></div>
-        <div className="v3-pop-table-scroll" tabIndex={0} role="region" aria-label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table v3-pop-municipal-table"><caption className="v3-sr">{L('Izmjereni lokalni migracijski koridori, 2018.', 'Measured local migration corridors, 2018')}</caption><thead><tr><th scope="col">{L('Iz grada/općine', 'From town/municipality')}</th><th scope="col">{L('U grad/općinu', 'To town/municipality')}</th><th scope="col">{L('Preseljenja', 'Moves')}</th></tr></thead>
+        <TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table v3-pop-municipal-table"><caption className="v3-sr">{L('Izmjereni lokalni migracijski koridori, 2018.', 'Measured local migration corridors, 2018')}</caption><thead><tr><th scope="col">{L('Iz grada/općine', 'From town/municipality')}</th><th scope="col">{L('U grad/općinu', 'To town/municipality')}</th><th scope="col">{L('Preseljenja', 'Moves')}</th></tr></thead>
           <tbody>{shownMunicipalRows.map(([from, to, count]) => <tr key={`${from}-${to}`}><th scope="row" lang="hr">{municipalName(from)}{municipalTag(from) && <small>{municipalTag(from)}</small>}</th><td lang="hr">{municipalName(to)}{municipalTag(to) && <small>{municipalTag(to)}</small>}</td><td>{format(count)}</td></tr>)}
             {!shownMunicipalRows.length && <tr><td colSpan={3} className="v3-pop-empty">{query ? L('Nema pronađenih koridora.', 'No corridors found.') : municipalMode === 'local' ? L('Jedna JLS — nema koridora unutar županije.', 'A single municipality — no corridors within the county.') : L('Nema zabilježenih koridora prema drugim županijama.', 'No recorded corridors to other counties.')} {query && <button onClick={() => setQuery('')}>{L('Očisti pretragu', 'Clear search')}</button>}</td></tr>}</tbody>
-        </table></div>
+        </table></TableScroll>
       </div>
       <p className="v3-pop-note">{L('Prikazani su najveći koridori dostupni u izvornom skupu, ne sva preseljenja. „Oba smjera” spaja dolazne i odlazne bruto tokove; neto saldo JLS-a nije objavljen u ovom skupu koridora. CSV sadrži sve retke odabranog obuhvata, bez filtra pretrage.', 'These are the largest corridors available in the source dataset, not every move. “Both directions” combines inbound and outbound gross flows; LAU net migration is not published in this corridor dataset. CSV contains every row for the selected scope, without the search filter.')}</p>
       <p className="v3-pop-source">{L('DZS posebna obrada · ', 'CBS special processing · ')}<a href="https://doi.org/10.1186/s40649-021-00093-0" target="_blank" rel="noreferrer">{L('Pitoski i sur. (2021.)', 'Pitoski et al. (2021)')}</a> · CC BY 4.0 · {L('jedina godina izmjerenih tokova na razini gradova/općina: 2018.', 'the only measured year at town/municipality level: 2018.')}</p>
