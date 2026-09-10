@@ -133,10 +133,15 @@
      default globe, and cannot tell "no icon here" from "an icon I failed to
      parse". public/robots.txt records this same mechanism as a defect fixed the
      same way: "This file has to exist as a *file*". Both are rendered from
-     favicon.svg, so there is one drawing and three encodings of it. -->
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="icon" sizes="any" href="/favicon.ico">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+     favicon.svg, so there is one drawing and three encodings of it.
+     Two drawings since v3: the markup names the v3 mark (favicon-v3.*,
+     the brand glyph on the dark page ground), because a bare URL opens v3;
+     the classic atlas keeps its red-and-blue pair, and main.tsx points these
+     three links at favicon.svg / favicon.ico / apple-touch-icon.png when v2
+     loads. Same three encodings of each. -->
+<link rel="icon" type="image/svg+xml" href="/favicon-v3.svg">
+<link rel="icon" sizes="any" href="/favicon-v3.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon-v3.png">
 <!-- First-paint placeholder. #root is empty until React mounts, and on the
      mobile profile that measured 2.054 ms of "render delay" — 76 % of LCP —
      spent looking at the background colour. The markup for it lives in <body>;

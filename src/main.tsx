@@ -8,6 +8,9 @@ import './version.css';
 // state isolated. Existing atlas permalinks continue to open the original app.
 const version = selectedVersion();
 document.documentElement.dataset['atlasVersion'] = version;
+// The markup names v3's icons, because a bare URL opens v3. The classic atlas
+// keeps its own drawing, so a v2 load points the three icon links at it.
+if (version === 'v2') for (const l of document.querySelectorAll<HTMLLinkElement>('link[rel="icon"],link[rel="apple-touch-icon"]')) l.setAttribute('href', (l.getAttribute('href') ?? '').replace('-v3', ''));
 // Register the classic font faces before App's exporter can warm them.
 if (version === 'v2') await import('./index.css');
 const { default: App } = version === 'v2'
