@@ -74,6 +74,7 @@
   .v3-app .v3-year-input select { width:100%; padding-right:4px }
   .v3-app .v3-slider-wrap { min-width:0 }
   .v3-app .v3-finding { padding-right:56px }
+  .v3-app [data-analysis=matrix] .v3-section-heading { flex-wrap:wrap }
 }
 
 @media (orientation:landscape) and (max-height:500px) {

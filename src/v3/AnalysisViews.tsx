@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ISOS, KLAB, MXORD, PAPER_KLAS_DIFF, RDOM, REG, REGOF, YEARS, flowBadge, fsum, klasOf, mxCell, mxMax, netAt, paperKlasComparable, pragText, regVal, val } from '../lib/metrics.ts';
 import { PAPER, paperSplit, regionReadingLine } from '../lib/credits.ts';
 import { geoStatus, regGeo, regFailed, retryGeo, useGeo } from '../lib/geoAsync.ts';
@@ -44,10 +44,27 @@ export function RegionsView({ s, light, update, format }: Props) {
 
 export function MatrixView({ s, light, update, format }: Props) {
   const [focus, setFocus] = useState(0);
+  const [zoom, setZoom] = useState(1);
   const root = useRef<HTMLDivElement>(null);
   const L = (hr: string, en: string) => s.lang === 'hr' ? hr : en;
   const scale = colors(mxMax(s.dir, s.cum), light);
-  return <div className="v3-analysis" data-analysis="matrix"><div className="v3-section-heading"><div><h2>{L('Svaka veza između županija.', 'Every connection between counties.')}</h2><p>{s.dir === 'out' ? L('Redak → stupac: odseljeni', 'Row → column: departures') : s.dir === 'in' ? L('Stupac → redak: doseljeni', 'Column → row: arrivals') : L('Saldo retka: stupac → redak minus redak → stupac', 'Net gain for the row: column → row minus row → column')} · {flowBadge(s.yi, s.cum)}</p></div></div>
+  const minZoom = matchMedia('(max-width:960px), (pointer:coarse)').matches ? 1 : .5;
+  const zoomBy = (d: number) => setZoom(z => Math.min(2, Math.max(minZoom, z + d)));
+  useEffect(() => {
+    const element = root.current;
+    if (!element) return;
+    let wheel = 0;
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault(); wheel += e.deltaY;
+      if (Math.abs(wheel) < 40) return;
+      const d = wheel < 0 ? .25 : -.25; wheel = 0;
+      setZoom(z => Math.min(2, Math.max(minZoom, z + d)));
+    };
+    element.addEventListener('wheel', onWheel, { passive: false });
+    return () => element.removeEventListener('wheel', onWheel);
+  }, [minZoom]);
+  return <div className="v3-analysis" data-analysis="matrix" style={{ '--matrix-zoom': zoom } as CSSProperties}><div className="v3-section-heading"><div><h2>{L('Svaka veza između županija.', 'Every connection between counties.')}</h2><p>{s.dir === 'out' ? L('Redak → stupac: odseljeni', 'Row → column: departures') : s.dir === 'in' ? L('Stupac → redak: doseljeni', 'Column → row: arrivals') : L('Saldo retka: stupac → redak minus redak → stupac', 'Net gain for the row: column → row minus row → column')} · {flowBadge(s.yi, s.cum)}</p></div><div className="v3-matrix-zoom" role="group" aria-label={L('Veličina matrice', 'Matrix size')}><button className="v3-icon-button" title={L('Smanji matricu', 'Shrink matrix')} aria-label={L('Smanji matricu', 'Shrink matrix')} disabled={zoom <= minZoom} onClick={() => zoomBy(-.25)}><Icon name="minus" size={16} /></button><output aria-live="polite">{Math.round(zoom * 100)}{L(' %', '%')}</output><button className="v3-icon-button" title={L('Povećaj matricu', 'Enlarge matrix')} aria-label={L('Povećaj matricu', 'Enlarge matrix')} disabled={zoom >= 2} onClick={() => zoomBy(.25)}><Icon name="plus" size={16} /></button><button className="v3-icon-button" title={L('Vrati izvornu veličinu', 'Reset size')} aria-label={L('Vrati izvornu veličinu', 'Reset size')} disabled={zoom === 1} onClick={() => setZoom(1)}><Icon name="reset" size={14} /></button></div></div>
     <TableScroll className="v3-matrix-scroll" scrollRef={root} lang={s.lang} label={L('Matrica — pomičite vodoravno', 'Matrix — scroll horizontally')}><table className="v3-matrix" aria-label={L('Matrica migracija između 21 županije', 'Migration matrix between 21 counties')}><thead><tr><th scope="col">{L('Županija', 'County')}</th>{MXORD.map(iso => <th key={iso} scope="col" title={countyName(iso, s.lang)}><abbr title={countyName(iso, s.lang)}>{iso.slice(3)}</abbr></th>)}</tr></thead><tbody>{MXORD.map((row, ri) => <tr key={row}><th scope="row">{row.slice(3)} · {countyName(row, s.lang)}</th>{MXORD.map((col, ci) => {
       const idx = ri * 21 + ci, n = mxCell(row, col, s.dir, s.yi, s.cum);
       const label = `${countyName(row, s.lang)} / ${countyName(col, s.lang)}: ${format(n)}`;
