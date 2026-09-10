@@ -15,8 +15,9 @@ switch is available in both interfaces: `?version=v3` opens the new explorer and
 On compact v2 screens, the switch sits at the right end of the classic
 header's title row, so it costs no height and stays clear of the map controls
 and fixed timeline.
-Each version remembers its own last analysis in the current browser tab, and
-explicit version URLs take precedence over that tab's preference.
+The switch remembers each version's last analysis in the current browser tab,
+but a bare URL always opens v3: only `?version=v2` or a v2 hash opens the
+classic atlas.
 
 V3 includes eight native views: county balances, annual/cumulative history,
 migration corridors, classification, five regions, the 21 × 21 OD matrix,
