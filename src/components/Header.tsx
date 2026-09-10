@@ -4,6 +4,7 @@ import { exportPNG, exportSVG } from '../lib/exportPng.ts';
 import { ensureFonts } from '../lib/exportFonts.ts';
 import { jlsGeo, regGeo } from '../lib/geoAsync.ts';
 import { StorySelect } from './StoryBar.tsx';
+import VersionSwitch from '../VersionSwitch.tsx';
 import { EFF_FD, LOCK_FD, focusSoon } from '../lib/state.ts';
 import { PAPER, paperPending, paperSub } from '../lib/credits.ts';
 import { APP_VERSION } from '../lib/licences.ts';
@@ -229,6 +230,7 @@ export default function Header({ S, setS, setView, setMode, applyStory, resetAll
                   onClick={() => setS({ lang: l })}>{l === 'hr' ? 'HR' : 'EN'}</button>
               ))}
           </div>
+          <div className="atlas-classic-switch"><VersionSwitch version="v2" /></div>
         </div>
         {/* The study is published, so the subtitle names it and links to the
             record — the most prominent surface in the app, and the first thing

@@ -2,7 +2,6 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { selectedVersion } from './version.ts';
-import VersionSwitch from './VersionSwitch.tsx';
 import './version.css';
 
 // A document navigation between versions keeps their styles and module-level
@@ -32,5 +31,5 @@ const { default: App } = version === 'v2'
    a state updater may be called twice for one dispatch.
    Below the boundary, so a render that throws is still caught by it. */
 createRoot(document.getElementById('root')!).render(
-  <ErrorBoundary><StrictMode><App />{version === 'v2' && <div className="atlas-classic-switch"><VersionSwitch version="v2" /></div>}</StrictMode></ErrorBoundary>,
+  <ErrorBoundary><StrictMode><App /></StrictMode></ErrorBoundary>,
 );
