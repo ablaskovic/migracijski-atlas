@@ -7,6 +7,6 @@
 .atlas-version-switch a[aria-current] .atlas-version-dot{display:block}
 .atlas-classic-switch{position:absolute;z-index:101;right:12px;top:10px;background:#111f2b;border-radius:9px;box-shadow:0 3px 16px #0003}
 [data-atlas-version=v2] .hd>div:first-child{padding-right:8rem}
-@media(max-width:900px),(max-height:560px),((any-pointer:coarse) and (max-height:780px)){.atlas-classic-switch{position:static}[data-atlas-version=v2] .hd>div:first-child{padding-right:0}}
+@media(max-width:900px),(max-height:560px),((any-pointer:coarse) and (max-height:780px)){.atlas-classic-switch{position:static;margin-left:auto}[data-atlas-version=v2] .hd>div:first-child{padding-right:0;flex-grow:1}}
 @media(max-width:560px){[data-atlas-version=v2] .hd-lang{flex:1 1 calc(100% - 8rem)}}
 @media print{.atlas-classic-switch{display:none}}

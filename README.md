@@ -12,9 +12,9 @@ all honesty-labeled in the UI.
 The default experience is now a separate, dark-by-default **v3**. The version
 switch is available in both interfaces: `?version=v3` opens the new explorer and
 `?version=v2` opens the classic atlas. Existing v2 hash links keep opening v2.
-On compact v2 screens, the switch sits in the classic header beside the
-language switch, so it costs no height and stays clear of the map controls and
-fixed timeline.
+On compact v2 screens, the switch sits at the right end of the classic
+header's title row, so it costs no height and stays clear of the map controls
+and fixed timeline.
 Each version remembers its own last analysis in the current browser tab, and
 explicit version URLs take precedence over that tab's preference.
 
