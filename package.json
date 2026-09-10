@@ -1,7 +1,7 @@
 {
   "name": "migracijski-atlas",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.0.1",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {
