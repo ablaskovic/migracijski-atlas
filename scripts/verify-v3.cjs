@@ -113,6 +113,31 @@ const signed = (n, relative) => {
   await new Promise(resolve => setTimeout(resolve, 1050));
   check('play advances years and pause stops it', await page.$eval('#v3-year', el => el.value) === stopped);
 
+  // WebKit throws SecurityError past 100 history writes per 30 s, so a continuous drag must stay well under it.
+  await go('?version=v3&l=en#explore=map&year=1998&metric=tot&l=en');
+  await page.evaluate(() => { window.historyWrites = { push: 0, replace: 0 }; for (const [method, key] of [['pushState', 'push'], ['replaceState', 'replace']]) { const original = history[method].bind(history); history[method] = (...args) => { window.historyWrites[key]++; return original(...args); }; } });
+  const track = await page.$eval('.v3-slider-wrap input', el => { el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.left + 2, y: r.top + r.height / 2, w: r.width - 4 }; });
+  await page.mouse.move(track.x, track.y); await page.mouse.down();
+  const dragStart = Date.now();
+  for (let i = 0; Date.now() - dragStart < 3000; i++) { const f = (i % 40) / 39; await page.mouse.move(track.x + track.w * (Math.floor(i / 40) % 2 ? 1 - f : f), track.y); }
+  await page.mouse.up();
+  const dragSeconds = (Date.now() - dragStart) / 1000;
+  await new Promise(resolve => setTimeout(resolve, 450));
+  const scrub = await page.evaluate(() => ({ ...window.historyWrites, shown: document.querySelector('#v3-year').selectedOptions[0].textContent, linked: new URLSearchParams(location.hash.slice(1)).get('year') }));
+  check('scrubbing the year writes history at most about three times a second and the link ends on the shown year', scrub.push === 0 && scrub.replace >= 2 && scrub.replace <= dragSeconds / 0.3 + 2 && scrub.linked === scrub.shown);
+  await page.evaluate(() => { history.replaceState = () => { throw new DOMException('Attempt to use history.replaceState() more than 100 times per 30 seconds', 'SecurityError'); }; });
+  const errorsBefore = errors.length;
+  await page.focus('.v3-slider-wrap input'); await page.keyboard.press('Home');
+  await new Promise(resolve => setTimeout(resolve, 450));
+  check('a refused history write leaves the atlas responding', errors.length === errorsBefore && await page.$eval('#v3-year', el => el.selectedOptions[0].textContent) === '1998');
+  // A new query forces a fresh document; a fragment-only goto would keep the refusing stub above.
+  await go('?version=v3&l=en&fresh=threshold#explore=classify&year=2024&metric=tot&l=en');
+  const entries = await page.evaluate(() => history.length);
+  const threshold = await page.$eval('.v3-threshold input[type=range]', el => { el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.left + 2, y: r.top + r.height / 2, w: r.width - 4 }; });
+  await page.mouse.move(threshold.x, threshold.y); await page.mouse.down(); await page.mouse.move(threshold.x + threshold.w, threshold.y, { steps: 25 }); await page.mouse.up();
+  await new Promise(resolve => setTimeout(resolve, 450));
+  check('dragging the loss threshold replaces the entry instead of adding one per step', await page.evaluate(n => history.length === n && new URLSearchParams(location.hash.slice(1)).get('threshold') === '15000', entries));
+
   await go();
   await click('.v3-tabs button:nth-child(2)');
   check('historical grid contains 21 × 28 annual observations', await page.$$eval('[data-grid-cell]', els => els.length === 588));

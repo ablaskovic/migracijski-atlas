@@ -28,6 +28,28 @@ import './mobile.css';
 const initial = readState();
 setLang(initial.lang);
 
+/* WebKit throws SecurityError past 100 history writes per 30 s (measured for
+   v2, see App.tsx). Continuous input — a slider drag, a held arrow key,
+   playback — is written on the leading edge and then at most once per HIST_MS;
+   a discrete change flushes what is held and pushes at once. Every write is
+   guarded: a refused one leaves a stale address that the next write repairs,
+   never an exception in the middle of an interaction. */
+const HIST_MS = 320;
+let heldHref: string | null = null, heldTimer: ReturnType<typeof setTimeout> | null = null, lastWrite = 0;
+function writeHistory(method: 'pushState' | 'replaceState', href: string) {
+  lastWrite = Date.now();
+  try { history[method](null, '', href); } catch { /* engine rate cap: the next write repairs the address */ }
+}
+function dropHeldHistory() { if (heldTimer !== null) clearTimeout(heldTimer); heldTimer = null; heldHref = null; }
+function flushHistory() { const href = heldHref; dropHeldHistory(); if (href !== null && href !== location.href) writeHistory('replaceState', href); }
+function recordHistory(href: string, replace: boolean) {
+  if (!replace) { flushHistory(); if (href !== location.href) writeHistory('pushState', href); return; }
+  if (href === location.href) { dropHeldHistory(); return; }
+  if (heldTimer === null && Date.now() - lastWrite >= HIST_MS) { writeHistory('replaceState', href); return; }
+  heldHref = href;
+  heldTimer ??= setTimeout(flushHistory, HIST_MS - (Date.now() - lastWrite));
+}
+
 export default function AppV3() {
   const [s, setS] = useState(initial);
   useGeo(s.view === 'municipalities' ? 'jmap' : s.view === 'regions' ? 'reg' : 'saldo');
@@ -70,7 +92,7 @@ export default function AppV3() {
     setLang(next.lang); state.current = next; setS(next); setHover(null);
     const url = new URL(location.href); url.hash = stateHash(next); url.searchParams.set('version', 'v3');
     if (url.searchParams.has('l')) url.searchParams.set('l', next.lang);
-    if (url.href !== location.href) history[replace ? 'replaceState' : 'pushState'](null, '', url);
+    recordHistory(url.href, replace);
   }
   function selectView(view: Explore) {
     const opener = document.activeElement;
@@ -80,13 +102,17 @@ export default function AppV3() {
   }
   useEffect(() => {
     const url = new URL(location.href); url.hash = stateHash(state.current);
-    history.replaceState(null, '', url);
+    writeHistory('replaceState', url.href);
     const pop = () => {
+      // A held write belongs to the entry just left.
+      dropHeldHistory();
       const next = readState(); setLang(next.lang); setS(next); state.current = next; setPlaying(false); setHover(null);
-      const url = new URL(location.href); url.hash = stateHash(next); history.replaceState(null, '', url);
+      const url = new URL(location.href); url.hash = stateHash(next); writeHistory('replaceState', url.href);
     };
     window.addEventListener('popstate', pop); window.addEventListener('hashchange', pop);
-    return () => { window.removeEventListener('popstate', pop); window.removeEventListener('hashchange', pop); };
+    // Reload, navigation and bfcache all fire pagehide: the address must be the state by then.
+    window.addEventListener('pagehide', flushHistory);
+    return () => { window.removeEventListener('popstate', pop); window.removeEventListener('hashchange', pop); window.removeEventListener('pagehide', flushHistory); flushHistory(); };
   }, []);
   useEffect(() => {
     document.documentElement.dataset['theme'] = light ? 'light' : 'dark';
