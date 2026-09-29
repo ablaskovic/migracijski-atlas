@@ -741,6 +741,26 @@ const signed = (n, relative) => {
   }
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
   check('at 200 % text the direction row, rank names and KPI numbers are not clipped', clippedAt200.length === 0);
+  // The sidebar's view labels broke inside words: "Stanovništv / o" at 1180 px, and at 200 % text or under text spacing.
+  const sideSplits = [];
+  const textSpacing = '*{letter-spacing:.12em!important;word-spacing:.16em!important;line-height:1.5!important}p{margin-bottom:2em!important}';
+  for (const [w, lang, root, css] of [[1180, 'hr', 16, ''], [1440, 'hr', 32, ''], [1440, 'en', 32, ''], [1024, 'hr', 16, textSpacing]]) {
+    await page.setViewport({ width: w, height: 900, deviceScaleFactor: 1 });
+    await go(`?version=v3&fresh=side${w}${lang}${root}${css.length}#explore=map&year=2024&l=${lang}`);
+    await page.evaluate(r => { document.documentElement.style.fontSize = r + 'px'; }, root);
+    if (css) await page.addStyleTag({ content: css });
+    await new Promise(resolve => setTimeout(resolve, 300));
+    sideSplits.push(...await page.evaluate(() => {
+      const out = [], walker = document.createTreeWalker(document.querySelector('.v3-sidebar'), NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) for (const m of node.textContent.matchAll(/\S+/g)) {
+        const range = document.createRange(); range.setStart(node, m.index); range.setEnd(node, m.index + m[0].length);
+        if (new Set([...range.getClientRects()].filter(r => r.width).map(r => Math.round(r.top))).size > 1) out.push(m[0]);
+      }
+      return out;
+    }));
+  }
+  await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  check('no sidebar label breaks inside a word, at 1180 px, 200 % text or under text spacing', sideSplits.length === 0);
   // The desktop year slider was a 4 px strip with a ~10 px hit band (WCAG 2.5.8 asks for 24 px).
   await go('?version=v3&fresh=slider#explore=map&year=2010&l=en');
   const sliderBox = await page.$eval('.v3-slider-wrap input', el => { el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
