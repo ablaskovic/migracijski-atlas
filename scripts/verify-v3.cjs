@@ -570,6 +570,19 @@ const signed = (n, relative) => {
   const method2011 = [];
   for (const lang of ['hr', 'en']) { await go(`?version=v3&fresh=method2011${lang}#explore=map&l=${lang}`); method2011.push(await page.evaluate(() => [...document.querySelectorAll('dialog p')].map(p => p.textContent).find(t => /Od 2011\.|Since 2011/.test(t)) || '')); }
   check('About scopes the 2011 method change to migration abroad, as DZS does', /inozemstv/.test(method2011[0]) && !/privremeni boravak/.test(method2011[0]) && /abroad/.test(method2011[1]) && !/temporary stay/.test(method2011[1]));
+  // --subtle text fell under 4.5:1 on the alternate surface in both themes and on the light page background (labels, year
+  // ticks, the header caption, the language switch), and the classification note's study link differed by colour alone.
+  await go('?version=v3&fresh=subtle#explore=classify&year=2024&l=en');
+  const subtleWorst = await page.evaluate(() => {
+    const lum = hex => { const h = hex.length === 4 ? '#' + [...hex.slice(1)].map(x => x + x).join('') : hex; return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0); };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+    const root = document.documentElement, was = root.dataset.theme, worst = [];
+    for (const theme of ['dark', 'light']) { root.dataset.theme = theme; const css = getComputedStyle(root), token = name => css.getPropertyValue(name).trim(); worst.push(Math.min(...['--bg', '--surface', '--surface-alt'].map(bg => ratio(token('--subtle'), token(bg))))); }
+    root.dataset.theme = was;
+    return worst;
+  });
+  check('--subtle text meets 4.5:1 on every surface in both themes', subtleWorst.length === 2 && subtleWorst.every(r => r >= 4.5));
+  check('the study link in the classification note is underlined', await page.$eval('.v3-data-note a', a => getComputedStyle(a).textDecorationLine.includes('underline')));
   // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
   // timeline and no cumulative mode.
   const popNotes = [];
