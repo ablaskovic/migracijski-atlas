@@ -86,7 +86,7 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
     const released=await matrix();await page.mouse.move(boundPoint.x,boundPoint.y);check('release outside SVG leaves no stuck drag',same(released,await matrix()));
     await reset();check('reset restores exact centered extent',same(await matrix(),{a:1,d:1,e:0,f:0}));
     const minPoint=await point();await page.mouse.move(minPoint.x,minPoint.y);await page.mouse.wheel({deltaY:800});await sleep(80);check('wheel zoom cannot go below initial extent',same(await matrix(),{a:1,d:1,e:0,f:0}));
-    await page.mouse.wheel({deltaY:-4000});await sleep(80);check('wheel zoom stops at maximum extent',(await matrix()).a===2.5&&await page.$eval('.v3-map-tools button:first-child',el=>el.disabled));await reset();
+    await page.mouse.wheel({deltaY:-4000});await sleep(80);check('wheel zoom stops at maximum extent and marks zoom-in unavailable without dropping focus',(await matrix()).a===2.5&&await page.$eval('.v3-map-tools button:first-child',el=>el.getAttribute('aria-disabled')==='true'&&!el.disabled));await reset();
     check('navigation preserves all county data descriptions',same(original,await page.$$eval('[data-county]',els=>els.map(e=>[e.dataset.county,e.getAttribute('aria-label')]))));
     await page.click('.v3-map-tools button:nth-child(4)');
     const labels=await page.$$eval('.v3-county-labels text',els=>els.map(e=>({name:e.textContent,box:e.getBoundingClientRect().toJSON()})));

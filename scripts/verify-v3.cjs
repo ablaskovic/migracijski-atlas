@@ -349,6 +349,39 @@ const signed = (n, relative) => {
   const afterDetail = await workspaceView();
   check('a view link in the county panel focuses the view select on screen', afterDetail.focused === 'v3-view-select' && afterDetail.selectTop >= 0 && afterDetail.selectBottom <= afterDetail.vh);
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  // A control that disables or removes itself while focused dropped focus to <body>: zoom buttons at their limits, the
+  // matrix size buttons, PNG/SVG during an export, the empty-state "clear" buttons and the geometry retry.
+  await downloadSession.send('Page.setDownloadBehavior', { behavior: 'deny' });
+  const focusName = () => page.evaluate(() => { const e = document.activeElement; return e === document.body ? 'BODY' : (e.getAttribute('aria-label') || e.getAttribute('placeholder') || e.tagName); });
+  const pressOn = async (selector, times) => { await page.focus(selector); for (let i = 0; i < times; i++) await page.keyboard.press('Enter'); await new Promise(resolve => setTimeout(resolve, 150)); return focusName(); };
+  const kept = {};
+  await go('?version=v3&l=en&fresh=focuszoom#explore=map&l=en');
+  kept.zoomInAtMax = await pressOn('.v3-map-tools button:nth-child(1)', 4);
+  kept.zoomOutAtMin = await pressOn('.v3-map-tools button:nth-child(2)', 4);
+  await go('?version=v3&l=en&fresh=focusmatrix#explore=matrix&year=2018&l=en');
+  kept.matrixEnlarge = await pressOn('.v3-matrix-zoom button:nth-of-type(2)', 4);
+  kept.matrixReset = await pressOn('.v3-matrix-zoom button:nth-of-type(3)', 1);
+  kept.exportPng = await pressOn('[aria-label="Export PNG"]', 1); await new Promise(resolve => setTimeout(resolve, 1500)); kept.exportPngAfter = await focusName();
+  await go('?version=v3&l=en&fresh=focusclear#explore=map&l=en');
+  await page.type('.v3-search input', 'zzz'); kept.clearCounty = await pressOn('.v3-empty button', 1);
+  await go('?version=v3&l=en&fresh=focusclearmuni#explore=municipalities&l=en'); await page.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
+  await page.type('.v3-municipal-search input', 'zzz'); kept.clearMunicipal = await pressOn('.v3-municipal-results .v3-empty button', 1);
+  await go('?version=v3&l=en&fresh=focusclearpop#explore=population&panel=countries&l=en');
+  await page.type('.v3-pop-search input', 'zzz'); kept.clearCountries = await pressOn('.v3-pop-empty button', 1);
+  await downloadSession.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output });
+  check('keyboard focus stays on a control that disables itself, or moves to the field a clear button served', JSON.stringify(kept) === JSON.stringify({ zoomInAtMax: 'Zoom in', zoomOutAtMin: 'Zoom out', matrixEnlarge: 'Enlarge matrix', matrixReset: 'Reset size', exportPng: 'Export PNG', exportPngAfter: 'Export PNG', clearCounty: 'Find a county', clearMunicipal: 'Find a city or municipality', clearCountries: 'Find a country' }));
+  const retryPage = await browser.newPage();
+  await retryPage.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  await retryPage.setRequestInterception(true);
+  let failGeometry = true;
+  retryPage.on('request', request => { if (failGeometry && /geo_jls/.test(request.url())) request.abort('failed'); else request.continue(); });
+  await retryPage.goto(origin + '/?version=v3&l=en&fresh=focusretry#explore=municipalities&l=en', { waitUntil: 'networkidle0' });
+  await retryPage.waitForSelector('.v3-geo-loading button');
+  failGeometry = false;
+  await retryPage.focus('.v3-geo-loading button'); await retryPage.keyboard.press('Enter');
+  await retryPage.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
+  check('a successful geometry retry leaves focus on the view, not the page body', await retryPage.evaluate(() => document.activeElement !== document.body));
+  await retryPage.close();
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CIT, DEMO, ISOS, JLS, YEARS, cgroups, countryName as countryLabel } from '../lib/metrics.ts';
 import type { JlsRow, Lang } from '../lib/types.ts';
 import { countyName, downloadFile, fold, formatNumber } from './model.ts';
@@ -56,6 +56,7 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
   const municipalMode = localScope ?? localMunicipalMode;
   const setMunicipalMode = (scope: 'inter' | 'local') => { setLocalMunicipalMode(scope); onLocalScope?.(scope); };
   const [query, setQuery] = useState('');
+  const search = useRef<HTMLInputElement>(null);
   useEffect(() => { setCitYear(closestCitYear(YEARS[yi])); }, [yi]);
   useEffect(() => { setLocalDirection(direction); }, [direction]);
   const tabs: [Panel, string][] = [
@@ -182,13 +183,13 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
     </>}
 
     {panel === 'countries' && <>
-      <div className="v3-pop-controls"><p className="v3-pop-note">{L('Najvećih 12 zemalja po doseljenima, uz ostatak do nacionalnog zbroja.', 'The top 12 countries by arrivals, plus the remainder to the national total.')}</p><label className="v3-pop-search"><Icon name="search" size={16} /><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={L('Pronađite zemlju…', 'Find a country…')} aria-label={L('Pronađite zemlju', 'Find a country')} /></label></div>
+      <div className="v3-pop-controls"><p className="v3-pop-note">{L('Najvećih 12 zemalja po doseljenima, uz ostatak do nacionalnog zbroja.', 'The top 12 countries by arrivals, plus the remainder to the national total.')}</p><label className="v3-pop-search"><Icon name="search" size={16} /><input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={L('Pronađite zemlju…', 'Find a country…')} aria-label={L('Pronađite zemlju', 'Find a country')} /></label></div>
       <div className="v3-pop-card"><TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table v3-pop-country-table"><caption className="v3-sr">{L('Zemlje podrijetla i odredišta, Hrvatska, ', 'Countries of origin and destination, Croatia, ') + DEMO.year}</caption>
         <thead><tr><th scope="col">{L('Zemlja', 'Country')}</th><th scope="col">{L('Doseljeni', 'Arrivals')}</th><th scope="col">{L('Odseljeni', 'Departures')}</th><th scope="col">{L('Saldo', 'Net')}</th></tr></thead>
         <tbody>{shownCountries.map(([name, arrivals, departures]) => <tr key={name} className={name === countries[countries.length - 1][0] ? 'is-remainder' : ''}><th scope="row">{countryLabel(name)}</th>
           <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${arrivals / countryMax * 100}%` }} /><span>{format(arrivals)}</span></td>
           <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${departures / countryMax * 100}%`, background: 'color-mix(in srgb, var(--coral) 18%, transparent)', borderColor: 'var(--coral)' }} /><span>{format(departures)}</span></td><td>{balance(arrivals - departures)}</td></tr>)}
-          {!shownCountries.length && <tr><td colSpan={4} className="v3-pop-empty">{L('Nema pronađenih zemalja.', 'No countries found.')} <button onClick={() => setQuery('')}>{L('Očisti pretragu', 'Clear search')}</button></td></tr>}</tbody>
+          {!shownCountries.length && <tr><td colSpan={4} className="v3-pop-empty">{L('Nema pronađenih zemalja.', 'No countries found.')} <button onClick={() => { setQuery(''); search.current?.focus(); }}>{L('Očisti pretragu', 'Clear search')}</button></td></tr>}</tbody>
         <tfoot><tr><th scope="row">{L('Ukupno · sve zemlje', 'Total · all countries')}</th><td>{format(DEMO.cTot[0])}</td><td>{format(DEMO.cTot[1])}</td><td>{balance(DEMO.cTot[0] - DEMO.cTot[1])}</td></tr></tfoot>
       </table></TableScroll></div>
       <p className="v3-pop-source">{L('Zemlja podrijetla/odredišta ne mora biti zemlja državljanstva. „Ostale zemlje” je izračunat ostatak, a ne pojedinačna zemlja. DZS STAN-2026-2-1, tablica I 4. CSV uključuje cijeli popis.', 'Country of origin/destination may differ from country of citizenship. “Other countries” is a calculated remainder, not a single country. CBS STAN-2026-2-1, table I 4. CSV includes the complete list.')}</p>
@@ -200,11 +201,11 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
       </div>
       <div className="v3-pop-controls">{municipalMode === 'inter' && <div className="v3-pop-segment" role="group" aria-label={L('Smjer lokalnih koridora', 'Local corridor direction')}>
         {(['in', 'out', 'net'] as const).map(dir => <button key={dir} aria-pressed={municipalDirection === dir} onClick={() => setMunicipalDirection(dir)}>{dir === 'in' ? L('Dolazni', 'Inbound') : dir === 'out' ? L('Odlazni', 'Outbound') : L('Oba smjera · bruto', 'Both directions · gross')}</button>)}
-      </div>}<label className="v3-pop-search"><Icon name="search" size={16} /><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={L('Pronađite grad ili općinu…', 'Find a town or municipality…')} aria-label={L('Pronađite grad ili općinu', 'Find a town or municipality')} /></label></div>
+      </div>}<label className="v3-pop-search"><Icon name="search" size={16} /><input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={L('Pronađite grad ili općinu…', 'Find a town or municipality…')} aria-label={L('Pronađite grad ili općinu', 'Find a town or municipality')} /></label></div>
       <div className="v3-pop-card"><div className="v3-pop-card-heading"><h3>{L('Najveći zabilježeni koridori', 'Largest recorded corridors')}</h3><span className="v3-pop-count">{shownMunicipalRows.length}/{municipalRows.length}</span></div>
         <TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table v3-pop-municipal-table"><caption className="v3-sr">{L('Izmjereni lokalni migracijski koridori, 2018.', 'Measured local migration corridors, 2018')}</caption><thead><tr><th scope="col">{L('Iz grada/općine', 'From town/municipality')}</th><th scope="col">{L('U grad/općinu', 'To town/municipality')}</th><th scope="col">{L('Preseljenja', 'Moves')}</th></tr></thead>
           <tbody>{shownMunicipalRows.map(([from, to, count]) => <tr key={`${from}-${to}`}><th scope="row" lang="hr">{municipalName(from)}{municipalTag(from) && <small>{municipalTag(from)}</small>}</th><td lang="hr">{municipalName(to)}{municipalTag(to) && <small>{municipalTag(to)}</small>}</td><td>{format(count)}</td></tr>)}
-            {!shownMunicipalRows.length && <tr><td colSpan={3} className="v3-pop-empty">{query ? L('Nema pronađenih koridora.', 'No corridors found.') : municipalMode === 'local' ? L('Jedna JLS — nema koridora unutar županije.', 'A single municipality — no corridors within the county.') : L('Nema zabilježenih koridora prema drugim županijama.', 'No recorded corridors to other counties.')} {query && <button onClick={() => setQuery('')}>{L('Očisti pretragu', 'Clear search')}</button>}</td></tr>}</tbody>
+            {!shownMunicipalRows.length && <tr><td colSpan={3} className="v3-pop-empty">{query ? L('Nema pronađenih koridora.', 'No corridors found.') : municipalMode === 'local' ? L('Jedna JLS — nema koridora unutar županije.', 'A single municipality — no corridors within the county.') : L('Nema zabilježenih koridora prema drugim županijama.', 'No recorded corridors to other counties.')} {query && <button onClick={() => { setQuery(''); search.current?.focus(); }}>{L('Očisti pretragu', 'Clear search')}</button>}</td></tr>}</tbody>
         </table></TableScroll>
       </div>
       <p className="v3-pop-note">{L('Prikazani su najveći koridori dostupni u izvornom skupu, ne sva preseljenja. „Oba smjera” spaja dolazne i odlazne bruto tokove; neto saldo JLS-a nije objavljen u ovom skupu koridora. CSV sadrži sve retke odabranog obuhvata, bez filtra pretrage.', 'These are the largest corridors available in the source dataset, not every move. “Both directions” combines inbound and outbound gross flows; LAU net migration is not published in this corridor dataset. CSV contains every row for the selected scope, without the search filter.')}</p>
