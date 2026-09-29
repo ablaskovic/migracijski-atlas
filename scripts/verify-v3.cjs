@@ -652,6 +652,17 @@ const signed = (n, relative) => {
   liveEchoes.push(await page.evaluate(() => window.liveChanges));
   await focusing.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await focusing.detach();
   check('hover and focus moves announce nothing; the focused mark names itself', JSON.stringify(liveEchoes) === '[0,0,0]');
+  // The finding banner was inserted as a new role=status node with its text, which screen readers announce unreliably; the
+  // caption now goes to a region that exists before the pick.
+  const findingSpoken = [];
+  for (const lang of ['hr', 'en']) {
+    await go(`?version=v3&fresh=findingsr${lang}#explore=map&l=${lang}`);
+    await page.evaluate(() => { window.liveBefore = [...document.querySelectorAll('[aria-live]:not([aria-live="off"]), [role="status"]')]; });
+    await page.select('[aria-label="Vođeni nalazi"], [aria-label="Guided findings"]', '1');
+    await page.waitForSelector('.v3-finding p');
+    findingSpoken.push(await page.evaluate(() => { const caption = document.querySelector('.v3-finding p').textContent; return window.liveBefore.some(el => el.isConnected && el.textContent.includes(caption)) && !document.querySelector('.v3-finding').matches('[role="status"], [aria-live]:not([aria-live="off"])'); }));
+  }
+  check('a picked finding is announced from a region that was already there', findingSpoken.every(Boolean));
   // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
   // timeline and no cumulative mode.
   const popNotes = [];
