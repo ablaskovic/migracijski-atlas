@@ -64,7 +64,8 @@
   .v3-app .v3-metrics button { white-space:normal; text-align:left }
   .v3-app .v3-filters-hub { display:flex }
   .v3-app .v3-segment { flex-wrap:wrap; max-width:100% }
-  .v3-app .v3-segment button { flex:1; white-space:normal }
+  /* Sized from their words (flex-basis auto), so the segment wraps before a word overflows its button. */
+  .v3-app .v3-segment button { flex:1 1 auto; white-space:normal }
   .v3-app .v3-hub-label { display:grid; grid-template-columns:1fr; justify-content:stretch; font-size:.75rem; gap:6px }
   .v3-app .v3-hub-label select { max-width:100%; width:100%; min-width:0 }
   .v3-app .v3-unit { justify-content:stretch }

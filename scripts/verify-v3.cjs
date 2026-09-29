@@ -717,6 +717,23 @@ const signed = (n, relative) => {
     seriesTables.push(await page.evaluate(root => { const t = document.querySelector(`${root} details.v3-series-table table`); return !!t && /Splitsko-dalmatinska/.test(t.caption?.textContent || '') && [...t.querySelectorAll('thead th')].map(th => th.textContent).join('|') === 'Year|Internal|External|Natural change' && t.querySelectorAll('tbody tr').length === 28; }, root));
   }
   check('the county annual series has a data table of its values', seriesTables.every(Boolean));
+  // At 200 % text (a 32 px root) the flows direction row pushed "Saldo" past the workspace edge, rank-list names ended in an
+  // ellipsis and a KPI number was clipped by its card (WCAG 1.4.4).
+  const clippedAt200 = [];
+  for (const [w, h] of [[1440, 900], [1280, 800], [390, 844]]) for (const hash of ['explore=flows&year=2018&county=HR-21', 'explore=map&year=2024']) {
+    await page.setViewport({ width: w, height: h, deviceScaleFactor: 1, isMobile: w < 500, hasTouch: w < 500 });
+    await go(`?version=v3&fresh=text200${w}${hash.length}#${hash}&l=hr`);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '32px'; }); await new Promise(resolve => setTimeout(resolve, 400));
+    clippedAt200.push(...await page.evaluate(() => {
+      const ws = document.querySelector('.v3-workspace').getBoundingClientRect(), out = [];
+      for (const b of document.querySelectorAll('.v3-segment button')) { const r = b.getBoundingClientRect(); if (r.width && (r.right > ws.right + 1 || b.scrollWidth > b.clientWidth + 1)) out.push(b.textContent); }
+      for (const l of document.querySelectorAll('.v3-rank-label')) if (l.getClientRects().length && l.scrollWidth > l.clientWidth + 1) out.push(l.textContent);
+      for (const n of document.querySelectorAll('.v3-stat > strong')) if (n.scrollWidth > n.clientWidth + 1 || n.getBoundingClientRect().right > n.closest('.v3-stat').getBoundingClientRect().right + 1) out.push(n.textContent);
+      return out;
+    }));
+  }
+  await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  check('at 200 % text the direction row, rank names and KPI numbers are not clipped', clippedAt200.length === 0);
   // The desktop year slider was a 4 px strip with a ~10 px hit band (WCAG 2.5.8 asks for 24 px).
   await go('?version=v3&fresh=slider#explore=map&year=2010&l=en');
   const sliderBox = await page.$eval('.v3-slider-wrap input', el => { el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
