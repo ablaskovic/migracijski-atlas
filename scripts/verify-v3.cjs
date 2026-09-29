@@ -565,6 +565,10 @@ const signed = (n, relative) => {
   }
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
   check('each view has one name, and the sidebar shows it on one line', nameReports.every(Boolean));
+  // "Postavke rada" / "Metoda rada" read as "work settings" / "working method"; the study's are "iz rada".
+  await go('?version=v3&fresh=izrada#explore=classify&year=2024&l=hr');
+  const izRada = await page.evaluate(() => ({ button: document.querySelector('.v3-threshold .v3-button').textContent, summaries: [...document.querySelectorAll('dialog summary')].map(s => s.textContent) }));
+  check('Croatian names the study\'s settings and method "iz rada"', izRada.button === 'Postavke iz rada' && izRada.summaries.some(t => t.startsWith('Metoda iz rada')) && !izRada.summaries.some(t => /Metoda rada/.test(t)));
   // Three region names are adjectives ("Istočna"), which made the page heading a bare "Istočna" / "Eastern" once picked.
   const regionHeadings = [];
   for (const lang of ['hr', 'en']) for (const county of ['HR-14', 'HR-08', 'HR-17', 'HR-21', 'HR-07']) { await go(`?version=v3&fresh=reg${lang}${county}#explore=regions&year=2024&sum=1&county=${county}&l=${lang}`); regionHeadings.push(await text('.v3-intro h1')); }
