@@ -249,6 +249,13 @@ const signed = (n, relative) => {
   await page.evaluate(() => document.querySelector('[data-county="HR-17"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   await pickView('map');
   check('a county clicked on the regions map stays selected on the map', await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('county') === 'HR-17'));
+  // Region cards took aria-pressed from hover-or-selection, so pointing at a card announced it as pressed.
+  const pressedRegions = () => page.$$eval('[data-region][aria-pressed="true"]', els => els.map(e => e.dataset.region).join());
+  await go('?version=v3&l=en&fresh=regionhover#explore=regions&l=en');
+  await page.hover('[data-region="is"]');
+  const idleRegions = await pressedRegions();
+  await page.click('[data-region="sj"]'); await page.hover('[data-region="is"]');
+  check('region cards report the selected region as pressed, never the hovered one', idleRegions === '' && await pressedRegions() === 'sj');
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
