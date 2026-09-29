@@ -812,6 +812,14 @@ const signed = (n, relative) => {
   // The trend chart's year bars are buttons that pick a year, and none said which year was picked.
   await go('?version=v3&fresh=bars#explore=trends&year=2010&l=en');
   check('the trend chart says which year is selected', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.v3-trend-chart .v3-chart-hit[aria-pressed="true"]')].map(b => b.getAttribute('aria-label').slice(0, 4)))) === '["2010"]');
+  // A drag across the chart scrubs its years; a mouse drag along the year labels selected them instead.
+  await page.evaluate(() => document.querySelector('.v3-trend-chart').scrollIntoView({ block: 'center' })); await new Promise(resolve => setTimeout(resolve, 300));
+  const scrubRow = await page.$$eval('.v3-trend-chart .v3-chart-hit', hits => { const mid = r => r.x + r.width / 2; return { from: mid(hits[2].getBoundingClientRect()), to: mid(hits[17].getBoundingClientRect()), y: hits[0].closest('svg').getBoundingClientRect().bottom - 12 }; });
+  await page.mouse.move(scrubRow.from, scrubRow.y); await page.mouse.down();
+  for (let i = 1; i <= 20; i++) { await page.mouse.move(scrubRow.from + (scrubRow.to - scrubRow.from) * i / 20, scrubRow.y); await new Promise(resolve => setTimeout(resolve, 16)); }
+  await page.mouse.up(); await new Promise(resolve => setTimeout(resolve, 300));
+  check('dragging across the trend chart scrubs to a year without selecting its labels', JSON.stringify(await page.evaluate(() => [new URLSearchParams(location.hash.slice(1)).get('year'), getSelection().toString()])) === '["2015",""]');
+  await page.mouse.move(0, 0);
   // On desktop, picking a partner county in Flows opened the corridor detail below the map without a word (phones move
   // focus to its heading); desktop keeps focus on the map, so the opening is announced.
   const pairFocus = await page.createCDPSession(); await pairFocus.send('Emulation.setFocusEmulationEnabled', { enabled: true });

@@ -1,10 +1,10 @@
-import { useRef, type CSSProperties } from 'react';
+import { useRef, type CSSProperties, type PointerEvent } from 'react';
 import { ISOS, YEARS, netAt } from '../lib/metrics.ts';
 import type { Flow } from '../lib/types.ts';
 import { formatNumber, type AtlasState } from './model.ts';
 import useScreenScale from './useScreenScale.ts';
 
-interface Props { s: AtlasState; compact?: boolean; onYear?: (yi: number) => void; flow?: Flow; }
+interface Props { s: AtlasState; compact?: boolean; onYear?: (yi: number, replace?: boolean) => void; flow?: Flow; }
 
 /* Nationally, internal moves cancel out (exactly from 2007; before it only margin residuals remain), so the national
    total is the external balance and "migration + natural change" is external + natural. */
@@ -21,7 +21,19 @@ export default function TrendChart({ s, compact = false, onYear, flow }: Props) 
   const top = Math.max(20, 26 * px), bottom = h - 32, mid = (top + bottom) / 2;
   const step = (w - left - right) / YEARS.length;
   const y = (n: number) => mid - n / max * (mid - top);
-  return <><svg ref={svg} style={scale < 1 ? { '--svg-min': `${11 / scale}px` } as CSSProperties : undefined} className={'v3-trend-chart' + (compact ? ' is-compact' : '')} viewBox={`0 0 ${w} ${h}`} role={onYear ? 'group' : 'img'} aria-label={s.lang === 'hr' ? 'Godišnji saldo od 1998. do 2025.' : 'Annual net change from 1998 to 2025'}>
+  // A sideways drag scrubs the years (a phone's bars are 10 px wide), one history entry per drag. It starts only past
+  // 8 px of sideways travel, so a tap still reaches its bar and a vertical swipe still scrolls the page.
+  const drag = useRef<{ id: number; x: number; y: number; on: boolean } | null>(null);
+  const scrub = (e: PointerEvent<SVGSVGElement>) => {
+    const d = drag.current, ctm = e.currentTarget.getScreenCTM();
+    if (!onYear || !d || d.id !== e.pointerId || !ctm) return;
+    if (!d.on) { const dx = Math.abs(e.clientX - d.x); if (dx < 8 || dx < Math.abs(e.clientY - d.y)) return; e.currentTarget.setPointerCapture(e.pointerId); }
+    const i = Math.max(0, Math.min(YEARS.length - 1, Math.floor(((e.clientX - ctm.e) / ctm.a - left) / step)));
+    if (!d.on || i !== s.yi) onYear(i, d.on);
+    d.on = true;
+  };
+  return <><svg ref={svg} style={scale < 1 ? { '--svg-min': `${11 / scale}px` } as CSSProperties : undefined} className={'v3-trend-chart' + (compact ? ' is-compact' : '')} viewBox={`0 0 ${w} ${h}`} role={onYear ? 'group' : 'img'} aria-label={s.lang === 'hr' ? 'Godišnji saldo od 1998. do 2025.' : 'Annual net change from 1998 to 2025'}
+    onPointerDown={e => { if (onYear && e.button === 0) drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false }; }} onPointerMove={scrub} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
     <title>{series.map((n, i) => `${YEARS[i]}: ${formatNumber(s.lang, n, { signed: true })}`).join('; ')}</title>
     {[top, mid, bottom].map((y, i) => <g key={y}><line x1={left} x2={w - right} y1={y} y2={y} className="v3-chart-grid" />{!compact && <text x={left - 12} y={y + 4} textAnchor="end">{formatNumber(s.lang, i === 0 ? max : i === 1 ? 0 : -max, { compact: true, digits: 0 })}</text>}</g>)}
     {series.map((n, i) => <g key={YEARS[i]}>

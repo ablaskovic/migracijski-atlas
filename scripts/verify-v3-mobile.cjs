@@ -312,6 +312,27 @@ async function scenario(name, run) {
     const shown = await page.evaluate(() => { const label = document.querySelectorAll('.v3-trend-chart .v3-chart-hit')[17].getAttribute('aria-label').replace(': ', ' · '), readout = document.querySelector('.v3-trend-readout'), r = readout?.getBoundingClientRect(); return { label, readout: readout?.textContent, inView: !!r && r.top >= 0 && r.bottom <= innerHeight }; });
     check('a tapped Trends bar shows its year and value under the chart', shown.readout === shown.label && shown.inView, shown);
   });
+  await scenario('Dragging across the Trends chart scrubs the years', async () => {
+    // The phone's 28 bars are 10.4 px wide, and a tap 5 px off picked the neighbouring year; a sideways drag now slides onto it.
+    await viewport(); await go('explore=trends&year=2025&metric=tot&l=hr');
+    await page.evaluate(() => document.querySelector('.v3-trend-chart').scrollIntoView({ block: 'center' })); await pause(300);
+    const at = await page.$$eval('.v3-trend-chart .v3-chart-hit', hits => hits.map(h => { const r = h.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }));
+    const cdp = await page.createCDPSession(), year = () => page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('year'));
+    const drag = async (from, to) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y, id: 0 }] });
+      for (let i = 1; i <= 20; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (to.x - from.x) * i / 20, y: from.y + (to.y - from.y) * i / 20, id: 0 }] }); await pause(16); }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await pause(400);
+    };
+    await drag(at[2], at[17]);
+    const scrubbed = await year(), top = await page.evaluate(() => scrollY);
+    await drag(at[5], { x: at[5].x, y: at[5].y - 200 });
+    const swiped = { year: await year(), scrolled: await page.evaluate(t => Math.round(scrollY - t), top) };
+    await cdp.detach();
+    // Back leaves the whole drag: its first year was pushed and the rest replaced it.
+    await page.evaluate(() => history.back()); await pause(400);
+    const back = await year();
+    check('a sideways drag scrubs the Trends years in one history entry; a vertical swipe still scrolls', scrubbed === '2015' && swiped.year === '2015' && swiped.scrolled > 50 && back === '2025', { scrubbed, swiped, back });
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
