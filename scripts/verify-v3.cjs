@@ -543,6 +543,13 @@ const signed = (n, relative) => {
     methodMarks.push(await page.evaluate(() => !!document.querySelector('.v3-trend-chart .v3-method-line')));
   }
   check('the 2011 methodology marker is drawn only on series with external migration', JSON.stringify(methodMarks) === '[true,false,false,false,true]');
+  // The tab title never named the view and carried the tagline's full stop, so every view's tab and bookmark read the same;
+  // the year span was set with an em dash (1998—2025).
+  const tabTitles = [];
+  for (const hash of ['explore=map&year=2025&l=en', 'explore=trends&year=2025&l=hr', 'explore=flows&year=2018&l=en', 'explore=map&year=2025&county=HR-18&l=hr']) { await go(`?version=v3&fresh=title${tabTitles.length}#${hash}`); tabTitles.push(await page.title()); }
+  check('the tab title names the view and its subject, without the tagline', JSON.stringify(tabTitles) === JSON.stringify(['Migration atlas · Map · Croatia · 2025', 'Migracijski atlas · Trendovi · Hrvatska · 2025', 'Migration atlas · Flows · City of Zagreb · 2018', 'Migracijski atlas · Karta · Istarska · 2025']));
+  await go('?version=v3&fresh=dash#explore=trends&l=en');
+  check('year spans use an en dash', (await page.evaluate(() => [document.querySelector('.v3-header-caption').textContent, document.querySelector('.v3-trends-view .v3-eyebrow').textContent])).every(t => t.includes('1998–2025') && !t.includes('—')));
   // The flows page printed its honesty note twice, and the IPF sentence had three phrasings although ipfMargins() keeps one.
   const ipfWording = { hr: 'struktura 2018. skalirana na DZS odseljene; doseljeni približno', en: 'the 2018 structure scaled to CBS out-margins; in-margins approximate' };
   const flowNotes = () => page.evaluate(() => [...document.querySelectorAll('.v3-data-note')].map(p => p.textContent).filter(t => /IPF|Procjena|Estimate|Izmjereni tokovi|Measured inter-county/.test(t)));
