@@ -717,6 +717,12 @@ const signed = (n, relative) => {
     seriesTables.push(await page.evaluate(root => { const t = document.querySelector(`${root} details.v3-series-table table`); return !!t && /Splitsko-dalmatinska/.test(t.caption?.textContent || '') && [...t.querySelectorAll('thead th')].map(th => th.textContent).join('|') === 'Year|Internal|External|Natural change' && t.querySelectorAll('tbody tr').length === 28; }, root));
   }
   check('the county annual series has a data table of its values', seriesTables.every(Boolean));
+  // The desktop year slider was a 4 px strip with a ~10 px hit band (WCAG 2.5.8 asks for 24 px).
+  await go('?version=v3&fresh=slider#explore=map&year=2010&l=en');
+  const sliderBox = await page.$eval('.v3-slider-wrap input', el => { el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  const sliderBefore = await page.$eval('#v3-year', s => s.value);
+  await page.mouse.click(sliderBox.x + sliderBox.w * .9, sliderBox.y + sliderBox.h / 2 - 9); await new Promise(resolve => setTimeout(resolve, 200));
+  check('the desktop year slider is at least 24 px tall and takes a press 9 px off its track', sliderBox.h >= 24 && await page.$eval('#v3-year', s => s.value) !== sliderBefore);
   // The annual-series lines were told apart by colour alone; each series now has its own dash, shown in its legend key.
   const seriesDashes = [];
   for (const [hash, root] of [['explore=trends&county=HR-17', '.v3-trends-view'], ['explore=flows&year=2018&county=HR-21&pair=HR-01', '.v3-pair']]) {
