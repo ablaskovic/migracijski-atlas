@@ -333,6 +333,15 @@ const signed = (n, relative) => {
     await page.waitForSelector('.v3-finding p', { timeout: 15000 });
     nalaz4[lang] = await page.$eval('.v3-finding p', el => el.textContent);
   }
+  // Nalaz 9 was titled "Relativno gleda drukčije" (not Croatian), and Nalaz 7 said "selidbe" where the atlas says "preseljenja".
+  const hrWording = {};
+  for (const story of [6, 8]) {
+    await go(`?version=v3&fresh=hrword${story}#explore=map&l=hr`);
+    await page.select('[aria-label="Vođeni nalazi"]', String(story));
+    await page.waitForSelector('.v3-finding p', { timeout: 15000 });
+    hrWording[story + 1] = await page.evaluate(() => document.querySelector('[aria-label="Vođeni nalazi"]').selectedOptions[0].textContent + ' | ' + document.querySelector('.v3-finding p').textContent);
+  }
+  check('findings use idiomatic Croatian and the atlas word for moves', !/Relativno gleda\b/.test(hrWording[9]) && !/selidb/.test(hrWording[7]) && /preseljenja/.test(hrWording[7]));
   // Croatian agrees a noun with its numeral (1 singular, 2–4 paucal, else genitive plural): the class key printed
   // "9 pobjednice / 1 neutralne / 11 gubitnice", and one county's readout and the study comparison used the plural.
   const klasForms = { gain: ['pobjednica', 'pobjednice', 'pobjednica'], neu: ['neutralna', 'neutralne', 'neutralnih'], loss: ['gubitnica', 'gubitnice', 'gubitnica'] };

@@ -101,7 +101,7 @@ export const STORIES: Story[] = [
     /* Not "Cities lose": the caption's own Grad Zagreb gains +3.413, and so do six
        of the ten largest cities. The pair the caption measures is the title. */
     get label() { return L('Split gubi, Solin dobiva', 'Split loses, Solin gains'); },
-    get cap() { return L('Na izmjerenoj JLS razini (2018., samo unutarnje selidbe) najveći je gubitnik Split (−691), a odmah do njega Solin dobiva (+229). Grad Zagreb dobiva +3.413 — suburbanizacija je vidljiva tek ispod razine županija.', 'At the measured LAU level (2018, internal moves only) the biggest loser is Split (−691), while Solin next door gains (+229). The City of Zagreb gains +3,413 — suburbanisation only becomes visible below county level.'); },
+    get cap() { return L('Na izmjerenoj JLS razini (2018., samo unutarnja preseljenja) najveći je gubitnik Split (−691), a odmah do njega Solin dobiva (+229). Grad Zagreb dobiva +3.413 — suburbanizacija je vidljiva tek ispod razine županija.', 'At the measured LAU level (2018, internal moves only) the biggest loser is Split (−691), while Solin next door gains (+229). The City of Zagreb gains +3,413 — suburbanisation only becomes visible below county level.'); },
     patch: { view: 'jmap', dir: 'net', cum: false, yi: IX2018, jls: false, citz: false, age: false },
     /* every number in this caption is a municipality figure */
     needs: 'jls',
@@ -124,7 +124,7 @@ export const STORIES: Story[] = [
     patch: { view: 'saldo', flow: 'int', den: 'abs', cum: true, yi: Y24 },
   },
   {
-    get label() { return L('Relativno gleda drukčije', 'Relative numbers look different'); },
+    get label() { return L('Relativno gledano izgleda drukčije', 'Relative numbers look different'); },
     get cap() { return L('Apsolutno vodi Grad Zagreb (+41.986), relativno Istarska: +10,8 % stanovništva iz 2011., dvostruko više od Zagreba (+5,3 %). I Zadarska (+5,7 %) ga pretječe. Veličina županije odlučuje koliko isti broj ljudi znači.', 'In absolute terms the City of Zagreb leads (+41,986); in relative terms Istarska does: +10.8 % of its 2011 population, twice Zagreb’s (+5.3 %). Zadarska (+5.7 %) also overtakes it. The size of a county decides what the same number of people means.'); },
     patch: { view: 'saldo', flow: 'tot', den: 'rel11', cum: true, yi: Y24 },
   },
