@@ -123,6 +123,14 @@ async function screenshot(name) {
       }
     });
 
+    await group('Municipal corridor headers align with their columns', async () => {
+      // The destination names were left-aligned under a header still right-aligned like the numbers.
+      await page.setViewport({ width: 390, height: 900, isMobile: true, hasTouch: true });
+      await go('population', 'municipal');
+      const pairs = await page.$eval('.v3-pop-municipal-table', table => { const row = table.querySelector('tbody tr'); return [...table.querySelectorAll('thead th')].map((h, i) => [getComputedStyle(h).textAlign, getComputedStyle(row.children[i]).textAlign]); });
+      check('each municipal corridors header aligns like its column', pairs.every(([head, cell]) => head === cell));
+    });
+
     await group('Population bars stay clear of their numbers', async () => {
       // Each number sat on its bar, a box with a solid outline, which struck through the digits wherever the bar ended
       // within the number ("6|33", "2.6|02"): 30 of 32 age cells at 390.
