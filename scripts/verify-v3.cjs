@@ -194,6 +194,26 @@ const signed = (n, relative) => {
   await go('?version=v3&l=en&fresh=flowfirst#explore=map&year=2025&l=en');
   await pickView('flows');
   check('a first visit to flows still opens on the measured 2018', await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('year') === '2018' && !new URLSearchParams(location.hash.slice(1)).has('sum')));
+  // Escape is the fields' own key (a search box clears itself, a select closes its list); the global shortcut used to
+  // clear the county from inside them. After a clear that leaves the focused control in place, focus stays there.
+  const countyParam = () => page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('county'));
+  await go('?version=v3&l=en&fresh=escsearch#explore=municipalities&county=HR-21&l=en');
+  await page.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
+  await page.type('.v3-municipal-search input', 'gor'); await page.keyboard.press('Escape');
+  check('Escape in the municipal search keeps the county filter', await countyParam() === 'HR-21');
+  await go('?version=v3&l=en&fresh=escselect#explore=map&county=HR-21&l=en');
+  await page.focus('#v3-year'); await page.keyboard.press('Escape');
+  check('Escape on the year select keeps the selected county', await countyParam() === 'HR-21');
+  await go('?version=v3&l=en&fresh=escrange#explore=classify&county=HR-14&l=en');
+  await page.focus('.v3-threshold input[type=range]'); await page.keyboard.press('Escape');
+  check('Escape on the threshold slider keeps the county and the focus', await countyParam() === 'HR-14' && await page.evaluate(() => document.activeElement?.matches('.v3-threshold input[type=range]')));
+  await go('?version=v3&l=en&fresh=escgrid#explore=trends&county=HR-21&year=2025&l=en');
+  await page.focus('[data-grid-cell="30"]'); await page.keyboard.press('Escape'); await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  check('Escape in the year grid clears the county and leaves focus on the cell', await countyParam() === null && await page.evaluate(() => document.activeElement?.getAttribute('data-grid-cell') === '30'));
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('denied'); } } }));
+  await page.click('.v3-share'); await page.waitForSelector('.v3-share-fallback input'); await page.focus('.v3-share-fallback input');
+  await page.keyboard.press('Escape');
+  check('Escape inside the manual share field still closes it', !await page.$('.v3-share-fallback'));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

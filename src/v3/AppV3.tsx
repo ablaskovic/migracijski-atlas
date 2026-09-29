@@ -146,6 +146,8 @@ export default function AppV3() {
   useEffect(() => {
     const escape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || dialog.current?.open || e.defaultPrevented) return;
+      // Escape belongs to a field first: a search box clears itself, a select closes its list.
+      if (!sharing && e.target instanceof Element && e.target.closest('input, select, textarea')) return;
       setPlaying(false);
       if (sharing) closeSharing();
       else if (['flows', 'matrix'].includes(state.current.view) && state.current.pair) document.querySelector<HTMLButtonElement>('.v3-pair .v3-icon-button')?.click();
@@ -195,6 +197,8 @@ export default function AppV3() {
     }
     update({ county });
     requestAnimationFrame(() => {
+      // A clear that leaves the focused control in place (Escape in the year grid) keeps focus there.
+      if (!county && document.activeElement !== document.body && document.activeElement?.isConnected) return;
       const target = document.querySelector<HTMLElement | SVGElement>(county ? '.v3-county-detail h2' : `[data-county="${previous}"]`) ?? document.querySelector<HTMLElement>('.v3-explore-controls select');
       target?.focus({ preventScroll: true });
       if (county && window.matchMedia('(max-width:720px)').matches) document.querySelector('.v3-county-panel')?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth' });
