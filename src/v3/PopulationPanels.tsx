@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CIT, DEMO, ISOS, JLS, YEARS, cgroups, countryName as countryLabel } from '../lib/metrics.ts';
 import type { JlsRow, Lang } from '../lib/types.ts';
+import { NEWTAB } from '../lib/i18n.ts';
 import { countyName, downloadFile, fold, formatNumber, resultCount } from './model.ts';
 import Icon from './Icon.tsx';
 import TableScroll from './TableScroll.tsx';
@@ -209,7 +210,7 @@ export default function PopulationPanels({ lang, county, yi, direction, onCounty
         </table></TableScroll>
       </div>
       <p className="v3-pop-note">{L('Prikazani su najveći koridori dostupni u izvornom skupu, ne sva preseljenja. „Oba smjera” spaja dolazne i odlazne bruto tokove; neto saldo JLS-a nije objavljen u ovom skupu koridora. CSV sadrži sve retke odabranog obuhvata, bez filtra pretrage.', 'These are the largest corridors available in the source dataset, not every move. “Both directions” combines inbound and outbound gross flows; LAU net migration is not published in this corridor dataset. CSV contains every row for the selected scope, without the search filter.')}</p>
-      <p className="v3-pop-source">{L('DZS posebna obrada · ', 'CBS special processing · ')}<a href="https://doi.org/10.1186/s40649-021-00093-0" target="_blank" rel="noreferrer">{L('Pitoski i sur. (2021.)', 'Pitoski et al. (2021)')}</a> · CC BY 4.0 · {L('jedina godina izmjerenih tokova na razini gradova/općina: 2018.', 'the only measured year at town/municipality level: 2018.')}</p>
+      <p className="v3-pop-source">{L('DZS posebna obrada · ', 'CBS special processing · ')}<a href="https://doi.org/10.1186/s40649-021-00093-0" target="_blank" rel="noreferrer">{L('Pitoski i sur. (2021.)', 'Pitoski et al. (2021)')}<span className="v3-sr"> ({NEWTAB()})</span></a> · CC BY 4.0 · {L('jedina godina izmjerenih tokova na razini gradova/općina: 2018.', 'the only measured year at town/municipality level: 2018.')}</p>
     </>}
   </section>;
 }

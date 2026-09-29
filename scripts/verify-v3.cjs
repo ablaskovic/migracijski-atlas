@@ -710,6 +710,10 @@ const signed = (n, relative) => {
   await go('?version=v3&fresh=regionnames#explore=regions&year=2024&sum=1&l=en');
   const regionButtonNames = await page.evaluate(() => [...document.querySelectorAll('[data-county]')].map(p => p.getAttribute('aria-label')));
   check('each Regions map button names its county before its region', regionButtonNames.length === 21 && new Set(regionButtonNames).size === 21 && regionButtonNames.some(n => /^Osječko-baranjska — Eastern: /.test(n)));
+  // Footer links, and a few others, opened new tabs without the "opens in a new tab" notice the paper and source links carry.
+  const silentTabs = [];
+  for (const hash of ['explore=classify&year=2024&l=en', 'explore=population&panel=municipal&l=hr']) { await go(`?version=v3&fresh=newtab${silentTabs.length}#${hash}`); silentTabs.push(...await page.evaluate(() => [...document.querySelectorAll('a[target="_blank"]')].filter(a => !/new tab|novoj kartici|nova kartica/i.test((a.getAttribute('aria-label') || '') + ' ' + a.textContent)).map(a => a.href))); }
+  check('every link that opens a new tab says so', silentTabs.length === 0);
   // English text sat under lang="hr": the footer's "© OpenStreetMap contributors" and the boot-failure message's English half.
   await go('?version=v3&fresh=langmix#explore=map&l=hr');
   const osmCredit = await page.evaluate(() => { const a = [...document.querySelectorAll('.v3-footer a')].find(x => /openstreetmap\.org/.test(x.href)); return [a.textContent, a.closest('[lang]').getAttribute('lang')]; });
