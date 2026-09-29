@@ -551,6 +551,20 @@ const signed = (n, relative) => {
   check('the tab title names the view and its subject, without the tagline', JSON.stringify(tabTitles) === JSON.stringify(['Migration atlas · Map · Croatia · 2025', 'Migracijski atlas · Trendovi · Hrvatska · 2025', 'Migration atlas · Flows · City of Zagreb · 2018', 'Migracijski atlas · Karta · Istarska · 2025']));
   await go('?version=v3&fresh=dash#explore=trends&l=en');
   check('year spans use an en dash', (await page.evaluate(() => [document.querySelector('.v3-header-caption').textContent, document.querySelector('.v3-trends-view .v3-eyebrow').textContent])).every(t => t.includes('1998–2025') && !t.includes('—')));
+  // The sidebar named two views differently from the view select ("Podjela"/"Classes", "Local map"), and its labels break
+  // mid-word when they do not fit, which "Stanovništvo" already did at 1024 px.
+  const nameReports = [];
+  for (const [w, h] of [[1440, 900], [1024, 768]]) for (const lang of ['hr', 'en']) {
+    await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 });
+    await go(`?version=v3&fresh=names${w}${lang}#explore=map&l=${lang}`);
+    nameReports.push(await page.evaluate(() => {
+      const names = [...document.querySelectorAll('#v3-view-select option')].map(o => o.textContent), spans = [...document.querySelectorAll('.v3-sidebar > button span')];
+      const line = parseFloat(getComputedStyle(spans[0]).lineHeight) || 13;
+      return names.every((name, i) => spans[i].textContent === name && spans[i].getBoundingClientRect().height < line * 1.5);
+    }));
+  }
+  await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  check('each view has one name, and the sidebar shows it on one line', nameReports.every(Boolean));
   // Three region names are adjectives ("Istočna"), which made the page heading a bare "Istočna" / "Eastern" once picked.
   const regionHeadings = [];
   for (const lang of ['hr', 'en']) for (const county of ['HR-14', 'HR-08', 'HR-17', 'HR-21', 'HR-07']) { await go(`?version=v3&fresh=reg${lang}${county}#explore=regions&year=2024&sum=1&county=${county}&l=${lang}`); regionHeadings.push(await text('.v3-intro h1')); }
