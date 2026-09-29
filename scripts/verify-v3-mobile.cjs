@@ -368,6 +368,17 @@ async function scenario(name, run) {
     const shown = await page.evaluate(() => { const readout = document.querySelector('.v3-municipal-readout').getBoundingClientRect(), row = document.querySelector('.v3-municipal-results > button[aria-pressed="true"]')?.getBoundingClientRect(); return { name: document.querySelector('.v3-municipal-readout strong')?.textContent, readout: readout.top >= 0 && readout.bottom <= innerHeight, row: !!row && row.top >= 0 && row.bottom <= innerHeight }; });
     check('a tapped municipal list row brings its readout into view and stays in view itself', shown.name === 'Osijek' && shown.readout && shown.row, shown);
   });
+  await scenario('Phone toasts use the screen width', async () => {
+    // left:50% with translateX(-50%) capped the toast at half the screen, so "Podaci su izvezeni u CSV." took two lines.
+    await viewport(320, 740); await go('explore=map&year=2024&l=hr');
+    await page.click('.v3-export'); await page.waitForFunction(() => !!document.querySelector('.v3-toast').textContent);
+    const toast = await page.evaluate(() => {
+      const el = document.querySelector('.v3-toast'), r = el.getBoundingClientRect(), tops = new Set(), walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) { const range = document.createRange(); range.selectNodeContents(n); for (const rect of range.getClientRects()) tops.add(Math.round(rect.top)); }
+      return { lines: tops.size, left: Math.round(r.left), right: Math.round(innerWidth - r.right) };
+    });
+    check('a short phone toast takes one line, centred inside the screen', toast.lines === 1 && Math.abs(toast.left - toast.right) <= 2 && toast.left >= 12, toast);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
