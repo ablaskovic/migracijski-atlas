@@ -613,6 +613,24 @@ const signed = (n, relative) => {
     }, groups));
   }
   check('every pressed toggle carries a cue of at least 3:1, in both themes', pressedCues.length === 12 && pressedCues.every(Boolean));
+  // In forced colours the heatmap went blank, bars, swatches, ramps and the slider track vanished, and every pressed or
+  // current state became identical to the rest.
+  const forced = await page.createCDPSession();
+  await forced.send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }] });
+  const inForced = async (hash, fn) => { await go(`?version=v3&fresh=fc${Math.random().toString(36).slice(2, 8)}#${hash}&l=en`); return page.evaluate(fn); };
+  const forcedMarks = [
+    await inForced('explore=trends&metric=tot', () => new Set([...document.querySelectorAll('[data-grid-cell]')].map(c => getComputedStyle(c).backgroundColor)).size > 5 && new Set([...document.querySelectorAll('.v3-mini-legend i')].map(i => getComputedStyle(i).backgroundColor)).size === 2),
+    await inForced('explore=classify&year=2024', () => new Set([...document.querySelectorAll('.v3-class-key i')].map(i => getComputedStyle(i).backgroundColor)).size === 3),
+    await inForced('explore=population&panel=citizenship', () => new Set([...document.querySelectorAll('.v3-pop-cit-stack i')].map(i => getComputedStyle(i).backgroundColor)).size >= 3),
+    await inForced('explore=map&county=HR-18', () => {
+      const marked = el => !!el && getComputedStyle(el).outlineStyle !== 'none' && parseFloat(getComputedStyle(el).outlineWidth) >= 2;
+      const states = ['.v3-metrics', '.v3-time-mode', '.v3-language', '.v3-sidebar', '.v3-tabs'].every(g => marked(document.querySelector(`${g} [aria-pressed="true"], ${g} .is-active`)) && !marked(document.querySelector(`${g} button:not([aria-pressed="true"]):not(.is-active)`)));
+      const dot = document.querySelector('.atlas-version-switch a[aria-current] .atlas-version-dot');
+      return states && ['.v3-slider-wrap input', '.v3-color-key > div'].every(s => getComputedStyle(document.querySelector(s)).backgroundImage.includes('gradient')) && getComputedStyle(dot).backgroundColor !== getComputedStyle(document.body).backgroundColor;
+    }),
+  ];
+  await forced.send('Emulation.setEmulatedMedia', { features: [] }); await forced.detach();
+  check('forced colours keep the data marks and show every pressed or current state', forcedMarks.every(Boolean));
   // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
   // timeline and no cumulative mode.
   const popNotes = [];

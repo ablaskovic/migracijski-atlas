@@ -10,3 +10,5 @@
 @media(max-width:900px),(max-height:560px),((any-pointer:coarse) and (max-height:780px)){.atlas-classic-switch{position:static;margin-left:auto}[data-atlas-version=v2] .hd>div:first-child{padding-right:0;flex-grow:1}}
 @media(max-width:560px){[data-atlas-version=v2] .hd-lang{flex:1 1 calc(100% - 8rem)}}
 @media print{.atlas-classic-switch{display:none}}
+/* Forced colours paint the current version's dot (currentColor) as Canvas; keep it, in Highlight. */
+@media (forced-colors:active){.atlas-version-switch a[aria-current] .atlas-version-dot{forced-color-adjust:none;background:Highlight}}
