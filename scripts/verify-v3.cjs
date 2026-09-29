@@ -76,7 +76,7 @@ const signed = (n, relative) => {
   check('dragging the responsive map tracks the pointer distance', Math.abs(countyAfterPan - countyBeforePan - 60) < 1);
   await click('.v3-map-tools button:nth-child(3)');
   check('map reset restores its original extent', await page.$eval('.v3-counties', el => el.parentElement.getAttribute('transform').includes('scale(1)')));
-  const countyCSV = await downloadCSV('atlas-2025-tot.csv');
+  const countyCSV = await downloadCSV('atlas-v3-map-tot-abs-en-2025.csv');
   check('county CSV contains the current 21-county comparison', countyCSV.trim().split('\r\n').length === 22 && countyCSV.includes('"HR-01","Zagrebačka","2025","2025","tot","people","3475"'));
 
   for (const flow of ['tot', 'int', 'ext', 'nat', 'all']) {
@@ -179,7 +179,7 @@ const signed = (n, relative) => {
   }
   check('a one-year cumulative window is printed as one year', Object.keys(repeatedWindow).length === 0);
   await go('?version=v3&l=en&fresh=csv2011#explore=matrix&year=2011&sum=1&l=en');
-  check('a one-year cumulative export is named for that year', (await downloadCSV('atlas-2011-matrix.csv')).includes('"2011","2011"'));
+  check('a one-year cumulative export is named for that year', (await downloadCSV('atlas-v3-matrix-in-en-2011.csv')).includes('"2011","2011"'));
   // Views that force their own lens (classification, municipalities, population, flows' 2018) used to write it into
   // the shared state, so returning to the map lost the reader's metric, unit and year.
   const lensOf = () => page.evaluate(() => { const p = new URLSearchParams(location.hash.slice(1)); return [p.get('explore'), p.get('year'), p.get('metric'), p.get('unit'), p.get('sum')].join('|'); });
@@ -393,6 +393,24 @@ const signed = (n, relative) => {
   const settledFills = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-county]')].map(p => [p.dataset.county, getComputedStyle(p).fill.replace(/\s/g, '')])));
   const exportedFills = Object.fromEntries([...fs.readFileSync(path.join(output, figureFile), 'utf8').matchAll(/<path[^>]*data-county="(HR-\d\d)"[^>]*>/g)].map(m => [m[1], ((/style="([^"]*)"/.exec(m[0]) || [])[1] || '').match(/fill:\s*([^;]+)/)?.[1].replace(/\s/g, '')]));
   check('a figure exported during a colour transition carries the settled colours', Object.keys(exportedFills).length === 21 && Object.keys(settledFills).every(iso => exportedFills[iso] === settledFills[iso]));
+  // Export names left out unit, direction, hub, threshold and language, so different exports collided (the people and %
+  // maps of 2025 both saved as atlas-2025-tot.csv), and cumulative names carried an en dash.
+  const savedName = async (hash, selector) => {
+    const before = new Set(fs.readdirSync(output));
+    await go(`?version=v3&fresh=name${Math.random().toString(36).slice(2, 8)}#${hash}`);
+    await page.click(selector);
+    for (let i = 0; i < 60; i++) { await new Promise(resolve => setTimeout(resolve, 100)); const f = fs.readdirSync(output).find(n => !before.has(n) && !n.endsWith('.crdownload')); if (f) return f; }
+    return null;
+  };
+  for (const f of fs.readdirSync(output).filter(f => /^atlas-/.test(f))) fs.unlinkSync(path.join(output, f));
+  const exportNames = {
+    peopleCsv: await savedName('explore=map&year=2025&metric=tot&l=en', '.v3-export'), percentCsv: await savedName('explore=map&year=2025&metric=tot&unit=pct&l=en', '.v3-export'),
+    zagrebFlows: await savedName('explore=flows&year=2018&county=HR-21&l=en', '.v3-export'), osijekFlows: await savedName('explore=flows&year=2018&county=HR-14&l=en', '.v3-export'),
+    hrFigure: await savedName('explore=map&year=2025&metric=ext&l=hr', '.v3-export-actions button:nth-child(2)'), enFigure: await savedName('explore=map&year=2025&metric=ext&l=en', '.v3-export-actions button:nth-child(2)'),
+    cumulative: await savedName('explore=map&year=2024&metric=tot&sum=1&l=en', '.v3-export'),
+  };
+  check('exports that differ in unit, hub or language get different file names', [['peopleCsv', 'percentCsv'], ['zagrebFlows', 'osijekFlows'], ['hrFigure', 'enFigure']].every(([a, b]) => exportNames[a] && exportNames[b] && exportNames[a] !== exportNames[b]));
+  check('export file names are plain ASCII', Object.values(exportNames).every(n => n && /^[\x21-\x7e]+$/.test(n)));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
@@ -404,7 +422,7 @@ const signed = (n, relative) => {
   check('historical grid contains 21 × 28 annual observations', await page.$$eval('[data-grid-cell]', els => els.length === 588));
   check('trends support both annual and cumulative observations', await page.$eval('.v3-time-mode button:nth-child(2)', el => !el.disabled));
   check('interactive chart exposes its year controls', await page.$eval('.v3-trend-chart', el => el.getAttribute('role') === 'group'));
-  const yearsCSV = await downloadCSV('atlas-1998-2025-tot.csv');
+  const yearsCSV = await downloadCSV('atlas-v3-trends-tot-abs-en-1998-2025.csv');
   check('historical CSV contains every displayed county/year observation', yearsCSV.trim().split('\r\n').length === 589 && yearsCSV.includes('"HR-21","Grad Zagreb","2025","2025","tot","people","2397"'));
   const secondCounty = await page.$eval('[data-grid-cell="28"]', el => el.getAttribute('aria-label').split(' · ')[0]);
   await page.focus('[data-grid-cell="0"]'); await page.keyboard.press('ArrowDown');
@@ -423,7 +441,7 @@ const signed = (n, relative) => {
   check('flow labels describe the corridor rather than hidden net values', (await page.$eval('[data-county="HR-01"]', el => el.getAttribute('aria-label'))).includes(`City of Zagreb → Zagrebačka: ${new Intl.NumberFormat('en-GB').format(linkValue)} moves`));
   const downloads = await page.createCDPSession();
   await downloads.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output });
-  const csv = path.join(output, 'atlas-2018-flows-out.csv');
+  const csv = path.join(output, 'atlas-v3-flows-out-HR-21-en-2018.csv');
   if (fs.existsSync(csv)) fs.unlinkSync(csv);
   await click('.v3-export');
   for (let i = 0; i < 40 && !fs.existsSync(csv); i++) await new Promise(resolve => setTimeout(resolve, 100));

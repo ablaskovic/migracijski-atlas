@@ -6,6 +6,14 @@ import { exportFigure } from './figureExport.ts';
 
 const SOURCE = 'DZS / CBS: https://podaci.dzs.hr';
 const OD_SOURCE = 'Pitoski et al. 2021; CC BY 4.0; https://doi.org/10.1186/s40649-021-00093-0; DZS / CBS';
+/** One name per distinct table or figure — view, what it measures, language, years — in plain ASCII; the CSV and the
+    figure of one state share it. Names used to leave out unit, direction, hub and language, so different exports collided. */
+export function exportName(s: AtlasState): string {
+  const measure = s.view === 'flows' ? [s.dir, s.county ?? 'HR-21'] : s.view === 'matrix' ? [s.dir] : s.view === 'municipalities' ? [s.dir, ...(s.county ? [s.county] : [])] : s.view === 'classify' ? [s.thrRel ? `${s.thrPct}pct` : String(s.thr)] : [s.flow, s.den];
+  const years = s.view === 'trends' ? `${s.cum ? 2011 : YEARS[0]}-${YEARS[YEARS.length - 1]}` : periodLabel(s.yi, s.cum).replace('–', '-');
+  return ['atlas-v3', s.view, ...measure, s.lang, years].join('-');
+}
+
 export function exportDataCSV(s: AtlasState) {
   const from = s.cum ? 2011 : YEARS[s.yi], year = YEARS[s.yi], hub = s.county ?? 'HR-21';
   const unit = s.den === 'abs' ? 'people' : s.den === 'rel11' ? '% of 2011 census' : unitName(s);
@@ -26,7 +34,7 @@ export function exportDataCSV(s: AtlasState) {
   } else {
     rows = [['County ISO', 'County', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source'], ...ranked(s).map(iso => [iso, D[iso].n, from, year, s.flow, unit, value(iso, s), SOURCE])];
   }
-  downloadFile('\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n'), 'text/csv;charset=utf-8', `atlas-${s.view === 'trends' ? `${s.cum ? 2011 : YEARS[0]}-${YEARS[YEARS.length - 1]}` : `${periodLabel(s.yi, s.cum)}`}-${s.view === 'flows' ? `flows-${s.dir}` : s.view === 'map' || s.view === 'trends' ? s.flow : s.view}.csv`);
+  downloadFile('\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n'), 'text/csv;charset=utf-8', exportName(s) + '.csv');
 }
 
 function tableFigure(s: AtlasState, light: boolean): SVGSVGElement {
@@ -84,7 +92,7 @@ export async function exportCurrentFigure(s: AtlasState, format: 'png' | 'svg', 
       title: `${L('Migracijski atlas', 'Migration atlas')} · ${viewName(s.view, s.lang)}`,
       subtitle: `${flow || municipal ? direction : FLOWN[s.flow]} · ${period} · ${flow || municipal ? L('broj osoba', 'people') : figureUnit}${s.view === 'flows' ? ' · ' + countyName(s.county ?? 'HR-21', s.lang) : ''}`,
       legend,
-      notes, filename: `atlas-v3-${s.view}-${period}`,
+      notes, filename: exportName(s),
     });
   } finally { if (table) svg.remove(); }
 }

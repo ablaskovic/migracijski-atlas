@@ -94,22 +94,22 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
       DEMO.ages.forEach((band, i) => rows.push(['Croatia', DEMO.year, ageMode === 'ext' ? 'external' : 'internal_all_levels', 'age', band, ageValues[i], ageMode === 'ext' ? DEMO.ext.o[i] : '', SOURCE + ' I 3 / II 2']));
       rows.push(['Croatia', DEMO.year, ageMode === 'ext' ? 'external' : 'internal_all_levels', 'sex', 'male', ageMode === 'ext' ? DEMO.extM.d : DEMO.intM, ageMode === 'ext' ? DEMO.extM.o : '', SOURCE + ' I 3 / II 2']);
       rows.push(['Croatia', DEMO.year, ageMode === 'ext' ? 'external' : 'internal_all_levels', 'sex', 'female', ageTotal - (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM), ageMode === 'ext' ? DEMO.cTot[1] - DEMO.extM.o : '', SOURCE + ' I 3 / II 2']);
-      saveCsv(rows, `atlas-v3-age-sex-${ageMode}-${DEMO.year}`);
+      saveCsv(rows, `atlas-v3-age-sex-${ageMode}-${lang}-${DEMO.year}`);
     } else if (panel === 'citizenship') {
       const rows: CsvRow[] = [['scope', 'year', 'citizenship_group', 'arrivals', 'departures', 'net', 'source']];
       CIT.years.forEach((y, i) => {
         cgroups().forEach(([key, label]) => rows.push(['Croatia', y, label, CIT.g[key].d[i], CIT.g[key].o[i], CIT.g[key].d[i] - CIT.g[key].o[i], SOURCE + ' table 2']));
         rows.push(['Croatia', y, 'TOTAL', CIT.tot.d[i], CIT.tot.o[i], CIT.tot.d[i] - CIT.tot.o[i], SOURCE + ' table 2']);
       });
-      saveCsv(rows, 'atlas-v3-citizenship-2021-2025');
+      saveCsv(rows, `atlas-v3-citizenship-${lang}-${CIT.years[0]}-${CIT.years[CIT.years.length - 1]}`);
     } else if (panel === 'countries') {
       saveCsv([['scope', 'year', 'country_of_origin_destination', 'arrivals', 'departures', 'net', 'source'],
         ...countries.map(([name, arrivals, departures]) => ['Croatia', DEMO.year, countryLabel(name), arrivals, departures, arrivals - departures, SOURCE + ' I 4']),
-        ['Croatia', DEMO.year, 'TOTAL', ...DEMO.cTot, DEMO.cTot[0] - DEMO.cTot[1], SOURCE + ' I 4']], `atlas-v3-countries-${DEMO.year}`);
+        ['Croatia', DEMO.year, 'TOTAL', ...DEMO.cTot, DEMO.cTot[0] - DEMO.cTot[1], SOURCE + ' I 4']], `atlas-v3-countries-${lang}-${DEMO.year}`);
     } else {
       saveCsv([['year', 'selected_county', 'scope', 'direction', 'from', 'from_county', 'to', 'to_county', 'moves', 'method', 'source'],
         ...municipalRows.map(([from, to, moves]) => [2018, municipalCounty, municipalMode, municipalMode === 'local' ? 'within_county' : municipalDirection === 'net' ? 'gross_both_directions' : municipalDirection,
-          municipalName(from), ISOS[JLS.names[from][1]], municipalName(to), ISOS[JLS.names[to][1]], moves, 'measured', MUNICIPAL_SOURCE])], `atlas-v3-municipal-${municipalCounty}-${municipalMode}-${municipalDirection}-2018`);
+          municipalName(from), ISOS[JLS.names[from][1]], municipalName(to), ISOS[JLS.names[to][1]], moves, 'measured', MUNICIPAL_SOURCE])], `atlas-v3-municipal-${municipalCounty}-${municipalMode}-${municipalDirection}-${lang}-2018`);
     }
   };
 
