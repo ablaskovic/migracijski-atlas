@@ -77,7 +77,7 @@ const signed = (n, relative) => {
   await click('.v3-map-tools button:nth-child(3)');
   check('map reset restores its original extent', await page.$eval('.v3-counties', el => el.parentElement.getAttribute('transform').includes('scale(1)')));
   const countyCSV = await downloadCSV('atlas-v3-map-tot-abs-en-2025.csv');
-  check('county CSV contains the current 21-county comparison', countyCSV.trim().split('\r\n').length === 22 && countyCSV.includes('"HR-01","Zagrebačka","2025","2025","tot","people","3475"'));
+  check('county CSV contains the current 21-county comparison', countyCSV.trim().split('\r\n').length === 22 && countyCSV.includes('"HR-01","Zagrebačka","2025","2025","net migration","people","3475"'));
 
   for (const flow of ['tot', 'int', 'ext', 'nat', 'all']) {
     for (const setting of [{ year: 2025, cum: false, relative: false }, { year: 2024, cum: true, relative: true }, { year: 1998, cum: false, relative: false }]) {
@@ -411,6 +411,14 @@ const signed = (n, relative) => {
   };
   check('exports that differ in unit, hub or language get different file names', [['peopleCsv', 'percentCsv'], ['zagrebFlows', 'osijekFlows'], ['hrFigure', 'enFigure']].every(([a, b]) => exportNames[a] && exportNames[b] && exportNames[a] !== exportNames[b]));
   check('export file names are plain ASCII', Object.values(exportNames).every(n => n && /^[\x21-\x7e]+$/.test(n)));
+  // A Croatian UI filled the English-headed CSV with Croatian cells ("% tek. procjene", "gubitnice", "izmjereno", region
+  // names), the Metric column held internal codes ("tot", "all") and the loss threshold dropped the sign the screen shows.
+  const csvIn = async hash => { const name = await savedName(hash, '.v3-export'); return name ? fs.readFileSync(path.join(output, name), 'utf8') : null; };
+  const csvPairs = [];
+  for (const f of fs.readdirSync(output).filter(f => /^atlas-/.test(f))) fs.unlinkSync(path.join(output, f));
+  for (const hash of ['explore=map&year=2020&metric=all&unit=estimate', 'explore=trends&metric=tot&unit=estimate', 'explore=classify&year=2024', 'explore=flows&year=2018', 'explore=regions&year=2024&metric=int', 'explore=matrix&year=2011']) csvPairs.push([await csvIn(hash + '&l=hr'), await csvIn(hash + '&l=en')]);
+  check('a CSV reads the same whichever language the UI is in', csvPairs.every(([hr, en]) => hr && hr === en));
+  check('the CSV names its metric and signs the loss threshold as the screen does', csvPairs[0][1].includes(',"migration + natural change",') && csvPairs[2][1].trim().split('\r\n').slice(1).every(line => line.includes(',"-4500",')));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
@@ -423,7 +431,7 @@ const signed = (n, relative) => {
   check('trends support both annual and cumulative observations', await page.$eval('.v3-time-mode button:nth-child(2)', el => !el.disabled));
   check('interactive chart exposes its year controls', await page.$eval('.v3-trend-chart', el => el.getAttribute('role') === 'group'));
   const yearsCSV = await downloadCSV('atlas-v3-trends-tot-abs-en-1998-2025.csv');
-  check('historical CSV contains every displayed county/year observation', yearsCSV.trim().split('\r\n').length === 589 && yearsCSV.includes('"HR-21","Grad Zagreb","2025","2025","tot","people","2397"'));
+  check('historical CSV contains every displayed county/year observation', yearsCSV.trim().split('\r\n').length === 589 && yearsCSV.includes('"HR-21","Grad Zagreb","2025","2025","net migration","people","2397"'));
   const secondCounty = await page.$eval('[data-grid-cell="28"]', el => el.getAttribute('aria-label').split(' · ')[0]);
   await page.focus('[data-grid-cell="0"]'); await page.keyboard.press('ArrowDown');
   check('heatmap uses arrow-key navigation', await page.evaluate(() => document.activeElement?.getAttribute('data-grid-cell') === '28'));

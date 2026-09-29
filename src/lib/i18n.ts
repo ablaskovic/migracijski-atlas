@@ -200,6 +200,15 @@ export const yrSpan = (a: number, b: number): string =>
    Croatian first, always, so the diff of a copy change shows the original. */
 export const L = (hr: string, en: string): string => (LANG === 'hr' ? hr : en);
 
+/* Runs `build` with every L() and t() in language `l`, then hands the reader's
+   language back — for output whose language does not follow the UI's, like the
+   CSV, whose headers are English. The document itself never changes language. */
+export function inLang<T>(l: Lang, build: () => T): T {
+  const reader = LANG;
+  LANG = l;
+  try { return build(); } finally { LANG = reader; }
+}
+
 /* Every external link in the app opens in a new tab and every one of them says
    so in its accessible name (3.2.5 — a link that repurposes the window without
    warning). One string, six call sites, two languages. */

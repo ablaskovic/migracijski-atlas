@@ -1,6 +1,7 @@
 import { D, FLOWN, ISOS, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBadge, fsum, jlsVal, klasOf, mxCell, mxMax, regVal, val, yrsCols, yrsOrder } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperCaveatLine, paperThrLine, regionReadingLine } from '../lib/credits.ts';
+import { inLang } from '../lib/i18n.ts';
 import { colors, countyName, domain, downloadFile, periodLabel, ranked, unitName, value, viewName, type AtlasState } from './model.ts';
 import { exportFigure } from './figureExport.ts';
 
@@ -14,7 +15,13 @@ export function exportName(s: AtlasState): string {
   return ['atlas-v3', s.view, ...measure, s.lang, years].join('-');
 }
 
+/** The headers are English, so every cell is too, whatever the UI language: one table, one vocabulary. */
 export function exportDataCSV(s: AtlasState) {
+  const rows = inLang('en', () => csvRows(s));
+  downloadFile('﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n'), 'text/csv;charset=utf-8', exportName(s) + '.csv');
+}
+
+function csvRows(s: AtlasState): (string | number)[][] {
   const from = s.cum ? 2011 : YEARS[s.yi], year = YEARS[s.yi], hub = s.county ?? 'HR-21';
   const unit = s.den === 'abs' ? 'people' : s.den === 'rel11' ? '% of 2011 census' : unitName(s);
   let rows: (string | number)[][];
@@ -26,15 +33,15 @@ export function exportDataCSV(s: AtlasState) {
     if (!features) throw Error('Municipality data is not ready');
     rows = [['Municipality ID', 'Municipality', 'County', 'Year', 'Direction', 'People', 'Arrivals', 'Departures', 'Net', 'Source'], ...features.map(({ properties: p }) => [p.j, p.n, D[ISOS[p.c]].n, 2018, s.dir, jlsVal(p, s.dir), p.i, p.o, p.i - p.o, OD_SOURCE])];
   } else if (s.view === 'classify') {
-    rows = [['County ISO', 'County', 'From year', 'To year', 'Net migration', 'Classification', 'Loss threshold', 'Threshold unit', 'Source', 'Study'], ...ISOS.map(i => [i, D[i].n, from, year, val(i, s.yi, 'tot', 'abs', true), KLAB[klasOf(i, s.yi, s.thr, s.thrRel, s.thrPct)], s.thrRel ? s.thrPct : s.thr, s.thrRel ? '% of 2011 census' : 'people', SOURCE, PAPER.citation + ' ' + PAPER.url])];
+    rows = [['County ISO', 'County', 'From year', 'To year', 'Net migration', 'Classification', 'Loss threshold', 'Threshold unit', 'Source', 'Study'], ...ISOS.map(i => [i, D[i].n, from, year, val(i, s.yi, 'tot', 'abs', true), KLAB[klasOf(i, s.yi, s.thr, s.thrRel, s.thrPct)], -(s.thrRel ? s.thrPct : s.thr), s.thrRel ? '% of 2011 census' : 'people', SOURCE, PAPER.citation + ' ' + PAPER.url])];
   } else if (s.view === 'regions') {
-    rows = [['Region', 'Counties', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source', 'Grouping note'], ...Object.keys(REG).map(k => [REG[k].name, REG[k].c.join(';'), from, year, s.flow, unit, regVal(k, s.yi, s.flow, s.den, s.cum), SOURCE, regionReadingLine()])];
+    rows = [['Region', 'Counties', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source', 'Grouping note'], ...Object.keys(REG).map(k => [REG[k].name, REG[k].c.join(';'), from, year, FLOWN[s.flow], unit, regVal(k, s.yi, s.flow, s.den, s.cum), SOURCE, regionReadingLine()])];
   } else if (s.view === 'trends') {
-    rows = [['County ISO', 'County', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source'], ...yrsOrder(s.flow, s.den, yrsCols(s.cum)).flatMap(iso => yrsCols(s.cum).map(yi => [iso, D[iso].n, s.cum ? 2011 : YEARS[yi], YEARS[yi], s.flow, s.den === 'relest' ? unitName({ ...s, yi }) : unit, value(iso, { ...s, yi }), SOURCE]))];
+    rows = [['County ISO', 'County', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source'], ...yrsOrder(s.flow, s.den, yrsCols(s.cum)).flatMap(iso => yrsCols(s.cum).map(yi => [iso, D[iso].n, s.cum ? 2011 : YEARS[yi], YEARS[yi], FLOWN[s.flow], s.den === 'relest' ? unitName({ ...s, yi }) : unit, value(iso, { ...s, yi }), SOURCE]))];
   } else {
-    rows = [['County ISO', 'County', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source'], ...ranked(s).map(iso => [iso, D[iso].n, from, year, s.flow, unit, value(iso, s), SOURCE])];
+    rows = [['County ISO', 'County', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source'], ...ranked(s).map(iso => [iso, D[iso].n, from, year, FLOWN[s.flow], unit, value(iso, s), SOURCE])];
   }
-  downloadFile('\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n'), 'text/csv;charset=utf-8', exportName(s) + '.csv');
+  return rows;
 }
 
 function tableFigure(s: AtlasState, light: boolean): SVGSVGElement {
