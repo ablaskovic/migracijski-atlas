@@ -670,6 +670,17 @@ const signed = (n, relative) => {
   const playDuring = await page.$eval('.v3-play', b => [b.getAttribute('aria-label'), b.getAttribute('aria-pressed')]);
   await page.click('.v3-play');
   check('the play toggle keeps its name and reports its state in aria-pressed', playBefore[0] === playDuring[0] && playBefore[1] === 'false' && playDuring[1] === 'true');
+  // Every row of the municipal results list was a tab stop (556 of the view's 602); the list is now one, moved by arrows.
+  const rovingFocus = await page.createCDPSession(); await rovingFocus.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  await go('?version=v3&fresh=roving#explore=municipalities&l=en'); await page.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
+  const rowAt = () => page.evaluate(() => [...document.querySelectorAll('.v3-municipal-results > button')].indexOf(document.activeElement));
+  const listStops = await page.evaluate(() => [...document.querySelectorAll('.v3-municipal-results > button')].filter(b => b.tabIndex >= 0).length);
+  await page.evaluate(() => [...document.querySelectorAll('.v3-municipal-results > button')].find(b => b.tabIndex >= 0).focus());
+  const listMoves = [];
+  for (const key of ['ArrowDown', 'ArrowDown', 'ArrowUp', 'End', 'Home']) { await page.keyboard.press(key); listMoves.push(await rowAt()); }
+  await page.keyboard.press('Tab'); const leftTheList = await page.evaluate(() => !document.activeElement.closest('.v3-municipal-results'));
+  await rovingFocus.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await rovingFocus.detach();
+  check('the municipal list is one tab stop that arrow keys move through', listStops === 1 && JSON.stringify(listMoves) === '[1,2,1,555,0]' && leftTheList);
   // The trend chart's year bars are buttons that pick a year, and none said which year was picked.
   await go('?version=v3&fresh=bars#explore=trends&year=2010&l=en');
   check('the trend chart says which year is selected', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.v3-trend-chart .v3-chart-hit[aria-pressed="true"]')].map(b => b.getAttribute('aria-label').slice(0, 4)))) === '["2010"]');
