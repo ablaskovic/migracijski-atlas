@@ -631,6 +631,27 @@ const signed = (n, relative) => {
   ];
   await forced.send('Emulation.setEmulatedMedia', { features: [] }); await forced.detach();
   check('forced colours keep the data marks and show every pressed or current state', forcedMarks.every(Boolean));
+  // The map, years-grid and municipal readouts were live regions that follow hover and focus: a screen reader heard every
+  // Tab and arrow press (11 announcements for 6 county Tabs), though the focused mark already names the same value.
+  const focusing = await page.createCDPSession(); await focusing.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  const watchLive = () => page.evaluate(() => {
+    window.liveChanges = 0;
+    const live = [...document.querySelectorAll('[aria-live]:not([aria-live="off"]), [role="status"], [role="log"], [role="alert"]')];
+    const observer = new MutationObserver(records => { window.liveChanges += records.length; });
+    for (const l of live) observer.observe(l, { childList: true, subtree: true, characterData: true });
+  });
+  const liveEchoes = [];
+  await go('?version=v3&fresh=livemap#explore=map&year=2024&l=en'); await watchLive();
+  await page.evaluate(() => document.querySelector('[data-county="HR-01"]').focus()); for (let i = 0; i < 6; i++) await page.keyboard.press('Tab');
+  liveEchoes.push(await page.evaluate(() => window.liveChanges));
+  await go('?version=v3&fresh=livegrid#explore=trends&l=en'); await watchLive();
+  await page.focus('[data-grid-cell="0"]'); for (const key of ['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowLeft']) await page.keyboard.press(key);
+  liveEchoes.push(await page.evaluate(() => window.liveChanges));
+  await go('?version=v3&fresh=livemuni#explore=municipalities&l=en'); await page.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556); await watchLive();
+  await page.evaluate(() => document.querySelector('[data-municipality]').focus()); for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
+  liveEchoes.push(await page.evaluate(() => window.liveChanges));
+  await focusing.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await focusing.detach();
+  check('hover and focus moves announce nothing; the focused mark names itself', JSON.stringify(liveEchoes) === '[0,0,0]');
   // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
   // timeline and no cumulative mode.
   const popNotes = [];
