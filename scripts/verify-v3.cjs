@@ -647,6 +647,10 @@ const signed = (n, relative) => {
   const tabTitles = [];
   for (const hash of ['explore=map&year=2025&l=en', 'explore=trends&year=2025&l=hr', 'explore=flows&year=2018&l=en', 'explore=map&year=2025&county=HR-18&l=hr']) { await go(`?version=v3&fresh=title${tabTitles.length}#${hash}`); tabTitles.push(await page.title()); }
   check('the tab title names the view and its subject, without the tagline', JSON.stringify(tabTitles) === JSON.stringify(['Migration atlas · Map · Croatia · 2025', 'Migracijski atlas · Trendovi · Hrvatska · 2025', 'Migration atlas · Flows · City of Zagreb · 2018', 'Migracijski atlas · Karta · Istarska · 2025']));
+  // The JSON-LD declared the whole atlas dataset CC BY 4.0, while LICENSE keeps the data under their sources' terms (§3)
+  // and puts only exported figures under CC BY 4.0 (§5).
+  const ld = await page.evaluate(() => JSON.parse(document.querySelector('script[type="application/ld+json"]').textContent));
+  check('the JSON-LD points the atlas licence at LICENSE, each source carrying its own', ld.license === 'https://github.com/ablaskovic/migracijski-atlas/blob/main/LICENSE' && ld.isBasedOn.filter(b => b.license).length === 3);
   // v3 set only the title: /?l=en kept the Croatian canonical, og:url and og:locale (a crawler read it as a duplicate of /)
   // and the Croatian description and card title.
   const headMeta = () => page.evaluate(() => ['link[rel="canonical"]', 'meta[property="og:url"]', 'meta[property="og:locale"]', 'meta[property="og:title"]', 'meta[name="description"]'].map(s => { const el = document.querySelector(s); return (el.href || el.content).slice(0, 36); }));
