@@ -80,7 +80,7 @@ export function MatrixView({ s, light, update, format }: Props) {
         }
         const target = root.current?.querySelector<HTMLButtonElement>(`[data-matrix-cell="${next}"]`);
         target?.focus({ preventScroll: true }); target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      }}><span>{Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1)}k` : n}</span></button>}</td>;
+      }}><span>{Math.abs(n) >= 1000 ? formatNumber(s.lang, n / 1000, { digits: 1 }) + 'k' : formatNumber(s.lang, n)}</span></button>}</td>;
     })}</tr>)}</tbody></table></TableScroll><p className="v3-data-note">{L('Županije su grupirane po regijama. Brojevi stupaca su oznake županija. Odaberite ćeliju za oba smjera i točne godišnje vrijednosti. Tipkovnica: strelice, Home i End.', 'Counties are grouped by region. Column numbers are county codes. Select a cell for both directions and exact annual values. Keyboard: arrows, Home and End.')}</p>
     <PairDetail s={s} update={update} />
   </div>;

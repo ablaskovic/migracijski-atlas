@@ -169,6 +169,11 @@ const signed = (n, relative) => {
     await go(`?version=v3&l=${lang}&fresh=gridabs${lang}#explore=trends&metric=tot&l=${lang}`);
     check(`${lang} year-grid balances are signed with the typographic minus`, await page.$$eval('[data-grid-cell]', els => els.length === 588 && els.every(e => /^([+−]\d{1,3}([.,]\d{3})*|0)$/.test(e.getAttribute('aria-label').split(': ').at(-1)))));
   }
+  // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
+  for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
+    await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
+    check(`${lang} matrix cell labels use the locale decimal and the typographic minus`, await page.$$eval('[data-matrix-cell] span', (els, source) => els.length === 420 && els.every(e => new RegExp(source).test(e.textContent)) && els.some(e => e.textContent.endsWith('k')), pattern));
+  }
 
   await go();
   await click('.v3-tabs button:nth-child(2)');
