@@ -185,6 +185,26 @@ async function scenario(name, run) {
     check('closing a finding restores the finding selector', await page.evaluate(() => document.activeElement === document.querySelector('[aria-label="Guided findings"]')));
     await go(); check('flow hub has no misleading All Croatia reset', !(await page.$('.v3-period button')));
   });
+  await scenario('Large text does not bury the map', async () => {
+    // The hint and readout grew with the text while the map box stayed 300 px: at 200 % they hid 15–56 % of the counties.
+    const hidden = [];
+    for (const width of [390, 320]) for (const root of [24, 32]) {
+      await viewport(width, 800); await go('explore=map&year=2024&county=HR-18&l=hr');
+      await page.evaluate(r => { document.documentElement.style.fontSize = r + 'px'; }, root); await pause(300);
+      hidden.push(await page.evaluate(() => {
+        const map = document.querySelector('.v3-map'); map.scrollIntoView({ block: 'start' });
+        const box = map.getBoundingClientRect(), overlays = [...document.querySelectorAll('.v3-cartography .v3-touch-hint, .v3-cartography .v3-map-readout')].filter(el => getComputedStyle(el).display !== 'none').map(el => el.getBoundingClientRect());
+        let county = 0, covered = 0;
+        for (let y = box.top + 2; y < Math.min(box.bottom, innerHeight); y += 6) for (let x = box.left + 2; x < box.right; x += 6) {
+          if (!document.elementsFromPoint(x, y).some(el => el.matches('[data-county]'))) continue;
+          county++; if (overlays.some(r => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) covered++;
+        }
+        return covered / county * 100;
+      }));
+      await page.evaluate(() => document.documentElement.style.removeProperty('font-size'));
+    }
+    check('at 150 and 200 % text the hint and readout cover at most 12 % of the counties', hidden.every(p => p <= 12), hidden.map(p => Math.round(p * 10) / 10));
+  });
   await scenario('Direction segment labels fit their buttons', async () => {
     // At ≤600 px the three buttons were forced to equal widths (79 px at 390) though "Doseljavanje" needs 92 px: each label
     // spilled into its neighbour, under a pressed neighbour's fill.
