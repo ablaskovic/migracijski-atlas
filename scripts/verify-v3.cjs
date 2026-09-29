@@ -143,6 +143,25 @@ const signed = (n, relative) => {
   await page.focus('.v3-slider-wrap input'); await page.keyboard.press('ArrowLeft');
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   check('a matrix year step reuses number formatters instead of building one per cell', await page.evaluate(() => document.querySelector('#v3-year').selectedOptions[0].textContent === '2017' && window.formatterBuilds < 25));
+  // House rules for displayed numbers: U+2212 in both languages (en-GB prints a hyphen), `+` on balances, ` %` for rates.
+  const numberOffenders = () => page.evaluate(() => {
+    const out = [], skip = e => e.closest('[data-grid-cell],[data-matrix-cell],.v3-matrix,.v3-years,script,style');
+    const walker = document.createTreeWalker(document.querySelector('.v3-workspace'), NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.parentElement && !skip(n.parentElement)) out.push(n.textContent);
+    for (const e of document.querySelectorAll('.v3-workspace [aria-label], .v3-workspace [title]')) if (!skip(e)) out.push(e.getAttribute('aria-label') || '', e.getAttribute('title') || '');
+    return out.filter(t => /(^|[^\w])-\d/.test(t) || /\d%/.test(t));
+  });
+  const offenders = {};
+  for (const lang of ['en', 'hr']) for (const state of ['explore=flows&year=2018&county=HR-21&dir=net&pair=HR-01', 'explore=municipalities&dir=net', 'explore=trends', 'explore=map&county=HR-21', 'explore=population&panel=citizenship', 'explore=population&panel=countries', 'explore=population&panel=age']) {
+    await go(`?version=v3&l=${lang}&fresh=${lang}${state.length}#${state}&l=${lang}`);
+    if (state.includes('municipalities')) await page.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
+    const found = await numberOffenders(); if (found.length) offenders[lang + ' ' + state] = found.slice(0, 4);
+  }
+  check('every displayed number uses the typographic minus and a spaced percent sign', Object.keys(offenders).length === 0);
+  await go('?version=v3&l=en&fresh=signs#explore=flows&year=2018&county=HR-21&dir=net&l=en');
+  check('net corridor values carry an explicit sign', await page.$$eval('.v3-rank-row strong', els => els.length === 20 && els.every(e => /^[+−]\d|^0$/.test(e.textContent))));
+  await go('?version=v3&l=en&fresh=citsigns#explore=population&panel=citizenship&l=en');
+  check('citizenship balances carry an explicit sign', await page.$$eval('.v3-pop-table tbody tr td:last-child, .v3-pop-table tfoot td:last-child', els => els.length === 7 && els.every(e => /^[+−]\d|^0$/.test(e.textContent))));
 
   await go();
   await click('.v3-tabs button:nth-child(2)');

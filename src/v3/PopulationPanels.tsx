@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CIT, DEMO, ISOS, JLS, YEARS, cgroups, countryName as countryLabel } from '../lib/metrics.ts';
 import type { JlsRow, Lang } from '../lib/types.ts';
-import { countyName, downloadFile, fold, numberFormat } from './model.ts';
+import { countyName, downloadFile, fold, formatNumber } from './model.ts';
 import Icon from './Icon.tsx';
 import TableScroll from './TableScroll.tsx';
 import './population-panels.css';
@@ -37,7 +37,8 @@ function saveCsv(rows: CsvRow[], name: string) {
 
 export default function PopulationPanels({ lang, county, yi, cum, direction, onCounty, tab, onTab, onYear, age, onAge, localScope, onLocalScope, onDirection }: Props) {
   const L = (hr: string, en: string) => lang === 'hr' ? hr : en;
-  const format = (n: number) => numberFormat(lang).format(n);
+  const format = (n: number) => formatNumber(lang, n);
+  const balance = (n: number) => formatNumber(lang, n, { signed: true });
   const [localPanel, setLocalPanel] = useState<Panel>('age');
   const panel = tab ?? localPanel;
   const setPanel = (next: Panel) => { setLocalPanel(next); onTab?.(next); };
@@ -147,12 +148,12 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
           </table></TableScroll>
         </div>
         <div className="v3-pop-side">
-          <div className="v3-pop-highlight"><span className="v3-eyebrow">{L('NAJVEĆA DOBNA SKUPINA', 'LARGEST AGE BAND')}</span><strong>{DEMO.ages[peakAge]}</strong><p>{format(ageValues[peakAge])} {ageMode === 'ext' ? L('doseljenih', 'arrivals') : L('preseljenih', 'moves')} · {numberFormat(lang, { maximumFractionDigits: 1 }).format(ageValues[peakAge] / ageTotal * 100)}%</p></div>
+          <div className="v3-pop-highlight"><span className="v3-eyebrow">{L('NAJVEĆA DOBNA SKUPINA', 'LARGEST AGE BAND')}</span><strong>{DEMO.ages[peakAge]}</strong><p>{format(ageValues[peakAge])} {ageMode === 'ext' ? L('doseljenih', 'arrivals') : L('preseljenih', 'moves')} · {formatNumber(lang, ageValues[peakAge] / ageTotal * 100, { digits: 1, percent: true })}</p></div>
           <div className="v3-pop-card"><h3>{L('Raspodjela po spolu', 'Sex distribution')}</h3><p className="v3-pop-subtitle">{L('Ukupno za sve dobne skupine', 'Totals across all age bands')}</p>
             <TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Migracije prema spolu', 'Migration by sex')}><table className="v3-pop-table v3-pop-sex-table"><caption className="v3-sr">{L('Migracije prema spolu u Hrvatskoj, ', 'Migration by sex in Croatia, ') + DEMO.year}</caption>
               <thead><tr><th scope="col">{L('Spol', 'Sex')}</th><th scope="col">{ageMode === 'ext' ? L('Doseljeni', 'Arrivals') : L('Preseljeni', 'Moves')}</th>{ageMode === 'ext' && <th scope="col">{L('Odseljeni', 'Departures')}</th>}</tr></thead>
-              <tbody><tr><th scope="row">{L('Muškarci', 'Men')}</th><td>{format(ageMode === 'ext' ? DEMO.extM.d : DEMO.intM)}<small>{Math.round(100 * (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM) / ageTotal)}%</small></td>{ageMode === 'ext' && <td>{format(DEMO.extM.o)}<small>{Math.round(100 * DEMO.extM.o / DEMO.cTot[1])}%</small></td>}</tr>
-                <tr><th scope="row">{L('Žene', 'Women')}</th><td>{format(ageTotal - (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM))}<small>{Math.round(100 * (1 - (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM) / ageTotal))}%</small></td>{ageMode === 'ext' && <td>{format(DEMO.cTot[1] - DEMO.extM.o)}<small>{Math.round(100 * (1 - DEMO.extM.o / DEMO.cTot[1]))}%</small></td>}</tr></tbody>
+              <tbody><tr><th scope="row">{L('Muškarci', 'Men')}</th><td>{format(ageMode === 'ext' ? DEMO.extM.d : DEMO.intM)}<small>{formatNumber(lang, Math.round(100 * (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM) / ageTotal), { percent: true })}</small></td>{ageMode === 'ext' && <td>{format(DEMO.extM.o)}<small>{formatNumber(lang, Math.round(100 * DEMO.extM.o / DEMO.cTot[1]), { percent: true })}</small></td>}</tr>
+                <tr><th scope="row">{L('Žene', 'Women')}</th><td>{format(ageTotal - (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM))}<small>{formatNumber(lang, Math.round(100 * (1 - (ageMode === 'ext' ? DEMO.extM.d : DEMO.intM) / ageTotal)), { percent: true })}</small></td>{ageMode === 'ext' && <td>{format(DEMO.cTot[1] - DEMO.extM.o)}<small>{formatNumber(lang, Math.round(100 * (1 - DEMO.extM.o / DEMO.cTot[1])), { percent: true })}</small></td>}</tr></tbody>
             </table></TableScroll>
           </div>
           <p className="v3-pop-note">{L('Vanjska migracija znači prelazak državne granice. Unutarnja migracija obuhvaća preseljenja među naseljima unutar Hrvatske, uključujući ona unutar iste županije.', 'External migration crosses the national border. Internal migration includes moves between settlements within Croatia, including moves inside the same county.')}</p>
@@ -169,11 +170,11 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
         </button>)}
       </div></TableScroll>
       <p className="v3-pop-chart-key">{L('Svake godine: doseljeni lijevo, odseljeni desno. Odaberite godinu za tablicu.', 'Each year: arrivals on the left, departures on the right. Select a year for its table.')}</p>
-      <div className="v3-pop-card"><div className="v3-pop-card-heading"><h3>{L('Državljanstvo', 'Citizenship')} · {citYear}{lang === 'hr' ? '.' : ''}</h3><span className="v3-pop-net">{L('Saldo ', 'Net ')}{CIT.tot.d[ci] - CIT.tot.o[ci] > 0 ? '+' : ''}{format(CIT.tot.d[ci] - CIT.tot.o[ci])}</span></div>
+      <div className="v3-pop-card"><div className="v3-pop-card-heading"><h3>{L('Državljanstvo', 'Citizenship')} · {citYear}{lang === 'hr' ? '.' : ''}</h3><span className="v3-pop-net">{L('Saldo ', 'Net ')}{balance(CIT.tot.d[ci] - CIT.tot.o[ci])}</span></div>
         <TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Tablica podataka; pomaknite vodoravno za sve stupce', 'Data table; scroll horizontally for all columns')}><table className="v3-pop-table"><caption className="v3-sr">{L('Vanjska migracija prema državljanstvu u Hrvatskoj, ', 'External migration by citizenship in Croatia, ') + citYear}</caption>
           <thead><tr><th scope="col">{L('Državljanstvo', 'Citizenship')}</th><th scope="col">{L('Doseljeni', 'Arrivals')}</th><th scope="col">{L('Odseljeni', 'Departures')}</th><th scope="col">{L('Saldo', 'Net')}</th></tr></thead>
-          <tbody>{cgroups().map(([key, label]) => <tr key={key}><th scope="row"><span className="v3-pop-group"><i aria-hidden="true" style={{ background: GROUP_COLORS[key] }} />{label}</span></th><td>{format(CIT.g[key].d[ci])}</td><td>{format(CIT.g[key].o[ci])}</td><td>{format(CIT.g[key].d[ci] - CIT.g[key].o[ci])}</td></tr>)}</tbody>
-          <tfoot><tr><th scope="row">{L('Ukupno', 'Total')}</th><td>{format(CIT.tot.d[ci])}</td><td>{format(CIT.tot.o[ci])}</td><td>{format(CIT.tot.d[ci] - CIT.tot.o[ci])}</td></tr></tfoot>
+          <tbody>{cgroups().map(([key, label]) => <tr key={key}><th scope="row"><span className="v3-pop-group"><i aria-hidden="true" style={{ background: GROUP_COLORS[key] }} />{label}</span></th><td>{format(CIT.g[key].d[ci])}</td><td>{format(CIT.g[key].o[ci])}</td><td>{balance(CIT.g[key].d[ci] - CIT.g[key].o[ci])}</td></tr>)}</tbody>
+          <tfoot><tr><th scope="row">{L('Ukupno', 'Total')}</th><td>{format(CIT.tot.d[ci])}</td><td>{format(CIT.tot.o[ci])}</td><td>{balance(CIT.tot.d[ci] - CIT.tot.o[ci])}</td></tr></tfoot>
         </table></TableScroll>
       </div>
       <p className="v3-pop-source">{L('Prema zemlji državljanstva, ne zemlji podrijetla ili odredišta. DZS STAN-2026-2-1, tablica 2. CSV uključuje svih pet godina.', 'By country of citizenship, not country of origin or destination. CBS STAN-2026-2-1, table 2. CSV includes all five years.')}</p>
@@ -185,9 +186,9 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
         <thead><tr><th scope="col">{L('Zemlja', 'Country')}</th><th scope="col">{L('Doseljeni', 'Arrivals')}</th><th scope="col">{L('Odseljeni', 'Departures')}</th><th scope="col">{L('Saldo', 'Net')}</th></tr></thead>
         <tbody>{shownCountries.map(([name, arrivals, departures]) => <tr key={name} className={name === countries[countries.length - 1][0] ? 'is-remainder' : ''}><th scope="row">{countryLabel(name)}</th>
           <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${arrivals / countryMax * 100}%` }} /><span>{format(arrivals)}</span></td>
-          <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${departures / countryMax * 100}%`, background: 'color-mix(in srgb, var(--coral) 18%, transparent)', borderColor: 'var(--coral)' }} /><span>{format(departures)}</span></td><td>{format(arrivals - departures)}</td></tr>)}
+          <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${departures / countryMax * 100}%`, background: 'color-mix(in srgb, var(--coral) 18%, transparent)', borderColor: 'var(--coral)' }} /><span>{format(departures)}</span></td><td>{balance(arrivals - departures)}</td></tr>)}
           {!shownCountries.length && <tr><td colSpan={4} className="v3-pop-empty">{L('Nema pronađenih zemalja.', 'No countries found.')} <button onClick={() => setQuery('')}>{L('Očisti pretragu', 'Clear search')}</button></td></tr>}</tbody>
-        <tfoot><tr><th scope="row">{L('Ukupno · sve zemlje', 'Total · all countries')}</th><td>{format(DEMO.cTot[0])}</td><td>{format(DEMO.cTot[1])}</td><td>{format(DEMO.cTot[0] - DEMO.cTot[1])}</td></tr></tfoot>
+        <tfoot><tr><th scope="row">{L('Ukupno · sve zemlje', 'Total · all countries')}</th><td>{format(DEMO.cTot[0])}</td><td>{format(DEMO.cTot[1])}</td><td>{balance(DEMO.cTot[0] - DEMO.cTot[1])}</td></tr></tfoot>
       </table></TableScroll></div>
       <p className="v3-pop-source">{L('Zemlja podrijetla/odredišta ne mora biti zemlja državljanstva. „Ostale zemlje” je izračunat ostatak, a ne pojedinačna zemlja. DZS STAN-2026-2-1, tablica I 4. CSV uključuje cijeli popis.', 'Country of origin/destination may differ from country of citizenship. “Other countries” is a calculated remainder, not a single country. CBS STAN-2026-2-1, table I 4. CSV includes the complete list.')}</p>
     </>}

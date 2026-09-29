@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ISOS, YEARS, flowOf, val } from '../lib/metrics.ts';
 import type { Dir, Flow } from '../lib/types.ts';
-import { countyName, fold, numberFormat, ranked, value, type AtlasState, type Explore } from './model.ts';
+import { countyName, fold, formatNumber, ranked, value, type AtlasState, type Explore } from './model.ts';
 import Icon from './Icon.tsx';
 import { CountySeries } from './AnalysisViews.tsx';
 
@@ -38,7 +38,7 @@ export default function CountyPanel({ s, hover, setHover, selectView, direction,
       <p className="v3-panel-subtitle">{isFlow ? L('Preseljenja između županija', 'Moves between counties') : L('Poredak prema odabranoj vrijednosti', 'Ranked by the selected value')}</p>
       <label className="v3-search"><Icon name="search" size={16} /><input type="search" value={query} placeholder={L('Pronađite županiju…', 'Find a county…')} aria-label={L('Pronađite županiju', 'Find a county')} onChange={e => setQuery(e.target.value)} /></label>
       <div className="v3-rank-list">{visible.map(iso => { const n = rowValue(iso); return <button key={iso} className={'v3-rank-row' + (hover === iso ? ' is-hovered' : '')} onClick={() => inspectCounty(iso)} onPointerEnter={() => setHover(iso)} onPointerLeave={() => setHover(null)} onFocus={() => setHover(iso)} onBlur={() => setHover(null)}>
-        <span className="v3-rank-index">{String(rows.indexOf(iso) + 1).padStart(2, '0')}</span><span className="v3-rank-body"><span className="v3-rank-label">{countyName(iso, s.lang)}</span><span className="v3-rank-track"><i style={{ width: `${Math.max(1.5, Math.abs(n) / max * 100)}%`, background: isFlow && direction !== 'net' ? 'var(--corridor-color)' : n < 0 ? 'var(--coral)' : 'var(--accent)' }} /></span></span><strong style={isFlow && direction !== 'net' ? { color: 'var(--corridor-color)' } : undefined} className={n < 0 ? 'v3-negative' : ''}>{isFlow ? numberFormat(s.lang).format(n) : format(n, s.relative)}</strong>
+        <span className="v3-rank-index">{String(rows.indexOf(iso) + 1).padStart(2, '0')}</span><span className="v3-rank-body"><span className="v3-rank-label">{countyName(iso, s.lang)}</span><span className="v3-rank-track"><i style={{ width: `${Math.max(1.5, Math.abs(n) / max * 100)}%`, background: isFlow && direction !== 'net' ? 'var(--corridor-color)' : n < 0 ? 'var(--coral)' : 'var(--accent)' }} /></span></span><strong style={isFlow && direction !== 'net' ? { color: 'var(--corridor-color)' } : undefined} className={n < 0 ? 'v3-negative' : ''}>{isFlow ? direction === 'net' ? format(n) : formatNumber(s.lang, n) : format(n, s.relative)}</strong>
       </button>; })}{visible.length === 0 && <div className="v3-empty"><Icon name="search" /><p>{L('Nema pronađenih županija.', 'No counties found.')}</p><button onClick={() => setQuery('')}>{L('Očisti pretragu', 'Clear search')}</button></div>}</div>
       <div className="v3-panel-foot">{L('Odaberite županiju za istraživanje', 'Select a county to explore')}<Icon name="arrow" size={15} /></div>
     </>}

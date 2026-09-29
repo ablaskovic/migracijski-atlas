@@ -88,6 +88,13 @@ export function numberFormat(lang: Lang, options: Intl.NumberFormatOptions = {})
   if (!formatter) formatters.set(key, formatter = new Intl.NumberFormat(lang === 'hr' ? 'hr-HR' : 'en-GB', options));
   return formatter;
 }
+/** A displayed number by the house rules: locale grouping, the typographic minus in both languages (en-GB prints a hyphen),
+    `+` on a balance, ` %` on a rate, and no sign on a value that rounds to zero. */
+export function formatNumber(lang: Lang, n: number, { signed = false, digits, percent = false, compact = false }: { signed?: boolean; digits?: number; percent?: boolean; compact?: boolean } = {}): string {
+  const f = numberFormat(lang, compact ? { notation: 'compact', ...(digits === undefined ? {} : { maximumFractionDigits: digits }) } : { minimumFractionDigits: digits ?? 0, maximumFractionDigits: digits ?? 0 });
+  const abs = f.format(Math.abs(n));
+  return (abs === f.format(0) ? '' : n < 0 ? '−' : signed ? '+' : '') + abs + (percent ? ' %' : '');
+}
 
 export const value = (iso: string, s: AtlasState) => val(iso, s.yi, s.flow, s.den, s.cum);
 export const unitName = (s: Pick<AtlasState, 'den' | 'yi' | 'lang'>) => s.den === 'abs' ? (s.lang === 'hr' ? 'broj osoba' : 'people') : denName(s.den, s.yi).replace(/^\s*·\s*/, '');

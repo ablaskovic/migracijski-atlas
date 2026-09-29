@@ -6,7 +6,7 @@ import { setLang, storeLang } from '../lib/i18n.ts';
 import { APP_VERSION, ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from '../lib/licences.ts';
 import { dropHash } from '../lib/privacy.ts';
 import VersionSwitch from '../VersionSwitch.tsx';
-import { FLOWS, VIEWS, colors, countyName, domain, findingPatch, normalizeState, numberFormat, readState, stateHash, totals, unitName, viewName, type AtlasState, type Explore } from './model.ts';
+import { FLOWS, VIEWS, colors, countyName, domain, findingPatch, formatNumber, normalizeState, numberFormat, readState, stateHash, totals, unitName, viewName, type AtlasState, type Explore } from './model.ts';
 import { jlsGeo, useGeo } from '../lib/geoAsync.ts';
 import { STORIES } from '../lib/stories.ts';
 import type { Den } from '../lib/types.ts';
@@ -64,11 +64,7 @@ export default function AppV3() {
   const state = useRef(s); state.current = s;
   const L = (hr: string, en: string) => s.lang === 'hr' ? hr : en;
   const nf = numberFormat(s.lang);
-  const format = (n: number, relative = false) => {
-    const f = numberFormat(s.lang, { minimumFractionDigits: relative ? 1 : 0, maximumFractionDigits: relative ? 1 : 0 });
-    const abs = f.format(Math.abs(n));
-    return (abs === f.format(0) ? '' : n > 0 ? '+' : '−') + abs + (relative ? ' %' : '');
-  };
+  const format = (n: number, relative = false) => formatNumber(s.lang, n, { signed: true, digits: relative ? 1 : 0, percent: relative });
   const metricNames = { tot: L('Saldo migracija', 'Net migration'), int: L('Unutarnje', 'Internal'), ext: L('Vanjske', 'External'), nat: L('Prirodni prirast', 'Natural change'), all: L('Migracije + prirast', 'Migration + natural change') };
   const metricFull = { tot: L('Migracijski saldo', 'Net migration'), int: L('Unutarnji migracijski saldo', 'Net internal migration'), ext: L('Vanjski migracijski saldo', 'Net external migration'), nat: L('Prirodni prirast', 'Natural change'), all: L('Migracije + prirodni prirast', 'Migration + natural change') };
   const nationalPanel = s.view === 'population' && s.panel !== 'municipal';

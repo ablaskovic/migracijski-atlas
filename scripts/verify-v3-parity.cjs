@@ -23,6 +23,7 @@ const views = ['map', 'trends', 'flows', 'classify', 'regions', 'matrix', 'munic
 const panels = ['age', 'citizenship', 'countries', 'municipal'];
 const viewSelectors = { map: '.v3-map-layout', trends: '.v3-years', flows: '.v3-hub-label', classify: '[data-analysis="classification"]', regions: '[data-analysis="regions"]', matrix: '.v3-matrix', municipalities: '[data-municipality]', population: '.v3-population' };
 const nf = new Intl.NumberFormat('en-GB');
+const balance = n => (n > 0 ? '+' : n < 0 ? '−' : '') + nf.format(Math.abs(n));
 const number = value => Number(value.replace(/[−–]/g, '-').replace(/[^\d.+-]/g, ''));
 const name = iso => iso === 'HR-21' ? 'City of Zagreb' : raw.c[iso].n;
 const findIso = label => isos.find(iso => label.startsWith(name(iso)));
@@ -281,7 +282,7 @@ async function capture(label) {
       for (let i = 0; i < 5; i++) {
         await page.click(`.v3-pop-cit-year:nth-child(${i + 1})`);
         const rows = await page.$$eval('.v3-pop-table tbody tr', els => els.map(el => [...el.querySelectorAll('td')].map(td => td.textContent)));
-        check(`citizenship ${cit.years[i]} groups match`, JSON.stringify(rows) === JSON.stringify(['hr', 'sus', 'ukr', 'eu', 'az', 'ost'].map(key => [nf.format(cit.g[key].d[i]), nf.format(cit.g[key].o[i]), nf.format(cit.g[key].d[i] - cit.g[key].o[i])])));
+        check(`citizenship ${cit.years[i]} groups match`, JSON.stringify(rows) === JSON.stringify(['hr', 'sus', 'ukr', 'eu', 'az', 'ost'].map(key => [nf.format(cit.g[key].d[i]), nf.format(cit.g[key].o[i]), balance(cit.g[key].d[i] - cit.g[key].o[i])])));
         check('citizenship year updates the share URL', await page.evaluate(y => new URLSearchParams(location.hash.slice(1)).get('year') === String(y), cit.years[i]));
       }
       csv = csvRows((await download('.v3-pop-export', '.csv')).bytes.toString('utf8'));
