@@ -185,6 +185,19 @@ async function scenario(name, run) {
     check('closing a finding restores the finding selector', await page.evaluate(() => document.activeElement === document.querySelector('[aria-label="Guided findings"]')));
     await go(); check('flow hub has no misleading All Croatia reset', !(await page.$('.v3-period button')));
   });
+  await scenario('Phone SVG text stays legible', async () => {
+    // SVG text is sized in viewBox units and phones shrink the viewBox, so chart and map text rendered at 3.6–5.2 px.
+    const rendered = sel => page.evaluate(sel => [...document.querySelectorAll(sel)].filter(t => t.getClientRects().length).map(t => parseFloat(getComputedStyle(t).fontSize) * t.closest('svg').getScreenCTM().a), sel);
+    const sizes = [];
+    for (const width of [390, 320]) {
+      await viewport(width, 740); await go('explore=map&year=2024&county=HR-21&l=hr');
+      sizes.push(...await rendered('.v3-map .v3-compass text, .v3-map .v3-geographic-scale text'), ...await rendered('.v3-county-detail .v3-annual-lines svg[role="img"] text'));
+      check(`${width}: decorative map names are dropped`, await page.evaluate(() => !document.querySelector('.v3-map .v3-neighbour, .v3-map .v3-sea')));
+      await go('explore=trends&year=2024&metric=tot&l=hr');
+      sizes.push(...await rendered('.v3-trend-chart text'));
+    }
+    check('chart and map text renders at no less than 10.5 px on phones', sizes.length > 10 && sizes.every(px => px >= 10.5), sizes.map(px => Math.round(px * 10) / 10).filter(px => px < 10.5));
+  });
   await scenario('Pan buttons stay clear of the map tools', async () => {
     // A zoomed map pans by button as well as by drag (WCAG 2.5.7); on a 300 px phone map the 3×3 pad covered the tools.
     await viewport(); await go('explore=map&year=2024&l=en');

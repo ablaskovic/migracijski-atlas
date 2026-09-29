@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { geoConicEqualArea, geoDistance, geoPath } from 'd3-geo';
 import type { FeatureCollection, Geometry } from 'geojson';
 import { GEO, ISOS, SHORTN, flowMax, flowOf } from '../lib/metrics.ts';
@@ -74,6 +74,8 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
   // SVG viewBox scaling should not shrink phone labels below readable screen text.
   const compactLabelSize = labelMetrics.scale < 1 ? 11 / labelMetrics.scale / zoom : undefined;
   const labelSize = compactLabelSize ?? 12 / zoom;
+  // A phone shows the map below its drawn size; the compass and scale text keep an 11 px floor on screen.
+  const shrunk = labelMetrics.scale < 1;
   const labelGap = 3 / (zoom * labelMetrics.scale);
   const cityLabels: { name: string; x: number; y: number; width: number }[] = [];
   for (const [name, lon, lat] of cities) {
@@ -93,7 +95,7 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
   }
 
   return <div className={'v3-cartography' + (zoom > 1 ? ' is-zoomed' : '')}>
-    <svg ref={nav.svg} className={'v3-map' + (nav.dragging ? ' is-panning' : '')} viewBox={`0 0 ${W} ${H}`} aria-label={L('Interaktivna karta hrvatskih županija', 'Interactive map of Croatian counties')}
+    <svg ref={nav.svg} style={shrunk ? { '--svg-min': `${11 / labelMetrics.scale}px` } as CSSProperties : undefined} className={'v3-map' + (nav.dragging ? ' is-panning' : '')} viewBox={`0 0 ${W} ${H}`} aria-label={L('Interaktivna karta hrvatskih županija', 'Interactive map of Croatian counties')}
       onPointerDown={e => { if (nav.onPointerDown(e)) onHover(null); }}
       onPointerMove={e => { if (nav.onPointerMove(e)) onHover(null); }}
       onPointerUp={nav.onPointerEnd} onPointerCancel={e => { nav.onPointerEnd(e); onHover(null); }} onLostPointerCapture={nav.onPointerEnd}
@@ -101,9 +103,10 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
       onDragStart={e => e.preventDefault()}>
       <defs><pattern id="v3-grid" width="45" height="45" patternUnits="userSpaceOnUse"><path d="M 45 0 L 0 0 0 45" fill="none" stroke="currentColor" strokeWidth=".6" /></pattern>{['in', 'out'].map(dir => <marker key={dir} id={dir === 'in' ? 'v3-arrowhead' : 'v3-arrowhead-out'} viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 10 5 0 10Z" fill={dir === 'in' ? 'var(--accent)' : 'var(--coral)'} /></marker>)}</defs>
       <rect width={W} height={H} fill="url(#v3-grid)" className="v3-map-grid" />
-      <g className="v3-compass" transform="translate(53 68)"><text y="-22" textAnchor="middle">N</text><path d="m0-13 5 19-5-3-5 3Z" fill="currentColor" stroke="none" /><circle r="15" fill="none" stroke="currentColor" strokeWidth=".7" /></g>
-      <text x="610" y="300" className="v3-neighbour" textAnchor="middle">{L('BOSNA I HERCEGOVINA', 'BOSNIA & HERZEGOVINA')}</text>
-      <text x="295" y="370" className="v3-sea" textAnchor="middle" transform="rotate(32 295 370)">{L('JADRANSKO MORE', 'ADRIATIC SEA')}</text>
+      <g className="v3-compass" transform="translate(53 68)"><text y="-22" textAnchor="middle" data-export-font-size={shrunk ? 10 : undefined}>N</text><path d="m0-13 5 19-5-3-5 3Z" fill="currentColor" stroke="none" /><circle r="15" fill="none" stroke="currentColor" strokeWidth=".7" /></g>
+      {/* Decorative names, too small to read once a phone shrinks the map, and nothing to tap. */}
+      {!shrunk && <text x="610" y="300" className="v3-neighbour" textAnchor="middle">{L('BOSNA I HERCEGOVINA', 'BOSNIA & HERZEGOVINA')}</text>}
+      {!shrunk && <text x="295" y="370" className="v3-sea" textAnchor="middle" transform="rotate(32 295 370)">{L('JADRANSKO MORE', 'ADRIATIC SEA')}</text>}
       <g className="v3-map-world" transform={`translate(${nav.x} ${nav.y}) translate(${W / 2} ${H / 2}) scale(${zoom}) translate(${-W / 2} ${-H / 2})`}>
         <g className="v3-counties">{shapes.map(f => {
           const selected = selectedCounty === f.iso || isFlow && partner === f.iso;
@@ -134,7 +137,7 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
         {labels === 'cities' && <g className="v3-map-labels" aria-hidden="true">{cityLabels.map(({ name, x, y }) => <g key={name} transform={`translate(${x} ${y})`}><circle r="2.4" /><text x="7" y="4" style={compactLabelSize ? { fontSize: `${compactLabelSize / 16}rem` } : undefined} data-export-font-size={compactLabelSize ? 11 : undefined}>{name}</text></g>)}</g>}
         {labels === 'counties' && <g className="v3-map-labels v3-county-labels" aria-hidden="true" style={{ fontSize: `${labelSize / 16}rem` }}>{countyLabels.map(label => <text key={label.iso} data-county-label={label.iso} data-export-font-size={compactLabelSize ? 12 / zoom : undefined} x={label.x} y={label.y} textAnchor="middle" dominantBaseline="central">{label.text}</text>)}</g>}
       </g>
-      <g className="v3-geographic-scale" transform={`translate(${W - 60 - scaleWidth * zoom} ${H - 28})`} aria-hidden="true"><path d={`M0 -5V0H${scaleWidth * zoom}V-5`} fill="none" stroke="currentColor" strokeWidth="1" /><text x={scaleWidth * zoom / 2} y="15" textAnchor="middle">50 km · 45° N</text></g>
+      <g className="v3-geographic-scale" transform={`translate(${W - 60 - scaleWidth * zoom} ${H - 28})`} aria-hidden="true"><path d={`M0 -5V0H${scaleWidth * zoom}V-5`} fill="none" stroke="currentColor" strokeWidth="1" /><text x={shrunk ? scaleWidth * zoom : scaleWidth * zoom / 2} y="15" textAnchor={shrunk ? 'end' : 'middle'} data-export-font-size={shrunk ? 10 : undefined}>50 km · 45° N</text></g>
     </svg>
     <p className="v3-touch-hint">{zoom > 1 ? L('Povucite kartu · ↺ za listanje stranice', 'Drag to move · ↺ to scroll page') : L('Listajte jednim prstom · Povećajte s dva', 'Scroll with one finger · Zoom with two')}</p>
     <div className="v3-map-tools"><button title={L('Povećaj kartu', 'Zoom in')} aria-label={L('Povećaj kartu', 'Zoom in')} aria-disabled={zoom >= nav.maxZoom || undefined} onClick={nav.zoomIn}><Icon name="plus" size={18} /></button>

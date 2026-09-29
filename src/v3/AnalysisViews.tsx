@@ -7,6 +7,7 @@ import { asClassic, colors, countyName, formatNumber, numberFormat, periodLabel,
 import MapCanvas from './MapCanvas.tsx';
 import Icon from './Icon.tsx';
 import TableScroll from './TableScroll.tsx';
+import useScreenScale from './useScreenScale.ts';
 import './analysis.css';
 
 type Props = { s: AtlasState; light: boolean; update: (patch: Partial<AtlasState>, replace?: boolean) => void; format: (n: number, relative?: boolean) => string };
@@ -112,7 +113,11 @@ export function CountySeries({ s }: { s: AtlasState }) {
 // Series are told apart by dash as well as colour (WCAG 1.4.1): solid, dashed, dotted, in series order.
 const SERIES_DASH = [undefined, '7 4', '2 3'];
 function AnnualLines({ s, series }: { s: AtlasState; series: { label: string; color: string; values: number[] }[] }) {
+  // A phone scales the viewBox to under half size; the axis text keeps an 11 px floor on screen.
+  const svg = useRef<SVGSVGElement>(null), scale = useScreenScale(svg);
   const hi = Math.max(1, ...series.flatMap(d => d.values)), lo = Math.min(0, ...series.flatMap(d => d.values));
-  const x = (i: number) => 55 + i / (YEARS.length - 1) * 665, y = (n: number) => 150 - (n - lo) / (hi - lo) * 130;
-  return <div className="v3-annual-lines"><svg viewBox="0 0 750 180" role="img" aria-label={s.lang === 'hr' ? 'Godišnje serije, broj osoba' : 'Annual series, number of people'}><line x1="55" x2="720" y1={y(0)} y2={y(0)} stroke="var(--border)" />{[lo, hi].map(n => <text key={n} x="49" y={y(n) + 4} textAnchor="end">{formatNumber(s.lang, n, { compact: true })}</text>)}{[0, 9, 20, 27].map(i => <text key={i} x={x(i)} y="175" textAnchor="middle">{YEARS[i]}</text>)}{series.map((line, k) => <g key={line.label}><path d={line.values.map((n, i) => `${i ? 'L' : 'M'}${x(i)},${y(n)}`).join(' ')} fill="none" stroke={line.color} strokeWidth="2.5" strokeDasharray={SERIES_DASH[k]} />{line.values.map((n, i) => <circle key={i} cx={x(i)} cy={y(n)} r="3" fill={line.color}><title>{line.label} · {YEARS[i]}: {formatNumber(s.lang, n)}</title></circle>)}</g>)}</svg><div>{series.map((line, k) => <span key={line.label}><svg className="v3-line-key" viewBox="0 0 18 6" aria-hidden="true"><line x1="0" x2="18" y1="3" y2="3" stroke={line.color} strokeWidth="2.5" strokeDasharray={SERIES_DASH[k]} /></svg>{line.label}</span>)}</div><p className="v3-data-note">{s.lang === 'hr' ? 'Godišnje vrijednosti · broj osoba' : 'Annual values · people'}</p></div>;
+  // Shrunk, the margins are screen pixels (px user units each) so the 11 px labels still fit beside and below the plot.
+  const px = scale < 1 ? 1 / scale : 1, left = Math.max(55, 52 * px), right = 750 - Math.max(30, 20 * px), base = Math.min(150, 172 - 11 * px);
+  const x = (i: number) => left + i / (YEARS.length - 1) * (right - left), y = (n: number) => base - (n - lo) / (hi - lo) * (base - 20);
+  return <div className="v3-annual-lines"><svg ref={svg} style={scale < 1 ? { '--svg-min': `${11 / scale}px` } as CSSProperties : undefined} viewBox="0 0 750 180" role="img" aria-label={s.lang === 'hr' ? 'Godišnje serije, broj osoba' : 'Annual series, number of people'}><line x1={left} x2={right} y1={y(0)} y2={y(0)} stroke="var(--border)" />{[lo, hi].map(n => <text key={n} x={left - 6} y={y(n) + 4} textAnchor="end">{formatNumber(s.lang, n, { compact: true })}</text>)}{[0, 9, 20, 27].map(i => <text key={i} x={x(i)} y="175" textAnchor="middle">{YEARS[i]}</text>)}{series.map((line, k) => <g key={line.label}><path d={line.values.map((n, i) => `${i ? 'L' : 'M'}${x(i)},${y(n)}`).join(' ')} fill="none" stroke={line.color} strokeWidth="2.5" strokeDasharray={SERIES_DASH[k]} />{line.values.map((n, i) => <circle key={i} cx={x(i)} cy={y(n)} r="3" fill={line.color}><title>{line.label} · {YEARS[i]}: {formatNumber(s.lang, n)}</title></circle>)}</g>)}</svg><div>{series.map((line, k) => <span key={line.label}><svg className="v3-line-key" viewBox="0 0 18 6" aria-hidden="true"><line x1="0" x2="18" y1="3" y2="3" stroke={line.color} strokeWidth="2.5" strokeDasharray={SERIES_DASH[k]} /></svg>{line.label}</span>)}</div><p className="v3-data-note">{s.lang === 'hr' ? 'Godišnje vrijednosti · broj osoba' : 'Annual values · people'}</p></div>;
 }
