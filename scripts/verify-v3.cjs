@@ -500,6 +500,16 @@ const signed = (n, relative) => {
   osThemes.push(await page.evaluate(() => [document.documentElement.dataset.theme, localStorage.getItem('atlas-v3-theme')]));
   await page.emulateMediaFeatures([SCHEME]); await page.evaluate(() => localStorage.removeItem('atlas-v3-theme'));
   check('the theme follows the OS until the reader chooses one, and only a choice is stored', JSON.stringify(osThemes) === '[["light",null],["dark",null],["light","light"]]');
+  // Printed, the capped lists and tables kept their caps: the ranking lost 12 of its 21 counties past the page edge. An A4
+  // page at 96 dpi is 794 px wide, narrower than any desktop layout.
+  const printedHidden = [], printPage = await browser.newPage();
+  await printPage.setViewport({ width: 794, height: 900, deviceScaleFactor: 1 }); await printPage.emulateMediaType('print');
+  for (const [hash, selector] of [['explore=map&year=2024', '.v3-county-panel .v3-rank-list'], ['explore=trends&year=2025&metric=tot', '.v3-years-scroll'], ['explore=matrix&year=2018', '.v3-matrix-scroll'], ['explore=flows&year=2018&county=HR-21&pair=HR-01', '.v3-pair .v3-table-scroll'], ['explore=classify&year=2024', '.v3-analysis-list']]) {
+    await printPage.goto(origin + `/?version=v3&fresh=print${selector.length}#${hash}&l=hr`, { waitUntil: 'networkidle0' }); await printPage.waitForSelector(selector);
+    printedHidden.push(await printPage.$eval(selector, el => el.scrollHeight - el.clientHeight));
+  }
+  await printPage.close();
+  check('printed, every ranking, table and list shows all its rows', printedHidden.every(px => px <= 1));
   // The figure snapshot copied computed fills in the middle of the 0.35 s fill transition when exported right after a year
   // change, a theme toggle or during playback: 20 of 21 counties matched neither year nor legend.
   await go('?version=v3&l=en&fresh=midtransition#explore=map&year=2024&l=en');
