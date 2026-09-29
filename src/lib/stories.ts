@@ -84,8 +84,10 @@ export const STORIES: Story[] = [
     /* This used to name Karlovačka and Koprivničko-križevačka outright — the one
        surface still writing out a pair that PAPER_KLAS_DIFF exists to derive, and
        so the one that would keep asserting the difference after a DZS revision
-       closed it. The legend below the caption names them, from the data. */
-    get cap() { return L(`Prag −${PAPER_THR.toLocaleString('hr-HR')} iz rada, primijenjen na noviju DZS seriju, ne razvrstava županije isto kao rad — legenda imenuje one koje se razlikuju. Pomakni prag i prati legendu — ova se napomena tada miče, jer više ne opisuje ono što je na ekranu.`, `The paper’s −${PAPER_THR.toLocaleString('en-GB')} threshold, applied to the newer CBS series, does not classify the counties the way the paper does — the legend names the ones that differ. Move the threshold and watch the legend — this note then steps aside, because it no longer describes what is on screen.`); },
+       closed it. The comparison with the paper names them, from the data — v2's
+       legend note and v3's study-comparison block; "the legend" named only v2's,
+       and v3 has no legend there. */
+    get cap() { return L(`Prag −${PAPER_THR.toLocaleString('hr-HR')} iz rada, primijenjen na noviju DZS seriju, ne razvrstava županije isto kao rad — usporedba s radom imenuje one koje se razlikuju. Pomaknite prag i pratite kako se razredi mijenjaju — ova se napomena tada miče, jer više ne opisuje ono što je na ekranu.`, `The paper’s −${PAPER_THR.toLocaleString('en-GB')} threshold, applied to the newer CBS series, does not classify the counties the way the paper does — the comparison with the paper names the ones that differ. Move the threshold and watch the classes change — this note then steps aside, because it no longer describes what is on screen.`); },
     patch: { view: 'klas', thr: PAPER_THR, thrRel: false, cum: true, yi: Y24 },
   },
   {

@@ -316,6 +316,16 @@ const signed = (n, relative) => {
     if (lang === 'hr' ? /\b(raste|rastu|rasta|rast)\b/i.test(shown) : /\b(grow|grows|growth)\b|Cities lose/i.test(shown)) growthClaims.push(shown);
   }
   check('guided findings describe a balance of moves as a gain, never as growth', growthClaims.length === 0);
+  // Nalaz 5 sent the reader to "the legend", which v3 lacks (its study-comparison block names the counties that differ),
+  // and addressed them informally ("Pomakni prag i prati legendu").
+  const nalaz5 = {};
+  for (const lang of ['hr', 'en']) {
+    await go(`?version=v3&fresh=nalaz5${lang}#explore=map&l=${lang}`);
+    await page.select('[aria-label="Vođeni nalazi"], [aria-label="Guided findings"]', '4');
+    await page.waitForSelector('.v3-finding p', { timeout: 15000 });
+    nalaz5[lang] = await page.evaluate(() => ({ caption: document.querySelector('.v3-finding p').textContent, comparison: !!document.querySelector('.v3-study-comparison') }));
+  }
+  check('Nalaz 5 points formally at the comparison block v3 shows, not a legend', Object.values(nalaz5).every(({ caption, comparison }) => comparison && /usporedb|comparison/i.test(caption) && !/legend/i.test(caption)) && !/\b(Pomakni|prati)\b/.test(nalaz5.hr.caption));
   // Arrow keys on a closed <select> change its value at once on Windows; on the view and findings selects every option
   // passed applied itself — a view switch or a whole finding, plus a history entry, per key.
   // Entries are counted as pushState calls: this tab's history.length is already at Chrome's cap of 50.
