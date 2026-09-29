@@ -11,6 +11,7 @@ export default function useMapNavigation(width: number, height: number) {
   const [dragging, setDragging] = useState(false);
   const pointers = useRef(new Map<number, Point>());
   const suppressClick = useRef(false);
+  const pinched = useRef(false);
   const gesture = useRef<{ view: View; x: number; y: number; distance: number; clientX: number; clientY: number } | null>(null);
   const update = useCallback((next: View) => {
     const zoom = Math.max(1, Math.min(MAX_ZOOM, next.zoom));
@@ -33,6 +34,7 @@ export default function useMapNavigation(width: number, height: number) {
     const captured = [...pointers.current];
     pointers.current.clear();
     gesture.current = null;
+    pinched.current = false;
     suppressClick.current = true;
     setDragging(false);
     for (const [id, p] of captured) if (p.target.hasPointerCapture(id)) p.target.releasePointerCapture(id);
@@ -83,7 +85,7 @@ export default function useMapNavigation(width: number, height: number) {
     // Capture on the original hit target so a tap still produces its county click.
     target.setPointerCapture(e.pointerId);
     rebase();
-    if (pointers.current.size === 2) { suppressClick.current = true; setDragging(true); }
+    if (pointers.current.size === 2) { suppressClick.current = true; setDragging(true); pinched.current = true; }
     return suppressClick.current;
   };
   const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
@@ -111,7 +113,11 @@ export default function useMapNavigation(width: number, height: number) {
     if (e.type !== 'pointerup') suppressClick.current = true;
     if (p.target.hasPointerCapture(e.pointerId)) p.target.releasePointerCapture(e.pointerId);
     rebase();
-    if (!pointers.current.size) setDragging(false);
+    if (pointers.current.size) return;
+    setDragging(false);
+    // A pinch that barely zoomed leaves the map just past 1x, where it takes every swipe from the page: it snaps back.
+    if (pinched.current && current.current.zoom < 1.15) update({ zoom: 1, x: 0, y: 0 });
+    pinched.current = false;
   };
   const reset = () => { cancel(); update({ zoom: 1, x: 0, y: 0 }); };
   // A step of the pan buttons, a fifth of the view: dragging is not the only way to move a zoomed map (WCAG 2.5.7).

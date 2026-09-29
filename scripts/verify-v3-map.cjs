@@ -136,6 +136,11 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
     for(let d=40;d<=56;d+=4){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:touches(d)});await sleep(20);}
     const pinch=await matrix();await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(100);
     check('real two-finger pinch zooms and ends without selecting a county',Math.abs(pinch.a-1.6)<.01&&await page.evaluate(()=>!location.hash.includes('county=')&&!document.querySelector('.v3-map.is-panning')),pinch);
+    // A pinch that barely zoomed (1.1x) left the phone map a swipe trap; one that ends under 1.15x snaps back to 1x.
+    await reset();await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:touches(30)});
+    for(let d=31;d<=33;d++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:touches(d)});await sleep(20);}
+    const slightPinch=(await matrix()).a;await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(150);
+    check('a pinch that ends under 1.15x snaps back to 1x',slightPinch>1&&(await matrix()).a===1,{slightPinch});
     await reset();const tap=await countyPoint('HR-03');await page.touchscreen.tap(tap.x,tap.y);await sleep(100);check('touch tap still selects the intended county',await page.evaluate(()=>location.hash.includes('county=HR-03')));
     await go();await page.click('.v3-map-tools button:first-child');const mobile=await point();const mobileBefore=await matrix();await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:mobile.x,y:mobile.y,id:0}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:mobile.x+30,y:mobile.y+20,id:0}]});await sleep(60);const mobileAfter=await matrix();await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
     check('single-finger touch pans and cancellation clears gesture',!same(mobileBefore,mobileAfter)&&await page.evaluate(()=>!document.querySelector('.v3-map.is-panning')&&!location.hash.includes('county=')));
