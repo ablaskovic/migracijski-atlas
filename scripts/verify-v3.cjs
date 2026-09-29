@@ -448,6 +448,27 @@ const signed = (n, relative) => {
   if (gaveUp) { await hangPage.click('.v3-geo-loading button'); await hangPage.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556, { timeout: 20000 }).catch(() => {}); }
   check('an unanswered geometry request gives up into Retry, and Retry loads it', gaveUp && await hangPage.$$eval('[data-municipality]', els => els.length === 556));
   await hangPage.close();
+  // The render-failure screen borrowed v2's tokens with light fallbacks over v3's dark --bg: a 1.22:1 title in dark.
+  const failContrast = [];
+  for (const theme of ['dark', 'light']) {
+    const failPage = await browser.newPage();
+    await failPage.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+    await failPage.goto(origin + '/?version=v3&fresh=failtheme#explore=map&l=hr', { waitUntil: 'networkidle0' });
+    await failPage.evaluate(t => localStorage.setItem('atlas-v3-theme', t), theme);
+    await failPage.goto(origin + `/?version=v3&fresh=fail${theme}#explore=map&year=2024&l=hr`, { waitUntil: 'networkidle0' });
+    await failPage.evaluate(() => { Object.defineProperty(Intl.NumberFormat.prototype, 'format', { get() { throw new TypeError('verify: forced render failure'); }, configurable: true }); });
+    await failPage.select('#v3-year', '20'); await new Promise(resolve => setTimeout(resolve, 800));
+    failContrast.push(...await failPage.evaluate(() => {
+      const rgb = s => s.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number);
+      const lum = ([r, g, b]) => [r, g, b].map(v => v / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
+      const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+      const box = document.querySelector('.boot[role="alert"]'); if (!box) return [0];
+      const bg = rgb(getComputedStyle(box).backgroundColor);
+      return ['.boot-title', '.boot-fail', '.boot-fail a'].map(sel => ratio(rgb(getComputedStyle(box.querySelector(sel)).color), bg));
+    }));
+    await failPage.close();
+  }
+  check('the render-failure screen is readable in both themes', failContrast.length === 6 && failContrast.every(r => r >= 4.5));
   // The figure snapshot copied computed fills in the middle of the 0.35 s fill transition when exported right after a year
   // change, a theme toggle or during playback: 20 of 21 counties matched neither year nor legend.
   await go('?version=v3&l=en&fresh=midtransition#explore=map&year=2024&l=en');
