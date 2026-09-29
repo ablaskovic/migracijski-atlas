@@ -469,6 +469,19 @@ const signed = (n, relative) => {
     await failPage.close();
   }
   check('the render-failure screen is readable in both themes', failContrast.length === 6 && failContrast.every(r => r >= 4.5));
+  // Auto Dark Mode darkens pages that do not opt out, and "color-scheme: light" does not: the chosen light theme computed
+  // rgb(243,246,247) for its background but painted rgb(32,35,35).
+  const forceDark = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--lang=en-GB', '--enable-features=WebContentsForceDark'] });
+  try {
+    const darkPage = await forceDark.newPage();
+    await darkPage.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
+    await darkPage.goto(origin + '/?version=v3&fresh=forcedark#explore=map&l=hr', { waitUntil: 'networkidle0' });
+    await darkPage.evaluate(() => localStorage.setItem('atlas-v3-theme', 'light'));
+    await darkPage.goto(origin + '/?version=v3&fresh=forcedarklight#explore=map&year=2024&l=hr', { waitUntil: 'networkidle0' });
+    const shot = await darkPage.screenshot({ encoding: 'base64', clip: { x: 2, y: 400, width: 4, height: 4 } });
+    const painted = await darkPage.evaluate(async shot => { const img = new Image(); img.src = 'data:image/png;base64,' + shot; await img.decode(); const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0); return [...ctx.getImageData(1, 1, 1, 1).data].slice(0, 3); }, shot);
+    check('under Auto Dark Mode the chosen light theme still paints light', painted.every(v => v > 200));
+  } finally { await forceDark.close(); }
   // The figure snapshot copied computed fills in the middle of the 0.35 s fill transition when exported right after a year
   // change, a theme toggle or during playback: 20 of 21 counties matched neither year nor legend.
   await go('?version=v3&l=en&fresh=midtransition#explore=map&year=2024&l=en');
