@@ -15,6 +15,12 @@ const cities: [string, number, number][] = [['Zagreb', 15.98, 45.81], ['Rijeka',
 const projection = geoConicEqualArea().parallels([43.2, 46.2]).rotate([-16.4, 0]).fitExtent([[105, 40], [W - 70, H - 32]], GEO);
 const path = geoPath(projection);
 const shapes = GEO.features.map(f => ({ iso: f.properties.shapeISO, d: path(f) ?? '', feature: f }));
+/* A fingertip covers about 9 mm: a county drawn smaller than 30 px on a touch screen (the City of Zagreb is 15×17 px on a
+   phone) gets a 22 px touch radius around its anchor, above its neighbours. */
+const touchSpots = (() => {
+  const corrections = offCentre();
+  return shapes.map(f => { const [[x0, y0], [x1, y1]] = path.bounds(f.feature); return { iso: f.iso, size: Math.max(x1 - x0, y1 - y0), at: corrections[f.iso] ? projection(corrections[f.iso])! : path.centroid(f.feature) }; });
+})();
 const scaleStart: [number, number] = [16, 45], scaleEnd: [number, number] = [17, 45];
 const scaleWidth = Math.abs(projection(scaleEnd)![0] - projection(scaleStart)![0]) * 50 / (geoDistance(scaleStart, scaleEnd) * 6371);
 
@@ -76,6 +82,7 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
   const labelSize = compactLabelSize ?? 12 / zoom;
   // A phone shows the map below its drawn size; the compass and scale text keep an 11 px floor on screen.
   const shrunk = labelMetrics.scale < 1;
+  const [touch] = useState(() => matchMedia('(pointer:coarse)').matches);
   const labelGap = 3 / (zoom * labelMetrics.scale);
   const cityLabels: { name: string; x: number; y: number; width: number }[] = [];
   for (const [name, lon, lat] of cities) {
@@ -124,6 +131,7 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
             <title>{description}</title>
           </path>;
         })}</g>
+        {touch && <g className="v3-touch-spots" aria-hidden="true" data-export-ignore="">{touchSpots.filter(t => t.size * labelMetrics.scale * zoom < 30).map(t => <circle key={t.iso} data-touch-spot={t.iso} cx={t.at[0]} cy={t.at[1]} r={22 / (labelMetrics.scale * zoom)} fill="transparent" onClick={() => onSelect(t.iso)} />)}</g>}
         {boundaries && <path className="v3-region-boundaries" d={path(boundaries) ?? ''} vectorEffect="non-scaling-stroke" aria-hidden="true" />}
         {isFlow && <g className="v3-corridors" aria-hidden="true">{corridors.filter(d => Math.abs(d.n) >= 5).map(d => {
           const incoming = towardHub(d.n), a = anchors[incoming ? d.iso : hub], b = anchors[incoming ? hub : d.iso];

@@ -185,6 +185,18 @@ async function scenario(name, run) {
     check('closing a finding restores the finding selector', await page.evaluate(() => document.activeElement === document.querySelector('[aria-label="Guided findings"]')));
     await go(); check('flow hub has no misleading All Croatia reset', !(await page.$('.v3-period button')));
   });
+  await scenario('Small counties take a near-miss tap', async () => {
+    // The City of Zagreb is drawn 15×17 px on a phone, and a tap 8 px off its centre selected the surrounding Zagrebačka.
+    const results = [];
+    for (const width of [390, 320]) for (const [dx, dy, near] of [[8, 2, true], [-30, 12, false]]) {
+      await viewport(width, 740); await go('explore=map&year=2024&l=en');
+      const at = await page.$eval('[data-county="HR-21"]', p => { p.scrollIntoView({ block: 'center' }); const r = p.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+      const drawn = await page.evaluate((x, y) => document.elementsFromPoint(x, y).find(el => el.dataset && el.dataset.county)?.dataset.county ?? null, at.x + dx, at.y + dy);
+      await page.touchscreen.tap(at.x + dx, at.y + dy); await pause(300);
+      results.push(await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('county')) === (near ? 'HR-21' : drawn));
+    }
+    check('a tap near a small county selects it; a tap well away selects the county drawn there', results.every(Boolean), results);
+  });
   await scenario('Phone SVG text stays legible', async () => {
     // SVG text is sized in viewBox units and phones shrink the viewBox, so chart and map text rendered at 3.6–5.2 px.
     const rendered = sel => page.evaluate(sel => [...document.querySelectorAll(sel)].filter(t => t.getClientRects().length).map(t => parseFloat(getComputedStyle(t).fontSize) * t.closest('svg').getScreenCTM().a), sel);
