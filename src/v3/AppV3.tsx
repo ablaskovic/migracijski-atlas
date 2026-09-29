@@ -240,7 +240,8 @@ export default function AppV3() {
     catch (error) { if (error instanceof ExportFontError) notify(error.hr, error.en, true); else notify('Izvoz nije uspio. Pokušajte ponovno nakon učitavanja karte.', 'Export failed. Try again once the map has loaded.', true); }
     finally { exportBusy.current = false; setExporting(false); }
   }
-  function showAbout() { setPlaying(false); dialog.current?.showModal(); }
+  // A phone kept the dialog's scroll from the last visit, its title off-screen: it opens at the top.
+  function showAbout() { setPlaying(false); dialog.current?.showModal(); dialog.current?.scrollTo(0, 0); }
 
   function inspectCounty(county: string | null) {
     const previous = state.current.county, view = state.current.view;

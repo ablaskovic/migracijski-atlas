@@ -402,6 +402,26 @@ async function scenario(name, run) {
     }
     check('a first pick in the Years grid adds the county chart below it, not above', Object.values(report).every(r => r.chart && Math.abs(r.above) <= 2), report);
   });
+  await scenario('About opens at its top over a still page', async () => {
+    // Reopened, it kept its old scroll (491 px after 898, title off-screen), and a swipe on the backdrop margin scrolled
+    // the page behind it (0 → 230 px at 390).
+    const report = {};
+    for (const [width, height] of [[390, 844], [844, 390]]) {
+      await viewport(width, height); await go('explore=map&year=2024&l=hr');
+      const open = () => page.evaluate(() => document.querySelector('.v3-footer-links button').click());
+      await open(); await pause(300);
+      await page.evaluate(() => { document.querySelector('.v3-about').scrollTop = 900; document.querySelector('.v3-about').close(); }); await pause(200);
+      await open(); await pause(300);
+      const reopened = await page.evaluate(() => Math.round(document.querySelector('.v3-about').scrollTop));
+      const cdp = await page.createCDPSession(), x = await page.evaluate(() => Math.max(2, Math.round(document.querySelector('.v3-about').getBoundingClientRect().left / 2))), top = await page.evaluate(() => scrollY);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: Math.round(height * .75), id: 0 }] });
+      for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: Math.round(height * .75 - i * height * .05), id: 0 }] }); await pause(16); }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await pause(500); await cdp.detach();
+      report[`${width}×${height}`] = { reopened, pageMoved: await page.evaluate(t => Math.round(scrollY - t), top) };
+      await page.evaluate(() => document.querySelector('.v3-about').close());
+    }
+    check('the About dialog reopens at its top, and a swipe beside it leaves the page still', Object.values(report).every(r => r.reopened === 0 && r.pageMoved === 0), report);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
