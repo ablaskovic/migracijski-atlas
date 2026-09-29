@@ -304,6 +304,14 @@ async function scenario(name, run) {
     }
     check('on landscape phones the map and the whole timeline fit one screen', Object.values(report).every(r => r.span <= r.viewport && r.map >= r.viewport / 2), report);
   });
+  await scenario('A tapped Trends bar shows its value', async () => {
+    // The value was only in a <title> tooltip, which touch never shows; the stat card holding it was 691 px above.
+    await viewport(); await go('explore=trends&year=2025&metric=tot&l=hr');
+    const bar = await page.$$eval('.v3-trend-chart .v3-chart-hit', hits => { hits[17].scrollIntoView({ block: 'center' }); const r = hits[17].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    await page.touchscreen.tap(bar.x, bar.y); await pause(300);
+    const shown = await page.evaluate(() => { const label = document.querySelectorAll('.v3-trend-chart .v3-chart-hit')[17].getAttribute('aria-label').replace(': ', ' · '), readout = document.querySelector('.v3-trend-readout'), r = readout?.getBoundingClientRect(); return { label, readout: readout?.textContent, inView: !!r && r.top >= 0 && r.bottom <= innerHeight }; });
+    check('a tapped Trends bar shows its year and value under the chart', shown.readout === shown.label && shown.inView, shown);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));

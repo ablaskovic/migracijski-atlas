@@ -21,7 +21,7 @@ export default function TrendChart({ s, compact = false, onYear, flow }: Props) 
   const top = Math.max(20, 26 * px), bottom = h - 32, mid = (top + bottom) / 2;
   const step = (w - left - right) / YEARS.length;
   const y = (n: number) => mid - n / max * (mid - top);
-  return <svg ref={svg} style={scale < 1 ? { '--svg-min': `${11 / scale}px` } as CSSProperties : undefined} className={'v3-trend-chart' + (compact ? ' is-compact' : '')} viewBox={`0 0 ${w} ${h}`} role={onYear ? 'group' : 'img'} aria-label={s.lang === 'hr' ? 'Godišnji saldo od 1998. do 2025.' : 'Annual net change from 1998 to 2025'}>
+  return <><svg ref={svg} style={scale < 1 ? { '--svg-min': `${11 / scale}px` } as CSSProperties : undefined} className={'v3-trend-chart' + (compact ? ' is-compact' : '')} viewBox={`0 0 ${w} ${h}`} role={onYear ? 'group' : 'img'} aria-label={s.lang === 'hr' ? 'Godišnji saldo od 1998. do 2025.' : 'Annual net change from 1998 to 2025'}>
     <title>{series.map((n, i) => `${YEARS[i]}: ${formatNumber(s.lang, n, { signed: true })}`).join('; ')}</title>
     {[top, mid, bottom].map((y, i) => <g key={y}><line x1={left} x2={w - right} y1={y} y2={y} className="v3-chart-grid" />{!compact && <text x={left - 12} y={y + 4} textAnchor="end">{formatNumber(s.lang, i === 0 ? max : i === 1 ? 0 : -max, { compact: true, digits: 0 })}</text>}</g>)}
     {series.map((n, i) => <g key={YEARS[i]}>
@@ -33,5 +33,7 @@ export default function TrendChart({ s, compact = false, onYear, flow }: Props) 
     </g>)}
     {/* DZS limits the 2011 method change to migration to and from abroad, so only series with external migration show it. */}
     {!compact && s.flow !== 'int' && s.flow !== 'nat' && <><line x1={left + step * YEARS.indexOf(2011)} x2={left + step * YEARS.indexOf(2011)} y1={top - 10} y2={bottom} className="v3-method-line" /><text x={left + step * YEARS.indexOf(2011) + (shrunk ? -7 : 7)} y={12 * px} textAnchor={shrunk ? 'end' : undefined}>{s.lang === 'hr' ? '2011 · promjena metodologije' : '2011 · methodology change'}</text></>}
-  </svg>;
+  </svg>
+  {/* The picked bar's value is otherwise only in a tooltip, which touch never shows. */}
+  {!compact && <p className="v3-trend-readout"><strong>{YEARS[s.yi]}</strong> · {formatNumber(s.lang, series[s.yi], { signed: true })}</p>}</>;
 }
