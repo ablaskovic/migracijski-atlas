@@ -882,6 +882,14 @@ const signed = (n, relative) => {
     seriesDashes.push(await page.evaluate(root => { const chart = document.querySelector(`${root} .v3-annual-lines`); const lines = [...chart.querySelectorAll('svg[role="img"] path')].map(p => getComputedStyle(p).strokeDasharray), keys = [...chart.querySelectorAll(':scope > div svg line')].map(l => getComputedStyle(l).strokeDasharray); return lines.length >= 2 && new Set(lines).size === lines.length && keys.join('|') === lines.join('|'); }, root));
   }
   check('each annual series has its own dash pattern, and its legend key shows it', seriesDashes.every(Boolean));
+  // The corridor chart drew its 27 IPF-estimated years exactly like 2018, the one measured year.
+  await go('?version=v3&fresh=pairmeasured#explore=flows&year=2018&county=HR-21&pair=HR-01&l=en'); await page.waitForSelector('.v3-pair .v3-annual-lines circle');
+  const measuredMark = await page.evaluate(() => {
+    const chart = document.querySelector('.v3-pair .v3-annual-lines'), dots = [...chart.querySelector('svg[role="img"] g').querySelectorAll('circle')], look = c => getComputedStyle(c).fill + c.getAttribute('r');
+    const estimated = dots.filter((_, i) => i !== 20);
+    return new Set(estimated.map(look)).size === 1 && look(estimated[0]) !== look(dots[20]) && /IPF/.test(estimated[0].textContent) && !/IPF/.test(dots[20].textContent) && /IPF estimate/.test(chart.querySelector(':scope > div').textContent);
+  });
+  check('the corridor chart marks 2018 as measured and the other years as IPF estimates', measuredMark);
   // Footer links, and a few others, opened new tabs without the "opens in a new tab" notice the paper and source links carry.
   const silentTabs = [];
   for (const hash of ['explore=classify&year=2024&l=en', 'explore=population&panel=municipal&l=hr']) { await go(`?version=v3&fresh=newtab${silentTabs.length}#${hash}`); silentTabs.push(...await page.evaluate(() => [...document.querySelectorAll('a[target="_blank"]')].filter(a => !/new tab|novoj kartici|nova kartica/i.test((a.getAttribute('aria-label') || '') + ' ' + a.textContent)).map(a => a.href))); }
