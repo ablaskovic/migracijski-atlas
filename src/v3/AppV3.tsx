@@ -6,7 +6,7 @@ import { setLang, storeLang } from '../lib/i18n.ts';
 import { APP_VERSION, ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from '../lib/licences.ts';
 import { dropHash } from '../lib/privacy.ts';
 import VersionSwitch from '../VersionSwitch.tsx';
-import { FLOWS, VIEWS, colors, countyName, domain, findingPatch, normalizeState, readState, stateHash, totals, unitName, viewName, type AtlasState, type Explore } from './model.ts';
+import { FLOWS, VIEWS, colors, countyName, domain, findingPatch, normalizeState, numberFormat, readState, stateHash, totals, unitName, viewName, type AtlasState, type Explore } from './model.ts';
 import { jlsGeo, useGeo } from '../lib/geoAsync.ts';
 import { STORIES } from '../lib/stories.ts';
 import type { Den } from '../lib/types.ts';
@@ -63,9 +63,9 @@ export default function AppV3() {
   const dialog = useRef<HTMLDialogElement>(null);
   const state = useRef(s); state.current = s;
   const L = (hr: string, en: string) => s.lang === 'hr' ? hr : en;
-  const nf = new Intl.NumberFormat(s.lang === 'hr' ? 'hr-HR' : 'en-GB');
+  const nf = numberFormat(s.lang);
   const format = (n: number, relative = false) => {
-    const f = new Intl.NumberFormat(s.lang === 'hr' ? 'hr-HR' : 'en-GB', { minimumFractionDigits: relative ? 1 : 0, maximumFractionDigits: relative ? 1 : 0 });
+    const f = numberFormat(s.lang, { minimumFractionDigits: relative ? 1 : 0, maximumFractionDigits: relative ? 1 : 0 });
     const abs = f.format(Math.abs(n));
     return (abs === f.format(0) ? '' : n > 0 ? '+' : '−') + abs + (relative ? ' %' : '');
   };

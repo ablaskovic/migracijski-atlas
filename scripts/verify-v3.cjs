@@ -137,6 +137,12 @@ const signed = (n, relative) => {
   await page.mouse.move(threshold.x, threshold.y); await page.mouse.down(); await page.mouse.move(threshold.x + threshold.w, threshold.y, { steps: 25 }); await page.mouse.up();
   await new Promise(resolve => setTimeout(resolve, 450));
   check('dragging the loss threshold replaces the entry instead of adding one per step', await page.evaluate(n => history.length === n && new URLSearchParams(location.hash.slice(1)).get('threshold') === '15000', entries));
+  // A year step re-renders 420 matrix labels; building an Intl.NumberFormat per label was a third of every step.
+  await go('?version=v3&l=en&fresh=formatters#explore=matrix&year=2018&metric=tot&l=en');
+  await page.evaluate(() => { window.formatterBuilds = 0; const Native = Intl.NumberFormat; Intl.NumberFormat = new Proxy(Native, { construct(target, args) { window.formatterBuilds++; return new target(...args); } }); });
+  await page.focus('.v3-slider-wrap input'); await page.keyboard.press('ArrowLeft');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  check('a matrix year step reuses number formatters instead of building one per cell', await page.evaluate(() => document.querySelector('#v3-year').selectedOptions[0].textContent === '2017' && window.formatterBuilds < 25));
 
   await go();
   await click('.v3-tabs button:nth-child(2)');

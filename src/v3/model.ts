@@ -80,6 +80,15 @@ export function stateHash(s: AtlasState): string {
   return '#' + p.toString();
 }
 
+const formatters = new Map<string, Intl.NumberFormat>();
+/** One formatter per language and option set: a matrix year step formats 420 cells, and building each one was a third of the step. */
+export function numberFormat(lang: Lang, options: Intl.NumberFormatOptions = {}): Intl.NumberFormat {
+  const key = lang + JSON.stringify(options);
+  let formatter = formatters.get(key);
+  if (!formatter) formatters.set(key, formatter = new Intl.NumberFormat(lang === 'hr' ? 'hr-HR' : 'en-GB', options));
+  return formatter;
+}
+
 export const value = (iso: string, s: AtlasState) => val(iso, s.yi, s.flow, s.den, s.cum);
 export const unitName = (s: Pick<AtlasState, 'den' | 'yi' | 'lang'>) => s.den === 'abs' ? (s.lang === 'hr' ? 'broj osoba' : 'people') : denName(s.den, s.yi).replace(/^\s*·\s*/, '');
 export const domain = (s: AtlasState) => DOM[s.flow + s.den + s.cum];

@@ -4,7 +4,7 @@ import type { FeatureCollection, Geometry } from 'geojson';
 import { GEO, ISOS, SHORTN, flowMax, flowOf } from '../lib/metrics.ts';
 import type { Dir } from '../lib/types.ts';
 import { offCentre } from '../lib/anchors.ts';
-import { colors, countyName, domain, value, type AtlasState } from './model.ts';
+import { colors, countyName, domain, numberFormat, value, type AtlasState } from './model.ts';
 import Icon from './Icon.tsx';
 import useMapNavigation from './useMapNavigation.ts';
 import './map-interactions.css';
@@ -60,7 +60,7 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
   const active = hover ?? (isFlow ? partner : null) ?? s.county;
   const selectedCounty = isFlow ? hub : s.county;
   const outlines = [...new Set([...highlightedCounties, selectedCounty, isFlow ? partner : null, hover, focused])].filter((iso): iso is string => !!iso);
-  const count = (n: number) => new Intl.NumberFormat(s.lang === 'hr' ? 'hr-HR' : 'en-GB').format(n);
+  const count = (n: number) => numberFormat(s.lang).format(n);
   const towardHub = (n: number) => direction === 'in' || direction === 'net' && n >= 0;
   const flowLabel = (iso: string) => {
     if (iso === hub) return countyName(hub, s.lang) + ' · ' + L('odabrana županija', 'selected county');

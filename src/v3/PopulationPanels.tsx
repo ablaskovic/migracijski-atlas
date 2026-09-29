@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CIT, DEMO, ISOS, JLS, YEARS, cgroups, countryName as countryLabel } from '../lib/metrics.ts';
 import type { JlsRow, Lang } from '../lib/types.ts';
-import { countyName, downloadFile, fold } from './model.ts';
+import { countyName, downloadFile, fold, numberFormat } from './model.ts';
 import Icon from './Icon.tsx';
 import TableScroll from './TableScroll.tsx';
 import './population-panels.css';
@@ -37,7 +37,7 @@ function saveCsv(rows: CsvRow[], name: string) {
 
 export default function PopulationPanels({ lang, county, yi, cum, direction, onCounty, tab, onTab, onYear, age, onAge, localScope, onLocalScope, onDirection }: Props) {
   const L = (hr: string, en: string) => lang === 'hr' ? hr : en;
-  const format = (n: number) => new Intl.NumberFormat(lang === 'hr' ? 'hr-HR' : 'en-GB').format(n);
+  const format = (n: number) => numberFormat(lang).format(n);
   const [localPanel, setLocalPanel] = useState<Panel>('age');
   const panel = tab ?? localPanel;
   const setPanel = (next: Panel) => { setLocalPanel(next); onTab?.(next); };
@@ -147,7 +147,7 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
           </table></TableScroll>
         </div>
         <div className="v3-pop-side">
-          <div className="v3-pop-highlight"><span className="v3-eyebrow">{L('NAJVEĆA DOBNA SKUPINA', 'LARGEST AGE BAND')}</span><strong>{DEMO.ages[peakAge]}</strong><p>{format(ageValues[peakAge])} {ageMode === 'ext' ? L('doseljenih', 'arrivals') : L('preseljenih', 'moves')} · {new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(ageValues[peakAge] / ageTotal * 100)}%</p></div>
+          <div className="v3-pop-highlight"><span className="v3-eyebrow">{L('NAJVEĆA DOBNA SKUPINA', 'LARGEST AGE BAND')}</span><strong>{DEMO.ages[peakAge]}</strong><p>{format(ageValues[peakAge])} {ageMode === 'ext' ? L('doseljenih', 'arrivals') : L('preseljenih', 'moves')} · {numberFormat(lang, { maximumFractionDigits: 1 }).format(ageValues[peakAge] / ageTotal * 100)}%</p></div>
           <div className="v3-pop-card"><h3>{L('Raspodjela po spolu', 'Sex distribution')}</h3><p className="v3-pop-subtitle">{L('Ukupno za sve dobne skupine', 'Totals across all age bands')}</p>
             <TableScroll className="v3-pop-table-scroll" lang={lang} label={L('Migracije prema spolu', 'Migration by sex')}><table className="v3-pop-table v3-pop-sex-table"><caption className="v3-sr">{L('Migracije prema spolu u Hrvatskoj, ', 'Migration by sex in Croatia, ') + DEMO.year}</caption>
               <thead><tr><th scope="col">{L('Spol', 'Sex')}</th><th scope="col">{ageMode === 'ext' ? L('Doseljeni', 'Arrivals') : L('Preseljeni', 'Moves')}</th>{ageMode === 'ext' && <th scope="col">{L('Odseljeni', 'Departures')}</th>}</tr></thead>
