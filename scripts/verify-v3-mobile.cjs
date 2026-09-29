@@ -349,6 +349,16 @@ async function scenario(name, run) {
     }
     check('the phone rank list is not an inner scroller, so a swipe on it scrolls the page', Object.values(report).every(r => r.inner <= 1 && r.pageMoved > 100), report);
   });
+  await scenario('The phone municipal list shows a cut row', async () => {
+    // Its 556 rows need an inner scroller, and at 300 px it ended on a 1 px hairline of the sixth row: no sign it scrolls.
+    await viewport(); await go('explore=municipalities&l=hr'); await page.waitForSelector('.v3-municipal-results button');
+    const peek = await page.evaluate(() => {
+      const list = document.querySelector('.v3-municipal-results'), edge = list.getBoundingClientRect().top + list.clientTop + list.clientHeight;
+      const cut = [...list.querySelectorAll(':scope > button')].map(b => b.getBoundingClientRect()).find(r => r.top < edge && r.bottom > edge);
+      return cut ? (edge - cut.top) / cut.height : 0;
+    });
+    check('the phone municipal list ends on a partly visible row', peek >= .25 && peek <= .75, Math.round(peek * 100) / 100);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
