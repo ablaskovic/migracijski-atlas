@@ -663,6 +663,16 @@ const signed = (n, relative) => {
     findingSpoken.push(await page.evaluate(() => { const caption = document.querySelector('.v3-finding p').textContent; return window.liveBefore.some(el => el.isConnected && el.textContent.includes(caption)) && !document.querySelector('.v3-finding').matches('[role="status"], [aria-live]:not([aria-live="off"])'); }));
   }
   check('a picked finding is announced from a region that was already there', findingSpoken.every(Boolean));
+  // Typing in a search filtered its list silently ("spl" left one row and said nothing); each search now reports its count.
+  const searchCounts = [];
+  for (const [hash, input, query, rowsSel] of [['explore=map&l=en', '.v3-search input', 'sp', '.v3-rank-row'], ['explore=municipalities&l=en', '.v3-municipal-search input', 'split', '.v3-municipal-results button'], ['explore=population&panel=countries&l=en', '.v3-pop-search input', 'bos', '.v3-pop-table tbody tr:not(:has(.v3-pop-empty))'], ['explore=population&panel=municipal&l=hr', '.v3-pop-search input', 'zag', '.v3-pop-table tbody tr:not(:has(.v3-pop-empty))']]) {
+    await go(`?version=v3&fresh=search${searchCounts.length}#${hash}`);
+    if (hash.includes('municipalities')) await page.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
+    await page.evaluate(() => { window.liveBefore = [...document.querySelectorAll('[aria-live]:not([aria-live="off"]), [role="status"]')]; });
+    await page.type(input, query); await new Promise(resolve => setTimeout(resolve, 300));
+    searchCounts.push(await page.evaluate(rowsSel => { const n = document.querySelectorAll(rowsSel).length, hr = document.documentElement.lang === 'hr'; const said = `${n} ${hr ? (n % 10 === 1 && n % 100 !== 11 ? 'rezultat' : 'rezultata') : (n === 1 ? 'result' : 'results')}`; return n > 0 && window.liveBefore.some(el => el.isConnected && el.textContent.trim() === said); }, rowsSel));
+  }
+  check('each search announces its result count as it filters', searchCounts.every(Boolean));
   // The population panels' CSV export saved its file silently, where the main CSV export confirms itself in the toast.
   const popToasts = [];
   for (const panel of ['age', 'citizenship', 'countries', 'municipal']) { await go(`?version=v3&fresh=popcsv${panel}#explore=population&panel=${panel}&l=en`); await page.click('.v3-pop-export'); await new Promise(resolve => setTimeout(resolve, 300)); popToasts.push(await text('.v3-toast')); }

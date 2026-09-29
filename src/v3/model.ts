@@ -102,6 +102,9 @@ export function formatNumber(lang: Lang, n: number, { signed = false, digits, pe
   return (abs === f.format(0) ? '' : n < 0 ? '−' : signed ? '+' : '') + abs + (percent ? ' %' : '');
 }
 
+/** A search's result count, read out as it filters: Croatian takes the singular after 1 (21, 31…), "rezultata" otherwise. */
+export const resultCount = (lang: Lang, n: number) => lang === 'hr' ? `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'rezultat' : 'rezultata'}` : `${n} ${n === 1 ? 'result' : 'results'}`;
+
 /** The years a value covers, as printed: one year, or 2011–year for a cumulative total — never "2011–2011". */
 export const periodLabel = (yi: number, cum: boolean) => cum && yi > IX2011 ? `2011–${YEARS[yi]}` : String(YEARS[yi]);
 
