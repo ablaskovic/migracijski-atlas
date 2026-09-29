@@ -583,6 +583,20 @@ const signed = (n, relative) => {
   });
   check('--subtle text meets 4.5:1 on every surface in both themes', subtleWorst.length === 2 && subtleWorst.every(r => r >= 4.5));
   check('the study link in the classification note is underlined', await page.$eval('.v3-data-note a', a => getComputedStyle(a).textDecorationLine.includes('underline')));
+  // Labels, legend numbers, the data badge and the footer were 8–10 px; they get 11 px where that fits, and a year track too
+  // narrow for four 11 px ticks keeps its two ends.
+  const tinyReports = [];
+  for (const [w, h] of [[1440, 900], [768, 1024], [320, 568]]) for (const view of ['map', 'flows&year=2010', 'trends']) {
+    await page.setViewport({ width: w, height: h, deviceScaleFactor: 1, isMobile: w < 500, hasTouch: w < 500 });
+    await go(`?version=v3&fresh=tiny${w}${view.length}#explore=${view}&l=hr`);
+    tinyReports.push(await page.evaluate(() => {
+      const shown = [...document.querySelectorAll('.v3-explore-controls > label, .v3-year-input label, .v3-period > span, .v3-map-meta, .v3-panel-title > span:not(.v3-eyebrow), .v3-color-key span, .v3-legend > span, .v3-year-ticks span, .v3-data-badge, .v3-footer span, .v3-footer a, .v3-footer button')].filter(el => el.getClientRects().length && el.textContent.trim());
+      const ticks = [...document.querySelectorAll('.v3-year-ticks span')].map(s => s.getBoundingClientRect()).filter(r => r.width);
+      return shown.every(el => parseFloat(getComputedStyle(el).fontSize) >= 11) && ticks.length >= 2 && !ticks.some((r, i) => i && r.left < ticks[i - 1].right + 2) && document.documentElement.scrollWidth <= innerWidth;
+    }));
+  }
+  await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  check('labels, legend numbers, badges and the footer are at least 11 px, without overflow or colliding ticks', tinyReports.every(Boolean));
   // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
   // timeline and no cumulative mode.
   const popNotes = [];
