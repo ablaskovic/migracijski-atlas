@@ -278,9 +278,9 @@ export default function AppV3() {
     </header>
     <div className="v3-layout">
       <nav className="v3-sidebar" aria-label={L('Glavna navigacija', 'Main navigation')}>
-        <span className="v3-side-index">A / 08</span>
+        <span className="v3-side-index" aria-hidden="true">A / 08</span>
         {VIEWS.map(v => <button key={v} className={s.view === v ? 'is-active' : ''} aria-current={s.view === v ? 'page' : undefined} onClick={() => selectView(v)}><Icon name={viewIcon(v)} /><span>{viewName(v, s.lang)}</span></button>)}
-        <div className="v3-side-bottom"><button onClick={showAbout}><Icon name="info" /><span>{L('O atlasu', 'About')}</span></button><span className="v3-side-coordinate">45° N<br />16° E</span></div>
+        <div className="v3-side-bottom"><button onClick={showAbout}><Icon name="info" /><span>{L('O atlasu', 'About')}</span></button><span className="v3-side-coordinate" aria-hidden="true">45° N<br />16° E</span></div>
       </nav>
       <main id="v3-explorer" tabIndex={-1}>
         <section className="v3-intro"><div><div className="v3-eyebrow"><span className="v3-live-dot" />{L('ATLAS MIGRACIJA', 'MIGRATION ATLAS')}<span className="v3-eyebrow-divider">/</span>{region ? L('REGIJA', 'REGION') : scopeCounty && !nationalPanel ? L('ŽUPANIJA', 'COUNTY') : L('NACIONALNI PREGLED', 'NATIONAL OVERVIEW')}</div>
@@ -290,8 +290,8 @@ export default function AppV3() {
         <ResearchContext lang={s.lang} onAbout={showAbout} />
         {s.view !== 'population' && <section className="v3-stats" aria-label={L('Pregled podataka', 'Key figures')}>
           <article className="v3-stat v3-stat-primary"><div className="v3-stat-label">{scopeCounty ? L('Migracijski saldo', 'Net migration') : L('Vanjski migracijski saldo', 'Net external migration')}<Icon name="flow" size={17} /></div><strong className={current.net < 0 ? 'v3-negative' : ''} data-stat="net">{format(current.net)}</strong><span>{scopeCounty ? L('unutarnje + vanjske migracije', 'internal + external migration') : L('doseljeni − odseljeni', 'arrivals − departures')} · {period}</span></article>
-          <article className="v3-stat"><div className="v3-stat-label">{L('Doseljeni iz inozemstva', 'Arrivals from abroad')}<span className="v3-stat-arrow">↙</span></div><strong data-stat="arrivals">{nf.format(current.arrivals)}</strong><span>{L('registriranih doseljenja', 'registered arrivals')} · {period}</span></article>
-          <article className="v3-stat"><div className="v3-stat-label">{L('Odseljeni u inozemstvo', 'Departures abroad')}<span className="v3-stat-arrow is-coral">↗</span></div><strong data-stat="departures">{nf.format(current.departures)}</strong><span>{L('registriranih odseljenja', 'registered departures')} · {period}</span></article>
+          <article className="v3-stat"><div className="v3-stat-label">{L('Doseljeni iz inozemstva', 'Arrivals from abroad')}<span className="v3-stat-arrow" aria-hidden="true">↙</span></div><strong data-stat="arrivals">{nf.format(current.arrivals)}</strong><span>{L('registriranih doseljenja', 'registered arrivals')} · {period}</span></article>
+          <article className="v3-stat"><div className="v3-stat-label">{L('Odseljeni u inozemstvo', 'Departures abroad')}<span className="v3-stat-arrow is-coral" aria-hidden="true">↗</span></div><strong data-stat="departures">{nf.format(current.departures)}</strong><span>{L('registriranih odseljenja', 'registered departures')} · {period}</span></article>
           <article className="v3-stat"><div className="v3-stat-label">{scopeCounty ? L('Unutarnji migracijski saldo', 'Net internal migration') : L('Županije s pozitivnim saldom', 'Counties with net gains')}<Icon name="map" size={17} /></div><strong data-stat="counties">{scopeCounty ? format((region?.c ?? [scopeCounty]).reduce((sum, iso) => sum + val(iso, s.yi, 'int', 'abs', s.cum), 0)) : <>{winners}<small> / 21</small></>}</strong><span>{scopeCounty ? L('preseljenja između županija', 'moves between counties') : (gainFlow === 'nat' ? L('više rođenih nego umrlih', 'more births than deaths') : gainFlow === 'all' ? L('migracije i prirast zajedno u plusu', 'migration and natural change together positive') : L('više doseljenih nego odseljenih', 'more arrivals than departures'))}</span></article>
         </section>
         }

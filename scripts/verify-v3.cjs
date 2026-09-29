@@ -710,6 +710,9 @@ const signed = (n, relative) => {
   await go('?version=v3&fresh=regionnames#explore=regions&year=2024&sum=1&l=en');
   const regionButtonNames = await page.evaluate(() => [...document.querySelectorAll('[data-county]')].map(p => p.getAttribute('aria-label')));
   check('each Regions map button names its county before its region', regionButtonNames.length === 21 && new Set(regionButtonNames).size === 21 && regionButtonNames.some(n => /^Osječko-baranjska — Eastern: /.test(n)));
+  // Decorative text was read aloud: "A / 08" and "45° N 16° E" inside the navigation landmark, and the ↙ / ↗ stat arrows.
+  await go('?version=v3&fresh=decor#explore=map&county=HR-18&l=en');
+  check('decorative sidebar text and stat arrows are hidden from assistive technology', await page.evaluate(() => { const els = [...document.querySelectorAll('.v3-side-index, .v3-side-coordinate, .v3-stat-arrow')]; return els.length >= 4 && els.every(el => el.closest('[aria-hidden="true"]')); }));
   // The corridor's annual table had no caption and its header cells no scope.
   await go('?version=v3&fresh=pairtable#explore=flows&year=2018&county=HR-21&pair=HR-01&l=en'); await page.waitForSelector('.v3-pair .v3-data-table');
   check('the corridor annual table is captioned and its headers are scoped', await page.$eval('.v3-pair .v3-data-table', t => /City of Zagreb ↔ Zagrebačka/.test(t.caption?.textContent || '') && [...t.querySelectorAll('thead th')].every(th => th.scope === 'col') && [...t.querySelectorAll('tbody th')].every(th => th.scope === 'row')));
