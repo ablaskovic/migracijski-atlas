@@ -710,6 +710,25 @@ const signed = (n, relative) => {
   await go('?version=v3&fresh=regionnames#explore=regions&year=2024&sum=1&l=en');
   const regionButtonNames = await page.evaluate(() => [...document.querySelectorAll('[data-county]')].map(p => p.getAttribute('aria-label')));
   check('each Regions map button names its county before its region', regionButtonNames.length === 21 && new Set(regionButtonNames).size === 21 && regionButtonNames.some(n => /^Osječko-baranjska — Eastern: /.test(n)));
+  // A Retry pressed offline changed nothing on screen: retryGeo() answers 'offline' and resumes on reconnection, and v3
+  // discarded the answer where v2 says so.
+  const offlinePage = await browser.newPage();
+  await offlinePage.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  await offlinePage.setRequestInterception(true);
+  let blockGeo = true;
+  offlinePage.on('request', request => { if (blockGeo && /geo_jls|geo_regions5/.test(request.url())) request.abort('failed'); else request.continue(); });
+  const offlineRuns = [];
+  for (const [hash, status] of [['explore=municipalities', '.v3-geo-loading'], ['explore=regions', '.v3-analysis .v3-data-note[role="status"]']]) {
+    blockGeo = true; await offlinePage.setOfflineMode(false);
+    await offlinePage.goto(origin + `/?version=v3&fresh=offline${offlineRuns.length}#${hash}&l=en`, { waitUntil: 'networkidle0' });
+    await offlinePage.waitForFunction(sel => [...document.querySelectorAll(sel + ' button')].some(b => /Retry/.test(b.textContent)), {}, status);
+    await offlinePage.setOfflineMode(true);
+    await offlinePage.evaluate(sel => [...document.querySelectorAll(sel + ' button')].find(b => /Retry/.test(b.textContent)).click(), status);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    offlineRuns.push(/resume by itself/.test(await offlinePage.evaluate(sel => document.querySelector(sel)?.textContent || '', status)));
+  }
+  await offlinePage.close();
+  check('a retry pressed offline says it will resume by itself', offlineRuns.every(Boolean));
   // The copy-link fallback opened last in the DOM: Tab from it ran off the page, Shift+Tab to the footer, and the fixed
   // panel stayed open over the controls focus moved on to. It now sits after Share and closes once focus leaves it.
   const sharePage = await browser.newPage();

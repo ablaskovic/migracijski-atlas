@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ISOS, KLAB, MXORD, PAPER_KLAS_DIFF, RDOM, REG, REGOF, YEARS, flowBadge, fsum, klasCount, klasLab, klasOf, mxCell, mxMax, netAt, paperKlasComparable, pragText, regVal, val } from '../lib/metrics.ts';
 import { PAPER, paperSplit, regionReadingLine } from '../lib/credits.ts';
-import { geoStatus, regGeo, regFailed, retryGeo, useGeo } from '../lib/geoAsync.ts';
+import { geoStatus, offlineNote, regGeo, regFailed, retryArmed, retryGeo, useGeo } from '../lib/geoAsync.ts';
 import { asClassic, colors, countyName, formatNumber, numberFormat, periodLabel, unitName, type AtlasState } from './model.ts';
 import MapCanvas from './MapCanvas.tsx';
 import Icon from './Icon.tsx';
@@ -29,6 +29,7 @@ export function ClassificationView({ s, light, update, format }: Props) {
 export function RegionsView({ s, light, update, format, onRegion }: Props & { onRegion: (key: string) => void }) {
   useGeo('reg');
   const [hover, setHover] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState(false);
   const L = (hr: string, en: string) => s.lang === 'hr' ? hr : en;
   const scale = colors(RDOM[s.flow + s.den + s.cum], light);
   const n = (key: string) => regVal(key, s.yi, s.flow, s.den, s.cum);
@@ -39,7 +40,7 @@ export function RegionsView({ s, light, update, format, onRegion }: Props & { on
   const heading = useRef<HTMLHeadingElement>(null);
   return <div className="v3-analysis" data-analysis="regions"><div className="v3-section-heading"><div><h2 ref={heading} tabIndex={-1}>{L('Pet regija. Povezana slika.', 'Five regions. A connected picture.')}</h2><p>{unitName(s)} · {periodLabel(s.yi, s.cum)}</p></div></div>
     <div className="v3-analysis-map"><MapCanvas s={s} light={light} hover={hover} onHover={setHover} onSelect={county => update({ county: s.county === county ? null : county })} direction={s.dir} format={format} fillCounty={iso => scale(n(REGOF[iso]))} describeCounty={iso => `${countyName(iso, s.lang)} — ${REG[REGOF[iso]].name}: ${format(n(REGOF[iso]), s.relative)}`} highlightedCounties={active ? REG[active].c : []} {...(boundaries ? { boundaries } : {})} /><div className="v3-region-list">{Object.keys(REG).sort((a, b) => n(b) - n(a)).map(key => <button key={key} data-region={key} aria-pressed={selected === key} onClick={() => onRegion(key)} onPointerEnter={() => setHover(REG[key].c[0])} onPointerLeave={() => setHover(null)}><span>{REG[key].name}<strong style={{ color: n(key) < 0 ? 'var(--coral)' : 'var(--accent)' }}>{format(n(key), s.relative)}</strong></span><small>{REG[key].c.map(i => countyName(i, s.lang)).join(' · ')}</small></button>)}</div></div>
-    {!boundaries && <p className="v3-data-note" role="status">{geoStatus(false)} {regFailed() && <button className="v3-text-button" onClick={() => { heading.current?.focus(); void retryGeo(); }}>{L('Pokušaj ponovno', 'Retry')}</button>}</p>}
+    {!boundaries && <p className="v3-data-note" role="status">{geoStatus(false)} {regFailed() && <button className="v3-text-button" onClick={() => { heading.current?.focus(); void retryGeo().then(r => setWaiting(r === 'offline')); }}>{L('Pokušaj ponovno', 'Retry')}</button>}{waiting && retryArmed() && <> {offlineNote()}</>}</p>}
     <p className="v3-data-note">{regionReadingLine()} {L('Relativna vrijednost = zbroj salda / zbroj stanovništva regije.', 'Relative value = total net change / total regional population.')}</p>
     <div className="v3-legend"><span>{L('Gubitak', 'Loss')}</span><div className="v3-color-key"><div style={{ background: `linear-gradient(90deg,${Array.from({ length: 21 }, (_, i) => scale(RDOM[s.flow + s.den + s.cum] * (i / 10 - 1))).join(',')})` }} /><span>{format(-RDOM[s.flow + s.den + s.cum], s.relative)}</span><span>0</span><span>{format(RDOM[s.flow + s.den + s.cum], s.relative)}</span></div><span>{L('Dobitak', 'Gain')}</span></div>
   </div>;

@@ -264,6 +264,9 @@ export const cancelRetry = (): void => { disarmOnline?.(); };
  *  #joffline, not this accessor: the comment used to promise a check that reads
  *  `retryArmed` by name, and there is none. */
 export const retryArmed = (): boolean => disarmOnline !== null;
+/* What an offline retry tells the reader: it is armed and will resume by itself. */
+export const offlineNote = (): string =>
+  L('Nema mreže — nastavit će se automatski kad se veza vrati.', 'No connection — this will resume by itself when the network is back.');
 
 /* Called once from App. Loads what the current view needs immediately, and warms
    the rest on a timer so switching views is instant without either payload ever
