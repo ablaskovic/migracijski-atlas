@@ -85,6 +85,7 @@
      map takes the screen's height and the county panel moves below, as in portrait. */
   .v3-app .v3-map-layout { display:flex; flex-direction:column }
   .v3-app .v3-county-panel { border-left:0; border-top:1px solid var(--border) }
+  .v3-app .v3-county-panel .v3-rank-list { height:auto; max-height:none; overflow:visible }
   .v3-app .v3-map-column { display:flow-root }
   .v3-app .v3-map-column>.v3-cartography { float:left; width:calc(50% - 8px); margin-right:16px; height:calc(100svh - 16px) }
   .v3-app .v3-map-column>.v3-data-note { display:flow-root }

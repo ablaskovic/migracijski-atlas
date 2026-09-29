@@ -333,6 +333,22 @@ async function scenario(name, run) {
     const back = await year();
     check('a sideways drag scrubs the Trends years in one history entry; a vertical swipe still scrolls', scrubbed === '2015' && swiped.year === '2015' && swiped.scrolled > 50 && back === '2025', { scrubbed, swiped, back });
   });
+  await scenario('Phone rank lists scroll with the page', async () => {
+    // The ranked county list was a 285 px inner scroller showing exactly five of 21 rows, nothing peeking, and a swipe that
+    // started on it moved only the list: five 200 px swipes before the page moved.
+    const report = {};
+    for (const [width, height] of [[390, 844], [844, 390]]) {
+      await viewport(width, height); await go('explore=map&year=2025&metric=tot&l=hr');
+      const at = await page.evaluate(() => { const list = document.querySelector('.v3-county-panel .v3-rank-list'); list.scrollIntoView({ block: 'center' }); const r = list.getBoundingClientRect(); return { x: r.x + r.width / 2, y: Math.min(r.bottom, innerHeight) - 40 }; });
+      await pause(300);
+      const cdp = await page.createCDPSession(), top = await page.evaluate(() => scrollY);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: at.x, y: at.y, id: 0 }] });
+      for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: at.x, y: at.y - 20 * i, id: 0 }] }); await pause(16); }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await pause(500); await cdp.detach();
+      report[`${width}×${height}`] = await page.evaluate(t => { const list = document.querySelector('.v3-county-panel .v3-rank-list'); return { inner: list.scrollHeight - list.clientHeight, pageMoved: Math.round(scrollY - t) }; }, top);
+    }
+    check('the phone rank list is not an inner scroller, so a swipe on it scrolls the page', Object.values(report).every(r => r.inner <= 1 && r.pageMoved > 100), report);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
