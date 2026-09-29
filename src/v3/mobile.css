@@ -56,7 +56,8 @@
   .v3-app .v3-share { grid-column:3; grid-row:2; width:auto; padding:8px 10px; min-height:44px; font-size:.8125rem; color:var(--accent); border:1px solid var(--border); background:var(--surface) }
   .v3-app .v3-share span { display:inline; white-space:normal; overflow-wrap:anywhere }
   .v3-app .v3-intro { align-items:flex-start; flex-wrap:wrap }
-  .v3-app .v3-intro>div:first-child { flex-basis:180px }
+  /* 180 px at 100 %: a basis that grows with the text sends the year block below the title before a word would break. */
+  .v3-app .v3-intro>div:first-child { flex-basis:11.25rem }
   .v3-app .v3-intro p { font-size:.875rem }
   .v3-app .v3-intro .v3-eyebrow { font-size:.625rem; flex-wrap:wrap }
   .v3-app .v3-period { margin-left:auto; min-width:0 }

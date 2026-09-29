@@ -205,6 +205,17 @@ async function scenario(name, run) {
     }
     check('at 150 and 200 % text the hint and readout cover at most 12 % of the counties', hidden.every(p => p <= 12), hidden.map(p => Math.round(p * 10) / 10));
   });
+  await scenario('Intro title keeps its words whole at large text', async () => {
+    // At 200 % text on 360–390 px phones the title broke mid-word ("Hrvatsk / a u / pokretu.") beside the year block.
+    const broken = [];
+    for (const width of [390, 360]) for (const root of [24, 32]) {
+      await viewport(width, 800); await go('explore=map&year=2024&l=hr');
+      await page.evaluate(r => { document.documentElement.style.fontSize = r + 'px'; }, root); await pause(300);
+      broken.push(...await page.evaluate(() => { const out = [], walker = document.createTreeWalker(document.querySelector('.v3-intro h1'), NodeFilter.SHOW_TEXT); for (let node = walker.nextNode(); node; node = walker.nextNode()) for (const m of node.textContent.matchAll(/\S+/g)) { const range = document.createRange(); range.setStart(node, m.index); range.setEnd(node, m.index + m[0].length); if (new Set([...range.getClientRects()].map(r => Math.round(r.top))).size > 1) out.push(m[0]); } return out; }));
+      await page.evaluate(() => document.documentElement.style.removeProperty('font-size'));
+    }
+    check('the intro title never breaks inside a word at 150 or 200 % text', broken.length === 0, broken);
+  });
   await scenario('Direction segment labels fit their buttons', async () => {
     // At ≤600 px the three buttons were forced to equal widths (79 px at 390) though "Doseljavanje" needs 92 px: each label
     // spilled into its neighbour, under a pressed neighbour's fill.
