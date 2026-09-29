@@ -114,7 +114,9 @@ export const domain = (s: AtlasState) => DOM[s.flow + s.den + s.cum];
 export const colors = (max: number, light = false) => scalePow<string>().exponent(.55).domain([-max, 0, max])
   .range(light ? ['#b33f49', '#dce7ea', '#087d68'] : ['#ed9688', '#293c48', '#6ae0be']).clamp(true);
 export const ranked = (s: AtlasState) => [...ISOS].sort((a, b) => value(b, s) - value(a, s));
-export const fold = (text: string) => text.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+// Accents fold by splitting letters from their marks, and đ has no such split: typed as "d" or "dj", as it is on a
+// keyboard without it, Međimurska and Đakovo were not found. Both fold to d, with đ.
+export const fold = (text: string) => text.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ|dj/g, 'd');
 export const countyName = (iso: string, lang: Lang) => iso === 'HR-21' && lang === 'en' ? 'City of Zagreb' : D[iso].n;
 export function totals(s: AtlasState, isos = s.county ? [s.county] : ISOS) {
   const sum = (key: 'ie' | 'oe') => isos.reduce((n, iso) => n + D[iso][key].slice(s.cum ? IX2011 : s.yi, s.yi + 1).reduce((a, b) => a + b, 0), 0);

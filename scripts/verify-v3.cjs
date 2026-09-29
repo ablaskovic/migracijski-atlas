@@ -92,6 +92,11 @@ const signed = (n, relative) => {
     }
   }
 
+  // đ has no accent to strip: typed as "d" or "dj", Međimurska and Đakovo were not found.
+  const foldedD = [];
+  for (const query of ['medimurska', 'medjimurska']) { await go(`?version=v3&l=en&fresh=fold${query}`); await page.type('.v3-search input', query); foldedD.push((await text('.v3-rank-list')).includes('Međimurska')); }
+  for (const query of ['dakovo', 'djakovo']) { await go(`?version=v3&fresh=fold${query}#explore=municipalities&l=hr`); await page.waitForSelector('.v3-municipal-results > button'); await page.type('.v3-municipal-search input', query); await new Promise(resolve => setTimeout(resolve, 200)); foldedD.push((await text('.v3-municipal-results')).includes('Đakovo')); }
+  check('searches find đ typed as d or dj', foldedD.every(Boolean));
   await go();
   await page.type('.v3-search input', 'sisa');
   check('county search ignores accents', (await text('.v3-rank-list')).includes('Sisačko'));
