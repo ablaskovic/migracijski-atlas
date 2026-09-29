@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { ISOS, IX2011, IX2018, REG, REGOF, YEARS, ipfMargins, val } from '../lib/metrics.ts';
-import { NEWTAB, setLang, storeLang } from '../lib/i18n.ts';
+import { ISOS, IX2011, IX2018, REG, REGOF, Y0, YEARS, YEND, ipfMargins, val } from '../lib/metrics.ts';
+import { NEWTAB, setLang, storeLang, t, yrSpan } from '../lib/i18n.ts';
 import { APP_VERSION, ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from '../lib/licences.ts';
 import { dropHash } from '../lib/privacy.ts';
 import VersionSwitch from '../VersionSwitch.tsx';
@@ -35,6 +35,8 @@ setLang(initial.lang);
    a discrete change flushes what is held and pushes at once. Every write is
    guarded: a refused one leaves a stale address that the next write repairs,
    never an exception in the middle of an interaction. */
+// The static canonical, read before the head effect rewrites it per language.
+const SITE = document.querySelector('link[rel="canonical"]')?.getAttribute('href') ?? '/';
 const HIST_MS = 320;
 let heldHref: string | null = null, heldTimer: ReturnType<typeof setTimeout> | null = null, lastWrite = 0;
 function writeHistory(method: 'pushState' | 'replaceState', href: string) {
@@ -186,6 +188,16 @@ export default function AppV3() {
   // The tab, a bookmark and a share sheet name the view and its subject; the tagline is the heading's, not the tab's.
   const tabTitle = [L('Migracijski atlas', 'Migration atlas'), viewName(s.view, s.lang), subject ?? L('Hrvatska', 'Croatia'), period].join(' · ');
   useEffect(() => { document.title = tabTitle; }, [tabTitle]);
+  /* The head names each language's page, as v2's does: under v3 /?l=en kept the Croatian canonical, og:url and og:locale,
+     telling a crawler it duplicates /, and the Croatian description and card title. The canonical follows the address
+     (l=en, with the reader agreeing); the copy follows the language on screen. */
+  useEffect(() => {
+    const span = yrSpan(Y0, YEND), desc = t('meta.desc').replace('{span}', span), en = new URLSearchParams(location.search).get('l') === 'en' && s.lang === 'en';
+    const set = (selector: string, attribute: string, value: string) => document.querySelector(selector)?.setAttribute(attribute, value);
+    set('meta[name="description"]', 'content', desc); set('meta[property="og:description"]', 'content', desc); set('meta[property="og:title"]', 'content', `${t('hd.title')} · ${span}`);
+    set('link[rel="canonical"]', 'href', SITE + (en ? '?l=en' : '')); set('meta[property="og:url"]', 'content', SITE + (en ? '?l=en' : ''));
+    set('meta[property="og:locale"]', 'content', en ? 'en_GB' : 'hr_HR'); set('meta[property="og:locale:alternate"]', 'content', en ? 'hr_HR' : 'en_GB');
+  }, [s.lang]);
   useEffect(() => {
     if (!playing) return;
     const timer = setInterval(() => {

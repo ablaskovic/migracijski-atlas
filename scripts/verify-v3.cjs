@@ -554,6 +554,12 @@ const signed = (n, relative) => {
   const tabTitles = [];
   for (const hash of ['explore=map&year=2025&l=en', 'explore=trends&year=2025&l=hr', 'explore=flows&year=2018&l=en', 'explore=map&year=2025&county=HR-18&l=hr']) { await go(`?version=v3&fresh=title${tabTitles.length}#${hash}`); tabTitles.push(await page.title()); }
   check('the tab title names the view and its subject, without the tagline', JSON.stringify(tabTitles) === JSON.stringify(['Migration atlas · Map · Croatia · 2025', 'Migracijski atlas · Trendovi · Hrvatska · 2025', 'Migration atlas · Flows · City of Zagreb · 2018', 'Migracijski atlas · Karta · Istarska · 2025']));
+  // v3 set only the title: /?l=en kept the Croatian canonical, og:url and og:locale (a crawler read it as a duplicate of /)
+  // and the Croatian description and card title.
+  const headMeta = () => page.evaluate(() => ['link[rel="canonical"]', 'meta[property="og:url"]', 'meta[property="og:locale"]', 'meta[property="og:title"]', 'meta[name="description"]'].map(s => { const el = document.querySelector(s); return (el.href || el.content).slice(0, 36); }));
+  await go('?version=v3&l=en&fresh=head#explore=map&year=2024'); const englishHead = await headMeta();
+  await page.click('.v3-language button:not([aria-pressed="true"])'); await new Promise(resolve => setTimeout(resolve, 300)); const croatianHead = await headMeta();
+  check('each language page names itself in the head: canonical, og:url, og:locale, card title and description', JSON.stringify([englishHead, croatianHead]) === JSON.stringify([['https://migracijski-atlas.hr/?l=en', 'https://migracijski-atlas.hr/?l=en', 'en_GB', 'County Migration Atlas (CROATIA) · 1', 'An interactive atlas of migration in'], ['https://migracijski-atlas.hr/', 'https://migracijski-atlas.hr/', 'hr_HR', 'Migracijski atlas županija · 1998.–2', 'Interaktivni atlas migracija hrvatsk']]));
   await go('?version=v3&fresh=dash#explore=trends&l=en');
   check('year spans use an en dash', (await page.evaluate(() => [document.querySelector('.v3-header-caption').textContent, document.querySelector('.v3-trends-view .v3-eyebrow').textContent])).every(t => t.includes('1998–2025') && !t.includes('—')));
   // The sidebar named two views differently from the view select ("Podjela"/"Classes", "Local map"), and its labels break
