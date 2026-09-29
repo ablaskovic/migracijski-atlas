@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ISOS, YEARS, flowOf, val } from '../lib/metrics.ts';
+import { ISOS, flowOf, val } from '../lib/metrics.ts';
 import type { Dir, Flow } from '../lib/types.ts';
-import { countyName, fold, formatNumber, ranked, value, type AtlasState, type Explore } from './model.ts';
+import { countyName, fold, formatNumber, periodLabel, ranked, value, type AtlasState, type Explore } from './model.ts';
 import Icon from './Icon.tsx';
 import { CountySeries } from './AnalysisViews.tsx';
 
@@ -21,7 +21,7 @@ export default function CountyPanel({ s, hover, setHover, selectView, direction,
   const rowValue = (iso: string) => isFlow ? flowOf(hub, direction, iso, s.yi, s.cum) : value(iso, s);
   const max = Math.max(1, ...rows.map(iso => Math.abs(rowValue(iso))));
   const visible = rows.filter(iso => fold(countyName(iso, s.lang)).includes(fold(query)));
-  const period = s.cum ? `2011–${YEARS[s.yi]}` : String(YEARS[s.yi]);
+  const period = periodLabel(s.yi, s.cum);
   return <aside className="v3-county-panel" aria-label={isFlow ? L('Koridori', 'Corridors') : L('Županije i detalji', 'Counties and details')}>
     {s.county && !isFlow ? <div className="v3-county-detail">
       <div className="v3-panel-title"><span className="v3-eyebrow">{L('DETALJI ŽUPANIJE', 'COUNTY DETAIL')}</span><button className="v3-icon-button" aria-label={L('Zatvori detalje', 'Close county details')} onClick={() => inspectCounty(null)}><Icon name="close" size={17} /></button></div>

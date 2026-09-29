@@ -1,7 +1,7 @@
 import { D, FLOWN, ISOS, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBadge, fsum, jlsVal, klasOf, mxCell, mxMax, regVal, val, yrsCols, yrsOrder } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperCaveatLine, paperThrLine, regionReadingLine } from '../lib/credits.ts';
-import { colors, countyName, domain, downloadFile, ranked, unitName, value, viewName, type AtlasState } from './model.ts';
+import { colors, countyName, domain, downloadFile, periodLabel, ranked, unitName, value, viewName, type AtlasState } from './model.ts';
 import { exportFigure } from './figureExport.ts';
 
 const SOURCE = 'DZS / CBS: https://podaci.dzs.hr';
@@ -26,7 +26,7 @@ export function exportDataCSV(s: AtlasState) {
   } else {
     rows = [['County ISO', 'County', 'From year', 'To year', 'Metric', 'Unit', 'Value', 'Source'], ...ranked(s).map(iso => [iso, D[iso].n, from, year, s.flow, unit, value(iso, s), SOURCE])];
   }
-  downloadFile('\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n'), 'text/csv;charset=utf-8', `atlas-${s.view === 'trends' ? `${s.cum ? 2011 : YEARS[0]}-${YEARS[YEARS.length - 1]}` : `${s.cum ? '2011–' : ''}${year}`}-${s.view === 'flows' ? `flows-${s.dir}` : s.view === 'map' || s.view === 'trends' ? s.flow : s.view}.csv`);
+  downloadFile('\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n'), 'text/csv;charset=utf-8', `atlas-${s.view === 'trends' ? `${s.cum ? 2011 : YEARS[0]}-${YEARS[YEARS.length - 1]}` : `${periodLabel(s.yi, s.cum)}`}-${s.view === 'flows' ? `flows-${s.dir}` : s.view === 'map' || s.view === 'trends' ? s.flow : s.view}.csv`);
 }
 
 function tableFigure(s: AtlasState, light: boolean): SVGSVGElement {
@@ -57,7 +57,7 @@ export async function exportCurrentFigure(s: AtlasState, format: 'png' | 'svg', 
   if (table) { svg.style.position = 'fixed'; svg.style.left = '-10000px'; document.body.append(svg); }
   const L = (hr: string, en: string) => s.lang === 'hr' ? hr : en;
   const flow = s.view === 'flows' || s.view === 'matrix', municipal = s.view === 'municipalities';
-  const period = s.view === 'trends' ? `${s.cum ? 2011 : YEARS[0]}–${YEARS[YEARS.length - 1]}` : `${s.cum ? '2011–' : ''}${YEARS[s.yi]}`;
+  const period = s.view === 'trends' ? `${s.cum ? 2011 : YEARS[0]}–${YEARS[YEARS.length - 1]}` : periodLabel(s.yi, s.cum);
   const notes = [flow || municipal ? OD_SOURCE : SOURCE];
   if (flow) notes.push(flowBadge(s.yi, s.cum), L('IPF: struktura 2018. skalirana na odseljene DZS-a; doseljeni približno. Godišnja 2018. je izmjerena.', 'IPF: 2018 structure scaled to CBS out-margins; in-margins approximate. Annual 2018 is measured.'));
   if (s.view === 'flows') notes.push(L('Koridori ispod 5 osoba nisu ucrtani; potpuni podaci su u CSV-u.', 'Corridors under 5 people are not drawn; complete data is in the CSV.'));

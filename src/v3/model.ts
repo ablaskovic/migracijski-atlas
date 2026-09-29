@@ -96,6 +96,9 @@ export function formatNumber(lang: Lang, n: number, { signed = false, digits, pe
   return (abs === f.format(0) ? '' : n < 0 ? '−' : signed ? '+' : '') + abs + (percent ? ' %' : '');
 }
 
+/** The years a value covers, as printed: one year, or 2011–year for a cumulative total — never "2011–2011". */
+export const periodLabel = (yi: number, cum: boolean) => cum && yi > IX2011 ? `2011–${YEARS[yi]}` : String(YEARS[yi]);
+
 export const value = (iso: string, s: AtlasState) => val(iso, s.yi, s.flow, s.den, s.cum);
 export const unitName = (s: Pick<AtlasState, 'den' | 'yi' | 'lang'>) => s.den === 'abs' ? (s.lang === 'hr' ? 'broj osoba' : 'people') : denName(s.den, s.yi).replace(/^\s*·\s*/, '');
 export const domain = (s: AtlasState) => DOM[s.flow + s.den + s.cum];

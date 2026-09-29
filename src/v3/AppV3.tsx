@@ -6,7 +6,7 @@ import { setLang, storeLang } from '../lib/i18n.ts';
 import { APP_VERSION, ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from '../lib/licences.ts';
 import { dropHash } from '../lib/privacy.ts';
 import VersionSwitch from '../VersionSwitch.tsx';
-import { FLOWS, VIEWS, colors, countyName, domain, findingPatch, formatNumber, normalizeState, numberFormat, readState, stateHash, totals, unitName, viewName, type AtlasState, type Explore } from './model.ts';
+import { FLOWS, VIEWS, colors, countyName, domain, findingPatch, formatNumber, normalizeState, numberFormat, periodLabel, readState, stateHash, totals, unitName, viewName, type AtlasState, type Explore } from './model.ts';
 import { jlsGeo, useGeo } from '../lib/geoAsync.ts';
 import { STORIES } from '../lib/stories.ts';
 import type { Den } from '../lib/types.ts';
@@ -71,7 +71,7 @@ export default function AppV3() {
   const scopeCounty = s.view === 'flows' ? s.county ?? 'HR-21' : s.county;
   const region = s.view === 'regions' && s.county ? REG[REGOF[s.county]] : null;
   const title = region ? region.name : scopeCounty && !nationalPanel ? countyName(scopeCounty, s.lang) : L('Hrvatska u pokretu.', 'Croatia in motion.');
-  const period = s.cum ? `2011–${YEARS[s.yi]}` : String(YEARS[s.yi]);
+  const period = periodLabel(s.yi, s.cum);
   const current = totals({ ...s, county: scopeCounty }, region?.c);
   const winners = ISOS.filter(iso => val(iso, s.yi, 'tot', 'abs', s.cum) > 0).length;
   const hub = s.county ?? 'HR-21';

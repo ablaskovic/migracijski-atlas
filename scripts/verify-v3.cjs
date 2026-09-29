@@ -103,7 +103,7 @@ const signed = (n, relative) => {
 
   await page.select('#v3-year', String(raw.years.indexOf(2000)));
   await click('.v3-time-mode button:nth-child(2)');
-  check('cumulative mode starts no earlier than 2011', await page.$eval('#v3-year', el => el.value === '13') && (await text('.v3-period')).includes('2011–2011'));
+  check('cumulative mode starts no earlier than 2011 and names that single year once', await page.$eval('#v3-year', el => el.value === '13') && (await text('.v3-period strong')) === '2011');
   await click('.v3-time-mode button:first-child');
   await page.select('#v3-year', '0');
   await click('.v3-play');
@@ -169,6 +169,16 @@ const signed = (n, relative) => {
     await go(`?version=v3&l=${lang}&fresh=gridabs${lang}#explore=trends&metric=tot&l=${lang}`);
     check(`${lang} year-grid balances are signed with the typographic minus`, await page.$$eval('[data-grid-cell]', els => els.length === 588 && els.every(e => /^([+−]\d{1,3}([.,]\d{3})*|0)$/.test(e.getAttribute('aria-label').split(': ').at(-1)))));
   }
+  // A cumulative window that opens and closes in 2011 is one year; "2011–2011" was printed on KPIs, headings, grid cells, pair notes and file names.
+  const repeatedWindow = {};
+  for (const state of ['explore=map&year=2011&sum=1&county=HR-18', 'explore=trends&year=2011&sum=1', 'explore=regions&year=2011&sum=1', 'explore=matrix&year=2011&sum=1&county=HR-21&pair=HR-01', 'explore=flows&year=2011&sum=1&county=HR-21&pair=HR-01']) {
+    await go(`?version=v3&l=en&fresh=${state.length}#${state}&l=en`);
+    const hits = await page.evaluate(() => [document.body.innerText, document.title, ...[...document.querySelectorAll('[aria-label],[title]')].map(e => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || ''))].filter(t => t.includes('2011–2011')).length);
+    if (hits) repeatedWindow[state] = hits;
+  }
+  check('a one-year cumulative window is printed as one year', Object.keys(repeatedWindow).length === 0);
+  await go('?version=v3&l=en&fresh=csv2011#explore=matrix&year=2011&sum=1&l=en');
+  check('a one-year cumulative export is named for that year', (await downloadCSV('atlas-2011-matrix.csv')).includes('"2011","2011"'));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
