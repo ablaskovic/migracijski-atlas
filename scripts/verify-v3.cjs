@@ -846,6 +846,16 @@ const signed = (n, relative) => {
   const popToasts = [];
   for (const panel of ['age', 'citizenship', 'countries', 'municipal']) { await go(`?version=v3&fresh=popcsv${panel}#explore=population&panel=${panel}&l=en`); await page.click('.v3-pop-export'); await new Promise(resolve => setTimeout(resolve, 300)); popToasts.push(await text('.v3-toast')); }
   check('a population CSV export confirms itself in the toast', popToasts.every(t => t === 'Data exported as CSV.'));
+  // Keyed on its text, a second export 3 s after the first changed nothing in the live region (no announcement) and the
+  // first timer cleared it at 3.5 s; worded at click time, it stayed Croatian after a switch to English.
+  await go('?version=v3&fresh=toastrepeat#explore=map&year=2024&l=hr');
+  await page.evaluate(() => { window.toastAdds = 0; new MutationObserver(records => { for (const r of records) for (const n of r.addedNodes) if (n.textContent.trim()) window.toastAdds++; }).observe(document.querySelector('.v3-toast'), { childList: true, subtree: true }); });
+  await page.click('.v3-export'); await new Promise(resolve => setTimeout(resolve, 3000));
+  await page.click('.v3-export'); await new Promise(resolve => setTimeout(resolve, 1500));
+  const repeatToast = await page.evaluate(() => [window.toastAdds, document.querySelector('.v3-toast').textContent]);
+  await page.click('.v3-language button:not([aria-pressed="true"])'); await new Promise(resolve => setTimeout(resolve, 300));
+  repeatToast.push(await text('.v3-toast'));
+  check('a repeated notice is announced again and restarts its timer; its text follows the language', JSON.stringify(repeatToast) === '[2,"Podaci su izvezeni u CSV.","Data exported as CSV."]');
   // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
   // timeline and no cumulative mode.
   const popNotes = [];

@@ -12,7 +12,8 @@ export interface FigureMetadata {
 }
 
 /** An export failure whose message tells the reader what went wrong; the app shows it as it is. */
-export class ExportFontError extends Error {}
+/* Both languages travel with the error: its notice is worded when it shows, not when the export began. */
+export class ExportFontError extends Error { constructor(readonly hr: string, readonly en: string) { super(en); } }
 
 const NS = 'http://www.w3.org/2000/svg';
 const PRESENTATION = ['color', 'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant', 'letter-spacing', 'word-spacing', 'text-anchor', 'dominant-baseline', 'alignment-baseline', 'paint-order', 'visibility', 'display', 'vector-effect', 'stop-color', 'stop-opacity', 'clip-path', 'clip-rule', 'mask', 'filter', 'marker-start', 'marker-mid', 'marker-end', 'transform', 'transform-origin', 'transform-box'];
@@ -128,7 +129,7 @@ export async function exportFigure(svg: SVGSVGElement, format: 'png' | 'svg', me
     L(`Migracijski atlas · autor: ${ATLAS_AUTHOR}`, `Migration atlas · author: ${ATLAS_AUTHOR}`),
   ];
   // Every string a v3 figure draws is IBM Plex Sans, so v2's Mono and Oswald faces neither travel with it nor gate it.
-  const sans = await ensureSans().catch(() => { throw new ExportFontError(L('Fontovi za izvoz nisu dostupni. Pokušajte ponovno.', 'Export fonts are unavailable. Please try again.')); });
+  const sans = await ensureSans().catch(() => { throw new ExportFontError('Fontovi za izvoz nisu dostupni. Pokušajte ponovno.', 'Export fonts are unavailable. Please try again.'); });
   const { clone, width, height, background, text, muted, border } = captured;
   const padding = 28;
   const outputWidth = Math.max(760, width + padding * 2);
