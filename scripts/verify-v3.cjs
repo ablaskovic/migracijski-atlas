@@ -393,6 +393,31 @@ const signed = (n, relative) => {
   const settledFills = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-county]')].map(p => [p.dataset.county, getComputedStyle(p).fill.replace(/\s/g, '')])));
   const exportedFills = Object.fromEntries([...fs.readFileSync(path.join(output, figureFile), 'utf8').matchAll(/<path[^>]*data-county="(HR-\d\d)"[^>]*>/g)].map(m => [m[1], ((/style="([^"]*)"/.exec(m[0]) || [])[1] || '').match(/fill:\s*([^;]+)/)?.[1].replace(/\s/g, '')]));
   check('a figure exported during a colour transition carries the settled colours', Object.keys(exportedFills).length === 21 && Object.keys(settledFills).every(iso => exportedFills[iso] === settledFills[iso]));
+  // v3 figures draw every string in IBM Plex Sans, yet embedded v2's Mono and Oswald too (~132 KB of unused faces) and
+  // refused to export when those failed, with a toast blaming the map; a Sans failure was misreported the same way.
+  const figureSvg = fs.readFileSync(path.join(output, figureFile), 'utf8');
+  check('a v3 figure embeds only the Sans faces it draws with, and its font notice names only those', JSON.stringify([...figureSvg.matchAll(/@font-face\{font-family:'([^']+)'/g)].map(m => m[1])) === '["IBM Plex Sans","IBM Plex Sans"]' && /IBM Corp/.test(figureSvg) && !/Oswald/.test(figureSvg));
+  const fontPage = await browser.newPage();
+  await fontPage.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  await (await fontPage.createCDPSession()).send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output });
+  await fontPage.setRequestInterception(true);
+  let missingFonts = null;
+  fontPage.on('request', request => { if (missingFonts && missingFonts.test(request.url())) request.respond({ status: 404, body: 'gone' }); else request.continue(); });
+  const exportWithout = async fonts => {
+    missingFonts = fonts;
+    for (const f of fs.readdirSync(output).filter(f => f.endsWith('.svg'))) fs.unlinkSync(path.join(output, f));
+    await fontPage.goto(origin + `/?version=v3&l=en&fresh=font${Math.random().toString(36).slice(2, 8)}#explore=map&year=2024&l=en`, { waitUntil: 'networkidle0' });
+    await fontPage.click('[aria-label="Export SVG"]');
+    await fontPage.waitForFunction(() => !!document.querySelector('.v3-toast').textContent);
+    const toast = await fontPage.$eval('.v3-toast', el => el.textContent);
+    let saved = false;
+    for (let i = 0; i < 60 && !saved && toast === 'Figure exported.'; i++) { await new Promise(resolve => setTimeout(resolve, 100)); saved = fs.readdirSync(output).some(f => f.endsWith('.svg')); }
+    return { saved, toast };
+  };
+  const withoutV2Fonts = await exportWithout(/ibm-plex-mono|oswald/), withoutSans = await exportWithout(/ibm-plex-sans/);
+  await fontPage.close();
+  await downloadSession.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output });
+  check('a v3 figure exports without the v2 fonts, and a missing Sans face is reported as a font failure', withoutV2Fonts.saved && !withoutSans.saved && /^Export fonts are unavailable/.test(withoutSans.toast));
   // Export names left out unit, direction, hub, threshold and language, so different exports collided (the people and %
   // maps of 2025 both saved as atlas-2025-tot.csv), and cumulative names carried an en dash.
   const savedName = async (hash, selector) => {

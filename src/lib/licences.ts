@@ -151,12 +151,17 @@ export const FONT_LICENCES: { label: string; href: string }[] = [
    is why it rides in the <style> that holds the faces rather than in the credit
    row: the row is already four lines deep and width-fitted, and a notice
    attached to the payload cannot be separated from it by a later edit. */
+const OFL = 'Embedded font software is licensed under the SIL Open Font License, Version 1.1.';
+const PLEX = 'Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"';
+const OFL_TEXT = 'Licence text: https://scripts.sil.org/OFL';
 export const FONT_NOTICE = [
-  'Embedded font software is licensed under the SIL Open Font License, Version 1.1.',
-  'Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"',
+  OFL,
+  PLEX,
   'Copyright 2016 The Oswald Project Authors (https://github.com/googlefonts/OswaldFont)',
-  'Licence text: https://scripts.sil.org/OFL',
+  OFL_TEXT,
 ].join(' ');
+/* v3 figures embed IBM Plex Sans alone, so their notice names Plex alone. */
+export const PLEX_FONT_NOTICE = [OFL, PLEX, OFL_TEXT].join(' ');
 
 /* The export is the artifact that leaves the app and it has no link to click,
    so the terms go on it as text. Unconditional — every view's image carries the

@@ -1,6 +1,5 @@
-import { ensureFonts, fontCss } from '../lib/exportFonts.ts';
 import { L } from '../lib/i18n.ts';
-import { ATLAS_AUTHOR, FONT_NOTICE, exportLicenceLine, sources } from '../lib/licences.ts';
+import { ATLAS_AUTHOR, PLEX_FONT_NOTICE, exportLicenceLine, sources } from '../lib/licences.ts';
 import sansLatin from '../fonts/ibm-plex-sans-latin.woff2';
 import sansExt from '../fonts/ibm-plex-sans-latin-ext.woff2';
 
@@ -11,6 +10,9 @@ export interface FigureMetadata {
   filename: string;
   legend?: string;
 }
+
+/** An export failure whose message tells the reader what went wrong; the app shows it as it is. */
+export class ExportFontError extends Error {}
 
 const NS = 'http://www.w3.org/2000/svg';
 const PRESENTATION = ['color', 'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant', 'letter-spacing', 'word-spacing', 'text-anchor', 'dominant-baseline', 'alignment-baseline', 'paint-order', 'visibility', 'display', 'vector-effect', 'stop-color', 'stop-opacity', 'clip-path', 'clip-rule', 'mask', 'filter', 'marker-start', 'marker-mid', 'marker-end', 'transform', 'transform-origin', 'transform-box'];
@@ -122,16 +124,15 @@ export async function exportFigure(svg: SVGSVGElement, format: 'png' | 'svg', me
     exportLicenceLine(),
     L(`Migracijski atlas · autor: ${ATLAS_AUTHOR}`, `Migration atlas · author: ${ATLAS_AUTHOR}`),
   ];
-  const fontError = L('Fontovi za izvoz nisu dostupni. Pokušajte ponovno.', 'Export fonts are unavailable. Please try again.');
-  const [existingFonts, sans] = await Promise.all([ensureFonts(), ensureSans()]);
-  if (!existingFonts) throw new Error(fontError);
+  // Every string a v3 figure draws is IBM Plex Sans, so v2's Mono and Oswald faces neither travel with it nor gate it.
+  const sans = await ensureSans().catch(() => { throw new ExportFontError(L('Fontovi za izvoz nisu dostupni. Pokušajte ponovno.', 'Export fonts are unavailable. Please try again.')); });
   const { clone, width, height, background, text, muted, border } = captured;
   const padding = 28;
   const outputWidth = Math.max(760, width + padding * 2);
   const figure = node('svg', { xmlns: NS, width: outputWidth, role: 'img' });
   const title = node('title'); title.textContent = meta.title; figure.append(title);
   const description = node('desc'); description.textContent = [meta.subtitle, meta.legend, ...meta.notes, ...credits].filter(Boolean).join('\n'); figure.append(description);
-  const style = node('style'); style.textContent = `/* ${FONT_NOTICE} */${fontCss()}${sans}`; figure.append(style);
+  const style = node('style'); style.textContent = `/* ${PLEX_FONT_NOTICE} */${sans}`; figure.append(style);
   const backdrop = node('rect', { width: outputWidth, fill: background }); figure.append(backdrop);
   const context = document.createElement('canvas').getContext('2d');
   if (!context) throw new Error('Canvas is unavailable');

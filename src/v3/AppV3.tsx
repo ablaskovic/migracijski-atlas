@@ -21,6 +21,7 @@ import PopulationPanels from './PopulationPanels.tsx';
 import { ClassificationView, CountySeries, MatrixView, PairDetail, RegionsView } from './AnalysisViews.tsx';
 import MunicipalityMap from './MunicipalityMap.tsx';
 import { exportDataCSV, exportCurrentFigure } from './exports.ts';
+import { ExportFontError } from './figureExport.ts';
 import './v3.css';
 import './explorer.css';
 import './mobile.css';
@@ -222,7 +223,7 @@ export default function AppV3() {
     setPlaying(false);
     setExporting(true);
     try { await exportCurrentFigure(s, format, light); setNotice(L('Slika je izvezena.', 'Figure exported.')); }
-    catch { setNotice(L('Izvoz nije uspio. Pokušajte ponovno nakon učitavanja karte.', 'Export failed. Try again once the map has loaded.')); }
+    catch (error) { setNotice(error instanceof ExportFontError ? error.message : L('Izvoz nije uspio. Pokušajte ponovno nakon učitavanja karte.', 'Export failed. Try again once the map has loaded.')); }
     finally { exportBusy.current = false; setExporting(false); }
   }
   function showAbout() { setPlaying(false); dialog.current?.showModal(); }
