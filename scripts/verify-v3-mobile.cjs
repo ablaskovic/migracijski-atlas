@@ -291,6 +291,19 @@ async function scenario(name, run) {
     }
     check('the tablet map slider is no narrower than a 390 px phone\'s, with the mode toggle on its own row', Object.values(report).every(r => r.slider >= 190 && r.modeBelow && !r.collide), report);
   });
+  await scenario('Landscape phones keep the map and timeline together', async () => {
+    // A 390 px map box with the legend and timeline below it spanned 519–666 px of a 360–412 px landscape screen.
+    const report = {};
+    for (const [width, height] of [[667, 375], [844, 390]]) for (const view of ['map', 'flows']) {
+      await viewport(width, height); await go(`explore=${view}&year=2024&l=hr`);
+      report[`${width}×${height} ${view}`] = await page.evaluate(() => {
+        const column = document.querySelector('.v3-map-column'); column.scrollIntoView({ block: 'start' });
+        const map = column.querySelector('.v3-cartography').getBoundingClientRect(), timeline = column.querySelector('.v3-timeline').getBoundingClientRect();
+        return { span: Math.round(Math.max(map.bottom, timeline.bottom) - map.top), viewport: innerHeight, map: Math.round(map.height) };
+      });
+    }
+    check('on landscape phones the map and the whole timeline fit one screen', Object.values(report).every(r => r.span <= r.viewport && r.map >= r.viewport / 2), report);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
