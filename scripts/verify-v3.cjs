@@ -681,6 +681,18 @@ const signed = (n, relative) => {
   await page.keyboard.press('Tab'); const leftTheList = await page.evaluate(() => !document.activeElement.closest('.v3-municipal-results'));
   await rovingFocus.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await rovingFocus.detach();
   check('the municipal list is one tab stop that arrow keys move through', listStops === 1 && JSON.stringify(listMoves) === '[1,2,1,555,0]' && leftTheList);
+  // The municipal map's focus indicator was the hover outline: hovering elsewhere or leaving the map took it away.
+  const ringFocus = await page.createCDPSession(); await ringFocus.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  await go('?version=v3&fresh=munifocus#explore=municipalities&l=en'); await page.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
+  await page.evaluate(() => document.querySelector('[data-municipality][tabindex="0"]').focus()); await page.keyboard.press('ArrowRight');
+  const ringId = await page.evaluate(() => document.activeElement.getAttribute('data-municipality'));
+  const ringHeld = () => page.evaluate(id => document.querySelector('[data-municipality-focus]')?.getAttribute('data-municipality-focus') === id, ringId);
+  const ringStates = [await ringHeld()];
+  const elsewhere = await page.$eval(`[data-municipality]:not([data-municipality="${ringId}"])`, p => { const r = p.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  await page.mouse.move(...elsewhere); await new Promise(resolve => setTimeout(resolve, 150)); ringStates.push(await ringHeld());
+  await page.mouse.move(5, 5); await new Promise(resolve => setTimeout(resolve, 150)); ringStates.push(await ringHeld());
+  await ringFocus.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await ringFocus.detach();
+  check('a keyboard-focused municipality keeps its own outline whatever the pointer does', ringStates.every(Boolean));
   // The trend chart's year bars are buttons that pick a year, and none said which year was picked.
   await go('?version=v3&fresh=bars#explore=trends&year=2010&l=en');
   check('the trend chart says which year is selected', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.v3-trend-chart .v3-chart-hit[aria-pressed="true"]')].map(b => b.getAttribute('aria-label').slice(0, 4)))) === '["2010"]');

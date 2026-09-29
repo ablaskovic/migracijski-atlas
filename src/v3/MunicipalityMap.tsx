@@ -21,6 +21,8 @@ export default function MunicipalityMap({ s, light, update }: { s: AtlasState; l
   const [focused, setFocused] = useState(0);
   // The results list is one tab stop (it can hold all 556 rows); arrow keys, Home and End move within it.
   const [row, setRow] = useState(0);
+  // A keyboard focus ring of its own: the hover outline moves with the pointer and leaves with it.
+  const [ring, setRing] = useState<number | null>(null);
   const results = useRef<HTMLDivElement>(null);
   // The retry and clear buttons remove themselves; focus goes to what they served.
   const search = useRef<HTMLInputElement>(null), heading = useRef<HTMLHeadingElement>(null);
@@ -36,7 +38,7 @@ export default function MunicipalityMap({ s, light, update }: { s: AtlasState; l
     <div className="v3-municipal-layout"><div><div className={'v3-cartography v3-municipal-map' + (nav.zoom > 1 ? ' is-zoomed' : '')}>
       <svg ref={nav.svg} className={'v3-map' + (nav.dragging ? ' is-panning' : '')} viewBox={`0 0 ${W} ${H}`} aria-label={L('Karta gradova i općina Hrvatske 2018.', 'Map of Croatian municipalities 2018')} onPointerDown={e => { if (nav.onPointerDown(e)) setHover(null); }} onPointerMove={e => { if (nav.onPointerMove(e)) setHover(null); }} onPointerUp={nav.onPointerEnd} onPointerCancel={e => { nav.onPointerEnd(e); setHover(null); }} onLostPointerCapture={nav.onPointerEnd} onClickCapture={e => { if (e.detail > 0 && nav.suppressClick.current) { e.preventDefault(); e.stopPropagation(); } }} onDragStart={e => e.preventDefault()}>
         <g className="v3-map-world" transform={`translate(${nav.x} ${nav.y}) translate(${W / 2} ${H / 2}) scale(${nav.zoom}) translate(${-W / 2} ${-H / 2})`}>
-          <g className="v3-municipal-shapes">{features.map(({ p, d }, i) => <path key={p.j} d={d} data-municipality={p.j} fill={scale(jlsVal(p, s.dir))} opacity={s.county && ISOS[p.c] !== s.county ? .22 : 1} vectorEffect="non-scaling-stroke" role="button" tabIndex={focused === i ? 0 : -1} aria-label={description(p)} aria-pressed={selected === p.j} onPointerEnter={() => { if (!nav.dragging) setHover(p.j); }} onPointerLeave={() => setHover(null)} onFocus={e => { nav.reveal(e.currentTarget); setFocused(i); setHover(p.j); }} onBlur={() => setHover(null)} onClick={() => setSelected(p.j)} onKeyDown={e => {
+          <g className="v3-municipal-shapes">{features.map(({ p, d }, i) => <path key={p.j} d={d} data-municipality={p.j} fill={scale(jlsVal(p, s.dir))} opacity={s.county && ISOS[p.c] !== s.county ? .22 : 1} vectorEffect="non-scaling-stroke" role="button" tabIndex={focused === i ? 0 : -1} aria-label={description(p)} aria-pressed={selected === p.j} onPointerEnter={() => { if (!nav.dragging) setHover(p.j); }} onPointerLeave={() => setHover(null)} onFocus={e => { nav.reveal(e.currentTarget); setFocused(i); setHover(p.j); setRing(e.currentTarget.matches(':focus-visible') ? p.j : null); }} onBlur={() => { setHover(null); setRing(null); }} onClick={() => setSelected(p.j)} onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(p.j); return; }
             const delta: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1, Home: -i, End: features.length - 1 - i };
             if (!(e.key in delta)) return; e.preventDefault();
@@ -45,6 +47,7 @@ export default function MunicipalityMap({ s, light, update }: { s: AtlasState; l
           }}><title>{description(p)}</title></path>)}</g>
           <path d={path(GEO) ?? ''} className="v3-region-boundaries" vectorEffect="non-scaling-stroke" aria-hidden="true" />
           {active && <path className="v3-municipal-outline" data-municipality-outline={active.p.j} d={active.d} vectorEffect="non-scaling-stroke" aria-hidden="true" />}
+          {ring != null && <path className="v3-municipal-outline is-focused" data-municipality-focus={ring} d={features.find(({ p }) => p.j === ring)?.d} vectorEffect="non-scaling-stroke" aria-hidden="true" />}
         </g>
       </svg>
       <p className="v3-touch-hint">{nav.zoom > 1 ? L('Povucite kartu · ↺ za listanje stranice', 'Drag to move · ↺ to scroll page') : L('Listajte jednim prstom · Povećajte s dva', 'Scroll with one finger · Zoom with two')}</p>
