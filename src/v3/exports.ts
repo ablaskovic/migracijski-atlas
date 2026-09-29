@@ -1,8 +1,8 @@
-import { D, FLOWN, ISOS, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBadge, fsum, jlsVal, klasOf, mxCell, mxMax, regVal, val, yrsCols, yrsOrder } from '../lib/metrics.ts';
+import { D, FLOWN, ISOS, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBadge, fsum, jlsVal, klasOf, mxCell, mxMax, pragText, regVal, val, yrsCols, yrsOrder } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperCaveatLine, paperThrLine, regionReadingLine } from '../lib/credits.ts';
 import { inLang } from '../lib/i18n.ts';
-import { colors, countyName, domain, downloadFile, periodLabel, ranked, unitName, value, viewName, type AtlasState } from './model.ts';
+import { asClassic, colors, countyName, domain, downloadFile, periodLabel, ranked, unitName, value, viewName, type AtlasState } from './model.ts';
 import { exportFigure } from './figureExport.ts';
 
 const SOURCE = 'DZS / CBS: https://podaci.dzs.hr';
@@ -89,7 +89,7 @@ export async function exportCurrentFigure(s: AtlasState, format: 'png' | 'svg', 
   let legend = L(`Koraljno: −${limit} · sivo: 0 · zeleno: +${limit}. Skala ostaje ista kroz godine.`, `Coral: −${limit} · grey: 0 · teal: +${limit}. Scale stays fixed across years.`);
   if ((s.view === 'matrix' || municipal) && s.dir !== 'net') legend = L(`Sivo: 0 · zeleno: ${limit} osoba.`, `Grey: 0 · teal: ${limit} people.`);
   if (s.view === 'flows') legend = L('Zeleno: prema odabranoj županiji · koraljno: iz odabrane županije. Debljina linije prati korijen broja osoba.', 'Teal: towards selected county · coral: away from selected county. Line width follows the square root of people.');
-  if (s.view === 'classify') legend = `${KLAB.gain}: > 0 · ${KLAB.neu}: ${s.thrRel ? `−${s.thrPct}%` : `−${s.thr}`} … 0 · ${KLAB.loss}: < ${s.thrRel ? `−${s.thrPct}%` : `−${s.thr}`}`;
+  if (s.view === 'classify') { const threshold = pragText(asClassic(s)); legend = `${KLAB.gain}: > 0 · ${KLAB.neu}: ${threshold} … 0 · ${KLAB.loss}: < ${threshold}`; }
   if (s.view === 'matrix') notes.push(s.dir === 'out' ? L('Redak → stupac: odseljeni.', 'Row → column: departures.') : s.dir === 'in' ? L('Stupac → redak: doseljeni.', 'Column → row: arrivals.') : L('Saldo retka: stupac → redak minus redak → stupac.', 'Net gain for the row: column → row minus row → column.'));
   if (s.view === 'trends') notes.push(L('Stupac = godina; redak = županija. Zbroj počinje 2011. kada je uključen kumulativni prikaz.', 'Column = year; row = county. Totals start at 2011 when cumulative mode is selected.'));
   if (s.den === 'relest' && !flow && !municipal) notes.push(L('Kumulativni saldo koristi procjenu stanovništva završne godine; svaka ćelija tablice koristi procjenu svoje godine.', 'Cumulative net change uses the endpoint population estimate; each table cell uses its own year’s estimate.'));

@@ -444,6 +444,17 @@ const signed = (n, relative) => {
   for (const hash of ['explore=map&year=2020&metric=all&unit=estimate', 'explore=trends&metric=tot&unit=estimate', 'explore=classify&year=2024', 'explore=flows&year=2018', 'explore=regions&year=2024&metric=int', 'explore=matrix&year=2011']) csvPairs.push([await csvIn(hash + '&l=hr'), await csvIn(hash + '&l=en')]);
   check('a CSV reads the same whichever language the UI is in', csvPairs.every(([hr, en]) => hr && hr === en));
   check('the CSV names its metric and signs the loss threshold as the screen does', csvPairs[0][1].includes(',"migration + natural change",') && csvPairs[2][1].trim().split('\r\n').slice(1).every(line => line.includes(',"-4500",')));
+  // The exported classification legend printed the threshold raw ("−4500", Croatian "−1.5%") instead of as the screen's
+  // threshold readout does ("−4.500", "−1,5 % popisa 2011.").
+  const legendOf = async (query, lang) => {
+    for (const f of fs.readdirSync(output).filter(f => /^atlas-/.test(f))) fs.unlinkSync(path.join(output, f));
+    const name = await savedName(`explore=classify&year=2024${query}&l=${lang}`, '.v3-export-actions button:nth-child(2)');
+    const screen = await page.$eval('.v3-threshold output', el => el.textContent);
+    const desc = name ? (fs.readFileSync(path.join(output, name), 'utf8').match(/<desc>([^<]*)<\/desc>/) || [])[1] || '' : '';
+    return { screen, legend: (desc.split('\n')[1] || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') };
+  };
+  const legends = [await legendOf('', 'hr'), await legendOf('', 'en'), await legendOf('&thresholdUnit=pct', 'hr'), await legendOf('&thresholdUnit=pct', 'en')];
+  check('the exported classification legend states the threshold as the screen does', legends.every(({ screen, legend }) => legend.includes(`: ${screen} … 0 · `) && legend.endsWith(`: < ${screen}`)));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
