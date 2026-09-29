@@ -4,8 +4,12 @@ import { formatNumber, type AtlasState } from './model.ts';
 
 interface Props { s: AtlasState; compact?: boolean; onYear?: (yi: number) => void; flow?: Flow; }
 
+/* Nationally, internal moves cancel out (exactly from 2007; before it only margin residuals remain), so the national
+   total is the external balance and "migration + natural change" is external + natural. */
+const national = (yi: number, flow: Flow) => ISOS.reduce((n, iso) => n + (flow === 'tot' ? netAt(iso, yi, 'ext') : flow === 'all' ? netAt(iso, yi, 'ext') + netAt(iso, yi, 'nat') : netAt(iso, yi, flow)), 0);
+
 export default function TrendChart({ s, compact = false, onYear, flow }: Props) {
-  const series = YEARS.map((_, yi) => (s.county ? [s.county] : ISOS).reduce((n, iso) => n + netAt(iso, yi, flow ?? (s.county ? s.flow : 'ext')), 0));
+  const series = YEARS.map((_, yi) => s.county ? netAt(s.county, yi, flow ?? s.flow) : national(yi, flow ?? s.flow));
   const max = Math.max(1, ...series.map(Math.abs));
   const w = 800, h = compact ? 160 : 240, left = compact ? 8 : 60, right = 16;
   const top = 20, bottom = h - 32, mid = (top + bottom) / 2;

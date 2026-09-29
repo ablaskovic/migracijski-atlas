@@ -266,6 +266,16 @@ const signed = (n, relative) => {
   const regionMap = await clickTwice(() => clickShape('HR-17'));
   const regionCard = await clickTwice(() => page.click('[data-region="sj"]'));
   check('a second click deselects in Classification and Regions, as on the map', JSON.stringify([classMap, classList, regionMap, regionCard]) === JSON.stringify([['HR-14', null], ['HR-18', null], ['HR-17', null], ['HR-08', null]]));
+  // The national trend chart always drew net external migration, whatever the Component buttons said. National internal
+  // migration is zero from 2007 (one county's gain is another's loss), so that component gets a note, not bars of residuals.
+  const nationalChart = {};
+  for (const metric of ['tot', 'ext', 'nat', 'all', 'int']) {
+    await go(`?version=v3&l=en&fresh=nat${metric}#explore=trends&metric=${metric}&l=en`);
+    nationalChart[metric] = { bar: await page.$$eval('.v3-chart-hit', els => els.at(-1)?.getAttribute('aria-label') ?? null), subtitle: await text('.v3-trends-view .v3-section-heading p'), note: await page.$eval('.v3-trends-view', e => /cancels? out/i.test(e.textContent)) };
+  }
+  check('the national chart follows the component: total and external 2025 = +19,180', nationalChart.tot.bar === '2025: +19,180' && nationalChart.ext.bar === '2025: +19,180');
+  check('the national chart shows natural change and migration + natural change', nationalChart.nat.bar === '2025: −17,528' && nationalChart.all.bar === '2025: +1,652' && /natural change/i.test(nationalChart.nat.subtitle));
+  check('national internal migration is explained instead of charted', nationalChart.int.bar === null && nationalChart.int.note);
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
