@@ -114,11 +114,16 @@ export default function useMapNavigation(width: number, height: number) {
     if (!pointers.current.size) setDragging(false);
   };
   const reset = () => { cancel(); update({ zoom: 1, x: 0, y: 0 }); };
+  // A step of the pan buttons, a fifth of the view: dragging is not the only way to move a zoomed map (WCAG 2.5.7).
+  const pan = (dx: number, dy: number) => update({ ...current.current, x: current.current.x + dx * width / 5, y: current.current.y + dy * height / 5 });
+  // Focus on a feature outside the zoomed view pans it to the centre at the same zoom; a reset threw that zoom away.
   const reveal = (target: SVGGraphicsElement) => {
     const clip = svg.current?.getBoundingClientRect(), box = target.getBoundingClientRect();
-    if (clip && (box.right <= clip.left || box.left >= clip.right || box.bottom <= clip.top || box.top >= clip.bottom)) reset();
+    if (!clip || !(box.right <= clip.left || box.left >= clip.right || box.bottom <= clip.top || box.top >= clip.bottom)) return;
+    const b = target.getBBox(), { zoom } = current.current;
+    update({ zoom, x: -(b.x + b.width / 2 - width / 2) * zoom, y: -(b.y + b.height / 2 - height / 2) * zoom });
   };
   return { svg, ...view, dragging, suppressClick, onPointerDown, onPointerMove, onPointerEnd,
     zoomIn: () => zoomTo(current.current.zoom + .5), zoomOut: () => zoomTo(current.current.zoom - .5),
-    reset, reveal, maxZoom: MAX_ZOOM };
+    reset, reveal, pan, maxZoom: MAX_ZOOM };
 }

@@ -7,6 +7,7 @@ import { offCentre } from '../lib/anchors.ts';
 import { colors, countyName, domain, numberFormat, value, type AtlasState } from './model.ts';
 import Icon from './Icon.tsx';
 import useMapNavigation from './useMapNavigation.ts';
+import MapPan from './MapPan.tsx';
 import './map-interactions.css';
 
 const W = 820, H = 535;
@@ -140,6 +141,7 @@ export default function MapCanvas({ s, light, hover, onHover, onSelect, format, 
       <button title={L('Smanji kartu', 'Zoom out')} aria-label={L('Smanji kartu', 'Zoom out')} aria-disabled={zoom === 1 || undefined} onClick={nav.zoomOut}><Icon name="minus" size={18} /></button>
       <button title={L('Vrati prikaz', 'Reset map')} aria-label={L('Vrati prikaz', 'Reset map')} onClick={nav.reset}><Icon name="reset" size={16} /></button>
       <button title={L('Nazivi: ', 'Labels: ') + labelMode} aria-label={L('Nazivi: ', 'Labels: ') + labelMode + '. ' + L('Promijeni nazive', 'Change labels')} aria-pressed={labels !== 'off'} onClick={() => setLabels(nextLabels)}>Aa</button></div>
+    <MapPan nav={nav} lang={s.lang} />
     <div className="v3-map-readout">{active ? describeCounty ? <span>{describeCounty(active)}</span> : isFlow ? <span>{flowLabel(active)}</span> : <><span>{countyName(active, s.lang)}</span><strong>{format(value(active, s), s.relative)}</strong></> : <><span className="v3-live-dot" /><span>{L('Odaberite županiju za više detalja', 'Select a county to explore')}</span></>}</div>
   </div>;
 }

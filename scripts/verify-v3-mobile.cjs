@@ -185,6 +185,14 @@ async function scenario(name, run) {
     check('closing a finding restores the finding selector', await page.evaluate(() => document.activeElement === document.querySelector('[aria-label="Guided findings"]')));
     await go(); check('flow hub has no misleading All Croatia reset', !(await page.$('.v3-period button')));
   });
+  await scenario('Pan buttons stay clear of the map tools', async () => {
+    // A zoomed map pans by button as well as by drag (WCAG 2.5.7); on a 300 px phone map the 3×3 pad covered the tools.
+    await viewport(); await go('explore=map&year=2024&l=en');
+    for (let i = 0; i < 2; i++) { await page.click('.v3-map-tools button:first-child'); await settle(); }
+    const boxes = await page.evaluate(() => Object.fromEntries(['.v3-map-tools', '.v3-map-pan', '.v3-cartography'].map(s => { const r = document.querySelector(s).getBoundingClientRect(); return [s, { l: r.left, r: r.right, t: r.top, b: r.bottom }]; })));
+    const [tools, pan, map] = ['.v3-map-tools', '.v3-map-pan', '.v3-cartography'].map(s => boxes[s]);
+    check('the pan buttons sit inside the map without covering its tools', !(pan.l < tools.r && pan.r > tools.l && pan.t < tools.b && pan.b > tools.t) && pan.l >= map.l && pan.r <= map.r && pan.t >= map.t && pan.b <= map.b, boxes);
+  });
   await scenario('Figure export keeps desktop label sizes', async () => {
     // Phones enlarge map labels to stay legible, and the figure export copied that size: the same 876 px figure printed
     // city names at 11 px from a desktop, 25.3 px from 390 and 30.5 px from 320.

@@ -4,6 +4,7 @@ import { GEO, ISOS, jlsVal } from '../lib/metrics.ts';
 import { geoStatus, jlsFailed, jlsGeo, retryGeo, useGeo } from '../lib/geoAsync.ts';
 import { colors, countyName, fold, formatNumber, resultCount, type AtlasState } from './model.ts';
 import useMapNavigation from './useMapNavigation.ts';
+import MapPan from './MapPan.tsx';
 import Icon from './Icon.tsx';
 import './municipality-map.css';
 
@@ -51,7 +52,7 @@ export default function MunicipalityMap({ s, light, update }: { s: AtlasState; l
         </g>
       </svg>
       <p className="v3-touch-hint">{nav.zoom > 1 ? L('Povucite kartu · ↺ za listanje stranice', 'Drag to move · ↺ to scroll page') : L('Listajte jednim prstom · Povećajte s dva', 'Scroll with one finger · Zoom with two')}</p>
-      <div className="v3-map-tools"><button aria-label={L('Povećaj kartu', 'Zoom in')} aria-disabled={nav.zoom === nav.maxZoom || undefined} onClick={nav.zoomIn}><Icon name="plus" size={18} /></button><button aria-label={L('Smanji kartu', 'Zoom out')} aria-disabled={nav.zoom === 1 || undefined} onClick={nav.zoomOut}><Icon name="minus" size={18} /></button><button aria-label={L('Vrati prikaz', 'Reset map')} onClick={nav.reset}><Icon name="reset" size={16} /></button></div>
+      <div className="v3-map-tools"><button aria-label={L('Povećaj kartu', 'Zoom in')} aria-disabled={nav.zoom === nav.maxZoom || undefined} onClick={nav.zoomIn}><Icon name="plus" size={18} /></button><button aria-label={L('Smanji kartu', 'Zoom out')} aria-disabled={nav.zoom === 1 || undefined} onClick={nav.zoomOut}><Icon name="minus" size={18} /></button><button aria-label={L('Vrati prikaz', 'Reset map')} onClick={nav.reset}><Icon name="reset" size={16} /></button></div><MapPan nav={nav} lang={s.lang} />
       {!geo && <div className="v3-geo-loading" role="status">{geoStatus(true)}{jlsFailed() && <button className="v3-button" onClick={() => { heading.current?.focus(); void retryGeo(); }}>{L('Pokušaj ponovno', 'Retry')}</button>}</div>}
     </div><div className="v3-municipal-readout">{active ? <><strong>{active.p.n}</strong><span>{countyName(ISOS[active.p.c], s.lang)} · {L('Doseljeni', 'Arrivals')}: {count(active.p.i)} · {L('Odseljeni', 'Departures')}: {count(active.p.o)} · {L('Saldo', 'Net')}: {count(active.p.i - active.p.o, true)}</span><button className="v3-text-button" onClick={() => update({ view: 'population', panel: 'municipal', county: ISOS[active.p.c] })}>{L('Lokalni koridori županije', 'County’s local corridors')}<Icon name="arrow" size={15} /></button></> : <span>{L('Odaberite mjesto na karti ili ga pronađite na popisu.', 'Select a place on the map or find it in the list.')}</span>}</div>
     <div className="v3-legend"><span>{s.dir === 'net' ? count(-max) : '0'}</span><div className="v3-color-key"><div style={{ background: `linear-gradient(90deg,${Array.from({ length: 21 }, (_, i) => scale((s.dir === 'net' ? -max : 0) + i / 20 * (s.dir === 'net' ? 2 * max : max))).join(',')})` }} /></div><span>{count(max, s.dir === 'net')}</span></div></div>

@@ -163,7 +163,13 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
       },{kind,id:hidden});
       revealed.push({kind,hidden,visible,zoom:(await matrix()).a});
     }
-    check('keyboard focus reveals counties and municipalities outside a zoomed viewport',revealed.every(r=>r.hidden&&r.visible&&r.zoom===1),revealed);
+    // Focus pans an off-screen feature into view at the same zoom; it used to reset the zoom to 1x.
+    check('keyboard focus pans counties and municipalities outside a zoomed viewport into view at the same zoom',revealed.every(r=>r.hidden&&r.visible&&r.zoom===2.5),revealed);
+    // A zoomed map pans by button (WCAG 2.5.7) as well as by drag; the buttons appear only while zoomed.
+    const panMoves=[];await reset();panMoves.push(await page.$$eval('.v3-map-pan button',b=>b.length));
+    for(let i=0;i<3;i++)await page.click('.v3-map-tools button:first-child');
+    for(const label of ['Pan left','Pan right','Pan up','Pan down']){const before=await matrix();await page.click('.v3-map-pan [aria-label="'+label+'"]');const after=await matrix();panMoves.push(after.a===before.a&&(after.e!==before.e||after.f!==before.f));}
+    check('pan buttons move a zoomed map without dragging, and appear only while zoomed',panMoves[0]===0&&panMoves.slice(1).every(Boolean),panMoves);
     const centerMap=async()=>{await page.$eval('.v3-map',e=>e.scrollIntoView({block:'center'}));await sleep(100);return page.$eval('.v3-map',el=>{const r=el.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};});};
     const touchState=()=>page.evaluate(()=>({scroll:scrollY,scale:visualViewport.scale,panning:!!document.querySelector('.v3-map.is-panning'),selected:document.querySelectorAll('[data-county][aria-pressed=true],[data-municipality][aria-pressed=true]').length,action:getComputedStyle(document.querySelector('.v3-map')).touchAction}));
     const touchSwipe=async p=>{
