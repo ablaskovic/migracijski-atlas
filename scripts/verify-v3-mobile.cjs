@@ -178,7 +178,7 @@ async function scenario(name, run) {
   });
   await scenario('Disappearing controls restore focus', async () => {
     await viewport(); await go('explore=map&year=2006&county=HR-06&l=en'); await keyClick('.v3-county-detail>.v3-text-button');
-    check('county navigation focuses All views', await page.evaluate(() => document.activeElement === document.querySelector('[aria-label="All views"]')));
+    check('county navigation focuses All views', await page.evaluate(() => document.activeElement === document.querySelector('#v3-view-select')));
     await go('explore=map&year=2006&county=HR-06&l=en'); await keyClick('.v3-period button');
     check('All Croatia returns focus to the previously selected county', await page.evaluate(() => document.activeElement === document.querySelector('[data-county="HR-06"]') && !new URLSearchParams(location.hash.slice(1)).has('county')));
     await go('explore=map&year=2006&l=en'); await page.select('[aria-label="Guided findings"]', '2'); await keyClick('[aria-label="Close finding"]');

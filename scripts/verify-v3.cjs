@@ -183,7 +183,7 @@ const signed = (n, relative) => {
   // Views that force their own lens (classification, municipalities, population, flows' 2018) used to write it into
   // the shared state, so returning to the map lost the reader's metric, unit and year.
   const lensOf = () => page.evaluate(() => { const p = new URLSearchParams(location.hash.slice(1)); return [p.get('explore'), p.get('year'), p.get('metric'), p.get('unit'), p.get('sum')].join('|'); });
-  const pickView = async view => { await page.select('[aria-label="All views"]', view); await page.waitForFunction(v => new URLSearchParams(location.hash.slice(1)).get('explore') === v, {}, view); };
+  const pickView = async view => { await page.select('#v3-view-select', view); await page.waitForFunction(v => new URLSearchParams(location.hash.slice(1)).get('explore') === v, {}, view); };
   for (const detour of ['classify', 'municipalities', 'population', 'flows']) {
     await go(`?version=v3&l=en&fresh=lens${detour}#explore=map&year=2010&metric=ext&unit=pct&l=en`);
     const before = await lensOf(); await pickView(detour); await pickView('map');
@@ -312,9 +312,9 @@ const signed = (n, relative) => {
   await go('?version=v3&l=en&fresh=navselect#explore=map&l=en');
   await page.evaluate(() => { window.pushes = 0; const push = history.pushState.bind(history); history.pushState = (...args) => { window.pushes++; return push(...args); }; });
   const navStart = await navState();
-  await page.focus('[aria-label="All views"]'); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown');
+  await page.focus('#v3-view-select'); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown');
   const navBrowsing = await navState();
-  check('arrowing through the closed view select does not switch views', navBrowsing.view === 'map' && navBrowsing.entries === navStart.entries && await page.$eval('[aria-label="All views"]', e => e.value === 'flows'));
+  check('arrowing through the closed view select does not switch views', navBrowsing.view === 'map' && navBrowsing.entries === navStart.entries && await page.$eval('#v3-view-select', e => e.value === 'flows'));
   await page.keyboard.press('Enter');
   const navEntered = await navState();
   check('Enter applies the view the select shows, once', navEntered.view === 'flows' && navEntered.entries === navStart.entries + 1);
@@ -322,6 +322,13 @@ const signed = (n, relative) => {
   check('arrowing through the closed findings select applies no finding', (await navState()).finding === null);
   await page.keyboard.press('Tab');
   check('leaving the findings select applies the finding it shows', (await navState()).finding === '2');
+  // WCAG 2.5.3: the view select's visible label reads "ISTRAŽI / EXPLORE"; its accessible name was "Svi prikazi / All views".
+  const selectNames = {};
+  for (const lang of ['hr', 'en']) {
+    await go(`?version=v3&l=${lang}&fresh=labelinname${lang}#explore=map&l=${lang}`);
+    selectNames[lang] = { name: (await page.accessibility.snapshot({ root: await page.$('#v3-view-select') }))?.name ?? '', visible: await page.$eval('.v3-explore-controls label', e => e.firstChild.textContent.trim()) };
+  }
+  check('the view select’s accessible name begins with its visible label', ['hr', 'en'].every(l => selectNames[l].name.toLocaleLowerCase().startsWith(selectNames[l].visible.toLocaleLowerCase())));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

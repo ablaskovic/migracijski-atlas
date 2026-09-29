@@ -80,7 +80,7 @@ async function go(view = 'map', extras = {}) {
   await page.waitForSelector(viewSelectors[view]);
 }
 async function navigate(view) {
-  await page.select('[aria-label="All views"]', view);
+  await page.select('#v3-view-select', view);
   await page.waitForSelector(viewSelectors[view]);
 }
 async function download(selector, extension) {
@@ -103,7 +103,7 @@ async function capture(label) {
     await boot();
     await group('Navigation and attribution', async () => {
       await go();
-      check('all eight native views are offered', JSON.stringify(await page.$$eval('[aria-label="All views"] option', els => els.map(el => el.value))) === JSON.stringify(views));
+      check('all eight native views are offered', JSON.stringify(await page.$$eval('#v3-view-select option', els => els.map(el => el.value))) === JSON.stringify(views));
       check('Maras and Vinovrski link is prominent', await page.$eval('.v3-research a', el => el.href === 'https://hrcak.srce.hr/349820' && el.textContent.includes('Maras') && el.textContent.includes('Vinovrški')));
       for (const view of views) { await navigate(view); check(`${view} opens natively and records the route`, await page.evaluate(v => new URLSearchParams(location.hash.slice(1)).get('explore') === v && !document.querySelector('iframe'), view)); }
       check('municipal geometry contains all 556 places', geo.features.length === 556);
@@ -259,7 +259,7 @@ async function capture(label) {
         await page.select('[aria-label="Guided findings"]', String(i));
         await page.waitForSelector(viewSelectors[expectedViews[i]]);
         const caption = await page.$eval('.v3-finding p', el => el.textContent);
-        check(`finding ${i + 1} opens its native view and caption`, caption.length > 70 && await page.$eval('[aria-label="All views"]', (el, value) => el.value === value, expectedViews[i]));
+        check(`finding ${i + 1} opens its native view and caption`, caption.length > 70 && await page.$eval('#v3-view-select', (el, value) => el.value === value, expectedViews[i]));
         await page.reload({ waitUntil: 'networkidle0' });
         check(`finding ${i + 1} survives a shared-URL reload`, await page.$eval('.v3-finding p', el => el.textContent) === caption);
         await navigate(expectedViews[i] === 'map' ? 'trends' : 'map');
