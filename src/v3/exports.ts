@@ -87,9 +87,9 @@ export async function exportCurrentFigure(s: AtlasState, format: 'png' | 'svg', 
   const maximum = s.view === 'regions' ? RDOM[s.flow + s.den + s.cum] : s.view === 'matrix' ? mxMax(s.dir, s.cum) : municipal ? Math.max(1, ...(jlsGeo()?.features.map(f => Math.abs(jlsVal(f.properties, s.dir))) ?? [])) : domain(s);
   const nf = new Intl.NumberFormat(s.lang, { maximumFractionDigits: s.relative && !flow && !municipal ? 1 : 0 });
   const limit = nf.format(maximum) + (s.relative && !flow && !municipal ? ' %' : '');
-  let legend = L(`Koraljno: −${limit} · sivo: 0 · zeleno: +${limit}. Skala ostaje ista kroz godine.`, `Coral: −${limit} · grey: 0 · teal: +${limit}. Scale stays fixed across years.`);
-  if ((s.view === 'matrix' || municipal) && s.dir !== 'net') legend = L(`Sivo: 0 · zeleno: ${limit} osoba.`, `Grey: 0 · teal: ${limit} people.`);
-  if (s.view === 'flows') legend = L('Zeleno: prema odabranoj županiji · koraljno: iz odabrane županije. Debljina linije prati korijen broja osoba.', 'Teal: towards selected county · coral: away from selected county. Line width follows the square root of people.');
+  let legend = L(`Koraljno: −${limit} · sivo: 0 · tirkizno: +${limit}. Skala ostaje ista kroz godine.`, `Coral: −${limit} · grey: 0 · teal: +${limit}. Scale stays fixed across years.`);
+  if ((s.view === 'matrix' || municipal) && s.dir !== 'net') legend = L(`Sivo: 0 · tirkizno: ${limit} osoba.`, `Grey: 0 · teal: ${limit} people.`);
+  if (s.view === 'flows') legend = L('Tirkizno: prema odabranoj županiji · koraljno: iz odabrane županije. Debljina linije prati korijen broja osoba.', 'Teal: towards selected county · coral: away from selected county. Line width follows the square root of people.');
   if (s.view === 'classify') { const threshold = pragText(asClassic(s)); legend = `${KLAB.gain}: > 0 · ${KLAB.neu}: ${threshold} … 0 · ${KLAB.loss}: < ${threshold}`; }
   if (s.view === 'matrix') notes.push(s.dir === 'out' ? L('Redak → stupac: odseljeni.', 'Row → column: departures.') : s.dir === 'in' ? L('Stupac → redak: doseljeni.', 'Column → row: arrivals.') : L('Saldo retka: stupac → redak minus redak → stupac.', 'Net gain for the row: column → row minus row → column.'));
   if (s.view === 'trends') notes.push(L('Stupac = godina; redak = županija. Zbroj počinje 2011. kada je uključen kumulativni prikaz.', 'Column = year; row = county. Totals start at 2011 when cumulative mode is selected.'));

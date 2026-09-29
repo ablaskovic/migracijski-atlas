@@ -554,6 +554,17 @@ const signed = (n, relative) => {
   const regionHeadings = [];
   for (const lang of ['hr', 'en']) for (const county of ['HR-14', 'HR-08', 'HR-17', 'HR-21', 'HR-07']) { await go(`?version=v3&fresh=reg${lang}${county}#explore=regions&year=2024&sum=1&county=${county}&l=${lang}`); regionHeadings.push(await text('.v3-intro h1')); }
   check('a picked region heads the page with its full name', JSON.stringify(regionHeadings) === JSON.stringify(['Istočna regija', 'Sjevernojadranska regija', 'Dalmatinska regija', 'Zagrebačka regija', 'Središnja Hrvatska', 'Eastern region', 'North Adriatic region', 'Dalmatian region', 'Zagreb region', 'Central Croatia']));
+  // Croatian figure legends called the positive colour "zeleno" where About says "tirkizno" and English "teal"; English
+  // About spelt "color" in a British-English UI.
+  const colourLegends = [];
+  for (const hash of ['explore=map&year=2024', 'explore=matrix&year=2018', 'explore=flows&year=2018']) {
+    const name = await savedName(`${hash}&l=hr`, '.v3-export-actions button:nth-child(2)');
+    colourLegends.push(name ? ((fs.readFileSync(path.join(output, name), 'utf8').match(/<desc>([^<]*)<\/desc>/) || [])[1] || '').split('\n')[1] || '' : '');
+  }
+  check('Croatian figure legends name the positive colour as About does', colourLegends.every(l => /tirkizno/i.test(l) && !/zeleno/i.test(l)));
+  await go('?version=v3&fresh=colourabout#explore=map&l=en');
+  const aboutText = await page.evaluate(() => document.querySelector('dialog').textContent);
+  check('English About spells colour the British way', /colour/.test(aboutText) && !/\bcolor\b/.test(aboutText));
   // The flows page printed its honesty note twice, and the IPF sentence had three phrasings although ipfMargins() keeps one.
   const ipfWording = { hr: 'struktura 2018. skalirana na DZS odseljene; doseljeni približno', en: 'the 2018 structure scaled to CBS out-margins; in-margins approximate' };
   const flowNotes = () => page.evaluate(() => [...document.querySelectorAll('.v3-data-note')].map(p => p.textContent).filter(t => /IPF|Procjena|Estimate|Izmjereni tokovi|Measured inter-county/.test(t)));
