@@ -11,8 +11,12 @@ export function selectedVersion(): Version {
 export function versionHref(version: Version): string {
   const url = new URL(location.href);
   url.searchParams.set('version', version);
-  url.hash = '';
-  try { url.hash = sessionStorage.getItem(`atlas-${version}-hash`) ?? ''; } catch { /* Storage is optional. */ }
+  let stored = '';
+  try { stored = sessionStorage.getItem(`atlas-${version}-hash`) ?? ''; } catch { /* Storage is optional. */ }
+  // The stored view kept its own l=, which flipped the language on every switch: the reader's current one goes instead.
+  const view = stored.replace(/^#/, '').split('&').filter(Boolean), lang = 'l=' + (document.documentElement.lang === 'en' ? 'en' : 'hr'), at = view.findIndex(part => part.startsWith('l='));
+  if (at < 0) view.push(lang); else view[at] = lang;
+  url.hash = view.join('&');
   // A rewritten path may start with //; keep it a path on this origin.
   return url.href;
 }

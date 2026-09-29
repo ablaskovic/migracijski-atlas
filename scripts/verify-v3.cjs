@@ -993,6 +993,8 @@ const signed = (n, relative) => {
   check('v2 also retains its own analysis', await page.evaluate(() => location.hash) === v2Hash);
   await go('#v=saldo&c=0&y=2018');
   check('old shared links keep opening v2', await page.$('#map') !== null && await page.$('.v3-app') === null);
+  // Leaving a version now remembers its view, so that shared link became v2's last one: return to the saved analysis.
+  await go('?version=v2&l=en' + v2Hash);
   // Inspect links before clicking: a // path must never become a host name.
   for (const route of ['/', '/atlas/en/saldo', '//outside.invalid/atlas/']) {
     await page.goto(origin + route + '?version=v3&l=en' + v3Hash, { waitUntil: 'networkidle0' });
@@ -1010,6 +1012,24 @@ const signed = (n, relative) => {
         next, route, origin, next === 'v2' ? v2Hash : v3Hash));
     }
   }
+  // The switch replayed each version's stored hash with its own l=, so the language flipped: v3 in Croatian → v2 → EN →
+  // v3 opened Croatian; a Croatian v3 opened v2 in whatever v2 detected. Leaving v2 by Back stored nothing, so the next
+  // v2 link opened its default view.
+  const switchState = () => page.evaluate(() => [document.documentElement.lang, location.hash]);
+  const cleanSession = () => page.evaluate(() => { sessionStorage.clear(); localStorage.clear(); });
+  await go('?version=v3&fresh=vsrt#explore=map&year=2024&county=HR-18&l=hr'); await cleanSession();
+  await navClick('.atlas-version-switch a[href*="version=v2"]');
+  const switchedToV2 = await switchState();
+  await page.click('button[data-l="en"]'); await new Promise(resolve => setTimeout(resolve, 300));
+  await navClick('.atlas-version-switch a[href*="version=v3"]');
+  const switchedBack = await switchState();
+  await page.evaluate(() => { localStorage.clear(); });
+  await navClick('.atlas-version-switch a[href*="version=v2"]');
+  await page.evaluate(() => { location.hash = location.hash.replace(/y=\d+/, 'y=2016'); }); await new Promise(resolve => setTimeout(resolve, 300));
+  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0' }), page.evaluate(() => history.go(-2))]);
+  await navClick('.atlas-version-switch a[href*="version=v2"]');
+  const afterBack = await switchState();
+  check('the version switch keeps the reader\'s language and each version\'s last view', switchedToV2[0] === 'hr' && switchedBack[0] === 'en' && switchedBack[1].includes('county=HR-18') && afterBack[0] === 'en' && afterBack[1].includes('y=2016'));
   await go('?version=v3&l=en');
   await click('.v3-header-actions>.v3-icon-button');
   await page.select('#v3-year', '20');
