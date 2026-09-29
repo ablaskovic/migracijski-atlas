@@ -597,6 +597,22 @@ const signed = (n, relative) => {
   }
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
   check('labels, legend numbers, badges and the footer are at least 11 px, without overflow or colliding ticks', tinyReports.every(Boolean));
+  // A pressed toggle differed from its neighbours only by a 1.07–1.14:1 background and a 1.1–2.5:1 text colour; no cue
+  // reached the 3:1 WCAG 1.4.11 asks of a state.
+  const pressedCues = [];
+  for (const theme of ['light', 'dark']) for (const [hash, groups] of Object.entries({ 'explore=map': ['.v3-metrics', '.v3-time-mode'], 'explore=flows&year=2018': ['.v3-segment'], 'explore=population&panel=age': ['.v3-pop-tabs', '.v3-pop-segment'], 'explore=classify&year=2024&county=HR-14': ['.v3-analysis-list'] })) {
+    await page.evaluate(t => localStorage.setItem('atlas-v3-theme', t), theme);
+    await go(`?version=v3&fresh=pressed${theme}${hash.length}#${hash}&l=en`);
+    pressedCues.push(...await page.evaluate(groups => {
+      const rgb = s => (s.match(/rgba?\(([^)]+)\)/)?.[1] ?? '0,0,0,0').split(',').map(Number);
+      const lum = ([r, g, b]) => [r, g, b].map(v => v / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
+      const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+      const backdrop = el => { const layers = []; for (let e = el; e; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c[3] === undefined) c[3] = 1; if (c[3] > 0) layers.push(c); if (c[3] >= 1) break; } let out = [255, 255, 255]; for (const c of layers.reverse()) out = out.map((v, i) => v * (1 - c[3]) + c[i] * c[3]); return out; };
+      const cue = el => { const m = getComputedStyle(el).boxShadow.match(/rgba?\([^)]+\)[^,]*inset/); return m ? rgb(m[0]) : null; };
+      return groups.map(g => { const pressed = document.querySelector(`${g} [aria-pressed="true"]`), other = document.querySelector(`${g} button:not([aria-pressed="true"])`); return !!pressed && !!cue(pressed) && !(other && cue(other)) && ratio(cue(pressed), backdrop(pressed)) >= 3; });
+    }, groups));
+  }
+  check('every pressed toggle carries a cue of at least 3:1, in both themes', pressedCues.length === 12 && pressedCues.every(Boolean));
   // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
   // timeline and no cumulative mode.
   const popNotes = [];
