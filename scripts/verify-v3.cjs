@@ -237,6 +237,18 @@ const signed = (n, relative) => {
   await go('?version=v3&l=en&fresh=mxall#explore=matrix&year=2018&county=HR-14&pair=HR-05&l=en');
   await page.click('.v3-period button');
   check('All Croatia on the matrix clears the selected corridor with its row', await page.evaluate(() => { const p = new URLSearchParams(location.hash.slice(1)); return !p.has('pair') && !p.has('county') && !document.querySelector('#v3-pair-title') && !document.querySelector('[data-matrix-cell][aria-pressed="true"]'); }));
+  // A region card stands its region in as the region's first county (North Adriatic → HR-08); the stand-in leaked into the
+  // map as a county nobody chose. A county clicked on the regions map is a real choice and stays.
+  await go('?version=v3&l=en&fresh=regioncard#explore=regions&l=en');
+  const cardName = await page.$eval('[data-region="sj"] span', e => e.firstChild.textContent);
+  await page.click('[data-region="sj"]');
+  const regionTitle = await text('.v3-intro h1');
+  await pickView('map');
+  check('a region picked from its card does not follow the reader to the map as a county', regionTitle === cardName && await page.evaluate(() => !new URLSearchParams(location.hash.slice(1)).has('county') && document.querySelector('.v3-intro h1').textContent === 'Croatia in motion.'));
+  await go('?version=v3&l=en&fresh=regioncounty#explore=regions&l=en');
+  await page.evaluate(() => document.querySelector('[data-county="HR-17"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await pickView('map');
+  check('a county clicked on the regions map stays selected on the map', await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('county') === 'HR-17'));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
