@@ -25,6 +25,9 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
   await new Promise(r => server.listen(0,'127.0.0.1',r));
   const browser = await puppeteer.launch({args:['--no-sandbox','--lang=en-GB']});
   const page = await browser.newPage();
+  // v3 follows the OS colour scheme until a theme is chosen, and these checks were written against the dark one: pin it,
+  // so a light CI host does not change what they see.
+  await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   page.on('console',m=>{ if(m.type()==='error')errors.push(m.text()); });

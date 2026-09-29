@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ISOS, IX2011, IX2018, REG, REGOF, Y0, YEARS, YEND, ipfMargins, val } from '../lib/metrics.ts';
@@ -98,7 +98,9 @@ function revealWorkspace() {
 export default function AppV3() {
   const [s, setS] = useState(initial);
   useGeo(s.view === 'municipalities' ? 'jmap' : s.view === 'regions' ? 'reg' : 'saldo');
-  const [light, setLight] = useState(() => { try { return localStorage.getItem('atlas-v3-theme') === 'light'; } catch { return false; } });
+  // The reader's stored choice, else the OS preference: v3 used to ignore the OS and store whatever it showed on every load,
+  // so a first visit stored dark and a light OS setting could never apply. Only the toggle stores a choice.
+  const [light, setLight] = useState(() => { try { const chosen = localStorage.getItem('atlas-v3-theme'); if (chosen) return chosen === 'light'; } catch { /* Optional preference. */ } return matchMedia('(prefers-color-scheme: light)').matches; });
   const [hover, setHover] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const direction = s.dir;
@@ -180,10 +182,10 @@ export default function AppV3() {
     window.addEventListener('pagehide', flushHistory);
     return () => { window.removeEventListener('popstate', pop); window.removeEventListener('hashchange', pop); window.removeEventListener('pagehide', flushHistory); flushHistory(); };
   }, []);
-  useEffect(() => {
+  // Before paint, so a light start never shows a dark first frame.
+  useLayoutEffect(() => {
     document.documentElement.dataset['theme'] = light ? 'light' : 'dark';
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#f3f6f7' : '#0c131b');
-    try { localStorage.setItem('atlas-v3-theme', light ? 'light' : 'dark'); } catch { /* Optional preference. */ }
   }, [light]);
   // The tab, a bookmark and a share sheet name the view and its subject; the tagline is the heading's, not the tab's.
   const tabTitle = [L('Migracijski atlas', 'Migration atlas'), viewName(s.view, s.lang), subject ?? L('Hrvatska', 'Croatia'), period].join(' · ');
@@ -287,7 +289,7 @@ export default function AppV3() {
       <span className="v3-header-caption">{L('HRVATSKA', 'CROATIA')}<span />1998–2025</span>
       <div className="v3-header-actions"><VersionSwitch version="v3" />
         <div className="v3-language" role="group" aria-label={L('Jezik', 'Language')}>{(['hr', 'en'] as const).map(l => <button key={l} aria-pressed={s.lang === l} onClick={() => { storeLang(l); update({ lang: l }); }}>{l.toUpperCase()}</button>)}</div>
-        <button className="v3-icon-button" aria-label={light ? L('Tamni prikaz', 'Dark theme') : L('Svijetli prikaz', 'Light theme')} title={light ? L('Tamni prikaz', 'Dark theme') : L('Svijetli prikaz', 'Light theme')} onClick={() => setLight(!light)}><Icon name={light ? 'moon' : 'sun'} size={19} /></button>
+        <button className="v3-icon-button" aria-label={light ? L('Tamni prikaz', 'Dark theme') : L('Svijetli prikaz', 'Light theme')} title={light ? L('Tamni prikaz', 'Dark theme') : L('Svijetli prikaz', 'Light theme')} onClick={() => { setLight(!light); try { localStorage.setItem('atlas-v3-theme', light ? 'dark' : 'light'); } catch { /* Optional preference. */ } }}><Icon name={light ? 'moon' : 'sun'} size={19} /></button>
         <button aria-label={L('Podijeli prikaz', 'Share this view')} className="v3-button v3-share" onClick={() => void share()}><Icon name="share" size={16} /><span>{L('Podijeli', 'Share')}</span></button>
         {/* Next to Share in the DOM, so Tab and Shift+Tab leave it for its neighbours; it closes once focus moves on. */}
         {sharing && <div className="v3-share-fallback" role="dialog" onBlur={e => { if (e.relatedTarget instanceof Node && !e.currentTarget.contains(e.relatedTarget)) setSharing(null); }} aria-label={L('Kopirajte poveznicu', 'Copy the link')}><label>{L('Kopirajte poveznicu', 'Copy the link')}<input readOnly value={sharing} onFocus={e => e.currentTarget.select()} autoFocus /></label><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={closeSharing}><Icon name="close" /></button></div>}

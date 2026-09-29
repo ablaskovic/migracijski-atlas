@@ -42,6 +42,10 @@ const signed = (n, relative) => {
   const origin = `http://127.0.0.1:${server.address().port}`;
   browser = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--lang=en-GB'] });
   const page = await browser.newPage();
+  // v3 follows the OS colour scheme until a theme is chosen, and these checks were written against the dark one: pin it,
+  // so a light CI host does not change what they see.
+  const SCHEME = { name: 'prefers-color-scheme', value: 'dark' };
+  await page.emulateMediaFeatures([SCHEME]);
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
   const downloadSession = await page.createCDPSession();
@@ -482,6 +486,20 @@ const signed = (n, relative) => {
     const painted = await darkPage.evaluate(async shot => { const img = new Image(); img.src = 'data:image/png;base64,' + shot; await img.decode(); const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0); return [...ctx.getImageData(1, 1, 1, 1).data].slice(0, 3); }, shot);
     check('under Auto Dark Mode the chosen light theme still paints light', painted.every(v => v > 200));
   } finally { await forceDark.close(); }
+  // v3 ignored the OS scheme (dark unless a light choice was stored) and stored the theme on every load, so a first visit
+  // stored dark and a light OS preference could never apply.
+  const osThemes = [];
+  for (const value of ['light', 'dark']) {
+    await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value }]);
+    await page.evaluate(() => localStorage.removeItem('atlas-v3-theme'));
+    await go(`?version=v3&fresh=os${value}#explore=map&year=2024&l=en`);
+    osThemes.push(await page.evaluate(() => [document.documentElement.dataset.theme, localStorage.getItem('atlas-v3-theme')]));
+  }
+  await click('[aria-label="Light theme"]');
+  await go('?version=v3&fresh=oschosen#explore=map&year=2024&l=en');
+  osThemes.push(await page.evaluate(() => [document.documentElement.dataset.theme, localStorage.getItem('atlas-v3-theme')]));
+  await page.emulateMediaFeatures([SCHEME]); await page.evaluate(() => localStorage.removeItem('atlas-v3-theme'));
+  check('the theme follows the OS until the reader chooses one, and only a choice is stored', JSON.stringify(osThemes) === '[["light",null],["dark",null],["light","light"]]');
   // The figure snapshot copied computed fills in the middle of the 0.35 s fill transition when exported right after a year
   // change, a theme toggle or during playback: 20 of 21 counties matched neither year nor legend.
   await go('?version=v3&l=en&fresh=midtransition#explore=map&year=2024&l=en');
@@ -676,7 +694,7 @@ const signed = (n, relative) => {
   // In forced colours the heatmap went blank, bars, swatches, ramps and the slider track vanished, and every pressed or
   // current state became identical to the rest.
   const forced = await page.createCDPSession();
-  await forced.send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }] });
+  await forced.send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }, SCHEME] });
   const inForced = async (hash, fn) => { await go(`?version=v3&fresh=fc${Math.random().toString(36).slice(2, 8)}#${hash}&l=en`); return page.evaluate(fn); };
   const forcedMarks = [
     await inForced('explore=trends&metric=tot', () => new Set([...document.querySelectorAll('[data-grid-cell]')].map(c => getComputedStyle(c).backgroundColor)).size > 5 && new Set([...document.querySelectorAll('.v3-mini-legend i')].map(i => getComputedStyle(i).backgroundColor)).size === 2),
@@ -689,7 +707,7 @@ const signed = (n, relative) => {
       return states && ['.v3-slider-wrap input', '.v3-color-key > div'].every(s => getComputedStyle(document.querySelector(s)).backgroundImage.includes('gradient')) && getComputedStyle(dot).backgroundColor !== getComputedStyle(document.body).backgroundColor;
     }),
   ];
-  await forced.send('Emulation.setEmulatedMedia', { features: [] }); await forced.detach();
+  await forced.send('Emulation.setEmulatedMedia', { features: [SCHEME] }); await forced.detach();
   check('forced colours keep the data marks and show every pressed or current state', forcedMarks.every(Boolean));
   // The map, years-grid and municipal readouts were live regions that follow hover and focus: a screen reader heard every
   // Tab and arrow press (11 announcements for 6 county Tabs), though the focused mark already names the same value.
@@ -1111,7 +1129,7 @@ const signed = (n, relative) => {
       await page.screenshot({ path: path.join(output, 'mobile-dark.png'), fullPage: true });
     }
   }
-  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }, SCHEME]);
   check('reduced-motion preference disables animations', await page.$eval('.v3-workspace', el => getComputedStyle(el).animationName === 'none'));
   await page.evaluate(() => document.documentElement.style.fontSize = '200%');
   check('enlarged text does not create page-wide overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

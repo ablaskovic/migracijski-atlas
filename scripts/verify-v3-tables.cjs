@@ -33,6 +33,9 @@ async function boot() {
   }
   browser = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox'] });
   page = await browser.newPage();
+  // v3 follows the OS colour scheme until a theme is chosen, and these checks were written against the dark one: pin it,
+  // so a light CI host does not change what they see.
+  await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
   page.on('pageerror', error => errors.push(error.message));
   await page.setRequestInterception(true);
   page.on('request', request => request.url().includes('/_vercel/') ? request.respond({ status: 200, contentType: 'text/javascript', body: '' }) : request.continue());
