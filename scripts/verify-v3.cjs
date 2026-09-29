@@ -233,6 +233,10 @@ const signed = (n, relative) => {
   await go('?version=v3&l=en&fresh=popdefault#explore=population&panel=municipal&l=en');
   const popDefault = await popScope();
   check('without a county the header and the municipal panel both name Grad Zagreb', popDefault.panel === 'HR-21' && popDefault.title === 'City of Zagreb');
+  // A matrix selection is row + column; "All Croatia" cleared only the row, so the pair card re-targeted the default hub.
+  await go('?version=v3&l=en&fresh=mxall#explore=matrix&year=2018&county=HR-14&pair=HR-05&l=en');
+  await page.click('.v3-period button');
+  check('All Croatia on the matrix clears the selected corridor with its row', await page.evaluate(() => { const p = new URLSearchParams(location.hash.slice(1)); return !p.has('pair') && !p.has('county') && !document.querySelector('#v3-pair-title') && !document.querySelector('[data-matrix-cell][aria-pressed="true"]'); }));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

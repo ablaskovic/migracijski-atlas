@@ -198,7 +198,8 @@ export default function AppV3() {
       });
       return;
     }
-    update({ county });
+    // A matrix selection is a cell, row and column: clearing the row clears the corridor with it.
+    update(!county && view === 'matrix' ? { county, pair: null } : { county });
     requestAnimationFrame(() => {
       // A clear that leaves the focused control in place (Escape in the year grid) keeps focus there.
       if (!county && document.activeElement !== document.body && document.activeElement?.isConnected) return;
