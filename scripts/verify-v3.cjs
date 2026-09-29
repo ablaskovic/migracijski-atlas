@@ -1030,6 +1030,10 @@ const signed = (n, relative) => {
   await navClick('.atlas-version-switch a[href*="version=v2"]');
   const afterBack = await switchState();
   check('the version switch keeps the reader\'s language and each version\'s last view', switchedToV2[0] === 'hr' && switchedBack[0] === 'en' && switchedBack[1].includes('county=HR-18') && afterBack[0] === 'en' && afterBack[1].includes('y=2016'));
+  // The brand link reset the view with href="?version=v3": from an English page it opened the default view in Croatian.
+  await go('?version=v3&fresh=brand#explore=trends&year=2020&l=en'); await page.evaluate(() => { localStorage.clear(); });
+  await navClick('a.v3-brand');
+  check('the brand link resets the view in the reader\'s language', await page.evaluate(() => document.documentElement.lang === 'en' && new URLSearchParams(location.hash.slice(1)).get('explore') === 'map'));
   await go('?version=v3&l=en');
   await click('.v3-header-actions>.v3-icon-button');
   await page.select('#v3-year', '20');

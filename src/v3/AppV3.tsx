@@ -283,7 +283,7 @@ export default function AppV3() {
   return <div className="v3-app" style={{ '--ramp': ramp, '--corridor-color': direction === 'in' ? 'var(--accent)' : 'var(--coral)' } as CSSProperties}>
     <a className="v3-skip" href="#v3-explorer" onClick={e => { e.preventDefault(); document.getElementById('v3-explorer')?.focus(); }}>{L('Preskoči na istraživanje', 'Skip to exploration')}</a>
     <header className="v3-header">
-      <a className="v3-brand" href="?version=v3" aria-label={L('Migracijski atlas — početni prikaz', 'Migration atlas — reset view')}><span className="v3-brand-symbol"><Icon name="map" size={25} /></span><span>{L('migracijski', 'migration')}<strong>atlas<span className="v3-brand-period">.</span></strong></span></a>
+      <a className="v3-brand" href={`?version=v3&l=${s.lang}`} aria-label={L('Migracijski atlas — početni prikaz', 'Migration atlas — reset view')}><span className="v3-brand-symbol"><Icon name="map" size={25} /></span><span>{L('migracijski', 'migration')}<strong>atlas<span className="v3-brand-period">.</span></strong></span></a>
       <span className="v3-header-caption">{L('HRVATSKA', 'CROATIA')}<span />1998–2025</span>
       <div className="v3-header-actions"><VersionSwitch version="v3" />
         <div className="v3-language" role="group" aria-label={L('Jezik', 'Language')}>{(['hr', 'en'] as const).map(l => <button key={l} aria-pressed={s.lang === l} onClick={() => { storeLang(l); update({ lang: l }); }}>{l.toUpperCase()}</button>)}</div>
