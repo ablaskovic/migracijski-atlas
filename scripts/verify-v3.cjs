@@ -987,6 +987,11 @@ const signed = (n, relative) => {
   const popToasts = [];
   for (const panel of ['age', 'citizenship', 'countries', 'municipal']) { await go(`?version=v3&fresh=popcsv${panel}#explore=population&panel=${panel}&l=en`); await page.click('.v3-pop-export'); await new Promise(resolve => setTimeout(resolve, 300)); popToasts.push(await text('.v3-toast')); }
   check('a population CSV export confirms itself in the toast', popToasts.every(t => t === 'Data exported as CSV.'));
+  // The citizenship panel cited "table 2" for STAN sheet I T2 while its neighbours cite "I 3 / II 2" and "I 4": a bare 2 also
+  // reads as II T2, the internal migration table.
+  const citSources = [];
+  for (const lang of ['hr', 'en']) { await go(`?version=v3&fresh=citsource${lang}#explore=population&panel=citizenship&l=${lang}`); citSources.push(await page.$$eval('.v3-pop-source', ps => ps.map(p => p.textContent).find(t => /STAN-2026-2-1/.test(t)) ?? '')); }
+  check('the citizenship panel cites STAN sheet I 2', /tablica I 2\b/.test(citSources[0]) && /table I 2\b/.test(citSources[1]));
   // Keyed on its text, a second export 3 s after the first changed nothing in the live region (no announcement) and the
   // first timer cleared it at 3.5 s; worded at click time, it stayed Croatian after a switch to English.
   await go('?version=v3&fresh=toastrepeat#explore=map&year=2024&l=hr');

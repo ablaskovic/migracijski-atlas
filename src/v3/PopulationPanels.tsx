@@ -99,8 +99,8 @@ export default function PopulationPanels({ lang, county, yi, direction, onCounty
     } else if (panel === 'citizenship') {
       const rows: CsvRow[] = [['scope', 'year', 'citizenship_group', 'arrivals', 'departures', 'net', 'source']];
       CIT.years.forEach((y, i) => {
-        cgroups().forEach(([key, label]) => rows.push(['Croatia', y, label, CIT.g[key].d[i], CIT.g[key].o[i], CIT.g[key].d[i] - CIT.g[key].o[i], SOURCE + ' table 2']));
-        rows.push(['Croatia', y, 'TOTAL', CIT.tot.d[i], CIT.tot.o[i], CIT.tot.d[i] - CIT.tot.o[i], SOURCE + ' table 2']);
+        cgroups().forEach(([key, label]) => rows.push(['Croatia', y, label, CIT.g[key].d[i], CIT.g[key].o[i], CIT.g[key].d[i] - CIT.g[key].o[i], SOURCE + ' I 2']));
+        rows.push(['Croatia', y, 'TOTAL', CIT.tot.d[i], CIT.tot.o[i], CIT.tot.d[i] - CIT.tot.o[i], SOURCE + ' I 2']);
       });
       saveCsv(rows, `atlas-v3-citizenship-${lang}-${CIT.years[0]}-${CIT.years[CIT.years.length - 1]}`);
     } else if (panel === 'countries') {
@@ -180,7 +180,7 @@ export default function PopulationPanels({ lang, county, yi, direction, onCounty
           <tfoot><tr><th scope="row">{L('Ukupno', 'Total')}</th><td>{format(CIT.tot.d[ci])}</td><td>{format(CIT.tot.o[ci])}</td><td>{balance(CIT.tot.d[ci] - CIT.tot.o[ci])}</td></tr></tfoot>
         </table></TableScroll>
       </div>
-      <p className="v3-pop-source">{L('Prema zemlji državljanstva, ne zemlji podrijetla ili odredišta. DZS STAN-2026-2-1, tablica 2. CSV uključuje svih pet godina.', 'By country of citizenship, not country of origin or destination. CBS STAN-2026-2-1, table 2. CSV includes all five years.')}</p>
+      <p className="v3-pop-source">{L('Prema zemlji državljanstva, ne zemlji podrijetla ili odredišta. DZS STAN-2026-2-1, tablica I 2. CSV uključuje svih pet godina.', 'By country of citizenship, not country of origin or destination. CBS STAN-2026-2-1, table I 2. CSV includes all five years.')}</p>
     </>}
 
     {panel === 'countries' && <>
