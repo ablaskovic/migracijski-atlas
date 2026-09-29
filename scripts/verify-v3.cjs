@@ -293,6 +293,17 @@ const signed = (n, relative) => {
   await go('?version=v3&l=en&fresh=kpinational#explore=map&year=2025&l=en');
   check('a county’s balance card says it combines internal and external moves', /internal/i.test(countyCaption) && /external/i.test(countyCaption) && !countyCaption.includes('arrivals − departures'));
   check('the national balance card still reads arrivals − departures', (await text('.v3-stat-primary > span')).startsWith('arrivals − departures'));
+  // A finding's caption describes the view its preset sets; v3 removed it on any change, so opening a county under
+  // Finding 2 (five counties in the black) dropped the caption although the view still showed exactly its claim.
+  const findingShown = () => page.evaluate(() => !!document.querySelector('.v3-finding') && new URLSearchParams(location.hash.slice(1)).has('finding'));
+  await go('?version=v3&l=en&fresh=keepfinding#explore=map&l=en');
+  await page.select('[aria-label="Guided findings"]', '1');
+  await page.evaluate(() => document.querySelector('[data-county="HR-21"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  check('a finding stays while the view still shows its claim (a county opened under it)', await findingShown());
+  await page.reload({ waitUntil: 'networkidle0' });
+  check('that state reloads with its finding', await findingShown());
+  await page.evaluate(() => [...document.querySelectorAll('.v3-metrics button')].find(b => b.textContent === 'Internal').click());
+  check('a finding leaves when a value it cites changes', !await findingShown());
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

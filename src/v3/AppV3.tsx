@@ -6,7 +6,7 @@ import { setLang, storeLang } from '../lib/i18n.ts';
 import { APP_VERSION, ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from '../lib/licences.ts';
 import { dropHash } from '../lib/privacy.ts';
 import VersionSwitch from '../VersionSwitch.tsx';
-import { FLOWS, VIEWS, colors, countyName, domain, findingPatch, formatNumber, normalizeState, numberFormat, periodLabel, readState, stateHash, totals, unitName, viewName, type AtlasState, type Explore } from './model.ts';
+import { FLOWS, VIEWS, colors, countyName, domain, findingHolds, findingPatch, formatNumber, normalizeState, numberFormat, periodLabel, readState, stateHash, totals, unitName, viewName, type AtlasState, type Explore } from './model.ts';
 import { jlsGeo, useGeo } from '../lib/geoAsync.ts';
 import { STORIES } from '../lib/stories.ts';
 import type { Den } from '../lib/types.ts';
@@ -108,7 +108,9 @@ export default function AppV3() {
   function update(patch: Partial<AtlasState>, replace = false, autoplay = false) {
     if (!autoplay && Object.keys(patch).some(k => k !== 'lang')) setPlaying(false);
     if ('county' in patch) regionPick.current = false;
-    const next = normalizeState({ ...state.current, ...patch, den: patch.den ?? (patch.relative === undefined ? state.current.den : patch.relative ? 'rel11' : 'abs'), story: patch.story !== undefined ? patch.story : Object.keys(patch).every(k => k === 'lang') ? state.current.story : null });
+    const merged = normalizeState({ ...state.current, ...patch, den: patch.den ?? (patch.relative === undefined ? state.current.den : patch.relative ? 'rel11' : 'abs') });
+    const story = patch.story !== undefined ? patch.story : state.current.story != null && findingHolds(merged, state.current.story) ? state.current.story : null;
+    const next = { ...merged, story };
     setLang(next.lang); state.current = next; setS(next); setHover(null); rememberLens(next);
     const url = new URL(location.href); url.hash = stateHash(next); url.searchParams.set('version', 'v3');
     if (url.searchParams.has('l')) url.searchParams.set('l', next.lang);

@@ -33,6 +33,15 @@ export function findingPatch(index: number): Partial<AtlasState> {
   return { view, flow: p.flow ?? 'tot', den, relative: den !== 'abs', yi: p.yi ?? BASE.yi, cum: p.cum ?? false, county: p.sel ?? null, pair: p.pair ?? null, dir: p.dir ?? 'in', thr: p.thr ?? BASE.thr, thrRel: p.thrRel ?? false, thrPct: p.thrPct ?? 1.5, panel: p.citz ? 'citizenship' : p.jls ? 'municipal' : 'age', age: p.ageTab ?? 'ext', localScope: p.jlsTab === 'loc' ? 'local' : 'inter', story: index };
 }
 
+/* A finding's caption cites the view its preset sets, and holds while every field that preset sets is unchanged — the rule
+   v2's storyHolds() applies — so opening a county under a finding about all counties keeps the caption, while moving the
+   year, the component or the threshold it cites retires it. */
+export function findingHolds(s: AtlasState, index: number): boolean {
+  const story = STORIES[index], preset = story.patch, expected = findingPatch(index);
+  const keys: (keyof AtlasState)[] = ['view', ...(['flow', 'den', 'cum', 'yi', 'dir', 'pair', 'thr', 'thrRel', 'thrPct'] as const).filter(k => k in preset), ...('sel' in preset ? ['county' as const] : []), ...(story.asserts?.length ? ['panel' as const] : [])];
+  return keys.every(k => s[k] === expected[k]);
+}
+
 export function readState(): AtlasState {
   const p = new URLSearchParams(location.hash.slice(1));
   const lang = p.get('l') ?? new URLSearchParams(location.search).get('l');
@@ -56,10 +65,7 @@ export function readState(): AtlasState {
     age: p.get('age') === 'int' ? 'int' : 'ext', localScope: p.get('local') === '1' ? 'local' : 'inter',
     story: story >= 0 && story < STORIES.length ? story : null,
   });
-  if (result.story != null) {
-    const expected = findingPatch(result.story);
-    if (Object.entries(expected).some(([k, v]) => result[k as keyof AtlasState] !== v)) result.story = null;
-  }
+  if (result.story != null && !findingHolds(result, result.story)) result.story = null;
   return result;
 }
 
