@@ -144,7 +144,7 @@ export default function PopulationPanels({ lang, county, yi, direction, onCounty
             <caption className="v3-sr">{L('Migracije prema dobnim skupinama u Hrvatskoj, ', 'Migration by age band in Croatia, ') + DEMO.year}</caption>
             <thead><tr>{ageMode === 'ext' && <th scope="col">{L('Odseljeni', 'Departures')}</th>}<th scope="col">{L('Dob', 'Age')}</th><th scope="col">{ageMode === 'ext' ? L('Doseljeni', 'Arrivals') : L('Preseljeni', 'Moves')}</th></tr></thead>
             <tbody>{DEMO.ages.map((_, index) => { const i = DEMO.ages.length - index - 1; return <tr key={DEMO.ages[i]} className={i === peakAge ? 'is-peak' : ''}>
-              {ageMode === 'ext' && <td className="v3-pop-bar-cell v3-pop-left-bar"><i aria-hidden="true" style={{ width: `${DEMO.ext.o[i] / ageMax * 100}%`, background: 'color-mix(in srgb, var(--coral) 18%, transparent)', borderColor: 'var(--coral)' }} /><span>{format(DEMO.ext.o[i])}</span></td>}
+              {ageMode === 'ext' && <td className="v3-pop-bar-cell v3-pop-left-bar"><i aria-hidden="true" style={{ width: `${DEMO.ext.o[i] / ageMax * 100}%`, background: 'var(--coral)' }} /><span>{format(DEMO.ext.o[i])}</span></td>}
               <th scope="row">{DEMO.ages[i]}</th><td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${ageValues[i] / ageMax * 100}%` }} /><span>{format(ageValues[i])}</span></td>
             </tr>; })}</tbody>
             <tfoot><tr>{ageMode === 'ext' && <td>{format(DEMO.cTot[1])}</td>}<th scope="row">{L('Ukupno', 'Total')}</th><td>{format(ageTotal)}</td></tr></tfoot>
@@ -189,7 +189,7 @@ export default function PopulationPanels({ lang, county, yi, direction, onCounty
         <thead><tr><th scope="col">{L('Zemlja', 'Country')}</th><th scope="col">{L('Doseljeni', 'Arrivals')}</th><th scope="col">{L('Odseljeni', 'Departures')}</th><th scope="col">{L('Saldo', 'Net')}</th></tr></thead>
         <tbody>{shownCountries.map(([name, arrivals, departures]) => <tr key={name} className={name === countries[countries.length - 1][0] ? 'is-remainder' : ''}><th scope="row">{countryLabel(name)}</th>
           <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${arrivals / countryMax * 100}%` }} /><span>{format(arrivals)}</span></td>
-          <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${departures / countryMax * 100}%`, background: 'color-mix(in srgb, var(--coral) 18%, transparent)', borderColor: 'var(--coral)' }} /><span>{format(departures)}</span></td><td>{balance(arrivals - departures)}</td></tr>)}
+          <td className="v3-pop-bar-cell"><i aria-hidden="true" style={{ width: `${departures / countryMax * 100}%`, background: 'var(--coral)' }} /><span>{format(departures)}</span></td><td>{balance(arrivals - departures)}</td></tr>)}
           {!shownCountries.length && <tr><td colSpan={4} className="v3-pop-empty">{L('Nema pronađenih zemalja.', 'No countries found.')} <button onClick={() => { setQuery(''); search.current?.focus(); }}>{L('Očisti pretragu', 'Clear search')}</button></td></tr>}</tbody>
         <tfoot><tr><th scope="row">{L('Ukupno · sve zemlje', 'Total · all countries')}</th><td>{format(DEMO.cTot[0])}</td><td>{format(DEMO.cTot[1])}</td><td>{balance(DEMO.cTot[0] - DEMO.cTot[1])}</td></tr></tfoot>
       </table></TableScroll></div>

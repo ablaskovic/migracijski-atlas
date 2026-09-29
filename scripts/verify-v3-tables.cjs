@@ -120,6 +120,17 @@ async function screenshot(name) {
       }
     });
 
+    await group('Population bars stay clear of their numbers', async () => {
+      // Each number sat on its bar, a box with a solid outline, which struck through the digits wherever the bar ended
+      // within the number ("6|33", "2.6|02"): 30 of 32 age cells at 390.
+      for (const width of [390, 768]) for (const panel of ['age', 'countries']) {
+        await page.setViewport({ width, height: 900, isMobile: true, hasTouch: true });
+        await go('population', panel);
+        const crossed = await page.$$eval('.v3-pop-bar-cell', cells => cells.filter(cell => { const bar = cell.querySelector('i').getBoundingClientRect(), text = cell.querySelector('span').getBoundingClientRect(); return bar.width > 0 && bar.left < text.right && bar.right > text.left && bar.top < text.bottom && bar.bottom > text.top; }).length);
+        check(`${width} ${panel}: no bar runs through its number`, crossed === 0);
+      }
+    });
+
     await group('Touch and keyboard can reach exact values', async () => {
       await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
       await go('trends', '');
