@@ -600,9 +600,11 @@ const signed = (n, relative) => {
   // A pressed toggle differed from its neighbours only by a 1.07–1.14:1 background and a 1.1–2.5:1 text colour; no cue
   // reached the 3:1 WCAG 1.4.11 asks of a state.
   const pressedCues = [];
-  for (const theme of ['light', 'dark']) for (const [hash, groups] of Object.entries({ 'explore=map': ['.v3-metrics', '.v3-time-mode'], 'explore=flows&year=2018': ['.v3-segment'], 'explore=population&panel=age': ['.v3-pop-tabs', '.v3-pop-segment'], 'explore=classify&year=2024&county=HR-14': ['.v3-analysis-list'] })) {
+  for (const theme of ['light', 'dark']) for (const [hash, groups] of Object.entries({ 'explore=map': ['.v3-metrics', '.v3-time-mode'], 'explore=flows&year=2018': ['.v3-segment'], 'explore=population&panel=age': ['.v3-pop-tabs', '.v3-pop-segment'], 'explore=classify&year=2024&county=HR-14': ['.v3-analysis-list'], 'explore=municipalities': ['.v3-municipal-results'] })) {
     await page.evaluate(t => localStorage.setItem('atlas-v3-theme', t), theme);
     await go(`?version=v3&fresh=pressed${theme}${hash.length}#${hash}&l=en`);
+    // A municipal row is picked in the page, not the address.
+    if (groups[0] === '.v3-municipal-results') { await page.waitForSelector('.v3-municipal-results button'); await page.click('.v3-municipal-results > button'); await page.mouse.move(0, 0); }
     pressedCues.push(...await page.evaluate(groups => {
       const rgb = s => (s.match(/rgba?\(([^)]+)\)/)?.[1] ?? '0,0,0,0').split(',').map(Number);
       const lum = ([r, g, b]) => [r, g, b].map(v => v / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
@@ -612,7 +614,7 @@ const signed = (n, relative) => {
       return groups.map(g => { const pressed = document.querySelector(`${g} [aria-pressed="true"]`), other = document.querySelector(`${g} button:not([aria-pressed="true"])`); return !!pressed && !!cue(pressed) && !(other && cue(other)) && ratio(cue(pressed), backdrop(pressed)) >= 3; });
     }, groups));
   }
-  check('every pressed toggle carries a cue of at least 3:1, in both themes', pressedCues.length === 12 && pressedCues.every(Boolean));
+  check('every pressed toggle carries a cue of at least 3:1, in both themes', pressedCues.length === 14 && pressedCues.every(Boolean));
   // In forced colours the heatmap went blank, bars, swatches, ramps and the slider track vanished, and every pressed or
   // current state became identical to the rest.
   const forced = await page.createCDPSession();
