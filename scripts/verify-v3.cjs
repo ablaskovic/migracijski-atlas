@@ -706,6 +706,10 @@ const signed = (n, relative) => {
   const gridStop = await page.evaluate(() => (document.querySelector('[data-grid-cell][tabindex="0"]').getAttribute('aria-label') || '').split(':')[0]);
   await gridFocus.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await gridFocus.detach();
   check('grid keys stop at the row or column edge, and the tab stop follows its county and year', edgeStays.every(Boolean) && gridStop === gridChosen);
+  // On the Regions map every county button was named by its region alone: 21 buttons, 5 distinct names.
+  await go('?version=v3&fresh=regionnames#explore=regions&year=2024&sum=1&l=en');
+  const regionButtonNames = await page.evaluate(() => [...document.querySelectorAll('[data-county]')].map(p => p.getAttribute('aria-label')));
+  check('each Regions map button names its county before its region', regionButtonNames.length === 21 && new Set(regionButtonNames).size === 21 && regionButtonNames.some(n => /^Osječko-baranjska — Eastern: /.test(n)));
   // The trend chart's year bars are buttons that pick a year, and none said which year was picked.
   await go('?version=v3&fresh=bars#explore=trends&year=2010&l=en');
   check('the trend chart says which year is selected', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.v3-trend-chart .v3-chart-hit[aria-pressed="true"]')].map(b => b.getAttribute('aria-label').slice(0, 4)))) === '["2010"]');
