@@ -278,6 +278,19 @@ async function scenario(name, run) {
     await session.detach();
     check('a figure exported from a phone prints map labels at the desktop size', JSON.stringify(sizes) === JSON.stringify({ '390 cities': '11px', '390 counties': '12px', '320 cities': '11px', '320 counties': '12px' }), sizes);
   });
+  await scenario('Tablet timeline keeps a usable slider', async () => {
+    // At 721–960 px the mode toggle stacked into a column beside the slider in the narrow map column: 77 px of slider at 721.
+    const report = {};
+    for (const width of [721, 768, 834]) {
+      await viewport(width, 1024); await go('explore=map&year=2024&l=hr');
+      report[width] = await page.evaluate(() => {
+        const timeline = document.querySelector('.v3-map-column .v3-timeline'), slider = timeline.querySelector('.v3-slider-wrap input').getBoundingClientRect(), mode = timeline.querySelector('.v3-time-mode').getBoundingClientRect();
+        const ticks = [...timeline.querySelectorAll('.v3-year-ticks span')].map(s => s.getBoundingClientRect()).filter(r => r.width);
+        return { slider: Math.round(slider.width), modeBelow: mode.top >= slider.bottom, collide: ticks.some((r, i) => i && r.left < ticks[i - 1].right + 2) };
+      });
+    }
+    check('the tablet map slider is no narrower than a 390 px phone\'s, with the mode toggle on its own row', Object.values(report).every(r => r.slider >= 190 && r.modeBelow && !r.collide), report);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
