@@ -185,6 +185,16 @@ async function scenario(name, run) {
     check('closing a finding restores the finding selector', await page.evaluate(() => document.activeElement === document.querySelector('[aria-label="Guided findings"]')));
     await go(); check('flow hub has no misleading All Croatia reset', !(await page.$('.v3-period button')));
   });
+  await scenario('Direction segment labels fit their buttons', async () => {
+    // At ≤600 px the three buttons were forced to equal widths (79 px at 390) though "Doseljavanje" needs 92 px: each label
+    // spilled into its neighbour, under a pressed neighbour's fill.
+    const spills = [];
+    for (const width of [320, 390, 480, 600]) for (const [hash, lang] of [['explore=municipalities&dir=out', 'hr'], ['explore=matrix&year=2018', 'en']]) {
+      await viewport(width, 800); await go(`${hash}&l=${lang}`);
+      spills.push(...await page.evaluate(() => [...document.querySelectorAll('.v3-segment')].flatMap(seg => { const buttons = [...seg.querySelectorAll('button')], rects = buttons.map(b => b.getBoundingClientRect()); return buttons.filter((b, i) => b.scrollWidth > b.clientWidth + 1 || rects.some((r, j) => j !== i && r.top === rects[i].top && r.left < rects[i].right - 1 && r.right > rects[i].left + 1)).map(b => b.textContent); })).then(bad => bad.map(b => `${width} ${lang}: ${b}`)));
+    }
+    check('direction segment labels fit their buttons at every phone width', spills.length === 0, spills);
+  });
   await scenario('Small counties take a near-miss tap', async () => {
     // The City of Zagreb is drawn 15×17 px on a phone, and a tap 8 px off its centre selected the surrounding Zagrebačka.
     const results = [];
