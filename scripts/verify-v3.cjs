@@ -492,6 +492,18 @@ const signed = (n, relative) => {
     return name ? ((fs.readFileSync(path.join(output, name), 'utf8').match(/<desc>([^<]*)<\/desc>/) || [])[1] || '').split('\n')[0] : '';
   };
   check('the net matrix figure names the row, not a selected county', /^Saldo retka · /.test(await matrixSubtitle('hr')) && /^Net gain for the row · /.test(await matrixSubtitle('en')));
+  // "Before 2007, arrivals and departures do not fully balance" was appended to every tot/int/all figure whatever its
+  // window, printed under a cumulative trends grid whose columns start at 2011, and twice on an annual pre-2007 trends view.
+  const preNoted = async hash => {
+    for (const f of fs.readdirSync(output).filter(f => /^atlas-/.test(f))) fs.unlinkSync(path.join(output, f));
+    const name = await savedName(hash + '&l=en', '.v3-export-actions button:nth-child(2)');
+    return name ? /Before 2007/.test((fs.readFileSync(path.join(output, name), 'utf8').match(/<desc>([^<]*)<\/desc>/) || [])[1] || '') : null;
+  };
+  const preNotes = async hash => { await go(`?version=v3&fresh=pre${Math.random().toString(36).slice(2, 8)}#${hash}&l=en`); return page.evaluate(() => [...document.querySelectorAll('.v3-data-note')].filter(p => /Before 2007/.test(p.textContent)).length); };
+  const preFigures = [await preNoted('explore=map&year=2025&metric=tot'), await preNoted('explore=map&year=2005&metric=tot'), await preNoted('explore=classify&year=2024&sum=1'), await preNoted('explore=trends&metric=tot'), await preNoted('explore=trends&metric=tot&sum=1')];
+  check('a figure carries the pre-2007 note only when it shows pre-2007 values', JSON.stringify(preFigures) === '[false,true,false,true,false]');
+  const preScreens = [await preNotes('explore=trends&metric=tot&sum=1'), await preNotes('explore=trends&metric=tot&sum=1&county=HR-21'), await preNotes('explore=trends&metric=tot&year=2005'), await preNotes('explore=map&year=2005&metric=tot'), await preNotes('explore=map&year=2025&metric=tot')];
+  check('the screen prints the pre-2007 note once, and only where pre-2007 values are shown', JSON.stringify(preScreens) === '[0,1,1,1,0]');
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

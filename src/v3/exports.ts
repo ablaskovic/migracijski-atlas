@@ -1,4 +1,4 @@
-import { D, FLOWN, ISOS, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBadge, fsum, jlsVal, klasOf, mxCell, mxMax, pragText, regVal, val, yrsCols, yrsOrder } from '../lib/metrics.ts';
+import { D, FLOWN, ISOS, IX2007, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBadge, fsum, jlsVal, klasOf, mxCell, mxMax, pragText, regVal, val, yrsCols, yrsOrder } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperCaveatLine, paperThrLine, regionReadingLine } from '../lib/credits.ts';
 import { inLang } from '../lib/i18n.ts';
@@ -80,7 +80,8 @@ export async function exportCurrentFigure(s: AtlasState, format: 'png' | 'svg', 
   if (s.view === 'classify') notes.push(paperThrLine(s.thrRel));
   if (s.view === 'regions') notes.push(regionReadingLine());
   if (municipal) notes.push(L('Samo preseljenja između gradova/općina; uključena preseljenja unutar županije. Vanjske migracije nisu uključene.', 'Only moves between cities/municipalities, including within a county. External migration excluded.'));
-  if (!flow && !municipal && s.flow !== 'ext' && s.flow !== 'nat') notes.push(L('Prije 2007. unutarnji doseljeni i odseljeni ne podudaraju se potpuno.', 'Before 2007, internal arrivals and departures do not fully balance.'));
+  // Only on figures that show pre-2007 values: annual trends columns start in 1998; every other figure is one year or a total from 2011.
+  if (!flow && !municipal && s.flow !== 'ext' && s.flow !== 'nat' && !s.cum && (s.view === 'trends' || s.yi < IX2007)) notes.push(L('Prije 2007. unutarnji doseljeni i odseljeni ne podudaraju se potpuno.', 'Before 2007, internal arrivals and departures do not fully balance.'));
   const direction = s.dir === 'in' ? L('Doseljavanje', 'Arrivals') : s.dir === 'out' ? L('Odseljavanje', 'Departures') : municipal ? L('Saldo gradova i općina', 'Net change by municipality') : s.view === 'matrix' ? L('Saldo retka', 'Net gain for the row') : L('Saldo odabrane županije', 'Net gain for selected county');
   const figureUnit = s.view === 'trends' && s.den === 'relest' ? L('% procjene stanovništva za godinu stupca', '% of the column year’s population estimate') : unitName(s);
   const maximum = s.view === 'regions' ? RDOM[s.flow + s.den + s.cum] : s.view === 'matrix' ? mxMax(s.dir, s.cum) : municipal ? Math.max(1, ...(jlsGeo()?.features.map(f => Math.abs(jlsVal(f.properties, s.dir))) ?? [])) : domain(s);
