@@ -276,6 +276,16 @@ const signed = (n, relative) => {
   check('the national chart follows the component: total and external 2025 = +19,180', nationalChart.tot.bar === '2025: +19,180' && nationalChart.ext.bar === '2025: +19,180');
   check('the national chart shows natural change and migration + natural change', nationalChart.nat.bar === '2025: −17,528' && nationalChart.all.bar === '2025: +1,652' && /natural change/i.test(nationalChart.nat.subtitle));
   check('national internal migration is explained instead of charted', nationalChart.int.bar === null && nationalChart.int.note);
+  // The gains card always counted total migration and contradicted the findings above it (external 2022: 12 counties,
+  // card 11/21; natural change 2011–2024: none, card 7/21; migration + natural change: five, card 7/21).
+  const gainCards = {};
+  for (const [key, hash] of [['ext2022', 'explore=map&year=2022&metric=ext'], ['natCum', 'explore=map&year=2024&metric=nat&sum=1&unit=pct'], ['allCum', 'explore=map&year=2024&metric=all&sum=1'], ['municipal', 'explore=municipalities&metric=ext']]) {
+    await go(`?version=v3&l=en&fresh=kpi${key}#${hash}&l=en`);
+    gainCards[key] = await page.evaluate(() => ({ value: document.querySelector('[data-stat="counties"]').textContent, caption: document.querySelectorAll('.v3-stat')[3].querySelector(':scope > span').textContent }));
+  }
+  check('the gains card counts the selected component', gainCards.ext2022.value === '12 / 21' && gainCards.natCum.value === '0 / 21' && gainCards.allCum.value === '5 / 21');
+  check('the gains card says what was compared', /births/i.test(gainCards.natCum.caption) && /arrivals/i.test(gainCards.ext2022.caption));
+  check('views without a component selector count total migration', gainCards.municipal.value === '4 / 21');
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

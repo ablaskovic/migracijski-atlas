@@ -94,7 +94,9 @@ export default function AppV3() {
   const title = region ? region.name : scopeCounty && !nationalPanel ? countyName(scopeCounty, s.lang) : L('Hrvatska u pokretu.', 'Croatia in motion.');
   const period = periodLabel(s.yi, s.cum);
   const current = totals({ ...s, county: scopeCounty }, region?.c);
-  const winners = ISOS.filter(iso => val(iso, s.yi, 'tot', 'abs', s.cum) > 0).length;
+  // Counted in the component on screen; views without the component buttons count total migration.
+  const gainFlow = isFreeView(s.view) ? s.flow : 'tot';
+  const winners = ISOS.filter(iso => val(iso, s.yi, gainFlow, 'abs', s.cum) > 0).length;
   const hub = s.county ?? 'HR-21';
   const flowView = s.view === 'flows' || s.view === 'matrix';
   const fixedYear = s.view === 'municipalities' || s.view === 'population';
@@ -244,7 +246,7 @@ export default function AppV3() {
           <article className="v3-stat v3-stat-primary"><div className="v3-stat-label">{scopeCounty ? L('Migracijski saldo', 'Net migration') : L('Vanjski migracijski saldo', 'Net external migration')}<Icon name="flow" size={17} /></div><strong className={current.net < 0 ? 'v3-negative' : ''} data-stat="net">{format(current.net)}</strong><span>{L('doseljeni − odseljeni', 'arrivals − departures')} · {period}</span></article>
           <article className="v3-stat"><div className="v3-stat-label">{L('Doseljeni iz inozemstva', 'Arrivals from abroad')}<span className="v3-stat-arrow">↙</span></div><strong data-stat="arrivals">{nf.format(current.arrivals)}</strong><span>{L('registriranih doseljenja', 'registered arrivals')} · {period}</span></article>
           <article className="v3-stat"><div className="v3-stat-label">{L('Odseljeni u inozemstvo', 'Departures abroad')}<span className="v3-stat-arrow is-coral">↗</span></div><strong data-stat="departures">{nf.format(current.departures)}</strong><span>{L('registriranih odseljenja', 'registered departures')} · {period}</span></article>
-          <article className="v3-stat"><div className="v3-stat-label">{scopeCounty ? L('Unutarnji migracijski saldo', 'Net internal migration') : L('Županije s pozitivnim saldom', 'Counties with net gains')}<Icon name="map" size={17} /></div><strong data-stat="counties">{scopeCounty ? format((region?.c ?? [scopeCounty]).reduce((sum, iso) => sum + val(iso, s.yi, 'int', 'abs', s.cum), 0)) : <>{winners}<small> / 21</small></>}</strong><span>{scopeCounty ? L('preseljenja između županija', 'moves between counties') : L('više doseljenih nego odseljenih', 'more arrivals than departures')}</span></article>
+          <article className="v3-stat"><div className="v3-stat-label">{scopeCounty ? L('Unutarnji migracijski saldo', 'Net internal migration') : L('Županije s pozitivnim saldom', 'Counties with net gains')}<Icon name="map" size={17} /></div><strong data-stat="counties">{scopeCounty ? format((region?.c ?? [scopeCounty]).reduce((sum, iso) => sum + val(iso, s.yi, 'int', 'abs', s.cum), 0)) : <>{winners}<small> / 21</small></>}</strong><span>{scopeCounty ? L('preseljenja između županija', 'moves between counties') : (gainFlow === 'nat' ? L('više rođenih nego umrlih', 'more births than deaths') : gainFlow === 'all' ? L('migracije i prirast zajedno u plusu', 'migration and natural change together positive') : L('više doseljenih nego odseljenih', 'more arrivals than departures'))}</span></article>
         </section>
         }
         <section className="v3-workspace" aria-label={L('Istraživanje podataka', 'Explore the data')}>
