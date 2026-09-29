@@ -504,6 +504,16 @@ const signed = (n, relative) => {
   check('a figure carries the pre-2007 note only when it shows pre-2007 values', JSON.stringify(preFigures) === '[false,true,false,true,false]');
   const preScreens = [await preNotes('explore=trends&metric=tot&sum=1'), await preNotes('explore=trends&metric=tot&sum=1&county=HR-21'), await preNotes('explore=trends&metric=tot&year=2005'), await preNotes('explore=map&year=2005&metric=tot'), await preNotes('explore=map&year=2025&metric=tot')];
   check('the screen prints the pre-2007 note once, and only where pre-2007 values are shown', JSON.stringify(preScreens) === '[0,1,1,1,0]');
+  // "Cumulative net change uses the population at the end of the period" was printed in annual mode on screen, and the
+  // export's endpoint-estimate and table-cell notes rode on annual figures and on maps, which have no table cells.
+  for (const f of fs.readdirSync(output).filter(f => /^atlas-/.test(f))) fs.unlinkSync(path.join(output, f));
+  const denNotes = async hash => {
+    const name = await savedName(hash + '&unit=estimate&l=en', '.v3-export-actions button:nth-child(2)');
+    const screen = await page.evaluate(() => /Cumulative/.test(document.querySelector('.v3-den-note')?.textContent ?? ''));
+    const desc = name ? (fs.readFileSync(path.join(output, name), 'utf8').match(/<desc>([^<]*)<\/desc>/) || [])[1] || '' : '';
+    return [screen, /Cumulative net change/.test(desc), /table cell/.test(desc)].map(Number).join('');
+  };
+  check('the cumulative-estimate note appears only on cumulative views, the cell note only on tables', JSON.stringify([await denNotes('explore=map&year=2001'), await denNotes('explore=map&year=2024&sum=1'), await denNotes('explore=trends&metric=tot'), await denNotes('explore=trends&metric=tot&sum=1')]) === '["000","110","001","111"]');
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

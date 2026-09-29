@@ -93,7 +93,8 @@ export async function exportCurrentFigure(s: AtlasState, format: 'png' | 'svg', 
   if (s.view === 'classify') { const threshold = pragText(asClassic(s)); legend = `${KLAB.gain}: > 0 · ${KLAB.neu}: ${threshold} … 0 · ${KLAB.loss}: < ${threshold}`; }
   if (s.view === 'matrix') notes.push(s.dir === 'out' ? L('Redak → stupac: odseljeni.', 'Row → column: departures.') : s.dir === 'in' ? L('Stupac → redak: doseljeni.', 'Column → row: arrivals.') : L('Saldo retka: stupac → redak minus redak → stupac.', 'Net gain for the row: column → row minus row → column.'));
   if (s.view === 'trends') notes.push(L('Stupac = godina; redak = županija. Zbroj počinje 2011. kada je uključen kumulativni prikaz.', 'Column = year; row = county. Totals start at 2011 when cumulative mode is selected.'));
-  if (s.den === 'relest' && !flow && !municipal) notes.push(L('Kumulativni saldo koristi procjenu stanovništva završne godine; svaka ćelija tablice koristi procjenu svoje godine.', 'Cumulative net change uses the endpoint population estimate; each table cell uses its own year’s estimate.'));
+  if (s.den === 'relest' && !flow && !municipal && s.cum) notes.push(L('Kumulativni saldo koristi procjenu stanovništva završne godine.', 'Cumulative net change uses the endpoint population estimate.'));
+  if (s.den === 'relest' && s.view === 'trends') notes.push(L('Svaka ćelija tablice koristi procjenu svoje godine.', 'Each table cell uses its own year’s estimate.'));
   if (s.view === 'trends' && s.den === 'relest') notes.push(L(`Procjene su dostupne za ${PE_SPAN[0]}–${PE_SPAN[1]}; izvan raspona koristi se najbliža dostupna godina.`, `Population estimates cover ${PE_SPAN[0]}–${PE_SPAN[1]}; outside this range the nearest available year is used.`));
   try {
     await exportFigure(svg, format, {
