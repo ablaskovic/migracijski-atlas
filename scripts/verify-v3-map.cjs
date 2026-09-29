@@ -172,7 +172,8 @@ const check = (name, passed, detail) => { console.log((passed?'PASS ':'FAIL ') +
       revealed.push({kind,hidden,visible,zoom:(await matrix()).a});
     }
     // Focus pans an off-screen feature into view at the same zoom; it used to reset the zoom to 1x.
-    check('keyboard focus pans counties and municipalities outside a zoomed viewport into view at the same zoom',revealed.every(r=>r.hidden&&r.visible&&r.zoom===2.5),revealed);
+    // Three presses reach each map's deepest zoom: 2.5× for the counties, 8× for the 556 municipalities.
+    check('keyboard focus pans counties and municipalities outside a zoomed viewport into view at the same zoom',revealed.every(r=>r.hidden&&r.visible&&r.zoom===(r.kind==='county'?2.5:8)),revealed);
     // A zoomed map pans by button (WCAG 2.5.7) as well as by drag; the buttons appear only while zoomed.
     const panMoves=[];await reset();panMoves.push(await page.$$eval('.v3-map-pan button',b=>b.length));
     for(let i=0;i<3;i++)await page.click('.v3-map-tools button:first-child');

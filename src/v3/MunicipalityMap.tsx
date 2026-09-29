@@ -15,7 +15,8 @@ const path = geoPath(projection);
 export default function MunicipalityMap({ s, light, update }: { s: AtlasState; light: boolean; update: (patch: Partial<AtlasState>) => void }) {
   useGeo('jmap');
   const geo = jlsGeo();
-  const nav = useMapNavigation(W, H);
+  // Deeper than the counties' 2.5×: at that zoom a quarter of the 556 places were under 8.6 px across.
+  const nav = useMapNavigation(W, H, 8);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);

@@ -4,7 +4,7 @@ interface View { zoom: number; x: number; y: number }
 interface Point { x: number; y: number; clientX: number; clientY: number; target: Element }
 const MAX_ZOOM = 2.5;
 
-export default function useMapNavigation(width: number, height: number) {
+export default function useMapNavigation(width: number, height: number, maxZoom = MAX_ZOOM) {
   const svg = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>({ zoom: 1, x: 0, y: 0 });
   const current = useRef(view);
@@ -14,22 +14,22 @@ export default function useMapNavigation(width: number, height: number) {
   const pinched = useRef(false);
   const gesture = useRef<{ view: View; x: number; y: number; distance: number; clientX: number; clientY: number } | null>(null);
   const update = useCallback((next: View) => {
-    const zoom = Math.max(1, Math.min(MAX_ZOOM, next.zoom));
+    const zoom = Math.max(1, Math.min(maxZoom, next.zoom));
     const x = Math.max(-(zoom - 1) * width / 2, Math.min((zoom - 1) * width / 2, next.x));
     const y = Math.max(-(zoom - 1) * height / 2, Math.min((zoom - 1) * height / 2, next.y));
     current.current = { zoom, x, y };
     setView(current.current);
-  }, [width, height]);
+  }, [width, height, maxZoom]);
   const local = (clientX: number, clientY: number) => {
     const matrix = svg.current?.getScreenCTM();
     return matrix ? new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse()) : null;
   };
   const zoomTo = useCallback((zoom: number, x = width / 2, y = height / 2) => {
     const old = current.current;
-    zoom = Math.max(1, Math.min(MAX_ZOOM, zoom));
+    zoom = Math.max(1, Math.min(maxZoom, zoom));
     update({ zoom, x: x - width / 2 - (x - width / 2 - old.x) * zoom / old.zoom,
       y: y - height / 2 - (y - height / 2 - old.y) * zoom / old.zoom });
-  }, [width, height, update]);
+  }, [width, height, update, maxZoom]);
   const cancel = useCallback(() => {
     const captured = [...pointers.current];
     pointers.current.clear();
@@ -100,7 +100,7 @@ export default function useMapNavigation(width: number, height: number) {
     if (e.pointerType === 'touch' && !b && start.view.zoom === 1) return true;
     setDragging(true);
     e.preventDefault();
-    const zoom = b && start.distance > 0 ? Math.max(1, Math.min(MAX_ZOOM, start.view.zoom * Math.hypot(a.x - b.x, a.y - b.y) / start.distance)) : start.view.zoom;
+    const zoom = b && start.distance > 0 ? Math.max(1, Math.min(maxZoom, start.view.zoom * Math.hypot(a.x - b.x, a.y - b.y) / start.distance)) : start.view.zoom;
     const x = b ? (a.x + b.x) / 2 : a.x, y = b ? (a.y + b.y) / 2 : a.y;
     update({ zoom, x: x - width / 2 - (start.x - width / 2 - start.view.x) * zoom / start.view.zoom,
       y: y - height / 2 - (start.y - height / 2 - start.view.y) * zoom / start.view.zoom });
@@ -120,6 +120,8 @@ export default function useMapNavigation(width: number, height: number) {
     pinched.current = false;
   };
   const reset = () => { cancel(); update({ zoom: 1, x: 0, y: 0 }); };
+  // Three presses reach the deepest zoom on either map: half steps on the counties' 2.5×, longer ones on a deeper map.
+  const step = (maxZoom - 1) / 3;
   // A step of the pan buttons, a fifth of the view: dragging is not the only way to move a zoomed map (WCAG 2.5.7).
   const pan = (dx: number, dy: number) => update({ ...current.current, x: current.current.x + dx * width / 5, y: current.current.y + dy * height / 5 });
   // Focus on a feature outside the zoomed view pans it to the centre at the same zoom; a reset threw that zoom away.
@@ -130,6 +132,6 @@ export default function useMapNavigation(width: number, height: number) {
     update({ zoom, x: -(b.x + b.width / 2 - width / 2) * zoom, y: -(b.y + b.height / 2 - height / 2) * zoom });
   };
   return { svg, ...view, dragging, suppressClick, onPointerDown, onPointerMove, onPointerEnd,
-    zoomIn: () => zoomTo(current.current.zoom + .5), zoomOut: () => zoomTo(current.current.zoom - .5),
-    reset, reveal, pan, maxZoom: MAX_ZOOM };
+    zoomIn: () => zoomTo(current.current.zoom + step), zoomOut: () => zoomTo(current.current.zoom - step),
+    reset, reveal, pan, maxZoom };
 }

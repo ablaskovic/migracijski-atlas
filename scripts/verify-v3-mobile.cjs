@@ -405,6 +405,18 @@ async function scenario(name, run) {
     }
     check('a first pick in the Years grid adds the county chart below it, not above', Object.values(report).every(r => r.chart && Math.abs(r.above) <= 2), report);
   });
+  await scenario('The municipal map zooms deep enough to tell places apart', async () => {
+    // At its 2.5× limit a quarter of the 556 places were under 9.8 px across on a phone (21.4 px on a desktop).
+    const report = {};
+    for (const [width, height, coarse] of [[390, 844, true], [1440, 900, false]]) {
+      await viewport(width, height, coarse); await go('explore=municipalities&l=hr'); await page.waitForSelector('[data-municipality]');
+      const zoomIn = '.v3-municipal-map .v3-map-tools button:first-child';
+      let presses = 0;
+      while (presses < 20 && await page.$eval(zoomIn, b => b.getAttribute('aria-disabled') !== 'true')) { await page.$eval(zoomIn, b => b.click()); presses++; await pause(150); }
+      report[width] = { presses, quartile: await page.evaluate(() => { const sizes = [...document.querySelectorAll('[data-municipality]')].map(p => { const r = p.getBoundingClientRect(); return Math.max(r.width, r.height); }).sort((a, b) => a - b); return sizes[Math.floor(sizes.length / 4)]; }) };
+    }
+    check('at its deepest zoom, three presses away, three in four municipal places are at least 24 px across', Object.values(report).every(r => r.quartile >= 24 && r.presses <= 3), report);
+  });
   await scenario('About opens at its top over a still page', async () => {
     // Reopened, it kept its old scroll (491 px after 898, title off-screen), and a swipe on the backdrop margin scrolled
     // the page behind it (0 → 230 px at 390).
