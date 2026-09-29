@@ -379,6 +379,15 @@ async function scenario(name, run) {
     });
     check('a short phone toast takes one line, centred inside the screen', toast.lines === 1 && Math.abs(toast.left - toast.right) <= 2 && toast.left >= 12, toast);
   });
+  await scenario('The Regions legend sits under its map', async () => {
+    // It came after the region cards and two notes: 589 px below the map at 390, 213 px at 768.
+    const report = {};
+    for (const [width, height, coarse] of [[390, 844, true], [768, 1024, true], [1440, 900, false]]) {
+      await viewport(width, height, coarse); await go('explore=regions&year=2025&metric=tot&l=hr');
+      report[width] = await page.evaluate(() => { const view = document.querySelector('[data-analysis="regions"]'), map = view.querySelector('.v3-cartography').getBoundingClientRect(), legend = view.querySelector('.v3-legend').getBoundingClientRect(); return { gap: Math.round(legend.top - map.bottom), under: legend.left >= map.left - 1 && legend.right <= map.right + 1 }; });
+    }
+    check('the Regions legend sits directly under its map on phones, tablets and desktop', Object.values(report).every(r => r.gap >= 0 && r.gap <= 40 && r.under), report);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
