@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { ISOS, IX2011, IX2018, REG, REGOF, YEARS, val } from '../lib/metrics.ts';
+import { ISOS, IX2011, IX2018, REG, REGOF, YEARS, ipfMargins, val } from '../lib/metrics.ts';
 import { setLang, storeLang } from '../lib/i18n.ts';
 import { APP_VERSION, ATLAS_AUTHOR, CODE_LICENCE, CODE_YEAR, REPO, sources } from '../lib/licences.ts';
 import { dropHash } from '../lib/privacy.ts';
@@ -126,6 +126,8 @@ export default function AppV3() {
   const flowView = s.view === 'flows' || s.view === 'matrix';
   const fixedYear = s.view === 'municipalities' || s.view === 'population';
   const estimated = flowView && (s.cum || s.yi !== IX2018);
+  // One note per flow view, in the IPF wording the export and v2 share.
+  const flowNote = estimated ? L('IPF procjena: ', 'IPF estimate: ') + ipfMargins() + L('. Samo godišnja 2018. je izmjerena.', '. Only annual 2018 is measured.') : L('Izmjereni tokovi između županija · Pitoski i sur. (2021.), CC BY 4.0.', 'Measured inter-county flows · Pitoski et al. (2021), CC BY 4.0.');
   const max = domain(s);
   const color = colors(max, light);
   const ramp = `linear-gradient(90deg,${Array.from({ length: 21 }, (_, i) => `${color(-max + i / 10 * max)} ${i * 5}%`).join(',')})`;
@@ -300,12 +302,12 @@ export default function AppV3() {
           {timeline}</div> : <div className="v3-map-layout"><div className="v3-map-column"><div className="v3-map-heading"><div><h2>{s.view === 'flows' ? countyName(hub, s.lang) : metricFull[s.flow]}</h2><span>{s.view === 'flows' ? direction === 'in' ? L('Odakle ljudi dolaze?', 'Where do people arrive from?') : direction === 'out' ? L('Kamo ljudi odlaze?', 'Where do people move to?') : L('Neto razmjena s drugim županijama', 'Net exchange with other counties') : unitName(s)}<span className="v3-middle-dot">·</span>{period}</span></div><span className="v3-map-meta">{s.view === 'flows' ? '20' : '21'} {s.view === 'flows' ? L('KORIDORA', 'CORRIDORS') : L('ŽUPANIJA', 'COUNTIES')}</span></div>
               <MapCanvas s={s} light={light} hover={hover} onHover={setHover} onSelect={county => inspectCounty(s.county === county && s.view !== 'flows' ? null : county)} format={format} direction={direction} partner={s.pair} />
               <div className="v3-legend">{s.view === 'flows' ? <><span className="v3-flow-key" /><span>{L('Debljina linije = broj preseljenja. Koridori ispod 5 osoba nisu ucrtani.', 'Line width = number of moves. Corridors under 5 people are not drawn.')}</span></> : <><span>{L('Gubitak', 'Loss')}</span><div className="v3-color-key"><div /><span>{format(-max, s.relative)}</span><span>0</span><span>{format(max, s.relative)}</span></div><span>{L('Dobitak', 'Gain')}</span></>}</div>
-              {s.view === 'flows' && <p className="v3-data-note">{estimated ? L('Procjena: struktura 2018. skalirana na DZS odseljene; doseljeni približno. Samo godišnja 2018. je izmjerena.', 'Estimate: 2018 structure scaled to CBS out-margins; in-margins approximate. Only annual 2018 is measured.') : L('Izmjereni tokovi između županija · Pitoski i sur. (2021.), CC BY 4.0.', 'Measured inter-county flows · Pitoski et al. (2021), CC BY 4.0.')}</p>}
+              {s.view === 'flows' && <p className="v3-data-note">{flowNote}</p>}
             {timeline}</div><CountyPanel s={s} hover={hover} setHover={setHover} selectView={selectView} direction={direction} format={format} metricFull={metricFull} inspectCounty={inspectCounty} />
           </div>}
 
           {s.view === 'flows' && <PairDetail s={s} update={update} />}
-          {flowView && <p className="v3-data-note v3-window-note">{estimated ? L('IPF procjena: struktura 2018. skalirana na DZS odseljene; doseljeni približno. Samo godišnja 2018. je izmjerena.', 'IPF estimate: 2018 structure scaled to CBS out-margins; in-margins approximate. Only annual 2018 is measured.') : L('Izmjereni tokovi između županija · Pitoski i sur. (2021.), CC BY 4.0.', 'Measured inter-county flows · Pitoski et al. (2021), CC BY 4.0.')}</p>}
+          {s.view === 'matrix' && <p className="v3-data-note v3-window-note">{flowNote}</p>}
           {s.view !== 'trends' && s.yi < YEARS.indexOf(2007) && !s.cum && (s.flow === 'tot' || s.flow === 'int' || s.flow === 'all') && <p className="v3-data-note v3-window-note">{L('Prije 2007. zbrojevi doseljenih i odseljenih između županija ne podudaraju se u potpunosti.', 'Before 2007, inter-county arrivals and departures do not fully balance.')}</p>}
         </section>
         <section className="v3-discover" aria-label={L('Polazišta za istraživanje', 'Ways to explore')}><div className="v3-discover-title"><span className="v3-eyebrow">{L('POGLEDAJTE POBLIŽE', 'TAKE A CLOSER LOOK')}</span><h2>{L('Iza svakog broja, promjena.', 'A changing story in every number.')}</h2></div><button onClick={() => { setPlaying(false); update({ view: 'trends', county: null, flow: 'ext', cum: false, yi: YEARS.indexOf(2022) }); revealWorkspace(); }}><span className="v3-discover-number">01</span><div><strong>{L('Promjena smjera', 'A change of direction')}</strong><p>{L('Pratite vanjske migracije od 1998.', 'Trace external migration since 1998.')}</p></div><Icon name="arrow" /></button><button onClick={() => { setPlaying(false); update({ view: 'map', county: null, flow: 'int', relative: false, cum: true, yi: YEARS.length - 1 }); revealWorkspace(); }}><span className="v3-discover-number">02</span><div><strong>{L('Kamo se selimo?', 'Where do we move?')}</strong><p>{L('Unutarnje migracije od 2011. do 2025.', 'Internal migration from 2011 to 2025.')}</p></div><Icon name="arrow" /></button><button onClick={() => { setPlaying(false); update({ view: 'map', county: null, flow: 'all', relative: false, cum: false, yi: YEARS.length - 1 }); revealWorkspace(); }}><span className="v3-discover-number">03</span><div><strong>{L('Šira slika', 'The wider picture')}</strong><p>{L('Migracije zajedno s prirodnim prirastom.', 'Migration alongside natural change.')}</p></div><Icon name="arrow" /></button></section>

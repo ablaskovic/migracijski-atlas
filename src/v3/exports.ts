@@ -1,4 +1,4 @@
-import { D, FLOWN, ISOS, IX2007, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBadge, fsum, jlsVal, klasOf, mxCell, mxMax, pragText, regVal, val, yrsCols, yrsOrder } from '../lib/metrics.ts';
+import { D, FLOWN, ISOS, IX2007, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBadge, fsum, ipfMargins, jlsVal, klasOf, mxCell, mxMax, pragText, regVal, val, yrsCols, yrsOrder } from '../lib/metrics.ts';
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperCaveatLine, paperThrLine, regionReadingLine } from '../lib/credits.ts';
 import { inLang } from '../lib/i18n.ts';
@@ -74,7 +74,7 @@ export async function exportCurrentFigure(s: AtlasState, format: 'png' | 'svg', 
   const flow = s.view === 'flows' || s.view === 'matrix', municipal = s.view === 'municipalities';
   const period = s.view === 'trends' ? `${s.cum ? 2011 : YEARS[0]}–${YEARS[YEARS.length - 1]}` : periodLabel(s.yi, s.cum);
   const notes = [flow || municipal ? OD_SOURCE : SOURCE];
-  if (flow) notes.push(flowBadge(s.yi, s.cum), L('IPF: struktura 2018. skalirana na odseljene DZS-a; doseljeni približno. Godišnja 2018. je izmjerena.', 'IPF: 2018 structure scaled to CBS out-margins; in-margins approximate. Annual 2018 is measured.'));
+  if (flow) notes.push(flowBadge(s.yi, s.cum), 'IPF: ' + ipfMargins() + L('. Godišnja 2018. je izmjerena.', '. Annual 2018 is measured.'));
   if (s.view === 'flows') notes.push(L('Koridori ispod 5 osoba nisu ucrtani; potpuni podaci su u CSV-u.', 'Corridors under 5 people are not drawn; complete data is in the CSV.'));
   if (s.view === 'classify' || s.view === 'regions') notes.push(PAPER.citation, PAPER.url, paperCaveatLine(), NO_AFFIL());
   if (s.view === 'classify') notes.push(paperThrLine(s.thrRel));

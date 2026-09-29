@@ -543,6 +543,19 @@ const signed = (n, relative) => {
     methodMarks.push(await page.evaluate(() => !!document.querySelector('.v3-trend-chart .v3-method-line')));
   }
   check('the 2011 methodology marker is drawn only on series with external migration', JSON.stringify(methodMarks) === '[true,false,false,false,true]');
+  // The flows page printed its honesty note twice, and the IPF sentence had three phrasings although ipfMargins() keeps one.
+  const ipfWording = { hr: 'struktura 2018. skalirana na DZS odseljene; doseljeni približno', en: 'the 2018 structure scaled to CBS out-margins; in-margins approximate' };
+  const flowNotes = () => page.evaluate(() => [...document.querySelectorAll('.v3-data-note')].map(p => p.textContent).filter(t => /IPF|Procjena|Estimate|Izmjereni tokovi|Measured inter-county/.test(t)));
+  const flowNoteCounts = [];
+  for (const hash of ['explore=flows&year=2010', 'explore=flows&year=2018', 'explore=matrix&year=2010']) { await go(`?version=v3&fresh=ipf${flowNoteCounts.length}#${hash}&l=en`); flowNoteCounts.push((await flowNotes()).length); }
+  check('each flow view prints its estimate or measured note once', JSON.stringify(flowNoteCounts) === '[1,1,1]');
+  let ipfShared = true;
+  for (const lang of ['hr', 'en']) {
+    const name = await savedName(`explore=flows&year=2010&l=${lang}`, '.v3-export-actions button:nth-child(2)');
+    const desc = name ? (fs.readFileSync(path.join(output, name), 'utf8').match(/<desc>([^<]*)<\/desc>/) || [])[1] || '' : '';
+    ipfShared = ipfShared && (await flowNotes()).every(t => t.includes(ipfWording[lang])) && desc.includes(ipfWording[lang]);
+  }
+  check('the screen and the figure state the IPF method in the one shared wording', ipfShared);
   check('the cumulative-estimate note appears only on cumulative views, the cell note only on tables', JSON.stringify([await denNotes('explore=map&year=2001'), await denNotes('explore=map&year=2024&sum=1'), await denNotes('explore=trends&metric=tot'), await denNotes('explore=trends&metric=tot&sum=1')]) === '["000","110","001","111"]');
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
