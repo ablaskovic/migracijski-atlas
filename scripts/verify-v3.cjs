@@ -693,6 +693,19 @@ const signed = (n, relative) => {
   await page.mouse.move(5, 5); await new Promise(resolve => setTimeout(resolve, 150)); ringStates.push(await ringHeld());
   await ringFocus.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await ringFocus.detach();
   check('a keyboard-focused municipality keeps its own outline whatever the pointer does', ringStates.every(Boolean));
+  // Years-grid keys moved by flat index (↓ on the last row jumped to 2025, → wrapped into the next county), and the tab stop
+  // kept its index when a metric change reordered the rows, landing on a different county.
+  const gridFocus = await page.createCDPSession(); await gridFocus.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  await go('?version=v3&fresh=gridkeys#explore=trends&metric=tot&l=en');
+  const gridDims = await page.evaluate(() => [document.querySelectorAll('.v3-years tbody tr').length, document.querySelectorAll('.v3-years thead th').length - 1]);
+  const cellName = () => page.evaluate(() => (document.activeElement.getAttribute('aria-label') || '').split(':')[0]);
+  const edgeStays = [];
+  for (const [r, c, key] of [[gridDims[0] - 1, 5, 'ArrowDown'], [0, 5, 'ArrowUp'], [2, gridDims[1] - 1, 'ArrowRight']]) { await page.focus(`[data-grid-cell="${r * gridDims[1] + c}"]`); const before = await cellName(); await page.keyboard.press(key); edgeStays.push(before === await cellName()); }
+  await page.focus(`[data-grid-cell="${3 * gridDims[1] + 7}"]`); const gridChosen = await cellName();
+  await page.evaluate(() => [...document.querySelectorAll('.v3-metrics button')].find(b => b.textContent === 'External').click()); await new Promise(resolve => setTimeout(resolve, 200));
+  const gridStop = await page.evaluate(() => (document.querySelector('[data-grid-cell][tabindex="0"]').getAttribute('aria-label') || '').split(':')[0]);
+  await gridFocus.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await gridFocus.detach();
+  check('grid keys stop at the row or column edge, and the tab stop follows its county and year', edgeStays.every(Boolean) && gridStop === gridChosen);
   // The trend chart's year bars are buttons that pick a year, and none said which year was picked.
   await go('?version=v3&fresh=bars#explore=trends&year=2010&l=en');
   check('the trend chart says which year is selected', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.v3-trend-chart .v3-chart-hit[aria-pressed="true"]')].map(b => b.getAttribute('aria-label').slice(0, 4)))) === '["2010"]');
