@@ -185,6 +185,23 @@ async function scenario(name, run) {
     check('closing a finding restores the finding selector', await page.evaluate(() => document.activeElement === document.querySelector('[aria-label="Guided findings"]')));
     await go(); check('flow hub has no misleading All Croatia reset', !(await page.$('.v3-period button')));
   });
+  await scenario('Figure export keeps desktop label sizes', async () => {
+    // Phones enlarge map labels to stay legible, and the figure export copied that size: the same 876 px figure printed
+    // city names at 11 px from a desktop, 25.3 px from 390 and 30.5 px from 320.
+    const downloads = path.join(output, 'downloads'); fs.rmSync(downloads, { recursive: true, force: true }); fs.mkdirSync(downloads, { recursive: true });
+    const session = await page.createCDPSession(); await session.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
+    const sizes = {};
+    for (const [width, height] of [[390, 844], [320, 568]]) for (const mode of ['cities', 'counties']) {
+      await viewport(width, height); await go('explore=map&year=2024&l=en');
+      if (mode === 'counties') { await page.click('button[aria-label^="Labels:"]'); await settle(); }
+      for (const f of fs.readdirSync(downloads)) fs.unlinkSync(path.join(downloads, f));
+      await page.click('[aria-label="Export SVG"]');
+      let file; for (let i = 0; i < 80 && !file; i++) { await pause(100); file = fs.readdirSync(downloads).find(n => n.endsWith('.svg')); }
+      sizes[`${width} ${mode}`] = file ? await page.evaluate(text => [...new Set([...new DOMParser().parseFromString(text, 'image/svg+xml').querySelectorAll('.v3-map-labels text')].map(t => t.style.fontSize))].join(), fs.readFileSync(path.join(downloads, file), 'utf8')) : 'no file';
+    }
+    await session.detach();
+    check('a figure exported from a phone prints map labels at the desktop size', JSON.stringify(sizes) === JSON.stringify({ '390 cities': '11px', '390 counties': '12px', '320 cities': '11px', '320 counties': '12px' }), sizes);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));

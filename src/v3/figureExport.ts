@@ -74,6 +74,9 @@ function snapshot(svg: SVGSVGElement) {
       const value = style.getPropertyValue(property);
       if (value) copy.style.setProperty(property, resolve(value));
     }
+    // Labels a small screen enlarges to stay legible say what size a figure prints them at.
+    const printed = original.getAttribute('data-export-font-size');
+    if (printed) { copy.style.setProperty('font-size', printed + 'px'); copy.removeAttribute('data-export-font-size'); }
     for (const attr of Array.from(copy.attributes)) {
       if (attr.name === 'style') continue;
       if (attr.name === 'tabindex' || attr.name.startsWith('on') || attr.name.startsWith('aria-') || attr.name === 'role') copy.removeAttribute(attr.name);
