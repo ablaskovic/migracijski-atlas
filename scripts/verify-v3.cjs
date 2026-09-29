@@ -214,6 +214,13 @@ const signed = (n, relative) => {
   await page.click('.v3-share'); await page.waitForSelector('.v3-share-fallback input'); await page.focus('.v3-share-fallback input');
   await page.keyboard.press('Escape');
   check('Escape inside the manual share field still closes it', !await page.$('.v3-share-fallback'));
+  // The county panel's local-corridors button opened the national age/sex panel, which ignores the county.
+  await go('?version=v3&l=en&fresh=cta#explore=map&county=HR-05&l=en');
+  const localButton = await page.$$eval('.v3-county-detail .v3-text-button', els => els.at(-1).textContent);
+  await page.evaluate(() => [...document.querySelectorAll('.v3-county-detail .v3-text-button')].at(-1).click());
+  await page.waitForSelector('.v3-population');
+  check('the county panel opens that county’s local corridors', await page.evaluate(() => { const p = new URLSearchParams(location.hash.slice(1)); return p.get('explore') === 'population' && p.get('panel') === 'municipal' && p.get('county') === 'HR-05' && document.querySelector('.v3-pop-field select')?.value === 'HR-05' && /Varaždinska/.test(document.querySelector('.v3-pop-heading .v3-eyebrow')?.textContent); }));
+  check('the local-corridors button names what it opens', /local corridors/i.test(localButton) && !/population/i.test(localButton));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

@@ -105,10 +105,10 @@ export default function AppV3() {
     if (url.searchParams.has('l')) url.searchParams.set('l', next.lang);
     recordHistory(url.href, replace);
   }
-  function selectView(view: Explore) {
+  function selectView(view: Explore, extra: Partial<AtlasState> = {}) {
     const opener = document.activeElement, from = state.current.view;
     setPlaying(false);
-    update({ view, ...(isFlowView(view) && !isFlowView(from) ? lensMemory.flow ?? { yi: IX2018, cum: false } : isFreeView(view) && !isFreeView(from) ? lensMemory.free : {}) });
+    update({ view, ...(isFlowView(view) && !isFlowView(from) ? lensMemory.flow ?? { yi: IX2018, cum: false } : isFreeView(view) && !isFreeView(from) ? lensMemory.free : {}), ...extra });
     requestAnimationFrame(() => { if (opener && !opener.isConnected) document.querySelector<HTMLElement>('[aria-label="' + (state.current.lang === 'hr' ? 'Svi prikazi' : 'All views') + '"]')?.focus({ preventScroll: true }); });
   }
   useEffect(() => {

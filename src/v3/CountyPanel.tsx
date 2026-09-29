@@ -7,7 +7,7 @@ import { CountySeries } from './AnalysisViews.tsx';
 
 interface Props {
   s: AtlasState; hover: string | null; setHover: (iso: string | null) => void;
-  selectView: (view: Explore) => void;
+  selectView: (view: Explore, extra?: Partial<AtlasState>) => void;
   direction: Dir; format: (n: number, relative?: boolean) => string; metricFull: Record<Flow, string>;
   inspectCounty: (county: string | null) => void;
 }
@@ -31,7 +31,7 @@ export default function CountyPanel({ s, hover, setHover, selectView, direction,
       <div className="v3-detail-trend"><span className="v3-eyebrow">{L('GODIŠNJI TREND', 'ANNUAL TREND')} · {L('OSOBE', 'PEOPLE')}</span><CountySeries s={s} /></div>
       <button className="v3-text-button" onClick={() => selectView('trends')}>{L('Istražite kroz godine', 'Explore through the years')}<Icon name="arrow" size={16} /></button>
       <button className="v3-button v3-detail-flows" onClick={() => selectView('flows')}><Icon name="flow" size={16} />{L('Pogledajte tokove 2018.', 'View 2018 flows')}</button>
-      <button className="v3-text-button" onClick={() => selectView('population')}>{L('Stanovništvo i lokalni koridori', 'Population and local corridors')}<Icon name="arrow" size={16} /></button>
+      <button className="v3-text-button" onClick={() => selectView('population', { panel: 'municipal' })}>{L('Lokalni koridori županije', 'County’s local corridors')}<Icon name="arrow" size={16} /></button>
       <p className="v3-data-note">{L('Saldo je razlika između doseljenih i odseljenih. Prirodni prirast je razlika rođenih i umrlih.', 'Net migration is arrivals minus departures. Natural change is births minus deaths.')}</p>
     </div> : <>
       <div className="v3-panel-title"><h3>{isFlow ? L('Glavni koridori', 'Leading corridors') : L('Županije', 'Counties')}</h3><span>{isFlow ? 20 : 21}</span></div>
