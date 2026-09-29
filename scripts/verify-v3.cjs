@@ -132,11 +132,12 @@ const signed = (n, relative) => {
   check('a refused history write leaves the atlas responding', errors.length === errorsBefore && await page.$eval('#v3-year', el => el.selectedOptions[0].textContent) === '1998');
   // A new query forces a fresh document; a fragment-only goto would keep the refusing stub above.
   await go('?version=v3&l=en&fresh=threshold#explore=classify&year=2024&metric=tot&l=en');
-  const entries = await page.evaluate(() => history.length);
+  // Counted as pushState calls: history.length stops growing at Chrome's cap of 50 entries.
+  await page.evaluate(() => { window.pushes = 0; const push = history.pushState.bind(history); history.pushState = (...args) => { window.pushes++; return push(...args); }; });
   const threshold = await page.$eval('.v3-threshold input[type=range]', el => { el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.left + 2, y: r.top + r.height / 2, w: r.width - 4 }; });
   await page.mouse.move(threshold.x, threshold.y); await page.mouse.down(); await page.mouse.move(threshold.x + threshold.w, threshold.y, { steps: 25 }); await page.mouse.up();
   await new Promise(resolve => setTimeout(resolve, 450));
-  check('dragging the loss threshold replaces the entry instead of adding one per step', await page.evaluate(n => history.length === n && new URLSearchParams(location.hash.slice(1)).get('threshold') === '15000', entries));
+  check('dragging the loss threshold replaces the entry instead of adding one per step', await page.evaluate(() => window.pushes === 0 && new URLSearchParams(location.hash.slice(1)).get('threshold') === '15000'));
   // A year step re-renders 420 matrix labels; building an Intl.NumberFormat per label was a third of every step.
   await go('?version=v3&l=en&fresh=formatters#explore=matrix&year=2018&metric=tot&l=en');
   await page.evaluate(() => { window.formatterBuilds = 0; const Native = Intl.NumberFormat; Intl.NumberFormat = new Proxy(Native, { construct(target, args) { window.formatterBuilds++; return new target(...args); } }); });
