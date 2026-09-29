@@ -717,6 +717,13 @@ const signed = (n, relative) => {
     seriesTables.push(await page.evaluate(root => { const t = document.querySelector(`${root} details.v3-series-table table`); return !!t && /Splitsko-dalmatinska/.test(t.caption?.textContent || '') && [...t.querySelectorAll('thead th')].map(th => th.textContent).join('|') === 'Year|Internal|External|Natural change' && t.querySelectorAll('tbody tr').length === 28; }, root));
   }
   check('the county annual series has a data table of its values', seriesTables.every(Boolean));
+  // The annual-series lines were told apart by colour alone; each series now has its own dash, shown in its legend key.
+  const seriesDashes = [];
+  for (const [hash, root] of [['explore=trends&county=HR-17', '.v3-trends-view'], ['explore=flows&year=2018&county=HR-21&pair=HR-01', '.v3-pair']]) {
+    await go(`?version=v3&fresh=dash${seriesDashes.length}#${hash}&l=en`);
+    seriesDashes.push(await page.evaluate(root => { const chart = document.querySelector(`${root} .v3-annual-lines`); const lines = [...chart.querySelectorAll('svg[role="img"] path')].map(p => getComputedStyle(p).strokeDasharray), keys = [...chart.querySelectorAll(':scope > div svg line')].map(l => getComputedStyle(l).strokeDasharray); return lines.length >= 2 && new Set(lines).size === lines.length && keys.join('|') === lines.join('|'); }, root));
+  }
+  check('each annual series has its own dash pattern, and its legend key shows it', seriesDashes.every(Boolean));
   // Footer links, and a few others, opened new tabs without the "opens in a new tab" notice the paper and source links carry.
   const silentTabs = [];
   for (const hash of ['explore=classify&year=2024&l=en', 'explore=population&panel=municipal&l=hr']) { await go(`?version=v3&fresh=newtab${silentTabs.length}#${hash}`); silentTabs.push(...await page.evaluate(() => [...document.querySelectorAll('a[target="_blank"]')].filter(a => !/new tab|novoj kartici|nova kartica/i.test((a.getAttribute('aria-label') || '') + ' ' + a.textContent)).map(a => a.href))); }
