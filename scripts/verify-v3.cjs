@@ -325,6 +325,15 @@ const signed = (n, relative) => {
     await page.waitForSelector('.v3-finding p', { timeout: 15000 });
     nalaz5[lang] = await page.evaluate(() => ({ caption: document.querySelector('.v3-finding p').textContent, comparison: !!document.querySelector('.v3-study-comparison') }));
   }
+  // Nalaz 4 ended "departures rise", which reads as all departures; those fell in 2025, and the rise is Asian citizens'.
+  const nalaz4 = {};
+  for (const lang of ['hr', 'en']) {
+    await go(`?version=v3&fresh=nalaz4${lang}#explore=map&l=${lang}`);
+    await page.select('[aria-label="Vođeni nalazi"], [aria-label="Guided findings"]', '3');
+    await page.waitForSelector('.v3-finding p', { timeout: 15000 });
+    nalaz4[lang] = await page.$eval('.v3-finding p', el => el.textContent);
+  }
+  check('Nalaz 4 says whose departures rise', /odseljavanje azijskih državljana raste/.test(nalaz4.hr) && /departures of Asian citizens rise/.test(nalaz4.en));
   check('Nalaz 5 points formally at the comparison block v3 shows, not a legend', Object.values(nalaz5).every(({ caption, comparison }) => comparison && /usporedb|comparison/i.test(caption) && !/legend/i.test(caption)) && !/\b(Pomakni|prati)\b/.test(nalaz5.hr.caption));
   // Arrow keys on a closed <select> change its value at once on Windows; on the view and findings selects every option
   // passed applied itself — a view switch or a whole finding, plus a history entry, per key.
