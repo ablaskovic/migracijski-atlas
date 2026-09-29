@@ -98,9 +98,9 @@ function revealWorkspace() {
 export default function AppV3() {
   const [s, setS] = useState(initial);
   useGeo(s.view === 'municipalities' ? 'jmap' : s.view === 'regions' ? 'reg' : 'saldo');
-  // The reader's stored choice, else the OS preference: v3 used to ignore the OS and store whatever it showed on every load,
-  // so a first visit stored dark and a light OS setting could never apply. Only the toggle stores a choice.
-  const [light, setLight] = useState(() => { try { const chosen = localStorage.getItem('atlas-v3-theme'); if (chosen) return chosen === 'light'; } catch { /* Optional preference. */ } return matchMedia('(prefers-color-scheme: light)').matches; });
+  // Dark unless the reader chose light (v3 is dark by default). Only the toggle stores a choice: v3 used to store whatever
+  // it showed on every load, so a first visit stored dark.
+  const [light, setLight] = useState(() => { try { return localStorage.getItem('atlas-v3-theme') === 'light'; } catch { return false; } });
   const [hover, setHover] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const direction = s.dir;

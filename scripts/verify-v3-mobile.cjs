@@ -44,9 +44,6 @@ async function scenario(name, run) {
   const origin = `http://127.0.0.1:${server.address().port}`;
   browser = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--lang=en-GB'] });
   page = await browser.newPage(); page.setDefaultTimeout(8000);
-  // v3 follows the OS colour scheme until a theme is chosen, and these checks were written against the dark one: pin it,
-  // so a light CI host does not change what they see.
-  await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await page.setRequestInterception(true);
   page.on('request', req => {

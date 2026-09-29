@@ -65,9 +65,6 @@ async function boot() {
   }
   browser = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--lang=en-GB'] });
   page = await browser.newPage();
-  // v3 follows the OS colour scheme until a theme is chosen, and these checks were written against the dark one: pin it,
-  // so a light CI host does not change what they see.
-  await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await page.setViewport({ width: 1440, height: 1050 });
   await page.setRequestInterception(true);
