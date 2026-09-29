@@ -188,13 +188,15 @@ async function scenario(name, run) {
   await scenario('Figure export keeps desktop label sizes', async () => {
     // Phones enlarge map labels to stay legible, and the figure export copied that size: the same 876 px figure printed
     // city names at 11 px from a desktop, 25.3 px from 390 and 30.5 px from 320.
-    const downloads = path.join(output, 'downloads'); fs.rmSync(downloads, { recursive: true, force: true }); fs.mkdirSync(downloads, { recursive: true });
-    const session = await page.createCDPSession(); await session.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
+    // One folder per export: all four share a file name, and Windows can keep listing a file deleted while a download holds it.
+    fs.rmSync(path.join(output, 'downloads'), { recursive: true, force: true });
+    const session = await page.createCDPSession();
     const sizes = {};
     for (const [width, height] of [[390, 844], [320, 568]]) for (const mode of ['cities', 'counties']) {
       await viewport(width, height); await go('explore=map&year=2024&l=en');
       if (mode === 'counties') { await page.click('button[aria-label^="Labels:"]'); await settle(); }
-      for (const f of fs.readdirSync(downloads)) fs.unlinkSync(path.join(downloads, f));
+      const downloads = path.join(output, 'downloads', `${width}-${mode}`); fs.mkdirSync(downloads, { recursive: true });
+      await session.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
       await page.click('[aria-label="Export SVG"]');
       let file; for (let i = 0; i < 80 && !file; i++) { await pause(100); file = fs.readdirSync(downloads).find(n => n.endsWith('.svg')); }
       sizes[`${width} ${mode}`] = file ? await page.evaluate(text => [...new Set([...new DOMParser().parseFromString(text, 'image/svg+xml').querySelectorAll('.v3-map-labels text')].map(t => t.style.fontSize))].join(), fs.readFileSync(path.join(downloads, file), 'utf8')) : 'no file';
