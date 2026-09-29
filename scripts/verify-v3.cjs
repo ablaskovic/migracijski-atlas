@@ -663,6 +663,10 @@ const signed = (n, relative) => {
     findingSpoken.push(await page.evaluate(() => { const caption = document.querySelector('.v3-finding p').textContent; return window.liveBefore.some(el => el.isConnected && el.textContent.includes(caption)) && !document.querySelector('.v3-finding').matches('[role="status"], [aria-live]:not([aria-live="off"])'); }));
   }
   check('a picked finding is announced from a region that was already there', findingSpoken.every(Boolean));
+  // The population panels' CSV export saved its file silently, where the main CSV export confirms itself in the toast.
+  const popToasts = [];
+  for (const panel of ['age', 'citizenship', 'countries', 'municipal']) { await go(`?version=v3&fresh=popcsv${panel}#explore=population&panel=${panel}&l=en`); await page.click('.v3-pop-export'); await new Promise(resolve => setTimeout(resolve, 300)); popToasts.push(await text('.v3-toast')); }
+  check('a population CSV export confirms itself in the toast', popToasts.every(t => t === 'Data exported as CSV.'));
   // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
   // timeline and no cumulative mode.
   const popNotes = [];

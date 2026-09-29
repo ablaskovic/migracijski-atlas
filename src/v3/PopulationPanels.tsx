@@ -22,6 +22,7 @@ interface Props {
   localScope?: 'inter' | 'local';
   onLocalScope?: (scope: 'inter' | 'local') => void;
   onDirection?: (direction: Direction) => void;
+  onExported?: () => void;
 }
 type CsvRow = (string | number)[];
 const SOURCE = 'DZS STAN-2026-2-1';
@@ -34,7 +35,7 @@ function saveCsv(rows: CsvRow[], name: string) {
   downloadFile('\uFEFF' + csv, 'text/csv;charset=utf-8', name + '.csv');
 }
 
-export default function PopulationPanels({ lang, county, yi, direction, onCounty, tab, onTab, onYear, age, onAge, localScope, onLocalScope, onDirection }: Props) {
+export default function PopulationPanels({ lang, county, yi, direction, onCounty, tab, onTab, onYear, age, onAge, localScope, onLocalScope, onDirection, onExported }: Props) {
   const L = (hr: string, en: string) => lang === 'hr' ? hr : en;
   const format = (n: number) => formatNumber(lang, n);
   const balance = (n: number) => formatNumber(lang, n, { signed: true });
@@ -110,6 +111,7 @@ export default function PopulationPanels({ lang, county, yi, direction, onCounty
         ...municipalRows.map(([from, to, moves]) => [2018, municipalCounty, municipalMode, municipalMode === 'local' ? 'within_county' : municipalDirection === 'net' ? 'gross_both_directions' : municipalDirection,
           municipalName(from), ISOS[JLS.names[from][1]], municipalName(to), ISOS[JLS.names[to][1]], moves, 'measured', MUNICIPAL_SOURCE])], `atlas-v3-municipal-${municipalCounty}-${municipalMode}-${municipalDirection}-${lang}-2018`);
     }
+    onExported?.();
   };
 
   return <section className="v3-population" aria-label={L('Stanovništvo i lokalni koridori', 'Population and local corridors')}>
