@@ -253,6 +253,15 @@ for (const k of Object.keys(KLAB_) as Klas[]) {
    needs no second table. */
 const KLAB1_: Record<Klas, string> = { gain: 'pobjednica', neu: 'neutralna', loss: 'gubitnica' };
 export const klasLab = (k: Klas, n: number): string => L(n === 1 ? KLAB1_[k] : KLAB_[k][0], KLAB_[k][1]);
+/* …and after a numeral, which is a different agreement: 1 (21, 31) takes the
+   singular, 2–4 the paucal (the plural form) and the rest the genitive plural —
+   "1 gubitnica", "3 gubitnice", "9 gubitnica". A class key counting 0–21
+   counties meets all three. */
+const KLABG_: Record<Klas, string> = { gain: 'pobjednica', neu: 'neutralnih', loss: 'gubitnica' };
+export const klasCount = (k: Klas, n: number): string => {
+  const one = n % 10 === 1 && n % 100 !== 11, few = n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14);
+  return L(one ? KLAB1_[k] : few ? KLAB_[k][0] : KLABG_[k], KLAB_[k][1]);
+};
 
 /* ── metric machinery ── */
 export function natAt(iso: string, yi: number): number {

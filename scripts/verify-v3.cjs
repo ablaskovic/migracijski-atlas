@@ -333,6 +333,20 @@ const signed = (n, relative) => {
     await page.waitForSelector('.v3-finding p', { timeout: 15000 });
     nalaz4[lang] = await page.$eval('.v3-finding p', el => el.textContent);
   }
+  // Croatian agrees a noun with its numeral (1 singular, 2–4 paucal, else genitive plural): the class key printed
+  // "9 pobjednice / 1 neutralne / 11 gubitnice", and one county's readout and the study comparison used the plural.
+  const klasForms = { gain: ['pobjednica', 'pobjednice', 'pobjednica'], neu: ['neutralna', 'neutralne', 'neutralnih'], loss: ['gubitnica', 'gubitnice', 'gubitnica'] };
+  const klasForm = (k, n) => klasForms[k][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : 2];
+  let klasAgrees = true;
+  for (const q of ['threshold=500', 'threshold=4500', 'threshold=15000', 'thresholdUnit=pct&thresholdPct=0.5', 'thresholdUnit=pct&thresholdPct=5']) {
+    await go(`?version=v3&fresh=klas${q.replace(/\W/g, '')}#explore=classify&year=2024&${q}&l=hr`);
+    const key = await page.evaluate(() => [...document.querySelectorAll('.v3-class-key > div')].map(d => [Number(d.querySelector('strong').textContent), d.querySelector('span').textContent]));
+    klasAgrees = klasAgrees && key.length === 3 && key.every(([n, label], i) => label === klasForm(['gain', 'neu', 'loss'][i], n));
+  }
+  check('the Croatian class key agrees each class with its count', klasAgrees);
+  await go('?version=v3&fresh=klasone#explore=classify&year=2024&l=hr');
+  const klasOne = await page.evaluate(() => ({ readouts: [...new Set([...document.querySelectorAll('[data-county]')].map(p => p.getAttribute('aria-label').split(' · ')[1]))], comparison: [...document.querySelectorAll('.v3-study-comparison p')].slice(1).map(p => p.textContent) }));
+  check('one county is named with a singular class', klasOne.readouts.length === 3 && klasOne.readouts.every(c => ['pobjednica', 'neutralna', 'gubitnica'].includes(c)) && klasOne.comparison.length > 0 && klasOne.comparison.every(line => /: (pobjednica|neutralna|gubitnica) → (pobjednica|neutralna|gubitnica) \(/.test(line)));
   check('Nalaz 4 says whose departures rise', /odseljavanje azijskih državljana raste/.test(nalaz4.hr) && /departures of Asian citizens rise/.test(nalaz4.en));
   check('Nalaz 5 points formally at the comparison block v3 shows, not a legend', Object.values(nalaz5).every(({ caption, comparison }) => comparison && /usporedb|comparison/i.test(caption) && !/legend/i.test(caption)) && !/\b(Pomakni|prati)\b/.test(nalaz5.hr.caption));
   // Arrow keys on a closed <select> change its value at once on Windows; on the view and findings selects every option
