@@ -256,6 +256,16 @@ const signed = (n, relative) => {
   const idleRegions = await pressedRegions();
   await page.click('[data-region="sj"]'); await page.hover('[data-region="is"]');
   check('region cards report the selected region as pressed, never the hovered one', idleRegions === '' && await pressedRegions() === 'sj');
+  // On the map a second click on the selected county deselects it; Classification and Regions kept it selected.
+  const clickShape = iso => page.evaluate(i => document.querySelector(`[data-county="${i}"]`).dispatchEvent(new MouseEvent('click', { bubbles: true })), iso);
+  const clickTwice = async click => { await click(); const first = await countyParam(); await click(); return [first, await countyParam()]; };
+  await go('?version=v3&l=en&fresh=toggleclassify#explore=classify&year=2024&l=en');
+  const classMap = await clickTwice(() => clickShape('HR-14'));
+  const classList = await clickTwice(() => page.evaluate(() => [...document.querySelectorAll('.v3-analysis-list button')].find(b => b.textContent.startsWith('Istarska')).click()));
+  await go('?version=v3&l=en&fresh=toggleregions#explore=regions&l=en');
+  const regionMap = await clickTwice(() => clickShape('HR-17'));
+  const regionCard = await clickTwice(() => page.click('[data-region="sj"]'));
+  check('a second click deselects in Classification and Regions, as on the map', JSON.stringify([classMap, classList, regionMap, regionCard]) === JSON.stringify([['HR-14', null], ['HR-18', null], ['HR-17', null], ['HR-08', null]]));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
