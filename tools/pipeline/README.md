@@ -29,7 +29,7 @@ python ipf.py           # od2018.json + margins -> odm.json (2018 measured, rest
 `geo_jls.cjs` needs `d3-geo` (already a project dep) and runs from repo root's
 `node_modules`; it joins `parse_jlsmap.py`'s per-JLS 2018 totals onto OSM municipal
 geometry and asserts a perfect 1:1 cover (556 JLS) plus the d3 winding test before
-writing. Its geometry input `raw/jls_geo_osm.geojson` (480.545 B, committed) came from
+writing. Its geometry input `raw/jls_geo_osm.geojson` (480,545 B, committed) came from
 an Overpass query — `area["ISO3166-1"="HR"][admin_level=2]; rel(area)[admin_level=7]
 [boundary=administrative]; out geom;` (© OpenStreetMap contributors, **ODbL**) — run
 through `osmtogeojson` then `mapshaper -simplify visvalingam 2% keep-shapes
@@ -60,7 +60,7 @@ upstream, which is what this paragraph used to say. `raw/pregled-zupanije.xlsx`
 is committed and sheets 7.4.1.–7.4.3. hold every one of those values; what is
 missing is a `parse_series.py` to read them. See "`atlas_data2.json` is
 reproducible here — the old note was wrong" below, which records the audit that
-re-derived all 2.352 leaf values from that workbook and contradicted this
+re-derived all 2,352 leaf values from that workbook and contradicted this
 sentence for as long as both stood.
 
 ## Refresh checklist — manual copy spots
@@ -198,7 +198,7 @@ auditors from checking the largest payload in the app.
 `raw/pregled-zupanije.xlsx` is committed, and every one of those values is in it:
 sheets 7.4.1.–7.4.3. An audit re-derived the whole series from that workbook with
 a hand-rolled xlsx reader and matched it exactly — 21 counties × {ii, ie, oi, oe}
-× 28 years = 2.352 leaf values, Σcounties − the RH row = 0 for all four series in
+× 28 years = 2,352 leaf values, Σcounties − the RH row = 0 for all four series in
 all 28 years, the 21 `nat` arrays plus `natRH` from sheet 7.4.1., and `pe` from
 sheet 7.4.3. (2001–2024) with 504 matched and 0 mismatches.
 

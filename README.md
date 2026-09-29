@@ -88,7 +88,7 @@ node scripts/i18n-sweep.cjs dist-test  # …and 114 states in both languages
 `scripts/i18n-sweep.cjs` is the bilingual sweep run by hand rather than by the
 suite: the suite asks the same questions over sixteen states and has half an
 hour of other work to do, this asks them over 57 states per language and over
-all 420 `L()` pairs in `src/`. The static half catches what a browser cannot —
+every `L()` pair in `src/`. The static half catches what a browser cannot —
 a pair whose two halves are identical, or that disagree about their named
 placeholders — and found the English short citation hardcoding a year the
 Croatian half read from a constant. Exit 1 on any finding.
@@ -159,10 +159,10 @@ error UI's retry used to have to reload the whole document — and reloading too
 the reader's zoom and per-view year memory with it, both deliberately outside
 the hash. A fetch pins nothing, so the retry is a retry. The view that needs one
 fetches it on entry, and the other is
-warmed on a 1,5 s timer (skipped under Save-Data or 2g), so neither is ever on the
+warmed on a 1.5 s timer (skipped under Save-Data or 2g), so neither is ever on the
 first-paint path. Splitting them out keeps roughly two fifths of the transfer a
-first paint would otherwise carry off that path — on the v2.7.0 build, 46,0 % of
-raw bytes and 39,8 % of the gzip a browser actually pulls. A proportion rather
+first paint would otherwise carry off that path — on the v2.7.0 build, 46.0 % of
+raw bytes and 39.8 % of the gzip a browser actually pulls. A proportion rather
 than a byte count, because the counts drift every time a line of source changes;
 “a little over half” was already under half when it replaced them — and the
 proportion is stamped with the build it was taken on, which is the discipline the
@@ -290,7 +290,7 @@ question a maintainer absorbing a data revision is asking.
 [`tools/pipeline/README.md`](tools/pipeline/README.md) answers a second one —
 whether the *values* can be re-derived from committed inputs — and gives a
 different list for it: the leaf series above **is** re-derivable, from the
-committed `raw/pregled-zupanije.xlsx` (an audit matched all 2.352 values),
+committed `raw/pregled-zupanije.xlsx` (an audit matched all 2,352 values),
 only the parser is missing; while `jls_drill.json` and `geo_jls.json` have their
 scripts and need the uncommitted 31 MB figshare download instead. Neither list
 is wrong; they answer different questions, and that file is the authority on
@@ -315,8 +315,10 @@ both.
   [hrcak.srce.hr/349820](https://hrcak.srce.hr/349820),
   [doi:10.51650/ezrvs.20.1-2.4](https://doi.org/10.51650/ezrvs.20.1-2.4),
   **CC BY-NC**. Cited and linked from the header, the footer, the glossary and
-  the exports of the two views that use its method. No figure in the atlas comes
-  from it; every number is DZS or computed here.
+  the exports of the two views that use its method. Every series in the atlas is
+  DZS or computed here; what it takes from the paper is the classification
+  threshold (−4,500), the five-region grouping and the published 7 / 7 / 7 split
+  that its classification view compares against.
 - **Independence** — the atlas is an unaffiliated, unofficial project. Its
   author has no connection to the study's authors or their institutions, and
   they have neither reviewed nor endorsed it. Stated in the footer, the
