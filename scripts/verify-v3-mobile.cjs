@@ -359,6 +359,15 @@ async function scenario(name, run) {
     });
     check('the phone municipal list ends on a partly visible row', peek >= .25 && peek <= .75, Math.round(peek * 100) / 100);
   });
+  await scenario('A municipal list pick shows its readout', async () => {
+    // With the list scrolled to, a tap on "Osijek" changed only a faint row tint in view: the readout was 265–413 px above.
+    await viewport(); await go('explore=municipalities&l=hr'); await page.waitForSelector('.v3-municipal-results button');
+    await page.evaluate(() => document.querySelector('.v3-municipal-results').scrollIntoView({ block: 'start', behavior: 'instant' })); await pause(300);
+    const at = await page.evaluate(() => { const r = [...document.querySelectorAll('.v3-municipal-results > button')].find(b => b.textContent.startsWith('Osijek')).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    await page.touchscreen.tap(at.x, at.y); await pause(900);
+    const shown = await page.evaluate(() => { const readout = document.querySelector('.v3-municipal-readout').getBoundingClientRect(), row = document.querySelector('.v3-municipal-results > button[aria-pressed="true"]')?.getBoundingClientRect(); return { name: document.querySelector('.v3-municipal-readout strong')?.textContent, readout: readout.top >= 0 && readout.bottom <= innerHeight, row: !!row && row.top >= 0 && row.bottom <= innerHeight }; });
+    check('a tapped municipal list row brings its readout into view and stays in view itself', shown.name === 'Osijek' && shown.readout && shown.row, shown);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
