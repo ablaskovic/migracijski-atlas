@@ -455,6 +455,13 @@ const signed = (n, relative) => {
   };
   const legends = [await legendOf('', 'hr'), await legendOf('', 'en'), await legendOf('&thresholdUnit=pct', 'hr'), await legendOf('&thresholdUnit=pct', 'en')];
   check('the exported classification legend states the threshold as the screen does', legends.every(({ screen, legend }) => legend.includes(`: ${screen} … 0 · `) && legend.endsWith(`: < ${screen}`)));
+  // The net matrix figure was subtitled "Net gain for selected county", but each cell is the row county's net gain.
+  const matrixSubtitle = async lang => {
+    for (const f of fs.readdirSync(output).filter(f => /^atlas-/.test(f))) fs.unlinkSync(path.join(output, f));
+    const name = await savedName(`explore=matrix&year=2018&dir=net&l=${lang}`, '.v3-export-actions button:nth-child(2)');
+    return name ? ((fs.readFileSync(path.join(output, name), 'utf8').match(/<desc>([^<]*)<\/desc>/) || [])[1] || '').split('\n')[0] : '';
+  };
+  check('the net matrix figure names the row, not a selected county', /^Saldo retka · /.test(await matrixSubtitle('hr')) && /^Net gain for the row · /.test(await matrixSubtitle('en')));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
