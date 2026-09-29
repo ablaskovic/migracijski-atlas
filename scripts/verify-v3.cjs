@@ -162,6 +162,13 @@ const signed = (n, relative) => {
   check('net corridor values carry an explicit sign', await page.$$eval('.v3-rank-row strong', els => els.length === 20 && els.every(e => /^[+−]\d|^0$/.test(e.textContent))));
   await go('?version=v3&l=en&fresh=citsigns#explore=population&panel=citizenship&l=en');
   check('citizenship balances carry an explicit sign', await page.$$eval('.v3-pop-table tbody tr td:last-child, .v3-pop-table tfoot td:last-child', els => els.length === 7 && els.every(e => /^[+−]\d|^0$/.test(e.textContent))));
+  // The year grid formatted with bare Intl: "−0 %" in 68 of 588 cells, "3 %" beside the rail's "+3,0 %", no "+".
+  for (const lang of ['hr', 'en']) {
+    await go(`?version=v3&l=${lang}&fresh=grid${lang}#explore=trends&metric=int&unit=pct&l=${lang}`);
+    check(`${lang} year-grid rates are signed with one decimal and never a signed zero`, await page.$$eval('[data-grid-cell]', els => els.length === 588 && els.every(e => /^([+−]\d+[.,]\d %|0[.,]0 %)$/.test(e.getAttribute('aria-label').split(': ').at(-1)))));
+    await go(`?version=v3&l=${lang}&fresh=gridabs${lang}#explore=trends&metric=tot&l=${lang}`);
+    check(`${lang} year-grid balances are signed with the typographic minus`, await page.$$eval('[data-grid-cell]', els => els.length === 588 && els.every(e => /^([+−]\d{1,3}([.,]\d{3})*|0)$/.test(e.getAttribute('aria-label').split(': ').at(-1)))));
+  }
 
   await go();
   await click('.v3-tabs button:nth-child(2)');
