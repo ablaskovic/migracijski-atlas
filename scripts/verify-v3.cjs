@@ -663,6 +663,13 @@ const signed = (n, relative) => {
     findingSpoken.push(await page.evaluate(() => { const caption = document.querySelector('.v3-finding p').textContent; return window.liveBefore.some(el => el.isConnected && el.textContent.includes(caption)) && !document.querySelector('.v3-finding').matches('[role="status"], [aria-live]:not([aria-live="off"])'); }));
   }
   check('a picked finding is announced from a region that was already there', findingSpoken.every(Boolean));
+  // The play toggle changed its name and its pressed state together ("Pause animation, pressed"); a toggle keeps its name.
+  await go('?version=v3&fresh=play#explore=map&year=2010&l=en');
+  const playBefore = await page.$eval('.v3-play', b => [b.getAttribute('aria-label'), b.getAttribute('aria-pressed')]);
+  await page.click('.v3-play'); await new Promise(resolve => setTimeout(resolve, 200));
+  const playDuring = await page.$eval('.v3-play', b => [b.getAttribute('aria-label'), b.getAttribute('aria-pressed')]);
+  await page.click('.v3-play');
+  check('the play toggle keeps its name and reports its state in aria-pressed', playBefore[0] === playDuring[0] && playBefore[1] === 'false' && playDuring[1] === 'true');
   // On desktop, picking a partner county in Flows opened the corridor detail below the map without a word (phones move
   // focus to its heading); desktop keeps focus on the map, so the opening is announced.
   const pairFocus = await page.createCDPSession(); await pairFocus.send('Emulation.setFocusEmulationEnabled', { enabled: true });
