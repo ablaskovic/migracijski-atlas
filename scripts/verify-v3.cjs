@@ -710,6 +710,21 @@ const signed = (n, relative) => {
   await go('?version=v3&fresh=regionnames#explore=regions&year=2024&sum=1&l=en');
   const regionButtonNames = await page.evaluate(() => [...document.querySelectorAll('[data-county]')].map(p => p.getAttribute('aria-label')));
   check('each Regions map button names its county before its region', regionButtonNames.length === 21 && new Set(regionButtonNames).size === 21 && regionButtonNames.some(n => /^Osječko-baranjska — Eastern: /.test(n)));
+  // The copy-link fallback opened last in the DOM: Tab from it ran off the page, Shift+Tab to the footer, and the fixed
+  // panel stayed open over the controls focus moved on to. It now sits after Share and closes once focus leaves it.
+  const sharePage = await browser.newPage();
+  await sharePage.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  await sharePage.evaluateOnNewDocument(() => { Object.defineProperty(navigator, 'share', { configurable: true, value: undefined }); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('denied'); } } }); });
+  await (await sharePage.createCDPSession()).send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  await sharePage.goto(origin + '/?version=v3&fresh=sharefallback#explore=map&l=en', { waitUntil: 'networkidle0' });
+  const shareAt = () => sharePage.evaluate(() => { const a = document.activeElement; return a.closest('.v3-share-fallback') ? 'panel:' + a.tagName : a.classList.contains('v3-share') ? 'share' : a === document.body ? 'body' : 'page'; });
+  const openShare = async () => { await sharePage.click('.v3-share'); await sharePage.waitForSelector('.v3-share-fallback input'); await new Promise(resolve => setTimeout(resolve, 100)); };
+  await openShare(); const shareSteps = [await shareAt()];
+  await sharePage.keyboard.press('Tab'); shareSteps.push(await shareAt());
+  await sharePage.keyboard.press('Tab'); await new Promise(resolve => setTimeout(resolve, 100)); shareSteps.push(await shareAt(), !(await sharePage.$('.v3-share-fallback')));
+  await openShare(); await sharePage.keyboard.down('Shift'); await sharePage.keyboard.press('Tab'); await sharePage.keyboard.up('Shift'); await new Promise(resolve => setTimeout(resolve, 100)); shareSteps.push(await shareAt());
+  await sharePage.close();
+  check('the copy-link panel takes focus, sits next to Share, and closes when focus leaves it', JSON.stringify(shareSteps) === '["panel:INPUT","panel:BUTTON","page",true,"share"]');
   // The trend chart's year bars are buttons that pick a year, and none said which year was picked.
   await go('?version=v3&fresh=bars#explore=trends&year=2010&l=en');
   check('the trend chart says which year is selected', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.v3-trend-chart .v3-chart-hit[aria-pressed="true"]')].map(b => b.getAttribute('aria-label').slice(0, 4)))) === '["2010"]');

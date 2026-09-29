@@ -272,6 +272,8 @@ export default function AppV3() {
         <div className="v3-language" role="group" aria-label={L('Jezik', 'Language')}>{(['hr', 'en'] as const).map(l => <button key={l} aria-pressed={s.lang === l} onClick={() => { storeLang(l); update({ lang: l }); }}>{l.toUpperCase()}</button>)}</div>
         <button className="v3-icon-button" aria-label={light ? L('Tamni prikaz', 'Dark theme') : L('Svijetli prikaz', 'Light theme')} title={light ? L('Tamni prikaz', 'Dark theme') : L('Svijetli prikaz', 'Light theme')} onClick={() => setLight(!light)}><Icon name={light ? 'moon' : 'sun'} size={19} /></button>
         <button aria-label={L('Podijeli prikaz', 'Share this view')} className="v3-button v3-share" onClick={() => void share()}><Icon name="share" size={16} /><span>{L('Podijeli', 'Share')}</span></button>
+        {/* Next to Share in the DOM, so Tab and Shift+Tab leave it for its neighbours; it closes once focus moves on. */}
+        {sharing && <div className="v3-share-fallback" role="dialog" onBlur={e => { if (e.relatedTarget instanceof Node && !e.currentTarget.contains(e.relatedTarget)) setSharing(null); }} aria-label={L('Kopirajte poveznicu', 'Copy the link')}><label>{L('Kopirajte poveznicu', 'Copy the link')}<input readOnly value={sharing} onFocus={e => e.currentTarget.select()} autoFocus /></label><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={closeSharing}><Icon name="close" /></button></div>}
       </div>
     </header>
     <div className="v3-layout">
@@ -322,7 +324,6 @@ export default function AppV3() {
       </main>
     </div>
     <About dialog={dialog} lang={s.lang} />
-    {sharing && <div className="v3-share-fallback" role="dialog" aria-label={L('Kopirajte poveznicu', 'Copy the link')}><label>{L('Kopirajte poveznicu', 'Copy the link')}<input readOnly value={sharing} onFocus={e => e.currentTarget.select()} autoFocus /></label><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={closeSharing}><Icon name="close" /></button></div>}
     {/* Screen readers announce a change to a live region that is already there, not one inserted with its text. */}
     <p className="v3-sr" role="status">{s.view === 'flows' && s.pair && s.pair !== hub && !pairTakesFocus() ? L(`Koridor ${countyName(hub, s.lang)} ↔ ${countyName(s.pair, s.lang)} otvoren je ispod karte.`, `Corridor ${countyName(hub, s.lang)} ↔ ${countyName(s.pair, s.lang)} opened below the map.`) : ''}</p>
     <p className="v3-sr" role="status">{finding != null ? `${L('Nalaz', 'Finding')} ${finding + 1}: ${STORIES[finding].cap}` : ''}</p>
