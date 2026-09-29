@@ -435,6 +435,19 @@ const signed = (n, relative) => {
   await retryPage.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
   check('a successful geometry retry leaves focus on the view, not the page body', await retryPage.evaluate(() => document.activeElement !== document.body));
   await retryPage.close();
+  // With no timeout, a geometry request that is never answered (a captive portal, a wedged proxy) kept the view on
+  // "Loading LAU geometry…" with no Retry for the rest of the session.
+  const hangPage = await browser.newPage();
+  await hangPage.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  await hangPage.setRequestInterception(true);
+  let stallGeometry = true;
+  hangPage.on('request', request => { if (stallGeometry && /geo_jls/.test(request.url())) return; request.continue(); });
+  await hangPage.goto(origin + '/?version=v3&l=en&fresh=geohang#explore=municipalities&l=en', { waitUntil: 'domcontentloaded' });
+  const gaveUp = await hangPage.waitForSelector('.v3-geo-loading button', { timeout: 20000 }).then(() => true, () => false);
+  stallGeometry = false;
+  if (gaveUp) { await hangPage.click('.v3-geo-loading button'); await hangPage.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556, { timeout: 20000 }).catch(() => {}); }
+  check('an unanswered geometry request gives up into Retry, and Retry loads it', gaveUp && await hangPage.$$eval('[data-municipality]', els => els.length === 556));
+  await hangPage.close();
   // The figure snapshot copied computed fills in the middle of the 0.35 s fill transition when exported right after a year
   // change, a theme toggle or during playback: 20 of 21 counties matched neither year nor legend.
   await go('?version=v3&l=en&fresh=midtransition#explore=map&year=2024&l=en');

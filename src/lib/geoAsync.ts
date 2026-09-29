@@ -96,13 +96,23 @@ let jlsSpec = false, regSpec = false;
    cache (a 304 from the edge on a warm visit, which is the deploy's default for
    every hashed asset), and a retry must not be answered by whatever failed last
    time. */
+/* …and a request that never answers fails too. Without a timeout, a captive
+   portal or a wedged proxy left the view on "Učitavanje geometrije…" for the
+   session: the failure UI and its Retry key on the error flag, which only a
+   settled fetch sets. The limit is for the response to START — the body is not
+   timed, so a slow link still downloads the payload. */
+const GEO_MS = 10000;
 function load<T>(
   url: string,
   set: (v: T) => void,
   slot: 'jls' | 'reg',
   retry = false,
 ): Promise<void> {
-  const p = fetch(url, retry ? { cache: 'no-store' } : undefined).then(r => {
+  const ac = new AbortController(), wait = setTimeout(() => ac.abort(), GEO_MS);
+  const init: RequestInit = { signal: ac.signal };
+  if (retry) init.cache = 'no-store';
+  const p = fetch(url, init).then(r => {
+    clearTimeout(wait);
     /* a 404 body parses as JSON just as happily as the payload does when the
        server answers the SPA shell — the status is what says which */
     if (!r.ok) throw new Error(String(r.status));
@@ -111,6 +121,7 @@ function load<T>(
     set(m as T);
     if (slot === 'jls') jlsErr = false; else regErr = false;
   }).catch(() => {
+    clearTimeout(wait);
     if (slot === 'jls') { jlsP = null; if (!jlsSpec) jlsErr = true; }
     else { regP = null; if (!regSpec) regErr = true; }
   }).then(() => { subs.forEach(f => f()); });
