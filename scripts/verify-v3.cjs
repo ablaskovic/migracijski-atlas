@@ -670,6 +670,9 @@ const signed = (n, relative) => {
   const playDuring = await page.$eval('.v3-play', b => [b.getAttribute('aria-label'), b.getAttribute('aria-pressed')]);
   await page.click('.v3-play');
   check('the play toggle keeps its name and reports its state in aria-pressed', playBefore[0] === playDuring[0] && playBefore[1] === 'false' && playDuring[1] === 'true');
+  // The trend chart's year bars are buttons that pick a year, and none said which year was picked.
+  await go('?version=v3&fresh=bars#explore=trends&year=2010&l=en');
+  check('the trend chart says which year is selected', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.v3-trend-chart .v3-chart-hit[aria-pressed="true"]')].map(b => b.getAttribute('aria-label').slice(0, 4)))) === '["2010"]');
   // On desktop, picking a partner county in Flows opened the corridor detail below the map without a word (phones move
   // focus to its heading); desktop keeps focus on the map, so the opening is announced.
   const pairFocus = await page.createCDPSession(); await pairFocus.send('Emulation.setFocusEmulationEnabled', { enabled: true });

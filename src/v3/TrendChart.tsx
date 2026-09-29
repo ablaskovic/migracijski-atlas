@@ -20,7 +20,7 @@ export default function TrendChart({ s, compact = false, onYear, flow }: Props) 
     {[top, mid, bottom].map((y, i) => <g key={y}><line x1={left} x2={w - right} y1={y} y2={y} className="v3-chart-grid" />{!compact && <text x={left - 12} y={y + 4} textAnchor="end">{formatNumber(s.lang, i === 0 ? max : i === 1 ? 0 : -max, { compact: true, digits: 0 })}</text>}</g>)}
     {series.map((n, i) => <g key={YEARS[i]}>
       <rect x={left + step * i + 2} y={Math.min(mid, y(n))} width={step - 5} height={Math.max(1, Math.abs(mid - y(n)))} rx="2" fill={n >= 0 ? 'var(--accent)' : 'var(--coral)'} opacity={i === s.yi ? 1 : .5} />
-      {onYear && <rect x={left + step * i} y={top} width={step} height={bottom - top} fill="transparent" className="v3-chart-hit" role="button" tabIndex={0}
+      {onYear && <rect x={left + step * i} y={top} width={step} height={bottom - top} fill="transparent" className="v3-chart-hit" role="button" tabIndex={0} aria-pressed={i === s.yi}
         aria-label={`${YEARS[i]}: ${formatNumber(s.lang, n, { signed: true })}`}
         onClick={() => onYear(i)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onYear(i); } }}><title>{YEARS[i]} · {formatNumber(s.lang, n, { signed: true })}</title></rect>}
       {(i === 0 || i === YEARS.length - 1 || YEARS[i] % 5 === 0) && <text x={left + step * (i + .5)} y={h - 8} textAnchor="middle">{YEARS[i]}</text>}
