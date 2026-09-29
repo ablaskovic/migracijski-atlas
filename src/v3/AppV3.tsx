@@ -67,6 +67,8 @@ function rememberLens(s: AtlasState) {
 rememberLens(initial);
 
 /** Views that always show one county, Grad Zagreb by default, and so offer no national reset. */
+// Phones and touch move focus to an opened corridor's heading; a desktop keeps it on the map and hears the corridor named.
+const pairTakesFocus = () => window.matchMedia('(max-width:720px), (pointer:coarse)').matches;
 const countyHub = (s: AtlasState) => s.view === 'flows' || s.view === 'population' && s.panel === 'municipal';
 
 /* Arrow keys and typing on a closed <select> change its value at once in Chrome and Firefox on Windows. On the two selects
@@ -240,7 +242,7 @@ export default function AppV3() {
     const previous = state.current.county, view = state.current.view;
     if (view === 'flows') {
       update({ pair: county === (state.current.county ?? 'HR-21') ? null : county });
-      if (county && window.matchMedia('(max-width:720px), (pointer:coarse)').matches) requestAnimationFrame(() => {
+      if (county && pairTakesFocus()) requestAnimationFrame(() => {
         const heading = document.getElementById('v3-pair-title');
         heading?.focus({ preventScroll: true });
         heading?.scrollIntoView({ block: 'center', behavior: 'instant' });
@@ -322,6 +324,7 @@ export default function AppV3() {
     <About dialog={dialog} lang={s.lang} />
     {sharing && <div className="v3-share-fallback" role="dialog" aria-label={L('Kopirajte poveznicu', 'Copy the link')}><label>{L('Kopirajte poveznicu', 'Copy the link')}<input readOnly value={sharing} onFocus={e => e.currentTarget.select()} autoFocus /></label><button className="v3-icon-button" aria-label={L('Zatvori', 'Close')} onClick={closeSharing}><Icon name="close" /></button></div>}
     {/* Screen readers announce a change to a live region that is already there, not one inserted with its text. */}
+    <p className="v3-sr" role="status">{s.view === 'flows' && s.pair && s.pair !== hub && !pairTakesFocus() ? L(`Koridor ${countyName(hub, s.lang)} ↔ ${countyName(s.pair, s.lang)} otvoren je ispod karte.`, `Corridor ${countyName(hub, s.lang)} ↔ ${countyName(s.pair, s.lang)} opened below the map.`) : ''}</p>
     <p className="v3-sr" role="status">{finding != null ? `${L('Nalaz', 'Finding')} ${finding + 1}: ${STORIES[finding].cap}` : ''}</p>
     <div className="v3-toast" role="status" aria-live="polite">{notice && <><Icon name="check" size={17} />{notice}</>}</div>
     <Analytics beforeSend={dropHash} /><SpeedInsights beforeSend={dropHash} />

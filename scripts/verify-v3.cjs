@@ -663,6 +663,16 @@ const signed = (n, relative) => {
     findingSpoken.push(await page.evaluate(() => { const caption = document.querySelector('.v3-finding p').textContent; return window.liveBefore.some(el => el.isConnected && el.textContent.includes(caption)) && !document.querySelector('.v3-finding').matches('[role="status"], [aria-live]:not([aria-live="off"])'); }));
   }
   check('a picked finding is announced from a region that was already there', findingSpoken.every(Boolean));
+  // On desktop, picking a partner county in Flows opened the corridor detail below the map without a word (phones move
+  // focus to its heading); desktop keeps focus on the map, so the opening is announced.
+  const pairFocus = await page.createCDPSession(); await pairFocus.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  await go('?version=v3&fresh=pairsr#explore=flows&year=2018&county=HR-21&l=en');
+  await page.evaluate(() => { window.liveBefore = [...document.querySelectorAll('[aria-live]:not([aria-live="off"]), [role="status"]')]; });
+  await page.evaluate(() => { const p = document.querySelector('[data-county="HR-01"]'); p.focus(); p.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
+  await page.waitForSelector('#v3-pair-title'); await new Promise(resolve => setTimeout(resolve, 200));
+  const pairSpoken = await page.evaluate(() => { const heading = document.getElementById('v3-pair-title').textContent.replace(/\s+/g, ' ').trim(); return window.liveBefore.some(el => el.isConnected && el.textContent.includes(heading)) && document.activeElement?.getAttribute('data-county') === 'HR-01'; });
+  await pairFocus.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await pairFocus.detach();
+  check('a corridor opened from the desktop map is announced, and focus stays on the map', pairSpoken);
   // Typing in a search filtered its list silently ("spl" left one row and said nothing); each search now reports its count.
   const searchCounts = [];
   for (const [hash, input, query, rowsSel] of [['explore=map&l=en', '.v3-search input', 'sp', '.v3-rank-row'], ['explore=municipalities&l=en', '.v3-municipal-search input', 'split', '.v3-municipal-results button'], ['explore=population&panel=countries&l=en', '.v3-pop-search input', 'bos', '.v3-pop-table tbody tr:not(:has(.v3-pop-empty))'], ['explore=population&panel=municipal&l=hr', '.v3-pop-search input', 'zag', '.v3-pop-table tbody tr:not(:has(.v3-pop-empty))']]) {
