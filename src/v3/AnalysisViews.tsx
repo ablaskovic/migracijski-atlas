@@ -102,8 +102,11 @@ export function PairDetail({ s, update }: { s: AtlasState; update: (patch: Parti
 
 export function CountySeries({ s }: { s: AtlasState }) {
   if (!s.county) return null;
+  const county = s.county;
   const L = (hr: string, en: string) => s.lang === 'hr' ? hr : en;
-  return <AnnualLines s={s} series={[{ label: L('Unutarnje', 'Internal'), color: 'var(--accent)', values: YEARS.map((_, yi) => netAt(s.county!, yi, 'int')) }, { label: L('Vanjske', 'External'), color: '#739dce', values: YEARS.map((_, yi) => netAt(s.county!, yi, 'ext')) }, { label: L('Prirodni prirast', 'Natural change'), color: 'var(--coral)', values: YEARS.map((_, yi) => netAt(s.county!, yi, 'nat')) }]} />;
+  const series = [{ label: L('Unutarnje', 'Internal'), color: 'var(--accent)', values: YEARS.map((_, yi) => netAt(county, yi, 'int')) }, { label: L('Vanjske', 'External'), color: '#739dce', values: YEARS.map((_, yi) => netAt(county, yi, 'ext')) }, { label: L('Prirodni prirast', 'Natural change'), color: 'var(--coral)', values: YEARS.map((_, yi) => netAt(county, yi, 'nat')) }];
+  // The chart's 84 values are hover titles no keyboard or screen reader reaches; the table carries them, as the corridor's does.
+  return <><AnnualLines s={s} series={series} /><details className="v3-series-table"><summary>{L('Godišnji podaci', 'Annual data')}</summary><TableScroll className="v3-table-scroll" lang={s.lang} label={L('Godišnji podaci', 'Annual data')}><table className="v3-data-table"><caption className="v3-sr">{countyName(county, s.lang)} · {L('godišnje vrijednosti, broj osoba', 'annual values, people')}</caption><thead><tr><th scope="col">{L('Godina', 'Year')}</th>{series.map(line => <th scope="col" key={line.label}>{line.label}</th>)}</tr></thead><tbody>{YEARS.map((year, yi) => <tr key={year}><th scope="row">{year}</th>{series.map(line => <td key={line.label}>{formatNumber(s.lang, line.values[yi], { signed: true })}</td>)}</tr>)}</tbody></table></TableScroll></details></>;
 }
 
 function AnnualLines({ s, series }: { s: AtlasState; series: { label: string; color: string; values: number[] }[] }) {

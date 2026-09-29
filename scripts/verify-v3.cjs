@@ -710,6 +710,13 @@ const signed = (n, relative) => {
   await go('?version=v3&fresh=regionnames#explore=regions&year=2024&sum=1&l=en');
   const regionButtonNames = await page.evaluate(() => [...document.querySelectorAll('[data-county]')].map(p => p.getAttribute('aria-label')));
   check('each Regions map button names its county before its region', regionButtonNames.length === 21 && new Set(regionButtonNames).size === 21 && regionButtonNames.some(n => /^Osječko-baranjska — Eastern: /.test(n)));
+  // The county annual-series chart kept its 84 values in hover-only tooltips; it now has a data table, as the corridor's does.
+  const seriesTables = [];
+  for (const [hash, root] of [['explore=map&year=2024&county=HR-17', '.v3-county-detail'], ['explore=trends&county=HR-17', '.v3-trends-view']]) {
+    await go(`?version=v3&fresh=series${seriesTables.length}#${hash}&l=en`);
+    seriesTables.push(await page.evaluate(root => { const t = document.querySelector(`${root} details.v3-series-table table`); return !!t && /Splitsko-dalmatinska/.test(t.caption?.textContent || '') && [...t.querySelectorAll('thead th')].map(th => th.textContent).join('|') === 'Year|Internal|External|Natural change' && t.querySelectorAll('tbody tr').length === 28; }, root));
+  }
+  check('the county annual series has a data table of its values', seriesTables.every(Boolean));
   // Footer links, and a few others, opened new tabs without the "opens in a new tab" notice the paper and source links carry.
   const silentTabs = [];
   for (const hash of ['explore=classify&year=2024&l=en', 'explore=population&panel=municipal&l=hr']) { await go(`?version=v3&fresh=newtab${silentTabs.length}#${hash}`); silentTabs.push(...await page.evaluate(() => [...document.querySelectorAll('a[target="_blank"]')].filter(a => !/new tab|novoj kartici|nova kartica/i.test((a.getAttribute('aria-label') || '') + ' ' + a.textContent)).map(a => a.href))); }
