@@ -513,6 +513,13 @@ const signed = (n, relative) => {
     const desc = name ? (fs.readFileSync(path.join(output, name), 'utf8').match(/<desc>([^<]*)<\/desc>/) || [])[1] || '' : '';
     return [screen, /Cumulative net change/.test(desc), /table cell/.test(desc)].map(Number).join('');
   };
+  // The trend chart drew "2011 · methodology change" on every series; DZS limits that change to migration to and from abroad.
+  const methodMarks = [];
+  for (const hash of ['metric=tot', 'metric=nat', 'metric=int&county=HR-21', 'metric=nat&county=HR-21', 'metric=tot&county=HR-21']) {
+    await go(`?version=v3&fresh=method${methodMarks.length}#explore=trends&${hash}&l=en`);
+    methodMarks.push(await page.evaluate(() => !!document.querySelector('.v3-trend-chart .v3-method-line')));
+  }
+  check('the 2011 methodology marker is drawn only on series with external migration', JSON.stringify(methodMarks) === '[true,false,false,false,true]');
   check('the cumulative-estimate note appears only on cumulative views, the cell note only on tables', JSON.stringify([await denNotes('explore=map&year=2001'), await denNotes('explore=map&year=2024&sum=1'), await denNotes('explore=trends&metric=tot'), await denNotes('explore=trends&metric=tot&sum=1')]) === '["000","110","001","111"]');
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {

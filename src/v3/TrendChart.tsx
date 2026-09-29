@@ -25,6 +25,7 @@ export default function TrendChart({ s, compact = false, onYear, flow }: Props) 
         onClick={() => onYear(i)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onYear(i); } }}><title>{YEARS[i]} · {formatNumber(s.lang, n, { signed: true })}</title></rect>}
       {(i === 0 || i === YEARS.length - 1 || YEARS[i] % 5 === 0) && <text x={left + step * (i + .5)} y={h - 8} textAnchor="middle">{YEARS[i]}</text>}
     </g>)}
-    {!compact && <><line x1={left + step * YEARS.indexOf(2011)} x2={left + step * YEARS.indexOf(2011)} y1={top - 10} y2={bottom} className="v3-method-line" /><text x={left + step * YEARS.indexOf(2011) + 7} y={12}>{s.lang === 'hr' ? '2011 · promjena metodologije' : '2011 · methodology change'}</text></>}
+    {/* DZS limits the 2011 method change to migration to and from abroad, so only series with external migration show it. */}
+    {!compact && s.flow !== 'int' && s.flow !== 'nat' && <><line x1={left + step * YEARS.indexOf(2011)} x2={left + step * YEARS.indexOf(2011)} y1={top - 10} y2={bottom} className="v3-method-line" /><text x={left + step * YEARS.indexOf(2011) + 7} y={12}>{s.lang === 'hr' ? '2011 · promjena metodologije' : '2011 · methodology change'}</text></>}
   </svg>;
 }
