@@ -286,6 +286,13 @@ const signed = (n, relative) => {
   check('the gains card counts the selected component', gainCards.ext2022.value === '12 / 21' && gainCards.natCum.value === '0 / 21' && gainCards.allCum.value === '5 / 21');
   check('the gains card says what was compared', /births/i.test(gainCards.natCum.caption) && /arrivals/i.test(gainCards.ext2022.caption));
   check('views without a component selector count total migration', gainCards.municipal.value === '4 / 21');
+  // For a county the first card is the total balance, captioned "arrivals − departures" beside two cards that count only
+  // moves abroad (Grad Zagreb 2025: +2,397 next to 10,375 − 7,891 = 2,484). Nationally that caption is right.
+  await go('?version=v3&l=en&fresh=kpicounty#explore=map&year=2025&county=HR-21&l=en');
+  const countyCaption = await text('.v3-stat-primary > span');
+  await go('?version=v3&l=en&fresh=kpinational#explore=map&year=2025&l=en');
+  check('a county’s balance card says it combines internal and external moves', /internal/i.test(countyCaption) && /external/i.test(countyCaption) && !countyCaption.includes('arrivals − departures'));
+  check('the national balance card still reads arrivals − departures', (await text('.v3-stat-primary > span')).startsWith('arrivals − departures'));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
