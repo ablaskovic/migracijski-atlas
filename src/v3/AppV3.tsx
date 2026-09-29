@@ -50,6 +50,21 @@ function recordHistory(href: string, replace: boolean) {
   heldTimer ??= setTimeout(flushHistory, HIST_MS - (Date.now() - lastWrite));
 }
 
+/* Classification, the municipal map and the population panels force their own
+   year window (classification also its metric and unit), and flows open on the
+   measured 2018. Each group remembers the lens it was left with, so a detour
+   through one never rewrites another's: map → classification → map keeps the
+   reader's metric, unit and year, and flows → map → flows keeps the flow year. */
+const FREE_VIEWS: readonly Explore[] = ['map', 'trends', 'regions'];
+const isFreeView = (view: Explore) => FREE_VIEWS.includes(view);
+const isFlowView = (view: Explore) => view === 'flows' || view === 'matrix';
+const lensMemory: { free?: Pick<AtlasState, 'flow' | 'den' | 'yi' | 'cum'>; flow?: Pick<AtlasState, 'yi' | 'cum'> } = {};
+function rememberLens(s: AtlasState) {
+  if (isFreeView(s.view)) lensMemory.free = { flow: s.flow, den: s.den, yi: s.yi, cum: s.cum };
+  else if (isFlowView(s.view)) lensMemory.flow = { yi: s.yi, cum: s.cum };
+}
+rememberLens(initial);
+
 export default function AppV3() {
   const [s, setS] = useState(initial);
   useGeo(s.view === 'municipalities' ? 'jmap' : s.view === 'regions' ? 'reg' : 'saldo');
@@ -85,15 +100,15 @@ export default function AppV3() {
   function update(patch: Partial<AtlasState>, replace = false, autoplay = false) {
     if (!autoplay && Object.keys(patch).some(k => k !== 'lang')) setPlaying(false);
     const next = normalizeState({ ...state.current, ...patch, den: patch.den ?? (patch.relative === undefined ? state.current.den : patch.relative ? 'rel11' : 'abs'), story: patch.story !== undefined ? patch.story : Object.keys(patch).every(k => k === 'lang') ? state.current.story : null });
-    setLang(next.lang); state.current = next; setS(next); setHover(null);
+    setLang(next.lang); state.current = next; setS(next); setHover(null); rememberLens(next);
     const url = new URL(location.href); url.hash = stateHash(next); url.searchParams.set('version', 'v3');
     if (url.searchParams.has('l')) url.searchParams.set('l', next.lang);
     recordHistory(url.href, replace);
   }
   function selectView(view: Explore) {
-    const opener = document.activeElement;
+    const opener = document.activeElement, from = state.current.view;
     setPlaying(false);
-    update((view === 'flows' || view === 'matrix') && !flowView ? { view, yi: IX2018, cum: false } : { view });
+    update({ view, ...(isFlowView(view) && !isFlowView(from) ? lensMemory.flow ?? { yi: IX2018, cum: false } : isFreeView(view) && !isFreeView(from) ? lensMemory.free : {}) });
     requestAnimationFrame(() => { if (opener && !opener.isConnected) document.querySelector<HTMLElement>('[aria-label="' + (state.current.lang === 'hr' ? 'Svi prikazi' : 'All views') + '"]')?.focus({ preventScroll: true }); });
   }
   useEffect(() => {
@@ -102,7 +117,7 @@ export default function AppV3() {
     const pop = () => {
       // A held write belongs to the entry just left.
       dropHeldHistory();
-      const next = readState(); setLang(next.lang); setS(next); state.current = next; setPlaying(false); setHover(null);
+      const next = readState(); setLang(next.lang); setS(next); state.current = next; setPlaying(false); setHover(null); rememberLens(next);
       const url = new URL(location.href); url.hash = stateHash(next); writeHistory('replaceState', url.href);
     };
     window.addEventListener('popstate', pop); window.addEventListener('hashchange', pop);

@@ -179,6 +179,21 @@ const signed = (n, relative) => {
   check('a one-year cumulative window is printed as one year', Object.keys(repeatedWindow).length === 0);
   await go('?version=v3&l=en&fresh=csv2011#explore=matrix&year=2011&sum=1&l=en');
   check('a one-year cumulative export is named for that year', (await downloadCSV('atlas-2011-matrix.csv')).includes('"2011","2011"'));
+  // Views that force their own lens (classification, municipalities, population, flows' 2018) used to write it into
+  // the shared state, so returning to the map lost the reader's metric, unit and year.
+  const lensOf = () => page.evaluate(() => { const p = new URLSearchParams(location.hash.slice(1)); return [p.get('explore'), p.get('year'), p.get('metric'), p.get('unit'), p.get('sum')].join('|'); });
+  const pickView = async view => { await page.select('[aria-label="All views"]', view); await page.waitForFunction(v => new URLSearchParams(location.hash.slice(1)).get('explore') === v, {}, view); };
+  for (const detour of ['classify', 'municipalities', 'population', 'flows']) {
+    await go(`?version=v3&l=en&fresh=lens${detour}#explore=map&year=2010&metric=ext&unit=pct&l=en`);
+    const before = await lensOf(); await pickView(detour); await pickView('map');
+    check(`returning from ${detour} restores the map's year, metric and unit`, await lensOf() === before);
+  }
+  await go('?version=v3&l=en&fresh=flowwindow#explore=flows&year=2015&county=HR-21&l=en');
+  await pickView('map'); await pickView('flows');
+  check('returning to flows restores its own year', await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('year') === '2015'));
+  await go('?version=v3&l=en&fresh=flowfirst#explore=map&year=2025&l=en');
+  await pickView('flows');
+  check('a first visit to flows still opens on the measured 2018', await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('year') === '2018' && !new URLSearchParams(location.hash.slice(1)).has('sum')));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
