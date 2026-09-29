@@ -304,6 +304,23 @@ const signed = (n, relative) => {
   check('that state reloads with its finding', await findingShown());
   await page.evaluate(() => [...document.querySelectorAll('.v3-metrics button')].find(b => b.textContent === 'Internal').click());
   check('a finding leaves when a value it cites changes', !await findingShown());
+  // Arrow keys on a closed <select> change its value at once on Windows; on the view and findings selects every option
+  // passed applied itself — a view switch or a whole finding, plus a history entry, per key.
+  // Entries are counted as pushState calls: this tab's history.length is already at Chrome's cap of 50.
+  const navState = () => page.evaluate(() => ({ view: new URLSearchParams(location.hash.slice(1)).get('explore'), finding: new URLSearchParams(location.hash.slice(1)).get('finding'), entries: window.pushes }));
+  await go('?version=v3&l=en&fresh=navselect#explore=map&l=en');
+  await page.evaluate(() => { window.pushes = 0; const push = history.pushState.bind(history); history.pushState = (...args) => { window.pushes++; return push(...args); }; });
+  const navStart = await navState();
+  await page.focus('[aria-label="All views"]'); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown');
+  const navBrowsing = await navState();
+  check('arrowing through the closed view select does not switch views', navBrowsing.view === 'map' && navBrowsing.entries === navStart.entries && await page.$eval('[aria-label="All views"]', e => e.value === 'flows'));
+  await page.keyboard.press('Enter');
+  const navEntered = await navState();
+  check('Enter applies the view the select shows, once', navEntered.view === 'flows' && navEntered.entries === navStart.entries + 1);
+  await page.focus('[aria-label="Guided findings"]'); for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
+  check('arrowing through the closed findings select applies no finding', (await navState()).finding === null);
+  await page.keyboard.press('Tab');
+  check('leaving the findings select applies the finding it shows', (await navState()).finding === '2');
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
