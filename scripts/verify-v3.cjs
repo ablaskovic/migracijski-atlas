@@ -382,6 +382,17 @@ const signed = (n, relative) => {
   await retryPage.waitForFunction(() => document.querySelectorAll('[data-municipality]').length === 556);
   check('a successful geometry retry leaves focus on the view, not the page body', await retryPage.evaluate(() => document.activeElement !== document.body));
   await retryPage.close();
+  // The figure snapshot copied computed fills in the middle of the 0.35 s fill transition when exported right after a year
+  // change, a theme toggle or during playback: 20 of 21 counties matched neither year nor legend.
+  await go('?version=v3&l=en&fresh=midtransition#explore=map&year=2024&l=en');
+  for (const f of fs.readdirSync(output).filter(f => f.endsWith('.svg'))) fs.unlinkSync(path.join(output, f));
+  await page.select('#v3-year', '5'); await new Promise(resolve => setTimeout(resolve, 40));
+  await page.click('[aria-label="Export SVG"]');
+  let figureFile; for (let i = 0; i < 60 && !figureFile; i++) { await new Promise(resolve => setTimeout(resolve, 100)); figureFile = fs.readdirSync(output).find(f => f.endsWith('.svg')); }
+  await new Promise(resolve => setTimeout(resolve, 700));
+  const settledFills = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-county]')].map(p => [p.dataset.county, getComputedStyle(p).fill.replace(/\s/g, '')])));
+  const exportedFills = Object.fromEntries([...fs.readFileSync(path.join(output, figureFile), 'utf8').matchAll(/<path[^>]*data-county="(HR-\d\d)"[^>]*>/g)].map(m => [m[1], ((/style="([^"]*)"/.exec(m[0]) || [])[1] || '').match(/fill:\s*([^;]+)/)?.[1].replace(/\s/g, '')]));
+  check('a figure exported during a colour transition carries the settled colours', Object.keys(exportedFills).length === 21 && Object.keys(settledFills).every(iso => exportedFills[iso] === settledFills[iso]));
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);

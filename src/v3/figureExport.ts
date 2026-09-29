@@ -55,6 +55,8 @@ function node<K extends keyof SVGElementTagNameMap>(name: K, attrs: Record<strin
 
 /** Capture before any await: playback, selection and theme may change while fonts load. */
 function snapshot(svg: SVGSVGElement) {
+  // Computed styles are read below: settle running fill/opacity transitions first, or the figure keeps an in-between colour.
+  for (const animation of svg.getAnimations({ subtree: true })) animation.finish();
   const clone = svg.cloneNode(true) as SVGSVGElement;
   const theme = getComputedStyle(document.documentElement);
   const originals = [svg, ...svg.querySelectorAll<SVGElement>('*')];
