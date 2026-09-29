@@ -329,6 +329,26 @@ const signed = (n, relative) => {
     selectNames[lang] = { name: (await page.accessibility.snapshot({ root: await page.$('#v3-view-select') }))?.name ?? '', visible: await page.$eval('.v3-explore-controls label', e => e.firstChild.textContent.trim()) };
   }
   check('the view select’s accessible name begins with its visible label', ['hr', 'en'].every(l => selectNames[l].name.toLocaleLowerCase().startsWith(selectNames[l].visible.toLocaleLowerCase())));
+  // The Discover cards and the footer's classification link changed the workspace far above them without taking the reader
+  // there; the county panel's view links focused a view select scrolled out of view.
+  const workspaceView = () => page.evaluate(() => { const ws = document.querySelector('.v3-workspace').getBoundingClientRect(), select = document.getElementById('v3-view-select').getBoundingClientRect(); return { workspaceTop: ws.top, selectTop: select.top, selectBottom: select.bottom, vh: innerHeight, focused: document.activeElement?.id }; });
+  const settleScroll = () => new Promise(resolve => setTimeout(resolve, 900));
+  await go('?version=v3&l=en&fresh=discover#explore=map&l=en');
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  await page.click('.v3-discover > button:nth-of-type(1)'); await settleScroll();
+  const afterDiscover = await workspaceView();
+  check('a Discover card takes the reader to the view it opened', afterDiscover.workspaceTop > -2 && afterDiscover.workspaceTop < afterDiscover.vh / 2 && afterDiscover.focused === 'v3-view-select');
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  await page.evaluate(() => [...document.querySelectorAll('.v3-footer-links button')].find(b => /Classification/.test(b.textContent)).click()); await settleScroll();
+  const afterFooter = await workspaceView();
+  check('the footer’s classification link takes the reader to that view', afterFooter.workspaceTop > -2 && afterFooter.workspaceTop < afterFooter.vh / 2 && afterFooter.focused === 'v3-view-select' && await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('explore') === 'classify'));
+  await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
+  await go('?version=v3&l=en&fresh=detaillink#explore=map&county=HR-06&l=en');
+  await page.$eval('.v3-county-detail > .v3-text-button', e => e.scrollIntoView({ block: 'center' }));
+  await page.focus('.v3-county-detail > .v3-text-button'); await page.keyboard.press('Enter'); await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const afterDetail = await workspaceView();
+  check('a view link in the county panel focuses the view select on screen', afterDetail.focused === 'v3-view-select' && afterDetail.selectTop >= 0 && afterDetail.selectBottom <= afterDetail.vh);
+  await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
