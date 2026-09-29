@@ -113,6 +113,9 @@ export const unitName = (s: Pick<AtlasState, 'den' | 'yi' | 'lang'>) => s.den ==
 export const domain = (s: AtlasState) => DOM[s.flow + s.den + s.cum];
 export const colors = (max: number, light = false) => scalePow<string>().exponent(.55).domain([-max, 0, max])
   .range(light ? ['#b33f49', '#dce7ea', '#087d68'] : ['#ed9688', '#293c48', '#6ae0be']).clamp(true);
+/* The municipal colour domain is the 95th percentile of the absolute values, not their maximum: Grad Zagreb's 9.606 arrivals
+   against a median of 41 left nine in ten places a shade from neutral. The few above it take the end colour. */
+export const municipalDomain = (values: number[]) => { const sorted = values.map(Math.abs).sort((a, b) => a - b); return Math.max(1, sorted[Math.floor(.95 * (sorted.length - 1))] ?? 0); };
 export const ranked = (s: AtlasState) => [...ISOS].sort((a, b) => value(b, s) - value(a, s));
 // Accents fold by splitting letters from their marks, and đ has no such split: typed as "d" or "dj", as it is on a
 // keyboard without it, Međimurska and Đakovo were not found. Both fold to d, with đ.

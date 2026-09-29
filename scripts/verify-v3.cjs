@@ -518,18 +518,31 @@ const signed = (n, relative) => {
   // The figure snapshot copied computed fills in the middle of the 0.35 s fill transition when exported right after a year
   // change, a theme toggle or during playback: 20 of 21 counties matched neither year nor legend.
   await go('?version=v3&l=en&fresh=midtransition#explore=map&year=2024&l=en');
-  for (const f of fs.readdirSync(output).filter(f => f.endsWith('.svg'))) fs.unlinkSync(path.join(output, f));
+  // Each export gets a folder of its own: a deleted file Chrome or a scanner still holds stays listed but unreadable.
+  const exportTo = async () => { const dir = fs.mkdtempSync(path.join(output, 'export-')); await downloadSession.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: dir }); return dir; };
+  const exportedSvg = async dir => { let file; for (let i = 0; i < 200 && !file; i++) { await new Promise(resolve => setTimeout(resolve, 100)); file = fs.readdirSync(dir).find(f => f.endsWith('.svg')); } await new Promise(resolve => setTimeout(resolve, 700)); await downloadSession.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output }); return file ? fs.readFileSync(path.join(dir, file), 'utf8') : ''; };
   await page.select('#v3-year', '5'); await new Promise(resolve => setTimeout(resolve, 40));
-  const svgsBefore = new Set(fs.readdirSync(output));
+  const transitionDir = await exportTo();
   await page.click('[aria-label="Export SVG"]');
-  let figureFile; for (let i = 0; i < 200 && !figureFile; i++) { await new Promise(resolve => setTimeout(resolve, 100)); figureFile = fs.readdirSync(output).find(f => f.endsWith('.svg') && !svgsBefore.has(f)); }
-  await new Promise(resolve => setTimeout(resolve, 700));
+  const transitionSvg = await exportedSvg(transitionDir);
   const settledFills = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-county]')].map(p => [p.dataset.county, getComputedStyle(p).fill.replace(/\s/g, '')])));
-  const exportedFills = Object.fromEntries([...fs.readFileSync(path.join(output, figureFile), 'utf8').matchAll(/<path[^>]*data-county="(HR-\d\d)"[^>]*>/g)].map(m => [m[1], ((/style="([^"]*)"/.exec(m[0]) || [])[1] || '').match(/fill:\s*([^;]+)/)?.[1].replace(/\s/g, '')]));
+  const exportedFills = Object.fromEntries([...transitionSvg.matchAll(/<path[^>]*data-county="(HR-\d\d)"[^>]*>/g)].map(m => [m[1], ((/style="([^"]*)"/.exec(m[0]) || [])[1] || '').match(/fill:\s*([^;]+)/)?.[1].replace(/\s/g, '')]));
   check('a figure exported during a colour transition carries the settled colours', Object.keys(exportedFills).length === 21 && Object.keys(settledFills).every(iso => exportedFills[iso] === settledFills[iso]));
+  // The municipal colour domain was its largest value: Grad Zagreb's 9.606 arrivals against a median of 41 left 90–96 % of
+  // places within a shade of neutral. Its key, on screen and in the exported figure, marks the clamped ends.
+  const municipalSpread = [];
+  for (const dir of ['in', 'out', 'net']) {
+    await go(`?version=v3&fresh=munidom${dir}#explore=municipalities&dir=${dir}&l=en`); await page.waitForSelector('[data-municipality]');
+    municipalSpread.push(await page.evaluate(() => { const rgb = s => s.match(/\d+/g).slice(0, 3).map(Number), neutral = [41, 60, 72]; const far = [...document.querySelectorAll('[data-municipality]')].map(p => Math.hypot(...rgb(getComputedStyle(p).fill).map((v, i) => v - neutral[i]))); return far.filter(d => d < 30).length / far.length; }));
+  }
+  const municipalKey = await page.$$eval('[data-analysis="municipalities"] .v3-legend > span', spans => spans.map(s => s.textContent));
+  const municipalDir = await exportTo();
+  await page.click('[aria-label="Export SVG"]');
+  const figureLegend = /Coral: ≤ −[\d,]+ · grey: 0 · teal: ≥ \+[\d,]+/.test(await exportedSvg(municipalDir));
+  check('the municipal map spreads its colours, and its key marks the clamped ends on screen and in the figure', municipalSpread.every(share => share <= .6) && municipalKey[0].startsWith('≤') && municipalKey[1].startsWith('≥') && figureLegend);
   // v3 figures draw every string in IBM Plex Sans, yet embedded v2's Mono and Oswald too (~132 KB of unused faces) and
   // refused to export when those failed, with a toast blaming the map; a Sans failure was misreported the same way.
-  const figureSvg = fs.readFileSync(path.join(output, figureFile), 'utf8');
+  const figureSvg = transitionSvg;
   check('a v3 figure embeds only the Sans faces it draws with, and its font notice names only those', JSON.stringify([...figureSvg.matchAll(/@font-face\{font-family:'([^']+)'/g)].map(m => m[1])) === '["IBM Plex Sans","IBM Plex Sans"]' && /IBM Corp/.test(figureSvg) && !/Oswald/.test(figureSvg));
   const fontPage = await browser.newPage();
   await fontPage.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });

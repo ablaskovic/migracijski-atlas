@@ -2,7 +2,7 @@ import { D, FLOWN, ISOS, IX2007, KLAB, MXORD, PE_SPAN, RDOM, REG, YEARS, flowBad
 import { jlsGeo } from '../lib/geoAsync.ts';
 import { NO_AFFIL, PAPER, paperCaveatLine, paperThrLine, regionReadingLine } from '../lib/credits.ts';
 import { inLang } from '../lib/i18n.ts';
-import { asClassic, colors, countyName, domain, downloadFile, periodLabel, ranked, unitName, value, viewName, type AtlasState } from './model.ts';
+import { asClassic, colors, countyName, domain, downloadFile, municipalDomain, periodLabel, ranked, unitName, value, viewName, type AtlasState } from './model.ts';
 import { exportFigure } from './figureExport.ts';
 
 const SOURCE = 'DZS / CBS: https://podaci.dzs.hr';
@@ -84,11 +84,13 @@ export async function exportCurrentFigure(s: AtlasState, format: 'png' | 'svg', 
   if (!flow && !municipal && s.flow !== 'ext' && s.flow !== 'nat' && !s.cum && (s.view === 'trends' || s.yi < IX2007)) notes.push(L('Prije 2007. unutarnji doseljeni i odseljeni ne podudaraju se potpuno.', 'Before 2007, internal arrivals and departures do not fully balance.'));
   const direction = s.dir === 'in' ? L('Doseljavanje', 'Arrivals') : s.dir === 'out' ? L('Odseljavanje', 'Departures') : municipal ? L('Saldo gradova i općina', 'Net change by municipality') : s.view === 'matrix' ? L('Saldo retka', 'Net gain for the row') : L('Saldo odabrane županije', 'Net gain for selected county');
   const figureUnit = s.view === 'trends' && s.den === 'relest' ? L('% procjene stanovništva za godinu stupca', '% of the column year’s population estimate') : unitName(s);
-  const maximum = s.view === 'regions' ? RDOM[s.flow + s.den + s.cum] : s.view === 'matrix' ? mxMax(s.dir, s.cum) : municipal ? Math.max(1, ...(jlsGeo()?.features.map(f => Math.abs(jlsVal(f.properties, s.dir))) ?? [])) : domain(s);
+  const maximum = s.view === 'regions' ? RDOM[s.flow + s.den + s.cum] : s.view === 'matrix' ? mxMax(s.dir, s.cum) : municipal ? municipalDomain(jlsGeo()?.features.map(f => jlsVal(f.properties, s.dir)) ?? []) : domain(s);
   const nf = new Intl.NumberFormat(s.lang, { maximumFractionDigits: s.relative && !flow && !municipal ? 1 : 0 });
   const limit = nf.format(maximum) + (s.relative && !flow && !municipal ? ' %' : '');
-  let legend = L(`Koraljno: −${limit} · sivo: 0 · tirkizno: +${limit}. Skala ostaje ista kroz godine.`, `Coral: −${limit} · grey: 0 · teal: +${limit}. Scale stays fixed across years.`);
-  if ((s.view === 'matrix' || municipal) && s.dir !== 'net') legend = L(`Sivo: 0 · tirkizno: ${limit} osoba.`, `Grey: 0 · teal: ${limit} people.`);
+  // The municipal domain is a percentile, so its ends take everything beyond them.
+  const below = municipal ? '≤ ' : '', above = municipal ? '≥ ' : '';
+  let legend = L(`Koraljno: ${below}−${limit} · sivo: 0 · tirkizno: ${above}+${limit}. Skala ostaje ista kroz godine.`, `Coral: ${below}−${limit} · grey: 0 · teal: ${above}+${limit}. Scale stays fixed across years.`);
+  if ((s.view === 'matrix' || municipal) && s.dir !== 'net') legend = L(`Sivo: 0 · tirkizno: ${above}${limit} osoba.`, `Grey: 0 · teal: ${above}${limit} people.`);
   if (s.view === 'flows') legend = L('Tirkizno: prema odabranoj županiji · koraljno: iz odabrane županije. Debljina linije prati korijen broja osoba.', 'Teal: towards selected county · coral: away from selected county. Line width follows the square root of people.');
   if (s.view === 'classify') { const threshold = pragText(asClassic(s)); legend = `${KLAB.gain}: > 0 · ${KLAB.neu}: ${threshold} … 0 · ${KLAB.loss}: < ${threshold}`; }
   if (s.view === 'matrix') notes.push(s.dir === 'out' ? L('Redak → stupac: odseljeni.', 'Row → column: departures.') : s.dir === 'in' ? L('Stupac → redak: doseljeni.', 'Column → row: arrivals.') : L('Saldo retka: stupac → redak minus redak → stupac.', 'Net gain for the row: column → row minus row → column.'));

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { GEO, ISOS, jlsVal } from '../lib/metrics.ts';
 import { geoStatus, jlsFailed, jlsGeo, offlineNote, retryArmed, retryGeo, useGeo } from '../lib/geoAsync.ts';
-import { colors, countyName, fold, formatNumber, resultCount, type AtlasState } from './model.ts';
+import { colors, countyName, fold, formatNumber, municipalDomain, resultCount, type AtlasState } from './model.ts';
 import useMapNavigation from './useMapNavigation.ts';
 import MapPan from './MapPan.tsx';
 import Icon from './Icon.tsx';
@@ -35,7 +35,7 @@ export default function MunicipalityMap({ s, light, update }: { s: AtlasState; l
   const count = (n: number, signed = false) => formatNumber(s.lang, n, { signed });
   const features = useMemo(() => geo?.features.map(f => ({ f, p: f.properties, d: path(f) ?? '' })) ?? [], [geo]);
   const rows = features.filter(({ p }) => (!s.county || ISOS[p.c] === s.county) && fold(p.n).includes(fold(query))).sort((a, b) => jlsVal(b.p, s.dir) - jlsVal(a.p, s.dir));
-  const max = Math.max(1, ...features.map(({ p }) => Math.abs(jlsVal(p, s.dir))));
+  const max = municipalDomain(features.map(({ p }) => jlsVal(p, s.dir)));
   const scale = colors(max, light);
   const active = features.find(({ p }) => p.j === (hover ?? selected));
   const description = (p: typeof features[number]['p']) => `${p.n} · ${countyName(ISOS[p.c], s.lang)}: ${count(jlsVal(p, s.dir), s.dir === 'net')}`;
@@ -59,7 +59,7 @@ export default function MunicipalityMap({ s, light, update }: { s: AtlasState; l
       <div className="v3-map-tools"><button aria-label={L('Povećaj kartu', 'Zoom in')} aria-disabled={nav.zoom === nav.maxZoom || undefined} onClick={nav.zoomIn}><Icon name="plus" size={18} /></button><button aria-label={L('Smanji kartu', 'Zoom out')} aria-disabled={nav.zoom === 1 || undefined} onClick={nav.zoomOut}><Icon name="minus" size={18} /></button><button aria-label={L('Vrati prikaz', 'Reset map')} onClick={nav.reset}><Icon name="reset" size={16} /></button></div><MapPan nav={nav} lang={s.lang} />
       {!geo && <div className="v3-geo-loading" role="status">{geoStatus(true)}{jlsFailed() && <button className="v3-button" onClick={() => { heading.current?.focus(); void retryGeo().then(r => setWaiting(r === 'offline')); }}>{L('Pokušaj ponovno', 'Retry')}</button>}{waiting && retryArmed() && <span> {offlineNote()}</span>}</div>}
     </div><div className="v3-municipal-readout" ref={readout}>{active ? <><strong>{active.p.n}</strong><span>{countyName(ISOS[active.p.c], s.lang)} · {L('Doseljeni', 'Arrivals')}: {count(active.p.i)} · {L('Odseljeni', 'Departures')}: {count(active.p.o)} · {L('Saldo', 'Net')}: {count(active.p.i - active.p.o, true)}</span><button className="v3-text-button" onClick={() => update({ view: 'population', panel: 'municipal', county: ISOS[active.p.c] })}>{L('Lokalni koridori županije', 'County’s local corridors')}<Icon name="arrow" size={15} /></button></> : <span>{L('Odaberite mjesto na karti ili ga pronađite na popisu.', 'Select a place on the map or find it in the list.')}</span>}</div>
-    <div className="v3-legend"><span>{s.dir === 'net' ? count(-max) : '0'}</span><div className="v3-color-key"><div style={{ background: `linear-gradient(90deg,${Array.from({ length: 21 }, (_, i) => scale((s.dir === 'net' ? -max : 0) + i / 20 * (s.dir === 'net' ? 2 * max : max))).join(',')})` }} /></div><span>{count(max, s.dir === 'net')}</span></div></div>
+    <div className="v3-legend"><span>{s.dir === 'net' ? '≤ ' + count(-max) : '0'}</span><div className="v3-color-key"><div style={{ background: `linear-gradient(90deg,${Array.from({ length: 21 }, (_, i) => scale((s.dir === 'net' ? -max : 0) + i / 20 * (s.dir === 'net' ? 2 * max : max))).join(',')})` }} /></div><span>{'≥ ' + count(max, s.dir === 'net')}</span></div></div>
     <div className="v3-municipal-search"><label className="v3-search"><Icon name="search" size={16} /><input ref={search} value={query} type="search" aria-label={L('Pronađite grad ili općinu', 'Find a city or municipality')} placeholder={L('Grad ili općina…', 'City or municipality…')} onChange={e => setQuery(e.target.value)} /></label><p className="v3-sr" role="status">{query ? resultCount(s.lang, rows.length) : ''}</p><label className="v3-local-filter">{L('Županija', 'County')}<select value={s.county ?? ''} onChange={e => update({ county: e.target.value || null })}><option value="">{L('Sve županije', 'All counties')}</option>{ISOS.map(i => <option key={i} value={i}>{countyName(i, s.lang)}</option>)}</select></label><p className="v3-data-note">{rows.length} / {features.length} · {L('Poredak po odabranoj vrijednosti', 'Ranked by selected value')}</p><div className="v3-municipal-results" ref={results} onKeyDown={e => {
       const buttons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>(':scope > button')], at = buttons.indexOf(document.activeElement as HTMLButtonElement);
       const next = at < 0 ? -1 : e.key === 'ArrowDown' ? at + 1 : e.key === 'ArrowUp' ? at - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1 : -1;
