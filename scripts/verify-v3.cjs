@@ -710,6 +710,19 @@ const signed = (n, relative) => {
   await go('?version=v3&fresh=regionnames#explore=regions&year=2024&sum=1&l=en');
   const regionButtonNames = await page.evaluate(() => [...document.querySelectorAll('[data-county]')].map(p => p.getAttribute('aria-label')));
   check('each Regions map button names its county before its region', regionButtonNames.length === 21 && new Set(regionButtonNames).size === 21 && regionButtonNames.some(n => /^Osječko-baranjska — Eastern: /.test(n)));
+  // Every table wrapper was a focusable region named "… scroll horizontally", though none scrolled sideways at 1440 or 390 px
+  // and some did not scroll at all; the citizenship chart's region repeated its inner group's name.
+  const regionFaults = [];
+  for (const [w, h] of [[1440, 900], [390, 844]]) for (const hash of ['explore=trends', 'explore=matrix', 'explore=population&panel=age', 'explore=population&panel=citizenship']) {
+    await page.setViewport({ width: w, height: h, deviceScaleFactor: 1, isMobile: w < 500, hasTouch: w < 500 });
+    await go(`?version=v3&fresh=scroll${w}${hash.length}#${hash}&l=en`); await new Promise(resolve => setTimeout(resolve, 200));
+    regionFaults.push(...await page.evaluate(() => [...document.querySelectorAll('.v3-table-frame > div')].filter(el => {
+      const scrolls = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1, label = el.getAttribute('aria-label') || '';
+      return scrolls ? !(el.tabIndex === 0 && el.getAttribute('role') === 'region' && label && !/scroll|pomi/i.test(label) && el.querySelector('[aria-label]')?.getAttribute('aria-label') !== label) : el.hasAttribute('tabindex') || el.hasAttribute('role');
+    }).map(el => el.className)));
+  }
+  await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  check('only a table area that scrolls is a named, focusable region', regionFaults.length === 0);
   // A Retry pressed offline changed nothing on screen: retryGeo() answers 'offline' and resumes on reconnection, and v3
   // discarded the answer where v2 says so.
   const offlinePage = await browser.newPage();

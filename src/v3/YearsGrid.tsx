@@ -13,7 +13,7 @@ export default function YearsGrid({ s, light, onPick }: { s: AtlasState; light: 
   const fmt = (n: number) => formatNumber(s.lang, n, { signed: true, digits: s.relative ? 1 : 0, percent: s.relative });
   const active = peek ?? (s.county ? { county: s.county, yi: s.yi } : null);
   const stop = focused && rows.includes(focused.county) && cols.includes(focused.yi) ? focused : { county: rows[0], yi: cols[0] };
-  return <><TableScroll className="v3-years-scroll" scrollRef={table} lang={s.lang} label={s.lang === 'hr' ? 'Tablica godina — pomičite vodoravno' : 'Years table — scroll horizontally'}>
+  return <><TableScroll className="v3-years-scroll" scrollRef={table} lang={s.lang} label={s.lang === 'hr' ? 'Tablica godina' : 'Years table'}>
     <table className="v3-years" aria-label={s.lang === 'hr' ? 'Saldo po županijama i godinama' : 'Net change by county and year'}>
       <thead><tr><th scope="col">{s.lang === 'hr' ? 'Županija' : 'County'}</th>{cols.map(yi => <th scope="col" key={yi}>{YEARS[yi]}</th>)}</tr></thead>
       <tbody>{rows.map((iso, row) => <tr key={iso}><th scope="row">{countyName(iso, s.lang)}</th>{cols.map((yi, col) => {
