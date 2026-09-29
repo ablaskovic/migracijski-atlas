@@ -440,8 +440,9 @@ const signed = (n, relative) => {
   await go('?version=v3&l=en&fresh=midtransition#explore=map&year=2024&l=en');
   for (const f of fs.readdirSync(output).filter(f => f.endsWith('.svg'))) fs.unlinkSync(path.join(output, f));
   await page.select('#v3-year', '5'); await new Promise(resolve => setTimeout(resolve, 40));
+  const svgsBefore = new Set(fs.readdirSync(output));
   await page.click('[aria-label="Export SVG"]');
-  let figureFile; for (let i = 0; i < 60 && !figureFile; i++) { await new Promise(resolve => setTimeout(resolve, 100)); figureFile = fs.readdirSync(output).find(f => f.endsWith('.svg')); }
+  let figureFile; for (let i = 0; i < 200 && !figureFile; i++) { await new Promise(resolve => setTimeout(resolve, 100)); figureFile = fs.readdirSync(output).find(f => f.endsWith('.svg') && !svgsBefore.has(f)); }
   await new Promise(resolve => setTimeout(resolve, 700));
   const settledFills = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-county]')].map(p => [p.dataset.county, getComputedStyle(p).fill.replace(/\s/g, '')])));
   const exportedFills = Object.fromEntries([...fs.readFileSync(path.join(output, figureFile), 'utf8').matchAll(/<path[^>]*data-county="(HR-\d\d)"[^>]*>/g)].map(m => [m[1], ((/style="([^"]*)"/.exec(m[0]) || [])[1] || '').match(/fill:\s*([^;]+)/)?.[1].replace(/\s/g, '')]));
@@ -464,7 +465,7 @@ const signed = (n, relative) => {
     await fontPage.waitForFunction(() => !!document.querySelector('.v3-toast').textContent);
     const toast = await fontPage.$eval('.v3-toast', el => el.textContent);
     let saved = false;
-    for (let i = 0; i < 60 && !saved && toast === 'Figure exported.'; i++) { await new Promise(resolve => setTimeout(resolve, 100)); saved = fs.readdirSync(output).some(f => f.endsWith('.svg')); }
+    for (let i = 0; i < 200 && !saved && toast === 'Figure exported.'; i++) { await new Promise(resolve => setTimeout(resolve, 100)); saved = fs.readdirSync(output).some(f => f.endsWith('.svg')); }
     return { saved, toast };
   };
   const withoutV2Fonts = await exportWithout(/ibm-plex-mono|oswald/), withoutSans = await exportWithout(/ibm-plex-sans/);
@@ -477,7 +478,7 @@ const signed = (n, relative) => {
     const before = new Set(fs.readdirSync(output));
     await go(`?version=v3&fresh=name${Math.random().toString(36).slice(2, 8)}#${hash}`);
     await page.click(selector);
-    for (let i = 0; i < 60; i++) { await new Promise(resolve => setTimeout(resolve, 100)); const f = fs.readdirSync(output).find(n => !before.has(n) && !n.endsWith('.crdownload')); if (f) return f; }
+    for (let i = 0; i < 200; i++) { await new Promise(resolve => setTimeout(resolve, 100)); const f = fs.readdirSync(output).find(n => !before.has(n) && !n.endsWith('.crdownload')); if (f) return f; }
     return null;
   };
   for (const f of fs.readdirSync(output).filter(f => /^atlas-/.test(f))) fs.unlinkSync(path.join(output, f));

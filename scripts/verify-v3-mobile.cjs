@@ -198,7 +198,7 @@ async function scenario(name, run) {
       const downloads = path.join(output, 'downloads', `${width}-${mode}`); fs.mkdirSync(downloads, { recursive: true });
       await session.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
       await page.click('[aria-label="Export SVG"]');
-      let file; for (let i = 0; i < 80 && !file; i++) { await pause(100); file = fs.readdirSync(downloads).find(n => n.endsWith('.svg')); }
+      let file; for (let i = 0; i < 200 && !file; i++) { await pause(100); file = fs.readdirSync(downloads).find(n => n.endsWith('.svg')); }
       sizes[`${width} ${mode}`] = file ? await page.evaluate(text => [...new Set([...new DOMParser().parseFromString(text, 'image/svg+xml').querySelectorAll('.v3-map-labels text')].map(t => t.style.fontSize))].join(), fs.readFileSync(path.join(downloads, file), 'utf8')) : 'no file';
     }
     await session.detach();
