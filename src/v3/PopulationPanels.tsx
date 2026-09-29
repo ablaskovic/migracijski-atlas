@@ -46,7 +46,9 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
   const ageMode = age ?? localAge;
   const setAgeMode = (mode: 'ext' | 'int') => { setLocalAge(mode); onAge?.(mode); };
   const [citYear, setCitYear] = useState(closestCitYear(YEARS[yi]));
-  const [municipalCounty, setMunicipalCounty] = useState(county ?? 'HR-21');
+  // Controlled by the URL when the atlas passes onCounty: the panel can never show a county the address does not name.
+  const [localCounty, setLocalCounty] = useState(county ?? 'HR-21');
+  const municipalCounty = onCounty ? county ?? 'HR-21' : localCounty;
   const [localDirection, setLocalDirection] = useState<Direction>(direction);
   const municipalDirection = onDirection ? direction : localDirection;
   const setMunicipalDirection = (dir: Direction) => { setLocalDirection(dir); onDirection?.(dir); };
@@ -55,7 +57,6 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
   const setMunicipalMode = (scope: 'inter' | 'local') => { setLocalMunicipalMode(scope); onLocalScope?.(scope); };
   const [query, setQuery] = useState('');
   useEffect(() => { setCitYear(closestCitYear(YEARS[yi])); }, [yi]);
-  useEffect(() => { if (county) setMunicipalCounty(county); }, [county]);
   useEffect(() => { setLocalDirection(direction); }, [direction]);
   const tabs: [Panel, string][] = [
     ['age', L('Dob i spol', 'Age and sex')], ['citizenship', L('Državljanstvo', 'Citizenship')],
@@ -194,7 +195,7 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
     </>}
 
     {panel === 'municipal' && <>
-      <div className="v3-pop-controls"><label className="v3-pop-field">{L('Županija', 'County')}<select value={municipalCounty} onChange={e => { setMunicipalCounty(e.target.value); onCounty?.(e.target.value); }}>{ISOS.map(iso => <option key={iso} value={iso}>{countyName(iso, lang)}</option>)}</select></label>
+      <div className="v3-pop-controls"><label className="v3-pop-field">{L('Županija', 'County')}<select value={municipalCounty} onChange={e => { setLocalCounty(e.target.value); onCounty?.(e.target.value); }}>{ISOS.map(iso => <option key={iso} value={iso}>{countyName(iso, lang)}</option>)}</select></label>
         <div className="v3-pop-segment" role="group" aria-label={L('Obuhvat koridora', 'Corridor scope')}><button aria-pressed={municipalMode === 'inter'} onClick={() => setMunicipalMode('inter')}>{L('Između županija', 'Between counties')}</button><button aria-pressed={municipalMode === 'local'} onClick={() => setMunicipalMode('local')}>{L('Unutar županije', 'Within county')}</button></div>
       </div>
       <div className="v3-pop-controls">{municipalMode === 'inter' && <div className="v3-pop-segment" role="group" aria-label={L('Smjer lokalnih koridora', 'Local corridor direction')}>

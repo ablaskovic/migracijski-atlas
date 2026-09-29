@@ -65,6 +65,9 @@ function rememberLens(s: AtlasState) {
 }
 rememberLens(initial);
 
+/** Views that always show one county, Grad Zagreb by default, and so offer no national reset. */
+const countyHub = (s: AtlasState) => s.view === 'flows' || s.view === 'population' && s.panel === 'municipal';
+
 export default function AppV3() {
   const [s, setS] = useState(initial);
   useGeo(s.view === 'municipalities' ? 'jmap' : s.view === 'regions' ? 'reg' : 'saldo');
@@ -83,7 +86,7 @@ export default function AppV3() {
   const metricNames = { tot: L('Saldo migracija', 'Net migration'), int: L('Unutarnje', 'Internal'), ext: L('Vanjske', 'External'), nat: L('Prirodni prirast', 'Natural change'), all: L('Migracije + prirast', 'Migration + natural change') };
   const metricFull = { tot: L('Migracijski saldo', 'Net migration'), int: L('Unutarnji migracijski saldo', 'Net internal migration'), ext: L('Vanjski migracijski saldo', 'Net external migration'), nat: L('Prirodni prirast', 'Natural change'), all: L('Migracije + prirodni prirast', 'Migration + natural change') };
   const nationalPanel = s.view === 'population' && s.panel !== 'municipal';
-  const scopeCounty = s.view === 'flows' ? s.county ?? 'HR-21' : s.county;
+  const scopeCounty = countyHub(s) ? s.county ?? 'HR-21' : s.county;
   const region = s.view === 'regions' && s.county ? REG[REGOF[s.county]] : null;
   const title = region ? region.name : scopeCounty && !nationalPanel ? countyName(scopeCounty, s.lang) : L('Hrvatska u pokretu.', 'Croatia in motion.');
   const period = periodLabel(s.yi, s.cum);
@@ -151,7 +154,7 @@ export default function AppV3() {
       setPlaying(false);
       if (sharing) closeSharing();
       else if (['flows', 'matrix'].includes(state.current.view) && state.current.pair) document.querySelector<HTMLButtonElement>('.v3-pair .v3-icon-button')?.click();
-      else if (state.current.county && state.current.view !== 'flows') inspectCounty(null);
+      else if (state.current.county && !countyHub(state.current)) inspectCounty(null);
     };
     window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape);
   }, [sharing]);
@@ -229,7 +232,7 @@ export default function AppV3() {
       <main id="v3-explorer" tabIndex={-1}>
         <section className="v3-intro"><div><div className="v3-eyebrow"><span className="v3-live-dot" />{L('ATLAS MIGRACIJA', 'MIGRATION ATLAS')}<span className="v3-eyebrow-divider">/</span>{region ? L('REGIJA', 'REGION') : scopeCounty && !nationalPanel ? L('ŽUPANIJA', 'COUNTY') : L('NACIONALNI PREGLED', 'NATIONAL OVERVIEW')}</div>
           <h1>{title}</h1><p>{L('Ljudi, mjesta i promjene. Istražite migracije kroz 28 godina.', 'People, places, and change. Explore 28 years of migration.')}</p></div>
-          <div className="v3-period"><span>{s.cum ? L('RAZDOBLJE', 'PERIOD') : L('GODINA', 'YEAR')}</span><strong>{period}</strong>{s.county && s.view !== 'flows' && <button onClick={() => inspectCounty(null)}>{L('Cijela Hrvatska', 'All Croatia')} <Icon name="close" size={13} /></button>}</div>
+          <div className="v3-period"><span>{s.cum ? L('RAZDOBLJE', 'PERIOD') : L('GODINA', 'YEAR')}</span><strong>{period}</strong>{s.county && !countyHub(s) && <button onClick={() => inspectCounty(null)}>{L('Cijela Hrvatska', 'All Croatia')} <Icon name="close" size={13} /></button>}</div>
         </section>
         <ResearchContext lang={s.lang} onAbout={showAbout} />
         {s.view !== 'population' && <section className="v3-stats" aria-label={L('Pregled podataka', 'Key figures')}>

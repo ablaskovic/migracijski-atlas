@@ -221,6 +221,18 @@ const signed = (n, relative) => {
   await page.waitForSelector('.v3-population');
   check('the county panel opens that county’s local corridors', await page.evaluate(() => { const p = new URLSearchParams(location.hash.slice(1)); return p.get('explore') === 'population' && p.get('panel') === 'municipal' && p.get('county') === 'HR-05' && document.querySelector('.v3-pop-field select')?.value === 'HR-05' && /Varaždinska/.test(document.querySelector('.v3-pop-heading .v3-eyebrow')?.textContent); }));
   check('the local-corridors button names what it opens', /local corridors/i.test(localButton) && !/population/i.test(localButton));
+  // The municipal-corridors panel always shows one county, like the flows hub; "All Croatia" and Escape cleared the URL's
+  // county while the panel kept showing the old one.
+  const popScope = () => page.evaluate(() => ({ county: new URLSearchParams(location.hash.slice(1)).get('county'), panel: document.querySelector('.v3-pop-field select')?.value, title: document.querySelector('.v3-intro h1').textContent, reset: !!document.querySelector('.v3-period button') }));
+  await go('?version=v3&l=en&fresh=popreset#explore=population&panel=municipal&county=HR-05&l=en');
+  const popShown = await popScope();
+  check('the municipal corridors panel offers no All Croatia reset', !popShown.reset && popShown.panel === 'HR-05' && popShown.title === 'Varaždinska');
+  await page.keyboard.press('Escape');
+  const popEscaped = await popScope();
+  check('Escape keeps the municipal panel’s county', popEscaped.county === 'HR-05' && popEscaped.panel === 'HR-05');
+  await go('?version=v3&l=en&fresh=popdefault#explore=population&panel=municipal&l=en');
+  const popDefault = await popScope();
+  check('without a county the header and the municipal panel both name Grad Zagreb', popDefault.panel === 'HR-21' && popDefault.title === 'City of Zagreb');
   // Matrix cell labels printed "2.0k" in Croatian (where "." groups thousands) and a hyphen-minus in both languages.
   for (const [lang, pattern] of [['hr', '^−?(\\d{1,3}(,\\d)?k|\\d{1,3})$'], ['en', '^−?(\\d{1,3}(\\.\\d)?k|\\d{1,3})$']]) {
     await go(`?version=v3&l=${lang}&fresh=mx${lang}#explore=matrix&year=2024&sum=1&dir=net&l=${lang}`);
