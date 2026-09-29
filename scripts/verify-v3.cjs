@@ -761,6 +761,15 @@ const signed = (n, relative) => {
   }
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
   check('no sidebar label breaks inside a word, at 1180 px, 200 % text or under text spacing', sideSplits.length === 0);
+  // On a desktop the data sat in capped inner scrollers: the Years grid showed 15 of 21 counties (the biggest losers
+  // hidden), and the matrix, the corridor table and the classification list (its whole loss group) hid rows too.
+  const hiddenRows = [];
+  for (const [hash, selector] of [['explore=trends&year=2025&metric=tot', '.v3-years-scroll'], ['explore=matrix&year=2018', '.v3-matrix-scroll'], ['explore=flows&year=2018&county=HR-21&pair=HR-01', '.v3-pair .v3-table-scroll'], ['explore=classify&year=2024', '.v3-analysis-list']]) {
+    await go(`?version=v3&fresh=rows${selector.length}#${hash}&l=hr`); await page.waitForSelector(selector);
+    hiddenRows.push(await page.$eval(selector, el => el.scrollHeight - el.clientHeight));
+  }
+  const stickyMap = await page.evaluate(async () => { [...document.querySelectorAll('.v3-analysis-list button')].at(-1).scrollIntoView({ block: 'end', behavior: 'instant' }); await new Promise(resolve => setTimeout(resolve, 200)); const r = document.querySelector('[data-analysis=classification] .v3-cartography').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
+  check('desktop tables and the classification list show every row, the map staying beside the list', hiddenRows.every(px => px <= 1) && stickyMap);
   // The desktop year slider was a 4 px strip with a ~10 px hit band (WCAG 2.5.8 asks for 24 px).
   await go('?version=v3&fresh=slider#explore=map&year=2010&l=en');
   const sliderBox = await page.$eval('.v3-slider-wrap input', el => { el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
