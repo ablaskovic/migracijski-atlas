@@ -574,7 +574,7 @@ const signed = (n, relative) => {
   // ticks, the header caption, the language switch), and the classification note's study link differed by colour alone.
   await go('?version=v3&fresh=subtle#explore=classify&year=2024&l=en');
   const subtleWorst = await page.evaluate(() => {
-    const lum = hex => { const h = hex.length === 4 ? '#' + [...hex.slice(1)].map(x => x + x).join('') : hex; return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0); };
+    const lum = hex => { const h = hex.length === 4 ? '#' + hex.slice(1).replace(/./g, '$&$&') : hex; return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0); };
     const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
     const root = document.documentElement, was = root.dataset.theme, worst = [];
     for (const theme of ['dark', 'light']) { root.dataset.theme = theme; const css = getComputedStyle(root), token = name => css.getPropertyValue(name).trim(); worst.push(Math.min(...['--bg', '--surface', '--surface-alt'].map(bg => ratio(token('--subtle'), token(bg))))); }
