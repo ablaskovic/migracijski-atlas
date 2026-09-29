@@ -388,6 +388,20 @@ async function scenario(name, run) {
     }
     check('the Regions legend sits directly under its map on phones, tablets and desktop', Object.values(report).every(r => r.gap >= 0 && r.gap <= 40 && r.under), report);
   });
+  await scenario('A first Years grid pick adds nothing above the grid', async () => {
+    // The county's annual chart appeared above the grid: without scroll anchoring (Safari) the grid jumped by its height.
+    const report = {};
+    for (const [width, height, coarse] of [[390, 844, true], [1440, 900, false]]) {
+      await viewport(width, height, coarse); await go('explore=trends&year=2025&metric=tot&l=hr');
+      await page.addStyleTag({ content: '*{overflow-anchor:none!important}' });
+      await page.evaluate(() => document.querySelector('[data-grid-cell]').scrollIntoView({ block: 'center', behavior: 'instant' })); await pause(300);
+      const before = await page.evaluate(() => { const r = document.querySelector('[data-grid-cell]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: document.querySelector('.v3-years-scroll').getBoundingClientRect().top + scrollY }; });
+      if (coarse) await page.touchscreen.tap(before.x, before.y); else await page.mouse.click(before.x, before.y);
+      await pause(500);
+      report[width] = await page.evaluate(b => ({ chart: !!document.querySelector('.v3-trends-view .v3-annual-lines'), above: Math.round(document.querySelector('.v3-years-scroll').getBoundingClientRect().top + scrollY - b.top) }), before);
+    }
+    check('a first pick in the Years grid adds the county chart below it, not above', Object.values(report).every(r => r.chart && Math.abs(r.above) <= 2), report);
+  });
 
   check('no JavaScript runtime errors', runtimeErrors.length === 0, runtimeErrors);
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, failures, runtimeErrors }, null, 2));
