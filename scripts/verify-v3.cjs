@@ -469,6 +469,11 @@ const signed = (n, relative) => {
     return { saved, toast };
   };
   const withoutV2Fonts = await exportWithout(/ibm-plex-mono|oswald/), withoutSans = await exportWithout(/ibm-plex-sans/);
+  // A failure looked like a success (the tick, the accent colour) and went after 3.5 s, before it could be read (WCAG 2.2.1).
+  await new Promise(resolve => setTimeout(resolve, 4000));
+  const failure = await fontPage.evaluate(() => { const t = document.querySelector('.v3-toast'), probe = document.createElement('i'); probe.style.color = 'var(--coral)'; document.body.append(probe); const coral = getComputedStyle(probe).color; probe.remove(); return [t.textContent !== '', getComputedStyle(t).borderTopColor === coral, ![...t.querySelectorAll('svg path')].some(p => p.getAttribute('d') === 'm5 12 4 4L19 6')]; });
+  await fontPage.click('.v3-toast button'); failure.push(await fontPage.$eval('.v3-toast', el => el.textContent === ''));
+  check('an export failure is marked as an error and stays until dismissed', JSON.stringify(failure) === '[true,true,true,true]');
   await fontPage.close();
   await downloadSession.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output });
   check('a v3 figure exports without the v2 fonts, and a missing Sans face is reported as a font failure', withoutV2Fonts.saved && !withoutSans.saved && /^Export fonts are unavailable/.test(withoutSans.toast));

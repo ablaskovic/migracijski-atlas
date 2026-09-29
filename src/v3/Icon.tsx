@@ -9,6 +9,7 @@ const paths = {
   share: 'M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7',
   download: 'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',
   info: 'M12 11v6m0-10v.1M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
+  alert: 'M12 7v6m0 4v.1M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
   close: 'm6 6 12 12M6 18 18 6',
   plus: 'M12 5v14M5 12h14',
   minus: 'M5 12h14',
