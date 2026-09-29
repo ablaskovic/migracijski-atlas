@@ -305,6 +305,17 @@ const signed = (n, relative) => {
   check('that state reloads with its finding', await findingShown());
   await page.evaluate(() => [...document.querySelectorAll('.v3-metrics button')].find(b => b.textContent === 'Internal').click());
   check('a finding leaves when a value it cites changes', !await findingShown());
+  // Nalazi 2, 6, 7 and 8 said counties, regions and cities "grow" on a balance of registered moves, which the atlas's own
+  // estimates contradict (all 21 counties below their 2011 census in 2024); Nalaz 7's "Cities lose" contradicted its caption.
+  const growthClaims = [];
+  for (const lang of ['hr', 'en']) for (const story of [1, 5, 6, 7]) {
+    await go(`?version=v3&fresh=growth${story}${lang}#explore=map&l=${lang}`);
+    await page.select('[aria-label="Vođeni nalazi"], [aria-label="Guided findings"]', String(story));
+    await page.waitForSelector('.v3-finding p', { timeout: 15000 });
+    const shown = await page.evaluate(() => document.querySelector('[aria-label="Vođeni nalazi"], [aria-label="Guided findings"]').selectedOptions[0].textContent + ' | ' + document.querySelector('.v3-finding p').textContent);
+    if (lang === 'hr' ? /\b(raste|rastu|rasta|rast)\b/i.test(shown) : /\b(grow|grows|growth)\b|Cities lose/i.test(shown)) growthClaims.push(shown);
+  }
+  check('guided findings describe a balance of moves as a gain, never as growth', growthClaims.length === 0);
   // Arrow keys on a closed <select> change its value at once on Windows; on the view and findings selects every option
   // passed applied itself — a view switch or a whole finding, plus a history entry, per key.
   // Entries are counted as pushState calls: this tab's history.length is already at Chrome's cap of 50.

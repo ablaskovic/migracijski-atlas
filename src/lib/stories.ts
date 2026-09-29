@@ -52,8 +52,12 @@ export const STORIES: Story[] = [
        lists all five, directly under the caption denying two of them. The
        count is what carried the point, so it is the count that had to be
        right; the two small ones are named because "five" with three examples
-       is the same defect one line further down. */
-    get cap() { return L('S prirodnim kretanjem u zbroju, 2011.–2024. raste samo pet županija: Grad Zagreb +27.521, Istarska +11.531, Zadarska +3.292, Zagrebačka +2.240 i Dubrovačko-neretvanska +125. Dno: Osječko-baranjska −48.271.', 'With natural change included, only five counties grow over 2011–2024: City of Zagreb +27,521, Istarska +11,531, Zadarska +3,292, Zagrebačka +2,240 and Dubrovačko-neretvanska +125. Bottom: Osječko-baranjska −48,271.'); },
+       is the same defect one line further down.
+       "U plusu", not "raste": a balance of registered moves is not the
+       population, and the atlas's own estimates put all 21 counties below
+       their 2011 census in 2024 (Grad Zagreb −2,0 %). Nalazi 6–8 say "gain"
+       for the same reason. */
+    get cap() { return L('S prirodnim kretanjem u zbroju, 2011.–2024. u plusu je samo pet županija: Grad Zagreb +27.521, Istarska +11.531, Zadarska +3.292, Zagrebačka +2.240 i Dubrovačko-neretvanska +125. Dno: Osječko-baranjska −48.271.', 'With natural change included, only five counties have a positive balance over 2011–2024: City of Zagreb +27,521, Istarska +11,531, Zadarska +3,292, Zagrebačka +2,240 and Dubrovačko-neretvanska +125. Bottom: Osječko-baranjska −48,271.'); },
     patch: { view: 'saldo', flow: 'all', den: 'abs', cum: true, yi: Y24 },
   },
   {
@@ -86,12 +90,14 @@ export const STORIES: Story[] = [
   },
   {
     get label() { return L('Istočna regija: −97 tisuća', 'The Eastern region: −97 thousand'); },
-    get cap() { return L('Istočna regija 2011.–2024.: −97.195 osoba, dvostruko gore od Središnje Hrvatske (−46.669). Zagrebačka regija i Jadran rastu.', 'The Eastern region over 2011–2024: −97,195 people, twice as bad as Central Croatia (−46,669). The Zagreb region and the Adriatic grow.'); },
+    get cap() { return L('Istočna regija 2011.–2024.: −97.195 osoba, dvostruko gore od Središnje Hrvatske (−46.669). Zagrebačka regija i Jadran u migracijskom su plusu.', 'The Eastern region over 2011–2024: −97,195 people, twice as bad as Central Croatia (−46,669). The Zagreb region and the Adriatic gain through migration.'); },
     patch: { view: 'reg', flow: 'tot', den: 'abs', cum: true, yi: Y24 },
   },
   {
-    get label() { return L('Gradovi gube, prstenovi rastu', 'Cities lose, their rings grow'); },
-    get cap() { return L('Na izmjerenoj JLS razini (2018., samo unutarnje selidbe) najveći je gubitnik Split (−691), a odmah do njega raste Solin (+229). Grad Zagreb dobiva +3.413 — suburbanizacija je vidljiva tek ispod razine županija.', 'At the measured LAU level (2018, internal moves only) the biggest loser is Split (−691), while Solin next door grows (+229). The City of Zagreb gains +3,413 — suburbanisation only becomes visible below county level.'); },
+    /* Not "Cities lose": the caption's own Grad Zagreb gains +3.413, and so do six
+       of the ten largest cities. The pair the caption measures is the title. */
+    get label() { return L('Split gubi, Solin dobiva', 'Split loses, Solin gains'); },
+    get cap() { return L('Na izmjerenoj JLS razini (2018., samo unutarnje selidbe) najveći je gubitnik Split (−691), a odmah do njega Solin dobiva (+229). Grad Zagreb dobiva +3.413 — suburbanizacija je vidljiva tek ispod razine županija.', 'At the measured LAU level (2018, internal moves only) the biggest loser is Split (−691), while Solin next door gains (+229). The City of Zagreb gains +3,413 — suburbanisation only becomes visible below county level.'); },
     patch: { view: 'jmap', dir: 'net', cum: false, yi: IX2018, jls: false, citz: false, age: false },
     /* every number in this caption is a municipality figure */
     needs: 'jls',
@@ -107,8 +113,10 @@ export const STORIES: Story[] = [
      no story at all. These six are those gaps, and every number in them is
      recomputed from src/data/*.json, not carried over from the paper. */
   {
-    get label() { return L('Dva motora rasta', 'Two engines of growth'); },
-    get cap() { return L('Zagrebačka i Splitsko-dalmatinska obje rastu, ali iz suprotnih izvora: Zagrebačka +15.287 unutarnjim i −1.992 vanjskim migracijama, Splitsko-dalmatinska −2.745 unutarnjim i +12.429 vanjskim. Jedna prima iz Hrvatske, druga iz inozemstva.', 'Zagrebačka and Splitsko-dalmatinska both grow, but from opposite sources: Zagrebačka +15,287 internal and −1,992 external, Splitsko-dalmatinska −2,745 internal and +12,429 external. One receives from Croatia, the other from abroad.'); },
+    /* Both are in migration surplus; with natural change added Splitsko-dalmatinska
+       is not (−3.078), which is why Nalaz 2 leaves it out. */
+    get label() { return L('Dva puta do migracijskog plusa', 'Two routes to a migration gain'); },
+    get cap() { return L('Zagrebačka i Splitsko-dalmatinska obje su u migracijskom plusu, ali iz suprotnih izvora: Zagrebačka +15.287 unutarnjim i −1.992 vanjskim migracijama, Splitsko-dalmatinska −2.745 unutarnjim i +12.429 vanjskim. Jedna prima iz Hrvatske, druga iz inozemstva.', 'Zagrebačka and Splitsko-dalmatinska both gain through migration, but from opposite sources: Zagrebačka +15,287 internal and −1,992 external, Splitsko-dalmatinska −2,745 internal and +12,429 external. One receives from Croatia, the other from abroad.'); },
     patch: { view: 'saldo', flow: 'int', den: 'abs', cum: true, yi: Y24 },
   },
   {
