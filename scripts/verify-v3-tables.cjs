@@ -93,6 +93,33 @@ async function screenshot(name) {
       }
     });
 
+    await group('Sticky grid headers hide the rows beneath them', async () => {
+      // The grids' 3 px border-spacing is transparent: rows passing under the sticky header showed in the strip above it,
+      // and each header cell drew its own piece of the underline, so it was dashed.
+      await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
+      for (const [view, selector] of [['trends', '.v3-years-scroll'], ['matrix', '.v3-matrix-scroll']]) {
+        await go(view, '');
+        await page.$eval(selector, pane => { pane.scrollIntoView({ block: 'center', behavior: 'instant' }); pane.scrollTop = 203; pane.scrollLeft = 121; });
+        await new Promise(resolve => setTimeout(resolve, 600));
+        const geometry = await page.$eval(selector, pane => {
+          const probe = colour => { const i = document.createElement('i'); i.style.color = colour; document.body.append(i); const rgb = getComputedStyle(i).color.match(/\d+/g).map(Number); i.remove(); return rgb; };
+          const frame = pane.getBoundingClientRect(), head = pane.querySelector('thead th:nth-child(2)').getBoundingClientRect();
+          return { left: Math.ceil(frame.left), right: Math.floor(frame.left + pane.clientWidth), top: frame.top, headTop: head.top, headBottom: head.bottom, surface: probe('var(--surface)'), border: probe('var(--border)') };
+        });
+        const shot = await page.screenshot({ encoding: 'base64' });
+        const seen = await page.evaluate(async (shot, g) => {
+          const img = new Image(); img.src = 'data:image/png;base64,' + shot; await img.decode();
+          const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+          const px = (x, y) => [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3), near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 6);
+          const xs = []; for (let x = g.left + 1; x < g.right - 7; x++) xs.push(x); // the last 7 px can hold an overlay scrollbar
+          let leak = 0; for (let y = Math.ceil(g.top); y < Math.floor(g.headTop); y++) leak += xs.filter(x => !near(px(x, y), g.surface)).length;
+          let line = 0; for (let y = Math.floor(g.headBottom) - 1; y <= Math.ceil(g.headBottom) + 4; y++) line = Math.max(line, xs.filter(x => near(px(x, y), g.border)).length / xs.length);
+          return { leak, line };
+        }, shot, geometry);
+        check(`${view} rows scrolled under the sticky header stay hidden, under a continuous line`, seen.leak === 0 && seen.line >= .98);
+      }
+    });
+
     await group('Touch and keyboard can reach exact values', async () => {
       await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
       await go('trends', '');
