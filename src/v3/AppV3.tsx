@@ -115,8 +115,10 @@ export default function AppV3() {
   const metricFull = { tot: L('Migracijski saldo', 'Net migration'), int: L('Unutarnji migracijski saldo', 'Net internal migration'), ext: L('Vanjski migracijski saldo', 'Net external migration'), nat: L('Prirodni prirast', 'Natural change'), all: L('Migracije + prirodni prirast', 'Migration + natural change') };
   const nationalPanel = s.view === 'population' && s.panel !== 'municipal';
   const scopeCounty = countyHub(s) ? s.county ?? 'HR-21' : s.county;
-  const region = s.view === 'regions' && s.county ? REG[REGOF[s.county]] : null;
-  const subject = region ? region.name : scopeCounty && !nationalPanel ? countyName(scopeCounty, s.lang) : null;
+  const regionKey = s.view === 'regions' && s.county ? REGOF[s.county] : null;
+  const region = regionKey ? REG[regionKey] : null;
+  // Three region names are adjectives ("Istočna") that read well on a card under Regions; heading the page they take their noun.
+  const subject = region ? region.name + (regionKey === 'sj' || regionKey === 'da' || regionKey === 'is' ? L(' regija', ' region') : '') : scopeCounty && !nationalPanel ? countyName(scopeCounty, s.lang) : null;
   const title = subject ?? L('Hrvatska u pokretu.', 'Croatia in motion.');
   const period = periodLabel(s.yi, s.cum);
   const current = totals({ ...s, county: scopeCounty }, region?.c);

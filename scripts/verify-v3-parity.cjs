@@ -140,7 +140,8 @@ async function capture(label) {
       for (const [key, members] of Object.entries(regions)) {
         const regionName = await page.$eval(`[data-region="${key}"]`, el => el.querySelector('span').firstChild.textContent);
         await page.click(`[data-region="${key}"]`);
-        check(`${key} selection names the region in the summary`, await page.$eval('.v3-intro h1', el => el.textContent) === regionName);
+        // The three adjectival names ("Eastern") take their noun as the heading.
+        check(`${key} selection names the region in the summary`, await page.$eval('.v3-intro h1', el => el.textContent) === regionName + (['sj', 'da', 'is'].includes(key) ? ' region' : ''));
         const actual = (await page.$$eval('[data-stat]', els => els.map(el => el.textContent))).map(number);
         const yi = years.indexOf(2025);
         const expected = [sum(members.map(iso => net(iso, 2025))), sum(members.map(iso => raw.c[iso].ie[yi])), sum(members.map(iso => raw.c[iso].oe[yi])), sum(members.map(iso => net(iso, 2025, 'int')))];

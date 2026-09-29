@@ -245,7 +245,7 @@ const signed = (n, relative) => {
   await page.click('[data-region="sj"]');
   const regionTitle = await text('.v3-intro h1');
   await pickView('map');
-  check('a region picked from its card does not follow the reader to the map as a county', regionTitle === cardName && await page.evaluate(() => !new URLSearchParams(location.hash.slice(1)).has('county') && document.querySelector('.v3-intro h1').textContent === 'Croatia in motion.'));
+  check('a region picked from its card does not follow the reader to the map as a county', regionTitle === cardName + ' region' && await page.evaluate(() => !new URLSearchParams(location.hash.slice(1)).has('county') && document.querySelector('.v3-intro h1').textContent === 'Croatia in motion.'));
   await go('?version=v3&l=en&fresh=regioncounty#explore=regions&l=en');
   await page.evaluate(() => document.querySelector('[data-county="HR-17"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   await pickView('map');
@@ -550,6 +550,10 @@ const signed = (n, relative) => {
   check('the tab title names the view and its subject, without the tagline', JSON.stringify(tabTitles) === JSON.stringify(['Migration atlas · Map · Croatia · 2025', 'Migracijski atlas · Trendovi · Hrvatska · 2025', 'Migration atlas · Flows · City of Zagreb · 2018', 'Migracijski atlas · Karta · Istarska · 2025']));
   await go('?version=v3&fresh=dash#explore=trends&l=en');
   check('year spans use an en dash', (await page.evaluate(() => [document.querySelector('.v3-header-caption').textContent, document.querySelector('.v3-trends-view .v3-eyebrow').textContent])).every(t => t.includes('1998–2025') && !t.includes('—')));
+  // Three region names are adjectives ("Istočna"), which made the page heading a bare "Istočna" / "Eastern" once picked.
+  const regionHeadings = [];
+  for (const lang of ['hr', 'en']) for (const county of ['HR-14', 'HR-08', 'HR-17', 'HR-21', 'HR-07']) { await go(`?version=v3&fresh=reg${lang}${county}#explore=regions&year=2024&sum=1&county=${county}&l=${lang}`); regionHeadings.push(await text('.v3-intro h1')); }
+  check('a picked region heads the page with its full name', JSON.stringify(regionHeadings) === JSON.stringify(['Istočna regija', 'Sjevernojadranska regija', 'Dalmatinska regija', 'Zagrebačka regija', 'Središnja Hrvatska', 'Eastern region', 'North Adriatic region', 'Dalmatian region', 'Zagreb region', 'Central Croatia']));
   // The flows page printed its honesty note twice, and the IPF sentence had three phrasings although ipfMargins() keeps one.
   const ipfWording = { hr: 'struktura 2018. skalirana na DZS odseljene; doseljeni približno', en: 'the 2018 structure scaled to CBS out-margins; in-margins approximate' };
   const flowNotes = () => page.evaluate(() => [...document.querySelectorAll('.v3-data-note')].map(p => p.textContent).filter(t => /IPF|Procjena|Estimate|Izmjereni tokovi|Measured inter-county/.test(t)));
