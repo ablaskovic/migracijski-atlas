@@ -12,7 +12,6 @@ interface Props {
   lang: Lang;
   county: string | null;
   yi: number;
-  cum: boolean;
   direction: Direction;
   onCounty?: (iso: string) => void;
   tab?: Panel;
@@ -35,7 +34,7 @@ function saveCsv(rows: CsvRow[], name: string) {
   downloadFile('\uFEFF' + csv, 'text/csv;charset=utf-8', name + '.csv');
 }
 
-export default function PopulationPanels({ lang, county, yi, cum, direction, onCounty, tab, onTab, onYear, age, onAge, localScope, onLocalScope, onDirection }: Props) {
+export default function PopulationPanels({ lang, county, yi, direction, onCounty, tab, onTab, onYear, age, onAge, localScope, onLocalScope, onDirection }: Props) {
   const L = (hr: string, en: string) => lang === 'hr' ? hr : en;
   const format = (n: number) => formatNumber(lang, n);
   const balance = (n: number) => formatNumber(lang, n, { signed: true });
@@ -123,13 +122,12 @@ export default function PopulationPanels({ lang, county, yi, cum, direction, onC
     </div>
     <p className="v3-pop-scope" role="status"><Icon name="info" size={17} /><span>{isNational
       ? panel === 'citizenship'
-        ? L(`Nacionalni godišnji podaci za ${CIT.years[0]}.–${CIT.years[CIT.years.length - 1]}. Odabir županije i zbrajanje ne mijenjaju ove brojke.`,
-          `National annual data for ${CIT.years[0]}–${CIT.years[CIT.years.length - 1]}. County selection and cumulative mode do not change these figures.`)
-          + (YEARS[yi] !== citYear ? L(` Vremenska vrpca: ${YEARS[yi]}.; ovaj prikaz: ${citYear}.`, ` Timeline: ${YEARS[yi]}; this panel: ${citYear}.`) : '')
-        : L(`Fiksno ${DEMO.year}. · cijela Hrvatska. Odabrana županija, godina i zbrajanje ne mijenjaju ove podatke.`,
-          `Fixed at ${DEMO.year} · all of Croatia. The selected county, year and cumulative mode do not change these data.`)
-      : L(`Izmjereno 2018. · unutarnje migracije. ${cum || YEARS[yi] !== 2018 ? `Vremenska vrpca (${cum ? '2011.–' : ''}${YEARS[yi]}.) ne mijenja ovaj popis. ` : ''}Ovi koridori nisu IPF procjene.`,
-        `Measured in 2018 · internal migration. ${cum || YEARS[yi] !== 2018 ? `The timeline (${cum ? '2011–' : ''}${YEARS[yi]}) does not change this list. ` : ''}These corridors are not IPF estimates.`)}</span></p>
+        ? L(`Nacionalni godišnji podaci za ${CIT.years[0]}.–${CIT.years[CIT.years.length - 1]}. Odabrana županija ne mijenja ove brojke.`,
+          `National annual data for ${CIT.years[0]}–${CIT.years[CIT.years.length - 1]}. The selected county does not change these figures.`)
+        : L(`Fiksno ${DEMO.year}. · cijela Hrvatska. Odabrana županija ne mijenja ove podatke.`,
+          `Fixed at ${DEMO.year} · all of Croatia. The selected county does not change these data.`)
+      : L('Izmjereno 2018. · unutarnje migracije. Ovi koridori nisu IPF procjene.',
+        'Measured in 2018 · internal migration. These corridors are not IPF estimates.')}</span></p>
 
     {panel === 'age' && <>
       <div className="v3-pop-controls"><div className="v3-pop-segment" role="group" aria-label={L('Vrsta migracije', 'Migration type')}>

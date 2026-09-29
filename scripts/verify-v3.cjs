@@ -570,6 +570,11 @@ const signed = (n, relative) => {
   const method2011 = [];
   for (const lang of ['hr', 'en']) { await go(`?version=v3&fresh=method2011${lang}#explore=map&l=${lang}`); method2011.push(await page.evaluate(() => [...document.querySelectorAll('dialog p')].map(p => p.textContent).find(t => /Od 2011\.|Since 2011/.test(t)) || '')); }
   check('About scopes the 2011 method change to migration abroad, as DZS does', /inozemstv/.test(method2011[0]) && !/privremeni boravak/.test(method2011[0]) && /abroad/.test(method2011[1]) && !/temporary stay/.test(method2011[1]));
+  // The population notes said "year and cumulative mode" and "the timeline" leave the data unchanged, in a view with no
+  // timeline and no cumulative mode.
+  const popNotes = [];
+  for (const lang of ['hr', 'en']) for (const panel of ['age', 'citizenship', 'countries', 'municipal']) { await go(`?version=v3&fresh=popnote${lang}${panel}#explore=population&panel=${panel}&county=HR-14&l=${lang}`); popNotes.push(await page.$eval('.v3-pop-scope', el => el.textContent)); }
+  check('population notes name only controls the view has', popNotes.length === 8 && popNotes.every(t => !/Timeline|timeline|Vremensk|vremensk|cumulative|zbrajanj|, year |, godina /.test(t)));
   // "Postavke rada" / "Metoda rada" read as "work settings" / "working method"; the study's are "iz rada".
   await go('?version=v3&fresh=izrada#explore=classify&year=2024&l=hr');
   const izRada = await page.evaluate(() => ({ button: document.querySelector('.v3-threshold .v3-button').textContent, summaries: [...document.querySelectorAll('dialog summary')].map(s => s.textContent) }));
