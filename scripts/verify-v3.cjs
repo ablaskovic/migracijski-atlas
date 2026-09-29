@@ -644,6 +644,8 @@ const signed = (n, relative) => {
   await page.reload({ waitUntil: 'networkidle0' });
   check('chosen light theme persists', await page.evaluate(() => document.documentElement.dataset.theme === 'light'));
   await page.screenshot({ path: path.join(output, 'desktop-light.png'), fullPage: true });
+  // The switch was two bare links, "v2" and "v3": nothing said which atlas either opens.
+  check('each version link says which atlas it opens', await page.evaluate(() => [...document.querySelectorAll('.atlas-version-switch a')].every(a => { const label = a.getAttribute('aria-label') || ''; return label.startsWith(a.textContent) && /version of the atlas/.test(label) && a.title === label; })));
   await navClick('.atlas-version-switch a[href*="version=v2"]');
   check('v2 switch loads the original map', await page.$('#map') !== null && await page.$('.v3-app') === null);
   check('v3 styles never leak into v2', await page.evaluate(() => [...document.styleSheets].every(s => !/AppV3-/.test(s.href || ''))));
