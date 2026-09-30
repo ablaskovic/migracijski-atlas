@@ -563,6 +563,12 @@ const signed = (n, relative) => {
   const failure = await fontPage.evaluate(() => { const t = document.querySelector('.v3-toast'), probe = document.createElement('i'); probe.style.color = 'var(--coral)'; document.body.append(probe); const coral = getComputedStyle(probe).color; probe.remove(); return [t.textContent !== '', getComputedStyle(t).borderTopColor === coral, ![...t.querySelectorAll('svg path')].some(p => p.getAttribute('d') === 'm5 12 4 4L19 6')]; });
   await fontPage.click('.v3-toast button'); failure.push(await fontPage.$eval('.v3-toast', el => el.textContent === ''));
   check('an export failure is marked as an error and stays until dismissed', JSON.stringify(failure) === '[true,true,true,true]');
+  // Its close button removes itself, and focus fell to <body>: it goes back to the control that started the export.
+  await (await fontPage.createCDPSession()).send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  await fontPage.focus('[aria-label="Export SVG"]'); await fontPage.keyboard.press('Enter');
+  await fontPage.waitForSelector('.v3-toast.is-error button', { timeout: 20000 });
+  await fontPage.focus('.v3-toast button'); await fontPage.keyboard.press('Enter'); await new Promise(resolve => setTimeout(resolve, 300));
+  check('dismissing the error notice hands focus back to the export button', await fontPage.evaluate(() => document.querySelector('.v3-toast').textContent === '' && document.activeElement.getAttribute('aria-label') === 'Export SVG'));
   await fontPage.close();
   await downloadSession.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output });
   check('a v3 figure exports without the v2 fonts, and a missing Sans face is reported as a font failure', withoutV2Fonts.saved && !withoutSans.saved && /^Export fonts are unavailable/.test(withoutSans.toast));

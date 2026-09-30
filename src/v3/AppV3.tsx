@@ -106,7 +106,7 @@ export default function AppV3() {
   const direction = s.dir;
   // A notice keeps both languages, so it reads right after a language switch, and a count, so a repeat is announced again.
   const [notice, setNotice] = useState<{ id: number; hr: string; en: string; error: boolean } | null>(null);
-  const notices = useRef(0);
+  const notices = useRef(0), noticeOpener = useRef<HTMLElement | null>(null);
   const notify = (hr: string, en: string, error = false) => setNotice({ id: ++notices.current, hr, en, error });
   const [sharing, setSharing] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -248,11 +248,18 @@ export default function AppV3() {
   async function exportImage(format: 'png' | 'svg') {
     if (exportBusy.current) return;
     exportBusy.current = true;
+    noticeOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPlaying(false);
     setExporting(true);
     try { await exportCurrentFigure(s, format, light); notify('Slika je izvezena.', 'Figure exported.'); }
     catch (error) { if (error instanceof ExportFontError) notify(error.hr, error.en, true); else notify('Izvoz nije uspio. Pokušajte ponovno nakon učitavanja karte.', 'Export failed. Try again once the map has loaded.', true); }
     finally { exportBusy.current = false; setExporting(false); }
+  }
+  // The notice's close button removes itself: focus goes back to the control that started the export, else to the exports.
+  function dismissNotice() {
+    setNotice(null);
+    const opener = noticeOpener.current;
+    (opener?.isConnected && opener !== document.body ? opener : document.querySelector<HTMLElement>('.v3-export-actions button:not(:disabled)') ?? document.getElementById('v3-view-select'))?.focus();
   }
   // A phone kept the dialog's scroll from the last visit, its title off-screen: it opens at the top.
   function showAbout() { setPlaying(false); dialog.current?.showModal(); dialog.current?.scrollTo(0, 0); }
@@ -347,7 +354,7 @@ export default function AppV3() {
     {/* Screen readers announce a change to a live region that is already there, not one inserted with its text. */}
     <p className="v3-sr" role="status">{s.view === 'flows' && s.pair && s.pair !== hub && !pairTakesFocus() ? L(`Koridor ${countyName(hub, s.lang)} ↔ ${countyName(s.pair, s.lang)} otvoren je ispod karte.`, `Corridor ${countyName(hub, s.lang)} ↔ ${countyName(s.pair, s.lang)} opened below the map.`) : ''}</p>
     <p className="v3-sr" role="status">{finding != null ? `${L('Nalaz', 'Finding')} ${finding + 1}: ${STORIES[finding].cap}` : ''}</p>
-    <div className={'v3-toast' + (notice?.error ? ' is-error' : '')} role="status" aria-live="polite">{notice && <Fragment key={notice.id}><Icon name={notice.error ? 'alert' : 'check'} size={17} />{notice[s.lang]}{notice.error && <button className="v3-icon-button" aria-label={L('Zatvori obavijest', 'Dismiss notice')} onClick={() => setNotice(null)}><Icon name="close" size={16} /></button>}</Fragment>}</div>
+    <div className={'v3-toast' + (notice?.error ? ' is-error' : '')} role="status" aria-live="polite">{notice && <Fragment key={notice.id}><Icon name={notice.error ? 'alert' : 'check'} size={17} />{notice[s.lang]}{notice.error && <button className="v3-icon-button" aria-label={L('Zatvori obavijest', 'Dismiss notice')} onClick={dismissNotice}><Icon name="close" size={16} /></button>}</Fragment>}</div>
     <Analytics beforeSend={dropHash} /><SpeedInsights beforeSend={dropHash} />
   </div>;
 }
