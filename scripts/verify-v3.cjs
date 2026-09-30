@@ -582,6 +582,22 @@ const signed = (n, relative) => {
   await fontPage.waitForSelector('.v3-toast.is-error button', { timeout: 20000 });
   await fontPage.focus('.v3-toast button'); await fontPage.keyboard.press('Enter'); await new Promise(resolve => setTimeout(resolve, 300));
   check('dismissing the error notice hands focus back to the export button', await fontPage.evaluate(() => document.querySelector('.v3-toast').textContent === '' && document.activeElement.getAttribute('aria-label') === 'Export SVG'));
+  // Error notices stay until dismissed, and Tab landed on controls entirely under one: a rank row on desktop, the phone's
+  // Annual and Play buttons, its year slider and the footer's GitHub link (WCAG 2.4.11).
+  const underNotice = [];
+  for (const [w, h, hash] of [[1440, 900, 'explore=map&year=2024'], [390, 844, 'explore=flows&year=2018&county=HR-21'], [390, 844, 'explore=map&year=2024']]) {
+    await fontPage.setViewport({ width: w, height: h, deviceScaleFactor: 1, isMobile: w < 500, hasTouch: w < 500 });
+    await fontPage.goto(origin + `/?version=v3&l=en&fresh=under${w}${hash.length}#${hash}&l=en`, { waitUntil: 'networkidle0' });
+    await fontPage.focus('[aria-label="Export SVG"]'); await fontPage.keyboard.press('Enter');
+    await fontPage.waitForSelector('.v3-toast.is-error button', { timeout: 20000 });
+    await fontPage.evaluate(() => { document.activeElement.blur(); scrollTo(0, 0); });
+    for (let i = 0; i < 160; i++) {
+      await fontPage.keyboard.press('Tab');
+      const hidden = await fontPage.evaluate(() => { const el = document.activeElement; if (!el || el === document.body || el.closest('.v3-toast')) return null; const a = el.getBoundingClientRect(), t = document.querySelector('.v3-toast').getBoundingClientRect(); const ix = Math.max(0, Math.min(a.right, t.right) - Math.max(a.left, t.left)), iy = Math.max(0, Math.min(a.bottom, t.bottom) - Math.max(a.top, t.top)); return a.width * a.height && ix * iy >= a.width * a.height * .99 ? (el.getAttribute('aria-label') || el.textContent).trim().slice(0, 30) : null; });
+      if (hidden) underNotice.push(`${w}: ${hidden}`);
+    }
+  }
+  check('with an error notice up, no focused control is entirely hidden under it', underNotice.length === 0);
   await fontPage.close();
   await downloadSession.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: output });
   check('a v3 figure exports without the v2 fonts, and a missing Sans face is reported as a font failure', withoutV2Fonts.saved && !withoutSans.saved && /^Export fonts are unavailable/.test(withoutSans.toast));
