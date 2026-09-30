@@ -96,9 +96,11 @@ const signed = (n, relative) => {
   await go();
   await page.type('.v3-search input', 'sisa');
   check('county search ignores accents', (await text('.v3-rank-list')).includes('Sisačko'));
-  await page.focus('.v3-rank-row'); await page.keyboard.press('Enter');
+  // Both hand focus over in the next animation frame, and a read straight after the key or click raced that frame on
+  // ubuntu CI: wait for it.
+  await page.focus('.v3-rank-row'); await page.keyboard.press('Enter'); await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   check('keyboard selection opens the matching detail and retains focus', await page.evaluate(() => document.activeElement === document.querySelector('.v3-county-detail h2') && location.hash.includes('county=HR-03')));
-  await click('.v3-county-detail .v3-icon-button');
+  await click('.v3-county-detail .v3-icon-button'); await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   check('closing detail restores focus to that county', await page.evaluate(() => document.activeElement?.getAttribute('data-county') === 'HR-03'));
   await go();
   await page.type('.v3-search input', 'no county matches');
