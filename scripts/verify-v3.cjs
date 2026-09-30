@@ -490,8 +490,9 @@ const signed = (n, relative) => {
   }
   check('the render-failure screen is readable in both themes', failContrast.length === 6 && failContrast.every(r => r >= 4.5));
   // Auto Dark Mode darkens pages that do not opt out, and "color-scheme: light" does not: the chosen light theme computed
-  // rgb(243,246,247) for its background but painted rgb(32,35,35).
-  const forceDark = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--lang=en-GB', '--enable-features=WebContentsForceDark'] });
+  // rgb(243,246,247) for its background but painted rgb(32,35,35). Chrome honours "only light" there only on a dark OS
+  // (on a light one nothing opts out: root, body and meta all tried), and CI's ubuntu host is light: pin a dark OS.
+  const forceDark = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--lang=en-GB', '--enable-features=WebContentsForceDark', '--blink-settings=preferredColorScheme=0'] });
   try {
     const darkPage = await forceDark.newPage();
     await darkPage.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
@@ -500,6 +501,8 @@ const signed = (n, relative) => {
     await darkPage.goto(origin + '/?version=v3&fresh=forcedarklight#explore=map&year=2024&l=hr', { waitUntil: 'networkidle0' });
     const shot = await darkPage.screenshot({ encoding: 'base64', clip: { x: 2, y: 400, width: 4, height: 4 } });
     const painted = await darkPage.evaluate(async shot => { const img = new Image(); img.src = 'data:image/png;base64,' + shot; await img.decode(); const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0); return [...ctx.getImageData(1, 1, 1, 1).data].slice(0, 3); }, shot);
+    // Printed only on a failure, so a CI run without artifacts still says what it painted and why.
+    if (!painted.every(v => v > 200)) console.log('  auto dark sample', JSON.stringify({ painted, page: await darkPage.evaluate(() => { const e = document.elementFromPoint(3, 401), root = getComputedStyle(document.documentElement); return { at: e && (e.tagName + '.' + (e.className?.baseVal ?? e.className)), theme: document.documentElement.dataset.theme, scheme: root.colorScheme, bg: root.backgroundColor, osDark: matchMedia('(prefers-color-scheme: dark)').matches, ua: navigator.userAgent }; }) }));
     check('under Auto Dark Mode the chosen light theme still paints light', painted.every(v => v > 200));
   } finally { await forceDark.close(); }
   // v3 stored the theme on every load, so a first visit stored dark. It stays dark by default whatever the OS scheme, and
