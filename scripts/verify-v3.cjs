@@ -868,6 +868,17 @@ const signed = (n, relative) => {
   }
   await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
   check('at 200 % text the direction row, rank names and KPI numbers are not clipped', clippedAt200.length === 0);
+  // T41 raised the map heading's count ("21 ŽUPANIJA", "20 CORRIDORS") to 11 px but kept it on one line: at 320 px and 200 %
+  // text it ran up to 64 px past the workspace, which clips it.
+  const metaOver = [];
+  await page.setViewport({ width: 320, height: 640, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  for (const lang of ['hr', 'en']) for (const root of [16, 32]) for (const hash of ['explore=map&year=2024', 'explore=flows&year=2018&county=HR-21']) {
+    await go(`?version=v3&fresh=meta${lang}${root}${hash.length}#${hash}&l=${lang}`);
+    await page.evaluate(r => { document.documentElement.style.fontSize = r + 'px'; }, root); await new Promise(resolve => setTimeout(resolve, 300));
+    metaOver.push(...await page.$eval('.v3-map-meta', el => { const b = el.getBoundingClientRect(), w = el.closest('.v3-workspace').getBoundingClientRect(); return b.right > Math.min(w.right, innerWidth) + 1 || b.left < -1 ? [el.textContent] : []; }));
+  }
+  await page.setViewport({ width: 1440, height: 1080, deviceScaleFactor: 1 });
+  check('at 320 px the map heading count stays inside the workspace, at 100 % and 200 % text', metaOver.length === 0);
   // The sidebar's view labels broke inside words: "Stanovništv / o" at 1180 px, and at 200 % text or under text spacing.
   const sideSplits = [];
   const textSpacing = '*{letter-spacing:.12em!important;word-spacing:.16em!important;line-height:1.5!important}p{margin-bottom:2em!important}';
