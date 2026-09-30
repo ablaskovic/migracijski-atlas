@@ -1,5 +1,5 @@
 import { scalePow } from 'd3-scale';
-import { D, DOM, ISOS, IX2011, IX2018, YEARS, denName, val } from '../lib/metrics.ts';
+import { D, DOM, ISOS, IX2011, IX2018, REG, REGOF, YEARS, denName, val } from '../lib/metrics.ts';
 import { detectLang, storedLang, type Lang } from '../lib/i18n.ts';
 import type { Den, Dir, Flow, State, View } from '../lib/types.ts';
 import { BASE } from '../lib/state.ts';
@@ -8,7 +8,7 @@ import { STORIES } from '../lib/stories.ts';
 export const VIEWS = ['map', 'trends', 'flows', 'classify', 'regions', 'matrix', 'municipalities', 'population'] as const;
 export type Explore = typeof VIEWS[number];
 export type PopulationTab = 'age' | 'citizenship' | 'countries' | 'municipal';
-export interface AtlasState { view: Explore; yi: number; flow: Flow; den: Den; relative: boolean; cum: boolean; county: string | null; lang: Lang; dir: Dir; pair: string | null; thr: number; thrRel: boolean; thrPct: number; panel: PopulationTab; age: 'ext' | 'int'; localScope: 'inter' | 'local'; story: number | null }
+export interface AtlasState { view: Explore; yi: number; flow: Flow; den: Den; relative: boolean; cum: boolean; county: string | null; regionPick: boolean; lang: Lang; dir: Dir; pair: string | null; thr: number; thrRel: boolean; thrPct: number; panel: PopulationTab; age: 'ext' | 'int'; localScope: 'inter' | 'local'; story: number | null }
 export const FLOWS: Flow[] = ['tot', 'int', 'ext', 'nat', 'all'];
 export const viewName = (view: Explore, lang: Lang) => ({ map: ['Karta', 'Map'], trends: ['Trendovi', 'Trends'], flows: ['Tokovi', 'Flows'], classify: ['Klasifikacija', 'Classification'], regions: ['Regije', 'Regions'], matrix: ['Matrica', 'Matrix'], municipalities: ['JLS 2018.', 'Municipalities'], population: ['Stanovništvo', 'Population'] }[view][lang === 'hr' ? 0 : 1]);
 const classicViews: Record<Explore, View> = { map: 'saldo', trends: 'yrs', flows: 'flow', classify: 'klas', regions: 'reg', matrix: 'mx', municipalities: 'jmap', population: 'saldo' };
@@ -23,6 +23,8 @@ export function normalizeState(s: AtlasState): AtlasState {
   }
   if (next.cum && next.yi < IX2011) next.yi = IX2011;
   if (next.pair === (next.county ?? 'HR-21')) next.pair = null;
+  // A region card stands its region in as the region's first county (regionPick): outside Regions nobody chose that county.
+  if (next.regionPick && (next.view !== 'regions' || !next.county)) { next.regionPick = false; if (next.view !== 'regions') next.county = null; }
   return next;
 }
 
@@ -30,7 +32,7 @@ export function findingPatch(index: number): Partial<AtlasState> {
   const p = STORIES[index].patch;
   const view = p.citz || p.age || p.jls ? 'population' : (Object.keys(classicViews) as Explore[]).find(v => classicViews[v] === p.view) ?? 'map';
   const den = p.den ?? 'abs';
-  return { view, flow: p.flow ?? 'tot', den, relative: den !== 'abs', yi: p.yi ?? BASE.yi, cum: p.cum ?? false, county: p.sel ?? null, pair: p.pair ?? null, dir: p.dir ?? 'in', thr: p.thr ?? BASE.thr, thrRel: p.thrRel ?? false, thrPct: p.thrPct ?? 1.5, panel: p.citz ? 'citizenship' : p.jls ? 'municipal' : 'age', age: p.ageTab ?? 'ext', localScope: p.jlsTab === 'loc' ? 'local' : 'inter', story: index };
+  return { view, flow: p.flow ?? 'tot', den, relative: den !== 'abs', yi: p.yi ?? BASE.yi, cum: p.cum ?? false, county: p.sel ?? null, regionPick: false, pair: p.pair ?? null, dir: p.dir ?? 'in', thr: p.thr ?? BASE.thr, thrRel: p.thrRel ?? false, thrPct: p.thrPct ?? 1.5, panel: p.citz ? 'citizenship' : p.jls ? 'municipal' : 'age', age: p.ageTab ?? 'ext', localScope: p.jlsTab === 'loc' ? 'local' : 'inter', story: index };
 }
 
 /* A finding's caption cites the view its preset sets, and holds while every field that preset sets is unchanged — the rule
@@ -51,12 +53,14 @@ export function readState(): AtlasState {
   const den = p.get('unit') === 'estimate' ? 'relest' : p.get('unit') === 'pct' ? 'rel11' : 'abs';
   const bounded = (key: string, fallback: number, lo: number, hi: number) => { const n = Number(p.get(key)); return p.has(key) && Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : fallback; };
   const story = p.has('finding') && /^\d+$/.test(p.get('finding')!) ? Number(p.get('finding')) : -1;
+  // Regions writes a card pick as region=<key>, so a reload, Back or a shared link still knows it was no county choice.
+  const region = p.get('region') ?? '', regionPick = view === 'regions' && !p.has('county') && Object.hasOwn(REG, region);
   const result = normalizeState({
     view,
     yi: Math.max(cum ? IX2011 : 0, year < 0 ? YEARS.length - 1 : year),
     flow: FLOWS.includes(p.get('metric') as Flow) ? p.get('metric') as Flow : 'tot',
     relative: den !== 'abs', den, cum,
-    county: ISOS.includes(p.get('county') ?? '') ? p.get('county') : null,
+    county: regionPick ? REG[region].c[0] : ISOS.includes(p.get('county') ?? '') ? p.get('county') : null, regionPick,
     lang: lang === 'hr' || lang === 'en' ? lang : storedLang() ?? detectLang(),
     dir: p.get('dir') === 'out' || p.get('dir') === 'net' ? p.get('dir') as Dir : 'in',
     pair: ISOS.includes(p.get('pair') ?? '') ? p.get('pair') : null,
@@ -73,7 +77,7 @@ export function stateHash(s: AtlasState): string {
   const p = new URLSearchParams({ explore: s.view, year: String(YEARS[s.yi]), metric: s.flow, l: s.lang });
   if (s.cum) p.set('sum', '1');
   if (s.den !== 'abs') p.set('unit', s.den === 'relest' ? 'estimate' : 'pct');
-  if (s.county) p.set('county', s.county);
+  if (s.county) p.set(s.regionPick ? 'region' : 'county', s.regionPick ? REGOF[s.county] : s.county);
   if (s.dir !== 'in') p.set('dir', s.dir);
   if (s.pair) p.set('pair', s.pair);
   if (s.thr !== BASE.thr) p.set('threshold', String(s.thr));

@@ -255,6 +255,19 @@ const signed = (n, relative) => {
   await page.evaluate(() => document.querySelector('[data-county="HR-17"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   await pickView('map');
   check('a county clicked on the regions map stays selected on the map', await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('county') === 'HR-17'));
+  // Only an in-memory flag told a card pick from a county choice, so after a reload or Back the stand-in still reached the
+  // map. A card pick is now written as region=<key>; an address that names a county in Regions stays a county choice.
+  const countyNow = () => page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('county'));
+  await go('?version=v3&l=en&fresh=regionreload#explore=regions&l=en');
+  await page.click('[data-region="sj"]'); await page.reload({ waitUntil: 'networkidle0' });
+  const reloadedRegion = await text('.v3-intro h1');
+  await pickView('map'); const regionAfterReload = await countyNow();
+  await go('?version=v3&l=en&fresh=regionback#explore=regions&l=en');
+  await page.click('[data-region="sj"]'); await pickView('map');
+  await page.goBack({ waitUntil: 'networkidle0' }).catch(() => {}); await new Promise(resolve => setTimeout(resolve, 400));
+  await pickView('map'); const regionAfterBack = await countyNow();
+  await go('?version=v3&l=en&fresh=regionold#explore=regions&county=HR-08&l=en'); await pickView('map');
+  check('a region card pick survives a reload as a region and never reaches the map as a county, even after Back', JSON.stringify([reloadedRegion, regionAfterReload, regionAfterBack, await countyNow()]) === JSON.stringify([cardName + ' region', null, null, 'HR-08']));
   // Region cards took aria-pressed from hover-or-selection, so pointing at a card announced it as pressed.
   const pressedRegions = () => page.$$eval('[data-region][aria-pressed="true"]', els => els.map(e => e.dataset.region).join());
   await go('?version=v3&l=en&fresh=regionhover#explore=regions&l=en');
@@ -270,8 +283,8 @@ const signed = (n, relative) => {
   const classList = await clickTwice(() => page.evaluate(() => [...document.querySelectorAll('.v3-analysis-list button')].find(b => b.textContent.startsWith('Istarska')).click()));
   await go('?version=v3&l=en&fresh=toggleregions#explore=regions&l=en');
   const regionMap = await clickTwice(() => clickShape('HR-17'));
-  const regionCard = await clickTwice(() => page.click('[data-region="sj"]'));
-  check('a second click deselects in Classification and Regions, as on the map', JSON.stringify([classMap, classList, regionMap, regionCard]) === JSON.stringify([['HR-14', null], ['HR-18', null], ['HR-17', null], ['HR-08', null]]));
+  const regionCard = []; for (let i = 0; i < 2; i++) { await page.click('[data-region="sj"]'); regionCard.push(await page.evaluate(() => { const p = new URLSearchParams(location.hash.slice(1)); return p.get('region') ?? p.get('county'); })); }
+  check('a second click deselects in Classification and Regions, as on the map', JSON.stringify([classMap, classList, regionMap, regionCard]) === JSON.stringify([['HR-14', null], ['HR-18', null], ['HR-17', null], ['sj', null]]));
   // The national trend chart always drew net external migration, whatever the Component buttons said. National internal
   // migration is zero from 2007 (one county's gain is another's loss), so that component gets a note, not bars of residuals.
   const nationalChart = {};
