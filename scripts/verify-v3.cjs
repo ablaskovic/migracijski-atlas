@@ -927,6 +927,10 @@ const signed = (n, relative) => {
   const osmCredit = await page.evaluate(() => { const a = [...document.querySelectorAll('.v3-footer a')].find(x => /openstreetmap\.org/.test(x.href)); return [a.textContent, a.closest('[lang]').getAttribute('lang')]; });
   const bootFailHtml = ((await page.evaluate(async () => (await fetch('/index.html?fresh=' + Date.now())).text())).match(/<p class="boot-fail"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || '';
   check('English text on the Croatian page is either translated or marked as English', (osmCredit[1] === 'en' || !/contributors/.test(osmCredit[0])) && /<span lang="en">This is taking too long/.test(bootFailHtml));
+  // The English page had the reverse: the About citation's hidden "(Opens in a new tab)" sat under the citation's lang="hr".
+  const srLang = {};
+  for (const lang of ['en', 'hr']) { await go(`?version=v3&fresh=srlang${lang}#explore=classify&year=2024&l=${lang}`); srLang[lang] = await page.evaluate(ui => [...document.querySelectorAll('.v3-sr')].filter(s => s.textContent.trim() && s.closest('[lang]')?.getAttribute('lang') !== ui).length, lang); }
+  check('every hidden notice sits under its own language, in both languages', srLang.en === 0 && srLang.hr === 0);
   // Decorative text was read aloud: "A / 08" and "45° N 16° E" inside the navigation landmark, and the ↙ / ↗ stat arrows.
   await go('?version=v3&fresh=decor#explore=map&county=HR-18&l=en');
   check('decorative sidebar text and stat arrows are hidden from assistive technology', await page.evaluate(() => { const els = [...document.querySelectorAll('.v3-side-index, .v3-side-coordinate, .v3-stat-arrow')]; return els.length >= 4 && els.every(el => el.closest('[aria-hidden="true"]')); }));

@@ -24,7 +24,7 @@ export default function About({ dialog, lang }: { dialog: RefObject<HTMLDialogEl
 
     <h3>{L('Znanstveni rad i atribucija', 'The research paper and attribution')}</h3>
     <p>{L('Atlas je interaktivna nadopuna radu koji migracije županija razmatra kao kriterij regionalizacije Hrvatske.', 'The atlas is an interactive companion to a paper that considers county migration as a criterion for the regionalisation of Croatia.')}</p>
-    <p className="v3-about-citation" lang="hr"><a href={PAPER.url} target="_blank" rel="noopener noreferrer">{PAPER.citation}<span className="v3-sr"> ({newTab})</span></a></p>
+    <p className="v3-about-citation" lang="hr"><a href={PAPER.url} target="_blank" rel="noopener noreferrer">{PAPER.citation}<span className="v3-sr" lang={lang}> ({newTab})</span></a></p>
     <div className="v3-about-paper-links"><a href={PAPER.url} target="_blank" rel="noopener noreferrer" aria-label={`${L('Rad na Hrčku', 'Paper on Hrčak')}. ${newTab}`}>Hrčak<Icon name="external" size={13} /></a><a href={PAPER.doi} target="_blank" rel="noopener noreferrer" aria-label={`DOI. ${newTab}`}>DOI<Icon name="external" size={13} /></a><span>{L('Otvoreni pristup', 'Open access')} · {PAPER.licence}</span></div>
     <p className="v3-about-independence">{NO_AFFIL()}{' '}{L('Autori rada ovaj prikaz nisu pregledali, odobrili niti ga podupiru. Za pogreške u atlasu odgovoran je autor atlasa.', 'The paper’s authors have not reviewed, approved or endorsed this presentation. Errors in the atlas are the atlas author’s responsibility.')}</p>
 
