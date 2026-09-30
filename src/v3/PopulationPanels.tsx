@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CIT, DEMO, ISOS, JLS, YEARS, cgroups, countryName as countryLabel } from '../lib/metrics.ts';
 import type { JlsRow, Lang } from '../lib/types.ts';
-import { NEWTAB } from '../lib/i18n.ts';
+import { NEWTAB, inLang } from '../lib/i18n.ts';
 import { countyName, downloadFile, fold, formatNumber, resultCount } from './model.ts';
 import Icon from './Icon.tsx';
 import TableScroll from './TableScroll.tsx';
@@ -98,14 +98,18 @@ export default function PopulationPanels({ lang, county, yi, direction, onCounty
       saveCsv(rows, `atlas-v3-age-sex-${ageMode}-${lang}-${DEMO.year}`);
     } else if (panel === 'citizenship') {
       const rows: CsvRow[] = [['scope', 'year', 'citizenship_group', 'arrivals', 'departures', 'net', 'source']];
+      // In English like the headers, so the file reads the same whichever language the page is in.
+      const groups = inLang('en', cgroups);
       CIT.years.forEach((y, i) => {
-        cgroups().forEach(([key, label]) => rows.push(['Croatia', y, label, CIT.g[key].d[i], CIT.g[key].o[i], CIT.g[key].d[i] - CIT.g[key].o[i], SOURCE + ' I 2']));
+        groups.forEach(([key, label]) => rows.push(['Croatia', y, label, CIT.g[key].d[i], CIT.g[key].o[i], CIT.g[key].d[i] - CIT.g[key].o[i], SOURCE + ' I 2']));
         rows.push(['Croatia', y, 'TOTAL', CIT.tot.d[i], CIT.tot.o[i], CIT.tot.d[i] - CIT.tot.o[i], SOURCE + ' I 2']);
       });
       saveCsv(rows, `atlas-v3-citizenship-${lang}-${CIT.years[0]}-${CIT.years[CIT.years.length - 1]}`);
     } else if (panel === 'countries') {
+      // English, as for citizenship; the last row is the computed remainder.
+      const names = inLang('en', () => [...DEMO.countries.map(([name]) => countryLabel(name)), 'Other countries']);
       saveCsv([['scope', 'year', 'country_of_origin_destination', 'arrivals', 'departures', 'net', 'source'],
-        ...countries.map(([name, arrivals, departures]) => ['Croatia', DEMO.year, countryLabel(name), arrivals, departures, arrivals - departures, SOURCE + ' I 4']),
+        ...countries.map(([, arrivals, departures], k) => ['Croatia', DEMO.year, names[k] ?? '', arrivals, departures, arrivals - departures, SOURCE + ' I 4']),
         ['Croatia', DEMO.year, 'TOTAL', ...DEMO.cTot, DEMO.cTot[0] - DEMO.cTot[1], SOURCE + ' I 4']], `atlas-v3-countries-${lang}-${DEMO.year}`);
     } else {
       saveCsv([['year', 'selected_county', 'scope', 'direction', 'from', 'from_county', 'to', 'to_county', 'moves', 'method', 'source'],

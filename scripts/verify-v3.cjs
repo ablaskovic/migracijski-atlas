@@ -611,6 +611,14 @@ const signed = (n, relative) => {
   for (const hash of ['explore=map&year=2020&metric=all&unit=estimate', 'explore=trends&metric=tot&unit=estimate', 'explore=classify&year=2024', 'explore=flows&year=2018', 'explore=regions&year=2024&metric=int', 'explore=matrix&year=2011']) csvPairs.push([await csvIn(hash + '&l=hr'), await csvIn(hash + '&l=en')]);
   check('a CSV reads the same whichever language the UI is in', csvPairs.every(([hr, en]) => hr && hr === en));
   check('the CSV names its metric and signs the loss threshold as the screen does', csvPairs[0][1].includes(',"migration + natural change",') && csvPairs[2][1].trim().split('\r\n').slice(1).every(line => line.includes(',"-4500",')));
+  // The population panels' CSVs kept Croatian cells ("Hrvatska", "Njemačka", "Ostale zemlje") under their English headers.
+  const popCsvPairs = [];
+  for (const panel of ['age', 'citizenship', 'countries', 'municipal']) {
+    const pair = [];
+    for (const lang of ['hr', 'en']) { const name = await savedName(`explore=population&panel=${panel}&l=${lang}`, '.v3-pop-export'); pair.push(name ? fs.readFileSync(path.join(output, name), 'utf8') : null); }
+    popCsvPairs.push(pair);
+  }
+  check('every population CSV reads the same whichever language the UI is in', popCsvPairs.every(([hr, en]) => hr && hr === en) && /"Germany"/.test(popCsvPairs[2][0]) && /"Other countries"/.test(popCsvPairs[2][0]));
   // The exported classification legend printed the threshold raw ("−4500", Croatian "−1.5%") instead of as the screen's
   // threshold readout does ("−4.500", "−1,5 % popisa 2011.").
   const legendOf = async (query, lang) => {
