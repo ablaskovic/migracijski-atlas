@@ -928,6 +928,8 @@ const signed = (n, relative) => {
     hiddenRows.push(await page.$eval(selector, el => el.scrollHeight - el.clientHeight));
   }
   const stickyMap = await page.evaluate(async () => { [...document.querySelectorAll('.v3-analysis-list button')].at(-1).scrollIntoView({ block: 'end', behavior: 'instant' }); await new Promise(resolve => setTimeout(resolve, 200)); const r = document.querySelector('[data-analysis=classification] .v3-cartography').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
+  // The desktop rules cover a fine pointer and none (ubuntu CI reports none), everything the (pointer:coarse) rules leave.
+  if (!(hiddenRows.every(px => px <= 1) && stickyMap)) console.log('  row caps', JSON.stringify({ hiddenRows, stickyMap, pointer: await page.evaluate(() => ['fine', 'none', 'coarse'].filter(v => matchMedia(`(pointer: ${v})`).matches).join()) }));
   check('desktop tables and the classification list show every row, the map staying beside the list', hiddenRows.every(px => px <= 1) && stickyMap);
   // The desktop year slider was a 4 px strip with a ~10 px hit band (WCAG 2.5.8 asks for 24 px).
   await go('?version=v3&fresh=slider#explore=map&year=2010&l=en');

@@ -6,4 +6,4 @@
 .v3-table-frame :is(.v3-years,.v3-matrix) thead th{box-shadow:0 0 0 calc(3px*var(--mz,1)) var(--surface)}.v3-table-frame :is(.v3-years,.v3-matrix) thead th::after{content:'';position:absolute;inset:auto calc(-3px*var(--mz,1)) calc(-3px*var(--mz,1));height:1px;background:var(--border)}
 /* A desktop has room and a wheel for the page: its tables show every row, not an inner scroller (the Years grid showed
    15 of 21 counties, the biggest losers hidden). Touch screens keep the cap, with its sticky header and swipe room. */
-@media (min-width:961px) and (pointer:fine){.v3-table-frame>:is(.v3-years-scroll,.v3-matrix-scroll,.v3-table-scroll){max-height:none}}
+@media (min-width:961px) and (pointer:fine),(min-width:961px) and (pointer:none){.v3-table-frame>:is(.v3-years-scroll,.v3-matrix-scroll,.v3-table-scroll){max-height:none}}
