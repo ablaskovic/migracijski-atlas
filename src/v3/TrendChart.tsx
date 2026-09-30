@@ -23,17 +23,17 @@ export default function TrendChart({ s, compact = false, onYear, flow }: Props) 
   const y = (n: number) => mid - n / max * (mid - top);
   // A sideways drag scrubs the years (a phone's bars are 10 px wide), one history entry per drag. It starts only past
   // 8 px of sideways travel, so a tap still reaches its bar and a vertical swipe still scrolls the page.
-  const drag = useRef<{ id: number; x: number; y: number; on: boolean } | null>(null);
+  const drag = useRef<{ id: number; x: number; y: number; on: boolean; pushed: boolean } | null>(null);
   const scrub = (e: PointerEvent<SVGSVGElement>) => {
     const d = drag.current, ctm = e.currentTarget.getScreenCTM();
     if (!onYear || !d || d.id !== e.pointerId || !ctm) return;
-    if (!d.on) { const dx = Math.abs(e.clientX - d.x); if (dx < 8 || dx < Math.abs(e.clientY - d.y)) return; e.currentTarget.setPointerCapture(e.pointerId); }
+    if (!d.on) { const dx = Math.abs(e.clientX - d.x); if (dx < 8 || dx < Math.abs(e.clientY - d.y)) return; e.currentTarget.setPointerCapture(e.pointerId); d.on = true; }
     const i = Math.max(0, Math.min(YEARS.length - 1, Math.floor(((e.clientX - ctm.e) / ctm.a - left) / step)));
-    if (!d.on || i !== s.yi) onYear(i, d.on);
-    d.on = true;
+    // The first new year is pushed and the rest replace it, so a drag that starts on the picked bar keeps that year on Back.
+    if (i !== s.yi) { onYear(i, d.pushed); d.pushed = true; }
   };
   return <><svg ref={svg} style={scale < 1 ? { '--svg-min': `${11 / scale}px` } as CSSProperties : undefined} className={'v3-trend-chart' + (compact ? ' is-compact' : '')} viewBox={`0 0 ${w} ${h}`} role={onYear ? 'group' : 'img'} aria-label={s.lang === 'hr' ? 'Godišnji saldo od 1998. do 2025.' : 'Annual net change from 1998 to 2025'}
-    onPointerDown={e => { if (onYear && e.button === 0) drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false }; }} onPointerMove={scrub} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
+    onPointerDown={e => { if (onYear && e.button === 0) drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, pushed: false }; }} onPointerMove={scrub} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
     <title>{series.map((n, i) => `${YEARS[i]}: ${formatNumber(s.lang, n, { signed: true })}`).join('; ')}</title>
     {[top, mid, bottom].map((y, i) => <g key={y}><line x1={left} x2={w - right} y1={y} y2={y} className="v3-chart-grid" />{!compact && <text x={left - 12} y={y + 4} textAnchor="end">{formatNumber(s.lang, i === 0 ? max : i === 1 ? 0 : -max, { compact: true, digits: 0 })}</text>}</g>)}
     {series.map((n, i) => <g key={YEARS[i]}>

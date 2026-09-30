@@ -983,6 +983,16 @@ const signed = (n, relative) => {
   await page.mouse.up(); await new Promise(resolve => setTimeout(resolve, 300));
   check('dragging across the trend chart scrubs to a year without selecting its labels', JSON.stringify(await page.evaluate(() => [new URLSearchParams(location.hash.slice(1)).get('year'), getSelection().toString()])) === '["2015",""]');
   await page.mouse.move(0, 0);
+  // A drag that started on the picked bar pushed nothing (same address) and then replaced that year's entry: Back skipped it.
+  const fromPicked = await page.$$eval('.v3-trend-chart .v3-chart-hit', hits => { const at = year => { const r = hits.find(h => h.getAttribute('aria-label').startsWith(year)).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }; return { from: at('2015'), to: at('2008') }; });
+  await page.mouse.move(fromPicked.from.x, fromPicked.from.y); await page.mouse.down();
+  for (let i = 1; i <= 20; i++) { await page.mouse.move(fromPicked.from.x + (fromPicked.to.x - fromPicked.from.x) * i / 20, fromPicked.from.y); await new Promise(resolve => setTimeout(resolve, 16)); }
+  await page.mouse.up(); await new Promise(resolve => setTimeout(resolve, 500));
+  const pickedDrag = [await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('year'))];
+  await page.evaluate(() => history.back()); await new Promise(resolve => setTimeout(resolve, 600));
+  pickedDrag.push(await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('year')));
+  check('a drag that starts on the picked bar leaves that year one Back away', JSON.stringify(pickedDrag) === '["2008","2015"]');
+  await page.mouse.move(0, 0);
   // On desktop, picking a partner county in Flows opened the corridor detail below the map without a word (phones move
   // focus to its heading); desktop keeps focus on the map, so the opening is announced.
   const pairFocus = await page.createCDPSession(); await pairFocus.send('Emulation.setFocusEmulationEnabled', { enabled: true });
